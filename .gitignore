@@ -1,0 +1,10 @@
+/.cabal-sandbox
+/.stack-work
+/cabal.sandbox.config
+/dist
+*.hi
+\#*\#
+.\#*
+src/Kit/Parser/Lexer.hs
+src/Kit/Parser/Parser.hs
+src/Kit/Parser/Parser.info

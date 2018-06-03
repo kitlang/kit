@@ -1,0 +1,36 @@
+/**
+ * Represents a nullable value.
+ */
+enum Null[T] {
+    Some(value: T);
+    None;
+
+    public rules {
+        this.isNull() => Bool {
+            return match this {
+                None => true;
+                default => false;
+            }
+        }
+
+        this.isSome() => Bool {
+            return !this.isNull();
+        }
+
+        this.unwrap() => T {
+            return match this {
+                Some(v) => v;
+                default => throw NullValueError;
+            }
+        }
+
+        this ?? (other: T) => T {
+            return match this {
+                Some(v) => v;
+                default => other;
+            }
+        }
+    }
+}
+
+atom NullValueError;

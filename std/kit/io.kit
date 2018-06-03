@@ -1,0 +1,6 @@
+#[extern("<stdio.h>")]
+function fwrite(s: Vector[Uint8], size_of_elements: Uint32, number_of_elements: Uint32, file: File);
+
+public function print(s: String) {
+    fwrite(s.buffer, 1, s.length, stdout);
+}

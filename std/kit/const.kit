@@ -1,0 +1,10 @@
+/**
+ * A Const[T] values is a recursively immutable wrapper over the value.
+ * Mutation of the undelying value is not allowed, and only methods marked with
+ * `#[const]` may be called from the wrapper. (When such methods specify an
+ * alternate type such as `#[const(Const[String])]`, the method's return value
+ * will take the value of the metadata argument.)
+ */
+abstract Const[T]: T {
+    public rule (_: T) as Const[T];
+}

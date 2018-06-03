@@ -1,0 +1,13 @@
+struct Map[K, V] {
+    public rule this.exists(key: K) => Bool;
+    public rule this.get(key: K) => Null[V];
+    public rule this.set(key: K, value: V) => V;
+
+    public inline rule this[key: K] => Null[V] {
+        return this.get(key);
+    }
+
+    public inline rule this[key: K] = (value: V) => V {
+        return this.set(key, value);
+    }
+}

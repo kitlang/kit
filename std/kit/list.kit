@@ -1,0 +1,131 @@
+/**
+ * A List[T] is an immutable singly linked list.
+ */
+enum List[T] {
+    Cons(head: T, tail: List[T]);
+    Empty;
+
+    public rules {
+        /**
+         * Returns a new list which combines two other lists. Requires iterating
+         * over the first list, which is O(n).
+         */
+        this.concat(other: Self[T]) => Self[T] {
+            var list = Empty;
+            for i in this {
+                list = i :: list;
+            }
+            for i in other {
+                list = i :: list;
+            }
+            return list.reverse();
+        }
+
+        /**
+         * Returns a new list, with the provided value added to the front of this
+         * list.
+         */
+        this.cons(value: T) => Self[T] {
+            return Cons(value, this);
+        }
+
+        /**
+         * Return a new list, which is this list in reverse order. Requires O(n)
+         * time. This does not modify the current list.
+         */
+        this.reverse() => Self[T] {
+            var list = Empty;
+            for i in this {
+                list = i :: list;
+            }
+            return list;
+        }
+
+        /**
+         * Return the length of the list. Requires O(n) to calculate.
+         */
+        this.length => Int {
+            var len = 0;
+            var current = this;
+            while true {
+                match current {
+                    Cons(h, t) => {
+                        ++len;
+                        current = t;
+                    }
+                    Empty => break;
+                }
+            }
+            return len;
+        }
+
+        /**
+         * Returns the first element of this list if the list is not empty, or None
+         * otherwise.
+         */
+        this.head => Null[T] {
+            return match this {
+                Cons(h, t) => Some(h);
+                Empty => None;
+            }
+        }
+
+        /**
+         * Returns the list without its first element. If the list is already empty,
+         * returns an empty list.
+         */
+        this.tail => Self[T] {
+            return match this {
+                Cons(h, t) => t;
+                Empty => Empty;
+            }
+        }
+
+        (it: Iterable[T]) as Self[T] => {
+            var list = Empty;
+            for i in it {
+                list = i :: list;
+            }
+            return list.reverse();
+        }
+
+        /**
+         * Use the cons operator to construct a list out of individual values:
+         *
+         *     var myList = 1 :: 2 :: 3 :: Empty;
+         *
+         * The cons operator is right associative, so this parses as:
+         *
+         *     var mList = 1 :: (2 :: (3 :: Empty));
+         */
+        (head: T)::(tail: Self[T]) => Self[T] {
+            return Cons(head, tail);
+        }
+    }
+}
+
+implement Iterable[T] for List[T] {
+    public rule this.iterator() => {
+        return new ListIterator(this);
+    }
+}
+
+struct ListIterator[T] {
+    public var current: List[T];
+
+    public rule new Self(list: Ref[List[T]]) => {
+        this.current = list;
+    }
+}
+
+implement Iterator[T] for ArrayIterator[T] {
+    public rule this.next() => Null[T] {
+        return match list {
+            Cons(h, t) => {
+                current = t;
+                Some(h);
+            }
+            Empty => None;
+        }
+    }
+}

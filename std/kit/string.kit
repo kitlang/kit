@@ -1,0 +1,39 @@
+/**
+ * A String is a collection (Vector) of bytes.
+ */
+abstract String: Vector[Uint8] {
+    public rule (v: Vector[Uint8]) as String;
+    public rule this as Vector[Uint8];
+}
+
+trait ToString {
+    public rule this.toString() => String;
+}
+
+implement ToString for String {
+    public rule this.toString() => String {
+        return this;
+    }
+}
+
+/**
+ * A StringBuffer is a dynamically resizing collection (Array) of bytes.
+ */
+abstract StringBuffer: Array[Uint8] {
+    public rule (v: Array[Uint8]) as StringBuffer;
+    public rule this as Array[Uint8];
+
+    public inline rule (v: String) as StringBuffer => {
+        return ((v as Vector[Uint8]) as Array[Uint8]) as StringBuffer;
+    }
+
+    public inline rule this as String => {
+        return ((this as Array[Uint8]) as Vector[Uint8]) as String;
+    }
+}
+
+implement ToString for StringBuffer {
+    public rule this.toString() => String {
+        return this as String;
+    }
+}
