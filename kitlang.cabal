@@ -30,16 +30,17 @@ executable kitc
 library
   exposed-modules:
     Kit,
+      Kit.Error,
       Kit.Ast.Expr,
       Kit.Ast.Modifier,
       Kit.Ast.Operator,
-      Kit.Ast.Span,
       Kit.Ast.Type,
       Kit.Ast.Value,
       Kit.Parser,
-      Kit.Parser.Lexer,
-      Kit.Parser.Parser,
-      Kit.Parser.Token
+        Kit.Parser.Lexer,
+        Kit.Parser.Parser,
+        Kit.Parser.Span,
+        Kit.Parser.Token
   hs-source-dirs: bin src
   build-depends:
     base >=4.7,
@@ -48,6 +49,7 @@ library
     filepath,
     text,
     directory,
+    ansi-terminal == 0.6.2.3,
     optparse-applicative == 0.12.1.0
   build-tools: alex, happy
   default-language: Haskell2010

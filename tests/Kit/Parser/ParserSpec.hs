@@ -6,45 +6,48 @@ module Kit.Parser.ParserSpec where
   import Kit.Ast.Expr
   import Kit.Ast.Modifier
   import Kit.Ast.Operator
-  import Kit.Ast.Span
+  import Kit.Parser.Span
   import Kit.Ast.Type
   import Kit.Ast.Value
   import Kit.Parser.Lexer
-  import qualified Kit.Parser.Parser as P
+  import Kit.Parser.Parser
 
-  parse s = P.parseTokens (scanTokens (B.pack s))
-  parseExpr s = P.parseExpr (scanTokens (B.pack s))
-  parseStmt s = P.parseStatement (scanTokens (B.pack s))
+  testParse s = unwrapParsed $ parseTokens (scanTokens (B.pack s))
+  testParseExpr s = unwrapParsed $ parseExpr (scanTokens (B.pack s))
+  testParseStmt s = unwrapParsed $ parseStatement (scanTokens (B.pack s))
+  unwrapParsed x = case x of
+                     ParseResult r -> r
+                     Err e -> error $ show e
 
   spec :: Spec
   spec = do
     describe "Parse expressions" $ do
       it "parses identifiers" $ do
-        parseExpr "apple" `shouldBe` (pe (sp 1 1 1 5) $ Identifier $ B.pack "apple")
-        parseExpr "this" `shouldBe` (pe (sp 1 1 1 4) $ This)
-        parseExpr "Self" `shouldBe` (pe (sp 1 1 1 4) $ Self)
+        testParseExpr "apple" `shouldBe` (pe (sp 1 1 1 5) $ Identifier $ B.pack "apple")
+        testParseExpr "this" `shouldBe` (pe (sp 1 1 1 4) $ This)
+        testParseExpr "Self" `shouldBe` (pe (sp 1 1 1 4) $ Self)
 
       it "parses type annotations" $ do
-        parseExpr "x : T" `shouldBe` (pe (sp 1 1 1 5) $ TypeAnnotation (pe (sp 1 1 1 1) $ Identifier $ B.pack "x") (ParameterizedTypePath (([],B.pack "T"),[])))
+        testParseExpr "x : T" `shouldBe` (pe (sp 1 1 1 5) $ TypeAnnotation (pe (sp 1 1 1 1) $ Identifier $ B.pack "x") (ParameterizedTypePath (([],B.pack "T"),[])))
 
       it "parses value literals" $ do
-        parseExpr "1" `shouldBe` (pe (sp 1 1 1 1) $ Literal $ IntValue $ B.pack "1")
+        testParseExpr "1" `shouldBe` (pe (sp 1 1 1 1) $ Literal $ IntValue $ B.pack "1")
 
       it "parses binops" $ do
-        parseExpr "a = 1 + 2.0 * 'abc def'" `shouldBe` (pe (sp 1 1 1 23) $ Binop Assign (e $ Identifier $ B.pack "a") (e $ Binop Add (e $ Literal $ IntValue $ B.pack "1") (e $ Binop Mul (e $ Literal $ FloatValue $ B.pack "2.0") (e $ Literal $ StringValue $ B.pack "abc def"))))
+        testParseExpr "a = 1 + 2.0 * 'abc def'" `shouldBe` (pe (sp 1 1 1 23) $ Binop Assign (e $ Identifier $ B.pack "a") (e $ Binop Add (e $ Literal $ IntValue $ B.pack "1") (e $ Binop Mul (e $ Literal $ FloatValue $ B.pack "2.0") (e $ Literal $ StringValue $ B.pack "abc def"))))
 
       it "parses ternary" $ do
-        parseExpr "if true then 1 else 2" `shouldBe` (e $ If (e $ Literal $ BoolValue True) (e $ Literal $ IntValue $ B.pack "1") (Just $ e $ Literal $ IntValue $ B.pack "2"))
+        testParseExpr "if true then 1 else 2" `shouldBe` (e $ If (e $ Literal $ BoolValue True) (e $ Literal $ IntValue $ B.pack "1") (Just $ e $ Literal $ IntValue $ B.pack "2"))
 
       it "parses vectors" $ do
-        parseExpr "[this, Self, true, false]" `shouldBe` (e $ VectorLiteral [e This, e Self, e $ Literal $ BoolValue True, e $ Literal $ BoolValue False])
+        testParseExpr "[this, Self, true, false]" `shouldBe` (e $ VectorLiteral [e This, e Self, e $ Literal $ BoolValue True, e $ Literal $ BoolValue False])
 
     describe "Parse statements" $ do
       it "parses blocks" $ do
-        parseStmt "{this; Self;\n break;}" `shouldBe` (pe (sp 1 1 2 8) $ Block [pe (sp 1 2 1 6) This, pe (sp 1 8 1 12) Self, pe (sp 2 2 2 7) Break])
+        testParseStmt "{this; Self;\n break;}" `shouldBe` (pe (sp 1 1 2 8) $ Block [pe (sp 1 2 1 6) This, pe (sp 1 8 1 12) Self, pe (sp 2 2 2 7) Break])
 
       it "parses functions" $ do
-        parseStmt "/**test*/ #[meta] inline function abc[A, B: Int, C: (ToString, ToInt)](a: A, b: B = 2, c: C): Something { print(a); print(b); print(c); }" `shouldBe` (pe (sp 1 11 1 137) $
+        testParseStmt "/**test*/ #[meta] inline function abc[A, B: Int, C: (ToString, ToInt)](a: A, b: B = 2, c: C): Something { print(a); print(b); print(c); }" `shouldBe` (pe (sp 1 11 1 137) $
           FunctionDeclaration $ FunctionDefinition {
             function_name = B.pack "abc",
             function_doc = Just $ B.pack "test",
@@ -91,11 +94,11 @@ module Kit.Parser.ParserSpec where
 
     describe "Parse toplevel statements" $ do
       it "parses imports" $ do
-        parse "import a;" `shouldBe` [e $ Import [B.pack "a"]]
-        parse "import a.b.c; import d;" `shouldBe` [e $ Import [B.pack "a", B.pack "b", B.pack "c"], e $ Import [B.pack "d"]]
+        testParse "import a;" `shouldBe` [e $ Import [B.pack "a"]]
+        testParse "import a.b.c; import d;" `shouldBe` [e $ Import [B.pack "a", B.pack "b", B.pack "c"], e $ Import [B.pack "d"]]
 
       it "parses atoms" $ do
-        parse "atom MyAtom;" `shouldBe` [e $ TypeDeclaration $ Structure {
+        testParse "atom MyAtom;" `shouldBe` [e $ TypeDeclaration $ Structure {
           structure_name = B.pack "MyAtom",
           structure_type = Atom,
           structure_doc = Nothing,
@@ -103,7 +106,7 @@ module Kit.Parser.ParserSpec where
           structure_modifiers = [],
           structure_rules = []
         }]
-        parse "public atom MyAtom;" `shouldBe` [e $ TypeDeclaration $ Structure {
+        testParse "public atom MyAtom;" `shouldBe` [e $ TypeDeclaration $ Structure {
           structure_name = B.pack "MyAtom",
           structure_type = Atom,
           structure_doc = Nothing,
@@ -111,7 +114,7 @@ module Kit.Parser.ParserSpec where
           structure_modifiers = [Public],
           structure_rules = []
         }]
-        parse "/** Doc*/ atom MyAtom;" `shouldBe` [e $ TypeDeclaration $ Structure {
+        testParse "/** Doc*/ atom MyAtom;" `shouldBe` [e $ TypeDeclaration $ Structure {
           structure_name = B.pack "MyAtom",
           structure_type = Atom,
           structure_doc = Just $ B.pack "Doc",
@@ -119,7 +122,7 @@ module Kit.Parser.ParserSpec where
           structure_modifiers = [],
           structure_rules = []
         }]
-        parse "/** Doc*/ #[meta] public atom MyAtom;" `shouldBe` [e $ TypeDeclaration $ Structure {
+        testParse "/** Doc*/ #[meta] public atom MyAtom;" `shouldBe` [e $ TypeDeclaration $ Structure {
           structure_name = B.pack "MyAtom",
           structure_type = Atom,
           structure_doc = Just $ B.pack "Doc",
@@ -129,7 +132,7 @@ module Kit.Parser.ParserSpec where
         }]
 
       it "parses enums" $ do
-        parse "enum MyEnum {\n\
+        testParse "enum MyEnum {\n\
               \    Apple;\n\
               \    Banana(i: Int);\n\
               \    /**Abc*/ Strawberry;\n\
@@ -168,7 +171,7 @@ module Kit.Parser.ParserSpec where
         }]
 
       it "parses structs" $ do
-        parse "struct MyStruct {\n\
+        testParse "struct MyStruct {\n\
               \    var abc;\n\
               \    public var def;\n\
               \    /** test */ #[meta] var ghi: Int = 1;\n\

@@ -4,7 +4,7 @@ module Kit.Parser.LexerSpec where
   import Test.QuickCheck
   import qualified Data.ByteString.Lazy.Char8 as B
   import Kit.Ast.Operator
-  import Kit.Ast.Span
+  import Kit.Parser.Span
   import Kit.Parser.Lexer
   import Kit.Parser.Token
 

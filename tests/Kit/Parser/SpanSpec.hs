@@ -1,7 +1,7 @@
 module Kit.Parser.SpanSpec where
 
   import Test.Hspec
-  import Kit.Ast.Span
+  import Kit.Parser.Span
 
   spec :: Spec
   spec = do
@@ -17,3 +17,4 @@ module Kit.Parser.SpanSpec where
         (sp 7 5 7 10) <+> (sp 6 1 7 6) `shouldBe` (sp 6 1 7 10)
         (null_span) <+> (sp 1 2 3 4) `shouldBe` (sp 1 2 3 4)
         (sp 1 2 3 4) <+> (null_span) `shouldBe` (sp 1 2 3 4)
+        (null_span) <+> (null_span) `shouldBe` null_span

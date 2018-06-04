@@ -6,7 +6,9 @@ module StdSpec where
   import System.FilePath
   import Test.Hspec
   import Test.QuickCheck
+  import Kit.Error
   import Kit.Parser
+  import Kit.Parser.Parser
 
   isKitFile :: FilePath -> Bool
   isKitFile f = takeExtension f == ".kit"
@@ -31,4 +33,7 @@ module StdSpec where
       forM_ (paths) $ \path -> do
         it path $ do
           result <- parseFile path
-          B.isPrefixOf (B.pack "uncaught exception") (B.pack (show result)) `shouldBe` False
+          case result of
+            ParseResult x -> True `shouldBe` True
+            Err e -> do logError e
+                        error $ show e

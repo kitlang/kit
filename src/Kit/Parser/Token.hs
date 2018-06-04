@@ -2,7 +2,7 @@ module Kit.Parser.Token where
 
   import qualified Data.ByteString.Lazy.Char8 as B
   import Kit.Ast.Operator
-  import Kit.Ast.Span
+  import Kit.Parser.Span
 
   type Token = (TokenClass, Span)
 

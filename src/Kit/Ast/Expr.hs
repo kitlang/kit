@@ -3,7 +3,7 @@ module Kit.Ast.Expr where
   import qualified Data.ByteString.Lazy.Char8 as B
   import Kit.Ast.Modifier
   import Kit.Ast.Operator
-  import Kit.Ast.Span
+  import Kit.Parser.Span
   import Kit.Ast.Type
   import Kit.Ast.Value
   import Kit.Parser.Token
@@ -24,7 +24,7 @@ module Kit.Ast.Expr where
   pe p et = ep et p
 
   me :: Span -> Expr -> Expr
-  me p e = Expr {expr = expr e, pos = p}
+  me p ex = Expr {expr = expr ex, pos = p}
 
   data MatchCase = MatchCase {match_pattern :: Expr, match_body :: Expr} deriving (Eq, Show)
   data Metadata = Metadata {meta_name :: B.ByteString, meta_args :: [Expr]} deriving (Eq, Show)

@@ -2,13 +2,14 @@
 module Kit.Parser.Parser where
 
 import qualified Data.ByteString.Lazy.Char8 as B
+import Kit.Error
 import Kit.Ast.Expr
 import Kit.Ast.Modifier
 import Kit.Ast.Operator
-import Kit.Ast.Span
 import Kit.Ast.Type
 import Kit.Ast.Value
 import Kit.Parser.Lexer
+import Kit.Parser.Span
 import Kit.Parser.Token
 }
 
@@ -17,6 +18,8 @@ import Kit.Parser.Token
 %name parseStatement Statement
 %tokentype {Token}
 %error {parseError}
+
+%monad { Parser } { thenP } { returnP }
 
 %token
   "#[" {(MetaOpen,_)}
@@ -580,8 +583,29 @@ Term :: {(ValueLiteral, Span)}
 
 {
 
-parseError :: [Token] -> a
-parseError e = error $ show e
+data Parser a = ParseResult a | Err Error
+
+instance Functor Parser where
+  fmap f (Err e) = Err e
+  fmap f (ParseResult x) = ParseResult (f x)
+
+instance Applicative Parser where
+  pure = ParseResult
+  (<*>) (ParseResult f) (ParseResult x) = ParseResult (f x)
+  (<*>) (Err e) _ = Err e
+  (<*>) _ (Err e) = Err e
+
+instance Monad Parser where
+  (>>=) m f = case m of
+                Err e -> Err e
+                ParseResult x -> f x
+  return = ParseResult
+
+thenP = (>>=)
+returnP = return
+
+parseError [] = Err $ err ParseError ("Unexpected end of input")
+parseError t = Err $ err ParseError ("Unexpected " ++ (show $ fst et) ++ " at line " ++ (show $ start_line $ snd et) ++ ", col " ++ (show $ start_col $ snd et)) where et = t !! 0
 
 -- projections
 extract_lex_macro (Lex x,_) = x

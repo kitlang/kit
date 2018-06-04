@@ -1,6 +1,7 @@
 module Kit.Parser where
 
   import qualified Data.ByteString.Lazy.Char8 as B
+  import Kit.Error
   import Kit.Parser.Lexer
   import Kit.Parser.Parser
 
