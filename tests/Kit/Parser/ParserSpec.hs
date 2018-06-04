@@ -6,6 +6,7 @@ module Kit.Parser.ParserSpec where
   import Kit.Ast.Expr
   import Kit.Ast.Modifier
   import Kit.Ast.Operator
+  import Kit.Ast.Span
   import Kit.Ast.Type
   import Kit.Ast.Value
   import Kit.Parser.Lexer
@@ -19,18 +20,18 @@ module Kit.Parser.ParserSpec where
   spec = do
     describe "Parse expressions" $ do
       it "parses identifiers" $ do
-        parseExpr "apple" `shouldBe` (e $ Identifier $ B.pack "apple")
-        parseExpr "this" `shouldBe` (e $ This)
-        parseExpr "Self" `shouldBe` (e $ Self)
+        parseExpr "apple" `shouldBe` (pe (sp 1 1 1 5) $ Identifier $ B.pack "apple")
+        parseExpr "this" `shouldBe` (pe (sp 1 1 1 4) $ This)
+        parseExpr "Self" `shouldBe` (pe (sp 1 1 1 4) $ Self)
 
       it "parses type annotations" $ do
-        parseExpr "x : T" `shouldBe` (e $ TypeAnnotation (e $ Identifier $ B.pack "x") (ParameterizedTypePath (([],B.pack "T"),[])))
+        parseExpr "x : T" `shouldBe` (pe (sp 1 1 1 5) $ TypeAnnotation (pe (sp 1 1 1 1) $ Identifier $ B.pack "x") (ParameterizedTypePath (([],B.pack "T"),[])))
 
       it "parses value literals" $ do
-        parseExpr "1" `shouldBe` (e $ Literal $ IntValue $ B.pack "1")
+        parseExpr "1" `shouldBe` (pe (sp 1 1 1 1) $ Literal $ IntValue $ B.pack "1")
 
       it "parses binops" $ do
-        parseExpr "a = 1 + 2.0 * 'abc def'" `shouldBe` (e $ Binop Assign (e $ Identifier $ B.pack "a") (e $ Binop Add (e $ Literal $ IntValue $ B.pack "1") (e $ Binop Mul (e $ Literal $ FloatValue $ B.pack "2.0") (e $ Literal $ StringValue $ B.pack "abc def"))))
+        parseExpr "a = 1 + 2.0 * 'abc def'" `shouldBe` (pe (sp 1 1 1 23) $ Binop Assign (e $ Identifier $ B.pack "a") (e $ Binop Add (e $ Literal $ IntValue $ B.pack "1") (e $ Binop Mul (e $ Literal $ FloatValue $ B.pack "2.0") (e $ Literal $ StringValue $ B.pack "abc def"))))
 
       it "parses ternary" $ do
         parseExpr "if true then 1 else 2" `shouldBe` (e $ If (e $ Literal $ BoolValue True) (e $ Literal $ IntValue $ B.pack "1") (Just $ e $ Literal $ IntValue $ B.pack "2"))
@@ -40,10 +41,10 @@ module Kit.Parser.ParserSpec where
 
     describe "Parse statements" $ do
       it "parses blocks" $ do
-        parseStmt "{this; Self; break;}" `shouldBe` (e $ Block [e This, e Self, e Break])
+        parseStmt "{this; Self;\n break;}" `shouldBe` (pe (sp 1 1 2 8) $ Block [pe (sp 1 2 1 6) This, pe (sp 1 8 1 12) Self, pe (sp 2 2 2 7) Break])
 
       it "parses functions" $ do
-        parseStmt "/**test*/ #[meta] inline function abc[A, B: Int, C: (ToString, ToInt)](a: A, b: B = 2, c: C): Something { print(a); print(b); print(c); }" `shouldBe` (e $
+        parseStmt "/**test*/ #[meta] inline function abc[A, B: Int, C: (ToString, ToInt)](a: A, b: B = 2, c: C): Something { print(a); print(b); print(c); }" `shouldBe` (pe (sp 1 11 1 137) $
           FunctionDeclaration $ FunctionDefinition {
             function_name = B.pack "abc",
             function_doc = Just $ B.pack "test",
@@ -91,7 +92,7 @@ module Kit.Parser.ParserSpec where
     describe "Parse toplevel statements" $ do
       it "parses imports" $ do
         parse "import a;" `shouldBe` [e $ Import [B.pack "a"]]
-        parse "import a.b.c;" `shouldBe` [e $ Import [B.pack "a", B.pack "b", B.pack "c"]]
+        parse "import a.b.c; import d;" `shouldBe` [e $ Import [B.pack "a", B.pack "b", B.pack "c"], e $ Import [B.pack "d"]]
 
       it "parses atoms" $ do
         parse "atom MyAtom;" `shouldBe` [e $ TypeDeclaration $ Structure {

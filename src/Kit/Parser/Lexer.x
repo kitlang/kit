@@ -143,15 +143,19 @@ tokens :-
 
   -- identifiers
   [a-z_][a-zA-Z0-9_]* "!" { tok' (\s -> Lex $ B.take (B.length s - 1) s) }
-  [a-z_][a-zA-Z0-9_]* { tok_string LowerIdentifier }
-  [A-Z][a-zA-Z0-9_]* { tok_string UpperIdentifier }
+  [a-z_][a-zA-Z0-9_]* { tokString LowerIdentifier }
+  [A-Z][a-zA-Z0-9_]* { tokString UpperIdentifier }
 
 {
-pos2span (AlexPn _ line col) = Span {start_line = line, start_col = col, end_line = 0, end_col = 0}
-tok' f p s = (f s, pos2span p)
+posnOffset :: (Int, Int) -> B.ByteString -> (Int, Int)
+posnOffset (line, col) s = (line + length indices, if length indices == 0 then col + l - 1 else (l - 1 - (fromIntegral $ last indices)))
+                           where indices = B.findIndices ((==) '\n') s
+                                 l = (fromIntegral $ B.length s)
+
+pos2span (AlexPn _ line col) s = Span {start_line = line, start_col = col, end_line = end_line, end_col = end_col} where (end_line, end_col) = posnOffset (line, col) s
+tok' f p s = (f s, pos2span p s)
 tok x = tok' (\s -> x)
-tok_string x = tok' (\s -> x s)
-tok_read x = tok' (\s -> x (read (B.unpack s)))
+tokString x = tok' (\s -> x s)
 whitespace :: Char -> Bool
 whitespace s = s == ' ' || s == '\n' || s == '\t' || s == '\r'
 

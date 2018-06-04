@@ -76,9 +76,9 @@ import Kit.Parser.Token
   var {(KeywordVar,_)}
   while {(KeywordWhile,_)}
   doc_comment {(DocComment $$,_)}
-  lex_macro {(Lex $$,_)}
-  identifier {(LowerIdentifier $$,_)}
-  upper_identifier {(UpperIdentifier $$,_)}
+  lex_macro {(Lex _,_)}
+  identifier {(LowerIdentifier _,_)}
+  upper_identifier {(UpperIdentifier _,_)}
   "++" {(Op Inc,_)}
   "--" {(Op Dec,_)}
   '+' {(Op Add,_)}
@@ -106,10 +106,10 @@ import Kit.Parser.Token
   "::" {(Op Cons,_)}
   custom_op {(Op (Custom $$),_)}
 
-  bool {(LiteralBool $$, _)}
-  str {(LiteralString $$, _)}
-  float {(LiteralFloat $$, _)}
-  int {(LiteralInt $$, _)}
+  bool {(LiteralBool _, _)}
+  str {(LiteralString _, _)}
+  float {(LiteralFloat _, _)}
+  int {(LiteralInt _, _)}
 %%
 
 Expressions :: {[Expr]}
@@ -119,10 +119,10 @@ Expressions_ :: {[Expr]}
   | Expressions ToplevelExpr {$2 : $1}
 
 ToplevelExpr :: {Expr}
-  : import ModulePath ';' {e $ Import (reverse $2)}
+  : import ModulePath ';' {pe (p $1 <+> p $3) $ Import (reverse $ fst $2)}
   | DocMetaMods atom upper_identifier ';' {
-    e $ TypeDeclaration $ Structure {
-      structure_name = $3,
+    pe (fp [p $1, p $2, p $4]) $ TypeDeclaration $ Structure {
+      structure_name = extract_upper_identifier $3,
       structure_doc = doc $1,
       structure_meta = reverse $ metas $1,
       structure_modifiers = reverse $ mods $1,
@@ -131,98 +131,94 @@ ToplevelExpr :: {Expr}
     }
   }
   | DocMetaMods enum upper_identifier TypeParams '{' RewriteRulesOrVariants '}' {
-    e $ TypeDeclaration $ Structure {
-      structure_name = $3,
+    pe (fp [p $1, p $2, p $7]) $ TypeDeclaration $ Structure {
+      structure_name = extract_upper_identifier $3,
       structure_doc = doc $1,
       structure_meta = reverse $ metas $1,
       structure_modifiers = reverse $ mods $1,
       structure_rules = reverse (snd $6),
       structure_type = Enum {
-        enum_params = $4,
+        enum_params = fst $4,
         enum_variants = reverse (fst $6)
       }
     }
   }
   | DocMetaMods struct upper_identifier TypeParams '{' RewriteRulesOrFields '}' {
-    e $ TypeDeclaration $ Structure {
-      structure_name = $3,
+    pe (fp [p $1, p $2, p $7]) $ TypeDeclaration $ Structure {
+      structure_name = extract_upper_identifier $3,
       structure_doc = doc $1,
       structure_meta = reverse $ metas $1,
       structure_modifiers = reverse $ mods $1,
       structure_rules = reverse (snd $6),
       structure_type = Struct {
-        struct_params = $4,
+        struct_params = fst $4,
         struct_fields = reverse (fst $6)
       }
     }
   }
   | DocMetaMods abstract upper_identifier TypeParams ':' TypeSpec '{' RewriteRules '}' {
-    e $ TypeDeclaration $ Structure {
-      structure_name = $3,
+    pe (fp [p $1, p $2, p $9]) $ TypeDeclaration $ Structure {
+      structure_name = extract_upper_identifier $3,
       structure_doc = doc $1,
       structure_meta = reverse $ metas $1,
       structure_modifiers = reverse $ mods $1,
       structure_rules = reverse $8,
       structure_type = Abstract {
-        abstract_underlying_type = $6,
-        abstract_params = $4
+        abstract_underlying_type = fst $6,
+        abstract_params = fst $4
       }
     }
   }
   | DocMetaMods trait upper_identifier TypeParams '{' RewriteRules '}' {
-    e $ TraitDeclaration $ TraitDefinition {
-      trait_name = $3,
+    pe (fp [p $1, p $2, p $7]) $ TraitDeclaration $ TraitDefinition {
+      trait_name = extract_upper_identifier $3,
       trait_doc = doc $1,
       trait_meta = reverse $ metas $1,
       trait_modifiers = reverse $ mods $1,
-      trait_params = $4,
+      trait_params = fst $4,
       trait_rules = $6
     }
   }
-  | DocComment implement TypeSpec for TypeSpec '{' RewriteRules '}' {
-    e $ Implement $ TraitImplementation {
-      impl_trait = $3,
-      impl_for = $5,
+  | DocMetaMods implement TypeSpec for TypeSpec '{' RewriteRules '}' {
+    pe (fp [p $1, p $2, p $8]) $ Implement $ TraitImplementation {
+      impl_trait = fst $3,
+      impl_for = fst $5,
       impl_rules = $7,
-      impl_doc = $1
+      impl_doc = doc $1
     }
   }
   | Statement {$1}
 
 Statement :: {Expr}
   : StandaloneExpr {$1}
-  | VarDefinition {e $ Var $1}
-  | return Statement {e $ Return $2}
-  | throw Statement {e $ Throw $2}
-  | continue ';' {e $ Continue}
-  | break ';' {e $ Break}
-  | Expr ';' {$1}
-
-Statements :: {[Expr]}
-  : {[]}
-  | Statements Statement {$2 : $1}
+  | VarDefinition {pe (p $1) $ Var $ fst $1}
+  | return Statement {pe (p $1 <+> pos $2) $ Return $2}
+  | throw Statement {pe (p $1 <+> pos $2) $ Throw $2}
+  | continue ';' {pe (p $1 <+> p $2) $ Continue}
+  | break ';' {pe (p $1 <+> p $2) $ Break}
+  | Expr ';' {me (pos $1 <+> p $2) $1}
 
 StandaloneExpr :: {Expr}
   : ExprBlock {$1}
   --| LexMacroExprNonRecursiveBlock {$1}
-  | if BinopTermOr ExprBlock else ExprBlock {e $ If $2 $3 (Just $5)}
-  | if BinopTermOr ExprBlock {e $ If $2 $3 (Nothing)}
-  | for identifier in Expr ExprBlock {e $ For $2 $4 $5}
-  | while Expr ExprBlock {e $ While $2 $3}
-  | match Expr '{' MatchCases DefaultMatchCase '}' {e $ Match $2 (reverse $4) $5}
+  | if BinopTermOr ExprBlock else ExprBlock {pe (p $1 <+> pos $5) $ If $2 $3 (Just $5)}
+  | if BinopTermOr ExprBlock {pe (p $1 <+> pos $3) $ If $2 $3 (Nothing)}
+  | for identifier in Expr ExprBlock {pe (p $1 <+> pos $5) $ For (extract_identifier $2) $4 $5}
+  | while Expr ExprBlock {pe (p $1 <+> pos $3) $ While $2 $3}
+  | match Expr '{' MatchCases DefaultMatchCase '}' {pe (p $1 <+> p $6) $ Match $2 (reverse $4) $5}
   | FunctionDecl {$1}
 
 FunctionDecl :: {Expr}
   : DocMetaMods function identifier TypeParams '(' Args ')' TypeAnnotation OptionalBody {
-    e $ FunctionDeclaration $ FunctionDefinition {
-      function_name = $3,
+    pe (fp [p $1, p $2, p $7, snd $8, snd $9]) $ FunctionDeclaration $ FunctionDefinition {
+      function_name = extract_identifier $3,
       function_doc = doc $1,
       function_meta = reverse $ metas $1,
       function_modifiers = reverse $ mods $1,
-      function_params = $4,
-      function_type = $8,
+      function_params = fst $4,
+      function_type = fst $8,
       function_args = reverse $6,
-      function_body = $9
+      function_body = fst $9
     }
   }
 
@@ -238,20 +234,24 @@ DefaultMatchCase :: {Maybe Expr}
   | default "=>" Statement {Just $3}
 
 ExprBlock :: {Expr}
-  : '{' Statements '}' {e $ Block $ reverse $2}
+  : '{' Statements '}' {pe (p $1 <+> p $3) $ Block $ reverse $2}
 
-ModulePath :: {[B.ByteString]}
+Statements :: {[Expr]}
   : {[]}
-  | identifier {[$1]}
-  | ModulePath '.' identifier {$3 : $1}
+  | Statements Statement {$2 : $1}
 
-Metadata :: {Metadata}
-  : "#[" identifier '(' CallArgs ')' ']' {Metadata {meta_name = $2, meta_args = reverse $4}}
-  | "#[" identifier ']' {Metadata {meta_name = $2, meta_args = []}}
+ModulePath :: {([B.ByteString], Span)}
+  : {([], null_span)}
+  | identifier {([extract_identifier $1], p $1)}
+  | ModulePath '.' identifier {(extract_identifier $3 : fst $1, snd $1 <+> p $3)}
 
-Metas :: {[Metadata]}
-  : {[]}
-  | Metas Metadata {$2 : $1}
+Metadata :: {(Metadata, Span)}
+  : "#[" identifier '(' CallArgs ')' ']' {(Metadata {meta_name = extract_identifier $2, meta_args = reverse $4}, (p $1) <+> (p $6))}
+  | "#[" identifier ']' {(Metadata {meta_name = extract_identifier $2, meta_args = []}, (p $1) <+> (p $3))}
+
+Metas :: {([Metadata], Span)}
+  : {([], null_span)}
+  | Metas Metadata {(fst $2 : fst $1, snd $1 <+> p $2)}
 
 CallArgs :: {[Expr]}
   : {[]}
@@ -272,70 +272,76 @@ DocComment :: {Maybe B.ByteString}
   : {Nothing}
   | doc_comment {Just $1}
 
-Modifiers :: {[Modifier]}
-  : {[]}
-  | Modifiers public {Public : $1}
-  | Modifiers private {Private : $1}
-  | Modifiers macro {Macro : $1}
-  | Modifiers inline {Inline : $1}
-  | Modifiers override {Override : $1}
+Modifiers :: {([Modifier], Span)}
+  : {([], null_span)}
+  | Modifiers public {(Public : fst $1, snd $1 <+> p $2)}
+  | Modifiers private {(Private : fst $1, snd $1 <+> p $2)}
+  | Modifiers macro {(Macro : fst $1, snd $1 <+> p $2)}
+  | Modifiers inline {(Inline : fst $1, snd $1 <+> p $2)}
+  | Modifiers override {(Override : fst $1, snd $1 <+> p $2)}
 
-DocMetaMods :: {(Maybe B.ByteString, [Metadata], [Modifier])}
-  : DocComment Metas Modifiers {($1, $2, $3)}
+DocMetaMods :: {((Maybe B.ByteString, [Metadata], [Modifier]), Span)}
+  : DocComment Metas Modifiers {(($1, fst $2, fst $3), (p $2) <+> (p $3))}
 
-TypeAnnotation :: {Maybe TypeSpec}
-  : {Nothing}
-  | ':' TypeSpec {Just $2}
+TypeAnnotation :: {(Maybe TypeSpec, Span)}
+  : {(Nothing, null_span)}
+  | ':' TypeSpec {(Just $ fst $2, p $1 <+> p $2)}
 
-TypeSpec :: {TypeSpec}
-  : TypePath TypeParams {ParameterizedTypePath ($1, reverse $2)}
+TypeSpec :: {(TypeSpec, Span)}
+  : TypePath TypeParams {(ParameterizedTypePath (fst $1, reverse $ fst $2), p $1 <+> p $2)}
 
-OptionalTypeSpec :: {Maybe TypeSpec}
-  : {Nothing}
-  | TypeSpec {Just $1}
+OptionalTypeSpec :: {(Maybe TypeSpec, Span)}
+  : {(Nothing, null_span)}
+  | TypeSpec {(Just $ fst $1, snd $1)}
 
-OptionalBody :: {Maybe Expr}
-  : ';' {Nothing}
-  | ExprBlock {Just $1}
+OptionalBody :: {(Maybe Expr, Span)}
+  : ';' {(Nothing, null_span)}
+  | ExprBlock {(Just $1, pos $1)}
 
-TypeParams :: {[TypeParam]}
-  : {[]}
-  | '[' TypeParams_ ']' {reverse $2}
+TypeParams :: {([TypeParam], Span)}
+  : {([], null_span)}
+  | '[' TypeParams_ ']' {(reverse $2, p $1 <+> p $3)}
 
 TypeParams_ :: {[TypeParam]}
   : TypeParam {[$1]}
   | TypeParams_ ',' TypeParam {$3 : $1}
 
 TypeParam :: {TypeParam}
-  : TypePath TypeParams {TypeParam {t = ($1, $2), constraints = []}}
-  | TypePath TypeParams ':' TypeConstraints {TypeParam {t = ($1, $2), constraints = $4}}
+  : TypePath TypeParams {TypeParam {t = (fst $1, fst $2), constraints = []}}
+  | TypePath TypeParams ':' TypeConstraints {TypeParam {t = (fst $1, fst $2), constraints = $4}}
 
 TypeConstraints :: {[TypeSpec]}
-  : TypeSpec {[$1]}
+  : TypeSpec {[fst $1]}
   | '(' ')' {[]}
   | '(' TypeConstraints_ ')' {reverse $2}
 
 TypeConstraints_ :: {[TypeSpec]}
-  : TypeSpec {[$1]}
-  | TypeConstraints_ ',' TypeSpec {$3 : $1 }
+  : TypeSpec {[fst $1]}
+  | TypeConstraints_ ',' TypeSpec {fst $3 : $1}
 
-TypePath :: {TypePath}
-  : ModulePath '.' Self {($1, B.pack "Self")}
-  | ModulePath '.' upper_identifier {($1, $3)}
-  | upper_identifier {([], $1)}
-  | Self {([], B.pack "Self")}
+TypePath :: {(TypePath, Span)}
+  : ModulePath '.' Self {((fst $1, B.pack "Self"), p $1 <+> p $3)}
+  | ModulePath '.' upper_identifier {((fst $1, extract_upper_identifier $3), p $1 <+> p $3)}
+  | upper_identifier {(([], extract_upper_identifier $1), p $1)}
+  | Self {(([], B.pack "Self"), p $1)}
 
-VarDefinition :: {VarDefinition}
+VarDefinition :: {(VarDefinition, Span)}
   : DocMetaMods var identifier TypeAnnotation OptionalDefault ';' {
-    VarDefinition {var_name = $3, var_doc = doc $1, var_meta = reverse (metas $1), var_type = $4, var_modifiers = reverse (mods $1), var_default = $5}
+    (VarDefinition {
+      var_name = extract_identifier $3,
+      var_doc = doc $1,
+      var_meta = reverse (metas $1),
+      var_type = fst $4,
+      var_modifiers = reverse (mods $1),
+      var_default = $5}, fp [p $1, p $2, p $6])
   }
 
 OptionalDefault :: {Maybe Expr}
   :  {Nothing}
   | '=' Expr {Just $2}
 
-EnumPrefix :: {((Maybe B.ByteString, [Metadata], [Modifier]), B.ByteString)}
-  : DocMetaMods upper_identifier {($1, $2)}
+EnumPrefix :: {(DocMetaMod, B.ByteString)}
+  : DocMetaMods upper_identifier {($1, extract_upper_identifier $2)}
 
 EnumVariant :: {EnumVariant}
   : EnumPrefix ';' {
@@ -363,13 +369,13 @@ Args :: {[ArgSpec]}
   | Args ',' ArgSpec {$3 : $1}
 
 ArgSpec  :: {ArgSpec}
-  : identifier TypeAnnotation OptionalDefault {ArgSpec {arg_name = $1, arg_type = $2, arg_default = $3}}
+  : identifier TypeAnnotation OptionalDefault {ArgSpec {arg_name = extract_identifier $1, arg_type = fst $2, arg_default = $3}}
 
 RewriteRulesOrFields :: {([VarDefinition], [RewriteRule])}
   : {([], [])}
   | RewriteRulesOrFields RewriteRule {(fst $1, $2 : snd $1)}
   | RewriteRulesOrFields RuleBlock {(fst $1, $2 ++ snd $1)}
-  | RewriteRulesOrFields VarDefinition {($2 : fst $1, snd $1)}
+  | RewriteRulesOrFields VarDefinition {(fst $2 : fst $1, snd $1)}
 
 RewriteRulesOrVariants :: {([EnumVariant], [RewriteRule])}
   : {([], [])}
@@ -382,11 +388,11 @@ RewriteRules :: {[RewriteRule]}
   | RewriteRules RewriteRule {$2 : $1}
   | RewriteRules RuleBlock {$2 ++ $1}
 
-RulePrefix :: {((Maybe B.ByteString, [Metadata], [Modifier]), [TypeParam])}
-  : DocMetaMods rule TypeParams {($1, $3)}
+RulePrefix :: {(DocMetaMod, [TypeParam])}
+  : DocMetaMods rule TypeParams {($1, fst $3)}
 
-RulesPrefix :: {((Maybe B.ByteString, [Metadata], [Modifier]), [TypeParam])}
-  : DocMetaMods rules TypeParams {($1, $3)}
+RulesPrefix :: {(DocMetaMod, [TypeParam])}
+  : DocMetaMods rules TypeParams {($1, fst $3)}
 
 RewriteRule :: {RewriteRule}
   : RulePrefix Expr "=>" OptionalTypeSpec OptionalBody {
@@ -396,8 +402,8 @@ RewriteRule :: {RewriteRule}
       rule_modifiers = reverse $ mods $ fst $1,
       rule_params = snd $1,
       rule_pattern = $2,
-      rule_type = $4,
-      rule_body = $5
+      rule_type = fst $4,
+      rule_body = fst $5
     }
   }
   | RulePrefix Expr ';' {
@@ -434,7 +440,7 @@ ShortRules :: {[(Maybe B.ByteString, [Metadata], [Modifier], Expr, Maybe TypeSpe
 
 ShortRule :: {(Maybe B.ByteString, [Metadata], [Modifier], Expr, Maybe TypeSpec, Maybe Expr)}
   : DocMetaMods Expr "=>" OptionalTypeSpec OptionalBody {
-    (doc $1, metas $1, mods $1, $2, $4, $5)
+    (doc $1, metas $1, mods $1, $2, fst $4, fst $5)
   }
   | DocMetaMods Expr ';' {
     (doc $1, metas $1, mods $1, $2, Nothing, Nothing)
@@ -455,83 +461,83 @@ LexMacroExprNonRecursiveBlock :: {Expr}
   : lex_macro LexMacroTokens LexMacroTokenBlock {e $ LexMacro $1 ((reverse $2) ++ (reverse $3))}-}
 
 RangeLiteral :: {Expr}
-  : BinopTermAssign "..." BinopTermAssign {e $ RangeLiteral $1 $3}
+  : BinopTermAssign "..." BinopTermAssign {pe (pos $1 <+> pos $3) $ RangeLiteral $1 $3}
   | BinopTermAssign {$1}
 
 BinopTermAssign :: {Expr}
   : BinopTermCons {$1}
-  | BinopTermAssign '=' BinopTermCons {e $ Binop Assign $1 $3}
-  | BinopTermAssign assign_op BinopTermCons {e $ Binop (AssignOp $2) $1 $3}
+  | BinopTermAssign '=' BinopTermCons {pe (pos $1 <+> pos $3) $ Binop Assign $1 $3}
+  | BinopTermAssign assign_op BinopTermCons {pe (pos $1 <+> pos $3) $ Binop (AssignOp $2) $1 $3}
 BinopTermCons :: {Expr}
   : TokenExpr {$1}
-  | TokenExpr "::" BinopTermCons {e $ Binop Cons $1 $3}
+  | TokenExpr "::" BinopTermCons {pe (pos $1 <+> pos $3) $ Binop Cons $1 $3}
 TokenExpr :: {Expr}
   : {-token LexMacroTokenAny {e $ TokenExpr $2}
   | -}BinopTermTernary {$1}
 BinopTermTernary :: {Expr}
-  : if BinopTermOr then BinopTermOr else BinopTermOr {e $ If $2 $4 (Just $6)}
+  : if BinopTermOr then BinopTermOr else BinopTermOr {pe (p $1 <+> pos $6) $ If $2 $4 (Just $6)}
   | BinopTermOr {$1}
 BinopTermOr :: {Expr}
   : BinopTermAnd {$1}
-  | BinopTermOr "||" BinopTermAnd {e $ Binop Or $1 $3}
+  | BinopTermOr "||" BinopTermAnd {pe (pos $1 <+> pos $3) $ Binop Or $1 $3}
 BinopTermAnd :: {Expr}
   : BinopTermBitOr {$1}
-  | BinopTermAnd "&&" BinopTermBitOr {e $ Binop And $1 $3}
+  | BinopTermAnd "&&" BinopTermBitOr {pe (pos $1 <+> pos $3) $ Binop And $1 $3}
 BinopTermBitOr :: {Expr}
   : BinopTermBitXor {$1}
-  | BinopTermBitOr '|' BinopTermBitXor {e $ Binop BitOr $1 $3}
+  | BinopTermBitOr '|' BinopTermBitXor {pe (pos $1 <+> pos $3) $ Binop BitOr $1 $3}
 BinopTermBitXor :: {Expr}
   : BinopTermBitAnd {$1}
-  | BinopTermBitXor '^' BinopTermBitAnd {e $ Binop BitXor $1 $3}
+  | BinopTermBitXor '^' BinopTermBitAnd {pe (pos $1 <+> pos $3) $ Binop BitXor $1 $3}
 BinopTermBitAnd :: {Expr}
   : BinopTermEq {$1}
-  | BinopTermBitAnd '&' BinopTermEq {e $ Binop BitAnd $1 $3}
+  | BinopTermBitAnd '&' BinopTermEq {pe (pos $1 <+> pos $3) $ Binop BitAnd $1 $3}
 BinopTermEq :: {Expr}
   : BinopTermCompare {$1}
-  | BinopTermEq "==" BinopTermCompare {e $ Binop Eq $1 $3}
-  | BinopTermEq "!=" BinopTermCompare {e $ Binop Neq $1 $3}
+  | BinopTermEq "==" BinopTermCompare {pe (pos $1 <+> pos $3) $ Binop Eq $1 $3}
+  | BinopTermEq "!=" BinopTermCompare {pe (pos $1 <+> pos $3) $ Binop Neq $1 $3}
 BinopTermCompare :: {Expr}
   : BinopTermShift {$1}
-  | BinopTermCompare '>' BinopTermShift {e $ Binop Gt $1 $3}
-  | BinopTermCompare '<' BinopTermShift {e $ Binop Lt $1 $3}
-  | BinopTermCompare ">=" BinopTermShift {e $ Binop Gte $1 $3}
-  | BinopTermCompare "<=" BinopTermShift {e $ Binop Lte $1 $3}
+  | BinopTermCompare '>' BinopTermShift {pe (pos $1 <+> pos $3) $ Binop Gt $1 $3}
+  | BinopTermCompare '<' BinopTermShift {pe (pos $1 <+> pos $3) $ Binop Lt $1 $3}
+  | BinopTermCompare ">=" BinopTermShift {pe (pos $1 <+> pos $3) $ Binop Gte $1 $3}
+  | BinopTermCompare "<=" BinopTermShift {pe (pos $1 <+> pos $3) $ Binop Lte $1 $3}
 BinopTermShift :: {Expr}
   : BinopTermAdd {$1}
-  | BinopTermShift "<<" BinopTermAdd {e $ Binop LeftShift $1 $3}
-  | BinopTermShift ">>" BinopTermAdd {e $ Binop RightShift $1 $3}
+  | BinopTermShift "<<" BinopTermAdd {pe (pos $1 <+> pos $3) $ Binop LeftShift $1 $3}
+  | BinopTermShift ">>" BinopTermAdd {pe (pos $1 <+> pos $3) $ Binop RightShift $1 $3}
 BinopTermAdd :: {Expr}
   : BinopTermMul {$1}
-  | BinopTermAdd '+' BinopTermMul {e $ Binop Add $1 $3}
-  | BinopTermAdd '-' BinopTermMul {e $ Binop Sub $1 $3}
+  | BinopTermAdd '+' BinopTermMul {pe (pos $1 <+> pos $3) $ Binop Add $1 $3}
+  | BinopTermAdd '-' BinopTermMul {pe (pos $1 <+> pos $3) $ Binop Sub $1 $3}
 BinopTermMul :: {Expr}
   : BinopTermCustom {$1}
-  | BinopTermMul '*' BinopTermCustom {e $ Binop Mul $1 $3}
-  | BinopTermMul '/' BinopTermCustom {e $ Binop Div $1 $3}
+  | BinopTermMul '*' BinopTermCustom {pe (pos $1 <+> pos $3) $ Binop Mul $1 $3}
+  | BinopTermMul '/' BinopTermCustom {pe (pos $1 <+> pos $3) $ Binop Div $1 $3}
 BinopTermCustom :: {Expr}
   : Unop {$1}
-  | BinopTermCustom custom_op Unop {e $ Binop (Custom $2) $1 $3}
+  | BinopTermCustom custom_op Unop {pe (pos $1 <+> pos $3) $ Binop (Custom $2) $1 $3}
 
 Unop :: {Expr}
-  : "++" VecExpr {e $ PreUnop Inc $2}
-  | "--" VecExpr {e $ PreUnop Dec $2}
-  | '!' VecExpr {e $ PreUnop Invert $2}
-  | '-' VecExpr {e $ PreUnop Sub $2}
-  | '~' VecExpr {e $ PreUnop InvertBits $2}
-  | '&' VecExpr {e $ PreUnop Ref $2}
-  | '*' VecExpr {e $ PreUnop Deref $2}
-  | VecExpr "++" {e $ PostUnop Inc $1}
-  | VecExpr "--" {e $ PostUnop Dec $1}
+  : "++" VecExpr {pe (p $1 <+> pos $2) $ PreUnop Inc $2}
+  | "--" VecExpr {pe (p $1 <+> pos $2) $ PreUnop Dec $2}
+  | '!' VecExpr {pe (p $1 <+> pos $2) $ PreUnop Invert $2}
+  | '-' VecExpr {pe (p $1 <+> pos $2) $ PreUnop Sub $2}
+  | '~' VecExpr {pe (p $1 <+> pos $2) $ PreUnop InvertBits $2}
+  | '&' VecExpr {pe (p $1 <+> pos $2) $ PreUnop Ref $2}
+  | '*' VecExpr {pe (p $1 <+> pos $2) $ PreUnop Deref $2}
+  | VecExpr "++" {pe (pos $1 <+> p $2) $ PostUnop Inc $1}
+  | VecExpr "--" {pe (pos $1 <+> p $2) $ PostUnop Dec $1}
   | VecExpr {$1}
 
 VecExpr :: {Expr}
-  : '[' ArrayElems ']' {e $ VectorLiteral $ reverse $2}
-  | '[' ArrayElems ',' ']' {e $ VectorLiteral $ reverse $2}
-  | '[' ']' { e $ VectorLiteral []}
+  : '[' ArrayElems ']' {pe (p $1 <+> p $3) $ VectorLiteral $ reverse $2}
+  | '[' ArrayElems ',' ']' {pe (p $1 <+> p $4) $ VectorLiteral $ reverse $2}
+  | '[' ']' { pe (p $1 <+> p $2) $ VectorLiteral []}
   | CastExpr {$1}
 
 CastExpr :: {Expr}
-  : CastExpr as TypeSpec {e $ Cast $1 $3}
+  : CastExpr as TypeSpec {pe (pos $1 <+> snd $3) $ Cast $1 $ fst $3}
   | NewExpr {$1}
 
 ArrayElems :: {[Expr]}
@@ -539,46 +545,65 @@ ArrayElems :: {[Expr]}
   | ArrayElems ',' Expr {$3 : $1}
 
 NewExpr :: {Expr}
-  : new TypeSpec '(' CallArgs ')' {e $ New $2 (reverse $4)}
+  : new TypeSpec '(' CallArgs ')' {pe (p $1 <+> p $5) $ New (fst $2) (reverse $4)}
   | ArrayAccessExpr {$1}
 
 ArrayAccessExpr :: {Expr}
-  : ArrayAccessExpr '[' Expr ']' {e $ ArrayAccess $1 $3}
+  : ArrayAccessExpr '[' Expr ']' {pe (pos $1 <+> p $4) $ ArrayAccess $1 $3}
   | CallExpr {$1}
 
 CallExpr :: {Expr}
-  : CallExpr '(' CallArgs ')' {e $ Call $1 (reverse $3)}
+  : CallExpr '(' CallArgs ')' {pe (pos $1 <+> p $4) $ Call $1 (reverse $3)}
   | FieldExpr {$1}
 
 FieldExpr :: {Expr}
-  : FieldExpr '.' identifier {e $ Field $1 $3}
+  : FieldExpr '.' identifier {pe (pos $1 <+> p $3) $ Field $1 $ extract_identifier $3}
   | TypeAnnotatedExpr {$1}
 
 TypeAnnotatedExpr :: {Expr}
-  : TypeAnnotatedExpr ':' TypeSpec {e $ TypeAnnotation $1 $3}
+  : TypeAnnotatedExpr ':' TypeSpec {pe (pos $1 <+> snd $3) $ TypeAnnotation $1 (fst $3)}
   | BaseExpr {$1}
 
 BaseExpr :: {Expr}
-  : Term {e $ Literal $1}
-  | this {e $ This}
-  | identifier {e $ Identifier $1}
-  | upper_identifier {e $ TypeConstructor $1}
-  | Self {e Self}
-  | '(' Expr ')' {$2}
+  : Term {pe (snd $1) (Literal $ fst $1)}
+  | this {pe (snd $1) This}
+  | identifier {pe (snd $1) $ Identifier $ extract_identifier $1}
+  | upper_identifier {pe (snd $1) $ TypeConstructor $ extract_upper_identifier $1}
+  | Self {pe (snd $1) Self}
+  | '(' Expr ')' {me (p $1 <+> p $3) $2}
 
-Term :: {ValueLiteral}
-  : bool {BoolValue $1}
-  | str {StringValue $1}
-  | int {IntValue $1}
-  | float {FloatValue $1}
+Term :: {(ValueLiteral, Span)}
+  : bool {(BoolValue $ extract_bool $ fst $1, snd $1)}
+  | str {(StringValue $ extract_lit $ fst $1, snd $1)}
+  | int {(IntValue $ extract_lit $ fst $1, snd $1)}
+  | float {(FloatValue $ extract_lit $ fst $1, snd $1)}
 
 {
 
 parseError :: [Token] -> a
 parseError e = error $ show e
 
-doc (a,_,_) = a
-metas (_,b,_) = b
-mods (_,_,c) = c
+-- projections
+extract_lex_macro (Lex x,_) = x
+extract_identifier (LowerIdentifier x,_) = x
+extract_upper_identifier (UpperIdentifier x,_) = x
+extract_bool (LiteralBool x) = x
+extract_lit (LiteralInt x) = x
+extract_lit (LiteralFloat x) = x
+extract_lit (LiteralString x) = x
+
+p = snd
+
+fp :: [Span] -> Span
+fp s = foldr (<+>) null_span s
+
+type DocMetaMod = ((Maybe B.ByteString, [Metadata], [Modifier]), Span)
+
+doc :: ((Maybe B.ByteString, [Metadata], [Modifier]), Span) -> Maybe B.ByteString
+doc ((a,_,_),_) = a
+metas :: ((Maybe B.ByteString, [Metadata], [Modifier]), Span) -> [Metadata]
+metas ((_,b,_),_) = b
+mods :: ((Maybe B.ByteString, [Metadata], [Modifier]), Span) -> [Modifier]
+mods ((_,_,c),_) = c
 
 }

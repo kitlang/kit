@@ -12,10 +12,19 @@ module Kit.Ast.Expr where
 
   data Expr = Expr {expr :: ExprType, pos :: Span} deriving (Show)
   instance Eq Expr where
-    (==) a b = (expr a) == (expr b)
+    (==) a b = (expr a) == (expr b) && (pos a == pos b || pos b == null_span)
 
   e :: ExprType -> Expr
-  e et = Expr {expr = et, pos = null_span}
+  e et = ep et null_span
+
+  ep :: ExprType -> Span -> Expr
+  ep et p = Expr {expr = et, pos = p}
+
+  pe :: Span -> ExprType -> Expr
+  pe p et = ep et p
+
+  me :: Span -> Expr -> Expr
+  me p e = Expr {expr = expr e, pos = p}
 
   data MatchCase = MatchCase {match_pattern :: Expr, match_body :: Expr} deriving (Eq, Show)
   data Metadata = Metadata {meta_name :: B.ByteString, meta_args :: [Expr]} deriving (Eq, Show)
