@@ -13,10 +13,9 @@
 module Kit.Parser.Lexer where
 
 import System.Exit
-import qualified Data.ByteString.Lazy.Char8 as B
-import qualified Data.ByteString.Internal as B (c2w, w2c)
+import Kit.Str
 import Kit.Ast.Operator
-import Kit.Ast.Span
+import Kit.Parser.Span
 import Kit.Parser.Token
 }
 
@@ -44,7 +43,7 @@ tokens :-
   "?" { tok Question }
 
   -- comments
-  "/**" ([^\*]|\*[^\/]|\*\n|\n)* "*/" { tok' (\s -> DocComment $ B.dropWhile whitespace $ B.take (B.length s - 5) $ B.drop 3 s) }
+  "/**" ([^\*]|\*[^\/]|\*\n|\n)* "*/" { tok' (\s -> DocComment $ s_dropWhile whitespace $ s_take (s_length s - 5) $ s_drop 3 s) }
   "/*" ([^\*]|\*[^\/]|\*\n|\n)* "*/";
   "//" [^\n]*;
 
@@ -78,6 +77,7 @@ tokens :-
   rule { tok KeywordRule }
   rules { tok KeywordRules }
   Self { tok KeywordSelf }
+  static { tok KeywordStatic }
   struct { tok KeywordStruct }
   super { tok KeywordSuper }
   switch { tok KeywordSwitch }
@@ -85,6 +85,7 @@ tokens :-
   this { tok KeywordThis }
   throw { tok KeywordThrow }
   token { tok KeywordToken }
+  tokens { tok KeywordTokens }
   trait { tok KeywordTrait }
   unsafe { tok KeywordUnsafe }
   var { tok KeywordVar }
@@ -93,9 +94,9 @@ tokens :-
   -- literals
   "true" { tok $ LiteralBool True }
   "false" { tok $ LiteralBool False }
-  [\"] [^\"]* [\"] { tok' (\s -> LiteralString $ B.take (B.length s - 2) $ B.drop 1 s) }
-  "'" [^\']* "'" { tok' (\s -> LiteralString $ B.take (B.length s - 2) $ B.drop 1 s) }
-  [\"]{3} ([^\"]|\"[^\"]|\"\"[^\"]|\n)* [\"]{3} { tok' (\s -> LiteralString $ B.take (B.length s - 6) $ B.drop 3 s) }
+  [\"] [^\"]* [\"] { tok' (\s -> LiteralString $ s_take (s_length s - 2) $ s_drop 1 s) }
+  "'" [^\']* "'" { tok' (\s -> LiteralString $ s_take (s_length s - 2) $ s_drop 1 s) }
+  [\"]{3} ([^\"]|\"[^\"]|\"\"[^\"]|\n)* [\"]{3} { tok' (\s -> LiteralString $ s_take (s_length s - 6) $ s_drop 3 s) }
   \-?[0-9]+ "." [0-9]* { tok' (\s -> LiteralFloat s) }
   "0x" [0-9a-f]+ { tok' (\s -> LiteralInt s) }
   "0b" [01]+ { tok' (\s -> LiteralInt s) }
@@ -142,16 +143,17 @@ tokens :-
   [\*\/\+\-\^\=\<\>\!\&\%\~\@\?\:]+ { tok' (\s -> Op $ Custom s) }
 
   -- identifiers
-  [a-z_][a-zA-Z0-9_]* "!" { tok' (\s -> Lex $ B.take (B.length s - 1) s) }
+  [a-z_][a-zA-Z0-9_]* "!" { tok' (\s -> Lex $ s_take (s_length s - 1) s) }
   [a-z_][a-zA-Z0-9_]* { tokString LowerIdentifier }
   [A-Z][a-zA-Z0-9_]* { tokString UpperIdentifier }
+  "$" [a-z_][a-zA-Z0-9_]* { tok' (\s -> MacroIdentifier $ s_drop 1 s) }
 
 {
 -- determine the end of a span containing this ByteString and beginning at (line, col)
-posnOffset :: (Int, Int) -> B.ByteString -> (Int, Int)
+posnOffset :: (Int, Int) -> Str -> (Int, Int)
 posnOffset (line, col) s = (line + length indices, if length indices == 0 then col + l - 1 else (l - 1 - (fromIntegral $ last indices)))
-                           where indices = B.findIndices ((==) '\n') s
-                                 l = (fromIntegral $ B.length s)
+                           where indices = s_findIndices ((==) '\n') s
+                                 l = (fromIntegral $ s_length s)
 
 -- wrapper to convert an Alex position to a Span
 pos2span (AlexPn _ line col) s = Span {start_line = line, start_col = col, end_line = end_line, end_col = end_col} where (end_line, end_col) = posnOffset (line, col) s

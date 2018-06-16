@@ -81,6 +81,16 @@ enum List[T] {
             }
         }
 
+        /**
+         * Check whether the list is empty in constant time.
+         */
+        this.empty => Bool {
+            return match this {
+                Empty => true;
+                default => false;
+            }
+        }
+
         (it: Iterable[T]) as Self[T] => {
             var list = Empty;
             for i in it {
@@ -100,6 +110,18 @@ enum List[T] {
          */
         (head: T)::(tail: Self[T]) => Self[T] {
             return Cons(head, tail);
+        }
+
+        // optimize List iteration at compile time when the type is known
+        macro for $ident in this {$e} => {
+            return tokens {
+                var __rest = this;
+                while !__rest.empty {
+                    var $ident = __rest.head;
+                    $e;
+                    __rest = __rest.tail;
+                }
+            }
         }
     }
 }

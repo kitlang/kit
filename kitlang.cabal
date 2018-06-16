@@ -12,8 +12,8 @@ executable kit
   hs-source-dirs: bin
   build-depends:
     base >=4.7,
-    ansi-terminal == 0.6.2.3,
-    optparse-applicative == 0.12.1.0
+    ansi-terminal,
+    optparse-applicative == 0.14.2.0
   ghc-options: -Wall -O2
 
 -- kitc compiler
@@ -21,9 +21,10 @@ executable kitc
   main-is: Kitc.hs
   hs-source-dirs: bin
   build-depends:
+    kitlang,
     base >=4.7,
-    ansi-terminal == 0.6.2.3,
-    optparse-applicative == 0.12.1.0
+    ansi-terminal,
+    optparse-applicative == 0.14.2.0
   ghc-options: -Wall -O2
 
 -- main libarry
@@ -31,11 +32,16 @@ library
   exposed-modules:
     Kit,
       Kit.Error,
+      Kit.Map,
+      Kit.Str,
       Kit.Ast.Expr,
       Kit.Ast.Modifier,
       Kit.Ast.Operator,
       Kit.Ast.Type,
       Kit.Ast.Value,
+      Kit.CodeGen.C,
+      Kit.Compiler.Rewriter,
+      Kit.Compiler.Typer,
       Kit.Parser,
         Kit.Parser.Lexer,
         Kit.Parser.Parser,
@@ -49,8 +55,10 @@ library
     filepath,
     text,
     directory,
-    ansi-terminal == 0.6.2.3,
-    optparse-applicative == 0.12.1.0
+    ansi-terminal,
+    hashtables,
+    language-c,
+    pretty
   build-tools: alex, happy
   default-language: Haskell2010
   ghc-options: -Wall -O2
@@ -70,4 +78,6 @@ test-suite unit-tests
     text,
     directory,
     hspec,
-    QuickCheck == 2.8.2
+    QuickCheck,
+    language-c,
+    pretty

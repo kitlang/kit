@@ -1,6 +1,6 @@
 module Kit.Parser where
 
-  import qualified Data.ByteString.Lazy.Char8 as B
+  import Kit.Str
   import Kit.Error
   import Kit.Parser.Lexer
   import Kit.Parser.Parser
@@ -8,5 +8,7 @@ module Kit.Parser where
   parseString s = parseTokens (scanTokens s)
 
   parseFile f = do
-    contents <- B.readFile f
-    return $ parseString contents
+    contents <- s_readFile f
+    return $ case parseString contents of
+      ParseResult r -> ParseResult r
+      Err e -> Err $ errf e f

@@ -11,8 +11,44 @@ struct Array[T] {
      * need initially, this is more efficient than allowing the Array to
      * dynamically expand.
      */
-    public inline rule[T] Self.withCapacity(n: Int) => Array[T] {
+    public static function withCapacity(n: Int) => Array[T] {
         return new Array(n);
+    }
+
+    public function pop() => Null[T] {
+        if _length >= 0 {
+            Some(a[--_length]);
+        } else {
+            Null;
+        }
+    }
+
+    public function push(value: T) => T {
+        ensureSize(_length + 1);
+        return a[_length++] = value;
+    }
+
+    public function concat(other: Array[T]) => Array[T] {
+        var n = new Array(length + other.length);
+        for i in 0 ... length {
+            n.push(this[i]);
+        }
+        for i in 0 ... other.length {
+            n.push(other[i]);
+        }
+        return i;
+    }
+
+    function ensureSize(n: Int) => {
+        if a.len < n {
+            var l = _length;
+            while l < n {
+                l *= 1.5;
+            }
+            var newVec = new Vector(l);
+            a.blit(newVec, 0, _length);
+            a = newVec;
+        }
     }
 
     public rules {
@@ -73,29 +109,6 @@ struct Array[T] {
             }
         }
 
-        this.pop() => Null[T] {
-            if _length >= 0 {
-                Some(a[--_length]);
-            } else {
-                Null;
-            }
-        }
-
-        this.push(value: T) => T {
-            return a[_length++] = value;
-        }
-
-        this.concat(other: Array[T]) => Array[T] {
-            var n = new Array(length + other.length);
-            for i in 0 ... length {
-                n.push(this[i]);
-            }
-            for i in 0 ... other.length {
-                n.push(other[i]);
-            }
-            return i;
-        }
-
         inline this[pos: Int] => T {
             return this.buffer[pos];
         }
@@ -103,17 +116,17 @@ struct Array[T] {
         inline this[pos: Int] = (val: T) => T {
             return this.buffer[pos] = val;
         }
-    }
 
-    rule this.ensureSize(n: Int) => {
-        if a.len < n {
-            var l = _length;
-            while l < n {
-                l *= 2;
+        // optimize Array iteration at compile time when the type is known
+        macro for $ident in this {$e} => {
+            return tokens {
+                var __id = 0;
+                var __length = this.length;
+                while __i++ < __length {
+                    var $ident = this[__i];
+                    $e;
+                }
             }
-            var newVec = new Vector(l);
-            a.blit(newVec, 0, _length);
-            a = newVec;
         }
     }
 }

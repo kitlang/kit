@@ -1,0 +1,21 @@
+/**
+ * Vector is a builtin fixed-length collection type.
+ */
+abstract Vector[T] {
+    public rules {
+        this.length => Uint;
+        this[(i: Uint)] => T;
+        this[(i: Uint)] = (val: T) => T;
+
+        // optimize Vector iteration at compile time when the type is known
+        macro for $ident in this {$e} => {
+            return tokens {
+                var $ident = 0;
+                var __length = this.length;
+                while __i++ < __length {
+                    $e;
+                }
+            }
+        }
+    }
+}

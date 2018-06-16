@@ -1,7 +1,7 @@
 module StdSpec where
 
   import Control.Monad
-  import qualified Data.ByteString.Lazy.Char8 as B
+  import Kit.Str
   import System.Directory
   import System.FilePath
   import Test.Hspec

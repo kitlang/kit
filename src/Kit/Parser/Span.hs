@@ -11,9 +11,6 @@ module Kit.Parser.Span where
   sp :: Int -> Int -> Int -> Int -> Span
   sp a b c d = Span {start_line = a, start_col = b, end_line = c, end_col = d}
 
-  fsp :: FilePath -> Int -> Int -> Int -> Int -> FileSpan
-  fsp f a b c d = (f, sp a b c d)
-
   (<+>) span1 span2 =
     if span1 == null_span then span2 else if span2 == null_span then span1 else
     Span {start_line = fst min, start_col = snd min, end_line = fst max, end_col = snd max}

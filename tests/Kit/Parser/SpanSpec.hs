@@ -5,7 +5,7 @@ module Kit.Parser.SpanSpec where
 
   spec :: Spec
   spec = do
-    describe "Kit.Parser.Lexer" $ do
+    describe "Span merging" $ do
       it "merges spans" $ do
         (sp 2 1 3 5) <+> (sp 2 1 3 5) `shouldBe` (sp 2 1 3 5)
         (sp 1 1 1 1) <+> (sp 1 2 1 3) `shouldBe` (sp 1 1 1 3)

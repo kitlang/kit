@@ -67,6 +67,7 @@ import Kit.Parser.Token
   rule {(KeywordRule,_)}
   rules {(KeywordRules,_)}
   Self {(KeywordSelf,_)}
+  static {(KeywordStatic,_)}
   struct {(KeywordStruct,_)}
   super {(KeywordSuper,_)}
   switch {(KeywordSwitch,_)}
@@ -74,13 +75,14 @@ import Kit.Parser.Token
   this {(KeywordThis,_)}
   throw {(KeywordThrow,_)}
   token {(KeywordToken,_)}
+  tokens {(KeywordTokens,_)}
   trait {(KeywordTrait,_)}
   unsafe {(KeywordUnsafe,_)}
   var {(KeywordVar,_)}
   while {(KeywordWhile,_)}
-  doc_comment {(DocComment $$,_)}
-  lex_macro {(Lex _,_)}
+  doc_comment {(DocComment _,_)}
   identifier {(LowerIdentifier _,_)}
+  macro_identifier {(MacroIdentifier _,_)}
   upper_identifier {(UpperIdentifier _,_)}
   "++" {(Op Inc,_)}
   "--" {(Op Dec,_)}
@@ -103,11 +105,11 @@ import Kit.Parser.Token
   '|' {(Op BitOr,_)}
   '^' {(Op BitXor,_)}
   '=' {(Op Assign,_)}
-  assign_op {(Op (AssignOp $$),_)}
+  assign_op {(Op (AssignOp _),_)}
   '!' {(Op Invert,_)}
   '~' {(Op InvertBits,_)}
   "::" {(Op Cons,_)}
-  custom_op {(Op (Custom $$),_)}
+  custom_op {(Op (Custom _),_)}
 
   bool {(LiteralBool _, _)}
   str {(LiteralString _, _)}
@@ -159,15 +161,15 @@ ToplevelExpr :: {Expr}
       }
     }
   }
-  | DocMetaMods abstract upper_identifier TypeParams ':' TypeSpec '{' RewriteRules '}' {
-    pe (fp [p $1, p $2, p $9]) $ TypeDeclaration $ Structure {
+  | DocMetaMods abstract upper_identifier TypeParams TypeAnnotation '{' RewriteRules '}' {
+    pe (fp [p $1, p $2, p $8]) $ TypeDeclaration $ Structure {
       structure_name = extract_upper_identifier $3,
       structure_doc = doc $1,
       structure_meta = reverse $ metas $1,
       structure_modifiers = reverse $ mods $1,
-      structure_rules = reverse $8,
+      structure_rules = reverse $7,
       structure_type = Abstract {
-        abstract_underlying_type = fst $6,
+        abstract_underlying_type = fst $5,
         abstract_params = fst $4
       }
     }
@@ -194,25 +196,27 @@ ToplevelExpr :: {Expr}
 
 Statement :: {Expr}
   : StandaloneExpr {$1}
-  | VarDefinition {pe (p $1) $ Var $ fst $1}
-  | return Statement {pe (p $1 <+> pos $2) $ Return $2}
+  | VarDefinition {pe (p $1) $ VarDef $ fst $1}
+  | return Statement {pe (p $1 <+> pos $2) $ Return $ Just $2}
+  | return ';' {pe (p $1 <+> p $2) $ Return $ Nothing}
   | throw Statement {pe (p $1 <+> pos $2) $ Throw $2}
   | continue ';' {pe (p $1 <+> p $2) $ Continue}
   | break ';' {pe (p $1 <+> p $2) $ Break}
+  | tokens LexMacroTokenBlock {pe (snd $1 <+> snd $2) $ TokenExpr $ tc (fst $2)}
   | Expr ';' {me (pos $1 <+> p $2) $1}
+  | macro_identifier {pe (p $1) (Lvalue $ MacroVar $ extract_macro_identifier $1)}
 
 StandaloneExpr :: {Expr}
   : ExprBlock {$1}
-  --| LexMacroExprNonRecursiveBlock {$1}
   | if BinopTermOr ExprBlock else ExprBlock {pe (p $1 <+> pos $5) $ If $2 $3 (Just $5)}
   | if BinopTermOr ExprBlock {pe (p $1 <+> pos $3) $ If $2 $3 (Nothing)}
-  | for identifier in Expr ExprBlock {pe (p $1 <+> pos $5) $ For (extract_identifier $2) $4 $5}
+  | for Lvalue in Expr ExprBlock {pe (p $1 <+> pos $5) $ For (pe (snd $2) (Lvalue $ fst $2)) $4 $5}
   | while Expr ExprBlock {pe (p $1 <+> pos $3) $ While $2 $3}
   | match Expr '{' MatchCases DefaultMatchCase '}' {pe (p $1 <+> p $6) $ Match $2 (reverse $4) $5}
   | FunctionDecl {$1}
 
 FunctionDecl :: {Expr}
-  : DocMetaMods function identifier TypeParams '(' Args ')' TypeAnnotation OptionalBody {
+  : DocMetaMods function identifier TypeParams '(' Args ')' FunctionTypeAnnotation OptionalBody {
     pe (fp [p $1, p $2, p $7, snd $8, snd $9]) $ FunctionDeclaration $ FunctionDefinition {
       function_name = extract_identifier $3,
       function_doc = doc $1,
@@ -273,7 +277,7 @@ CallArgs :: {[Expr]}
 
 DocComment :: {Maybe B.ByteString}
   : {Nothing}
-  | doc_comment {Just $1}
+  | doc_comment {Just $ extract_doc_comment $1}
 
 Modifiers :: {([Modifier], Span)}
   : {([], null_span)}
@@ -282,6 +286,7 @@ Modifiers :: {([Modifier], Span)}
   | Modifiers macro {(Macro : fst $1, snd $1 <+> p $2)}
   | Modifiers inline {(Inline : fst $1, snd $1 <+> p $2)}
   | Modifiers override {(Override : fst $1, snd $1 <+> p $2)}
+  | Modifiers static {(Static : fst $1, snd $1 <+> p $2)}
 
 DocMetaMods :: {((Maybe B.ByteString, [Metadata], [Modifier]), Span)}
   : DocComment Metas Modifiers {(($1, fst $2, fst $3), (p $2) <+> (p $3))}
@@ -289,6 +294,11 @@ DocMetaMods :: {((Maybe B.ByteString, [Metadata], [Modifier]), Span)}
 TypeAnnotation :: {(Maybe TypeSpec, Span)}
   : {(Nothing, null_span)}
   | ':' TypeSpec {(Just $ fst $2, p $1 <+> p $2)}
+
+FunctionTypeAnnotation :: {(Maybe TypeSpec, Span)}
+  : {(Nothing, null_span)}
+  | "=>" TypeSpec {(Just $ fst $2, p $1 <+> p $2)}
+  | "=>" {(Nothing, null_span)}
 
 TypeSpec :: {(TypeSpec, Span)}
   : TypePath TypeParams {(ParameterizedTypePath (fst $1, reverse $ fst $2), p $1 <+> p $2)}
@@ -329,9 +339,9 @@ TypePath :: {(TypePath, Span)}
   | Self {(([], B.pack "Self"), p $1)}
 
 VarDefinition :: {(VarDefinition, Span)}
-  : DocMetaMods var identifier TypeAnnotation OptionalDefault ';' {
+  : DocMetaMods var Lvalue TypeAnnotation OptionalDefault ';' {
     (VarDefinition {
-      var_name = extract_identifier $3,
+      var_name = fst $3,
       var_doc = doc $1,
       var_meta = reverse (metas $1),
       var_type = fst $4,
@@ -397,9 +407,13 @@ RulePrefix :: {(DocMetaMod, [TypeParam])}
 RulesPrefix :: {(DocMetaMod, [TypeParam])}
   : DocMetaMods rules TypeParams {($1, fst $3)}
 
+RewriteExpr :: {Expr}
+  : Expr {$1}
+  | StandaloneExpr {$1}
+
 RewriteRule :: {RewriteRule}
-  : RulePrefix Expr "=>" OptionalTypeSpec OptionalBody {
-    RewriteRule {
+  : RulePrefix RewriteExpr "=>" OptionalTypeSpec OptionalBody {
+    Rule TermRewriteRule {
       rule_doc = doc $ fst $1,
       rule_meta = reverse $ metas $ fst $1,
       rule_modifiers = reverse $ mods $ fst $1,
@@ -409,8 +423,8 @@ RewriteRule :: {RewriteRule}
       rule_body = fst $5
     }
   }
-  | RulePrefix Expr ';' {
-    RewriteRule {
+  | RulePrefix RewriteExpr ';' {
+    Rule TermRewriteRule {
       rule_doc = doc $ fst $1,
       rule_meta = reverse $ metas $ fst $1,
       rule_modifiers = reverse $ mods $ fst $1,
@@ -420,10 +434,14 @@ RewriteRule :: {RewriteRule}
       rule_body = Nothing
     }
   }
+  | FunctionDecl {
+    case expr $1 of
+      FunctionDeclaration f -> Function f
+  }
 
 RuleBlock :: {[RewriteRule]}
   : RulesPrefix '{' ShortRules '}' {
-    [RewriteRule {
+    [Rule TermRewriteRule {
       rule_doc = (case rule_doc of
         Just s -> rule_doc
         Nothing -> doc $ fst $1
@@ -442,7 +460,7 @@ ShortRules :: {[(Maybe B.ByteString, [Metadata], [Modifier], Expr, Maybe TypeSpe
   | ShortRules ShortRule {$2 : $1}
 
 ShortRule :: {(Maybe B.ByteString, [Metadata], [Modifier], Expr, Maybe TypeSpec, Maybe Expr)}
-  : DocMetaMods Expr "=>" OptionalTypeSpec OptionalBody {
+  : DocMetaMods RewriteExpr "=>" OptionalTypeSpec OptionalBody {
     (doc $1, metas $1, mods $1, $2, fst $4, fst $5)
   }
   | DocMetaMods Expr ';' {
@@ -450,18 +468,7 @@ ShortRule :: {(Maybe B.ByteString, [Metadata], [Modifier], Expr, Maybe TypeSpec,
   }
 
 Expr :: {Expr}
-  : LexMacroExpr {$1}
-
-LexMacroExpr :: {Expr}
-  : {-LexMacroExprNonRecursiveBlock {$1}
-  | LexMacroExprNonRecursive {$1}
-  | -}RangeLiteral {$1}
-
-{-LexMacroExprNonRecursive :: {Expr}
-  : lex_macro LexMacroTokens {e $ LexMacro $1 (reverse $2)}
-
-LexMacroExprNonRecursiveBlock :: {Expr}
-  : lex_macro LexMacroTokens LexMacroTokenBlock {e $ LexMacro $1 ((reverse $2) ++ (reverse $3))}-}
+  : RangeLiteral {$1}
 
 RangeLiteral :: {Expr}
   : BinopTermAssign "..." BinopTermAssign {pe (pos $1 <+> pos $3) $ RangeLiteral $1 $3}
@@ -470,13 +477,13 @@ RangeLiteral :: {Expr}
 BinopTermAssign :: {Expr}
   : BinopTermCons {$1}
   | BinopTermAssign '=' BinopTermCons {pe (pos $1 <+> pos $3) $ Binop Assign $1 $3}
-  | BinopTermAssign assign_op BinopTermCons {pe (pos $1 <+> pos $3) $ Binop (AssignOp $2) $1 $3}
+  | BinopTermAssign assign_op BinopTermCons {pe (pos $1 <+> pos $3) $ Binop (AssignOp (extract_assign_op $2)) $1 $3}
 BinopTermCons :: {Expr}
   : TokenExpr {$1}
   | TokenExpr "::" BinopTermCons {pe (pos $1 <+> pos $3) $ Binop Cons $1 $3}
 TokenExpr :: {Expr}
-  : {-token LexMacroTokenAny {e $ TokenExpr $2}
-  | -}BinopTermTernary {$1}
+  : token LexMacroTokenAny {pe (snd $1 <+> snd $2) $ TokenExpr $ tc [$2]}
+  | BinopTermTernary {$1}
 BinopTermTernary :: {Expr}
   : if BinopTermOr then BinopTermOr else BinopTermOr {pe (p $1 <+> pos $6) $ If $2 $4 (Just $6)}
   | BinopTermOr {$1}
@@ -519,7 +526,7 @@ BinopTermMul :: {Expr}
   | BinopTermMul '/' BinopTermCustom {pe (pos $1 <+> pos $3) $ Binop Div $1 $3}
 BinopTermCustom :: {Expr}
   : Unop {$1}
-  | BinopTermCustom custom_op Unop {pe (pos $1 <+> pos $3) $ Binop (Custom $2) $1 $3}
+  | BinopTermCustom custom_op Unop {pe (pos $1 <+> pos $3) $ Binop (Custom $ extract_custom_op $2) $1 $3}
 
 Unop :: {Expr}
   : "++" VecExpr {pe (p $1 <+> pos $2) $ PreUnop Inc $2}
@@ -570,10 +577,14 @@ TypeAnnotatedExpr :: {Expr}
 BaseExpr :: {Expr}
   : Term {pe (snd $1) (Literal $ fst $1)}
   | this {pe (snd $1) This}
-  | identifier {pe (snd $1) $ Identifier $ extract_identifier $1}
-  | upper_identifier {pe (snd $1) $ TypeConstructor $ extract_upper_identifier $1}
   | Self {pe (snd $1) Self}
+  | Lvalue {pe (snd $1) $ Lvalue $ fst $1}
+  | upper_identifier {pe (snd $1) $ TypeConstructor $ extract_upper_identifier $1}
   | '(' Expr ')' {me (p $1 <+> p $3) $2}
+
+Lvalue :: {(Lvalue, Span)}
+  : identifier {(Var $ extract_identifier $1, snd $1)}
+  | macro_identifier {(MacroVar $ extract_macro_identifier $1, snd $1)}
 
 Term :: {(ValueLiteral, Span)}
   : bool {(BoolValue $ extract_bool $ fst $1, snd $1)}
@@ -581,6 +592,109 @@ Term :: {(ValueLiteral, Span)}
   | int {(IntValue $ extract_lit $ fst $1, snd $1)}
   | float {(FloatValue $ extract_lit $ fst $1, snd $1)}
 
+LexMacroTokenBlock :: {([Token], Span)}
+  : '{' LexMacroTokensInsideBlock '}' {(reverse $2, snd $1 <+> snd $3)}
+
+LexMacroTokensInsideBlock :: {[Token]}
+  : {[]}
+  | LexMacroTokensInsideBlock LexMacroToken {$2 : $1}
+  | LexMacroTokensInsideBlock LexMacroTokenBlock {((CurlyBraceClose, null_span) : (reverse $ fst $2)) ++ ((CurlyBraceOpen, null_span) : $1)}
+
+LexMacroTokenAny :: {Token}
+  : '{' {$1}
+  | '}' {$1}
+  | LexMacroToken {$1}
+
+LexMacroToken :: {Token}
+  : '[' {$1}
+  | ']' {$1}
+  | '(' {$1}
+  | ')' {$1}
+  | ':' {$1}
+  | "#[" {$1}
+  | "..." {$1}
+  | '.' {$1}
+  | '#' {$1}
+  | '$' {$1}
+  | "=>" {$1}
+  | '?' {$1}
+  | ',' {$1}
+  | ';' {$1}
+  | abstract {$1}
+  | as {$1}
+  | atom {$1}
+  | break {$1}
+  | case {$1}
+  | code {$1}
+  | continue {$1}
+  | default {$1}
+  | do {$1}
+  | else {$1}
+  | enum {$1}
+  | for {$1}
+  | function {$1}
+  | if {$1}
+  | implement {$1}
+  | import {$1}
+  | inline {$1}
+  | in {$1}
+  | macro {$1}
+  | match {$1}
+  | new {$1}
+  | op {$1}
+  | override {$1}
+  | private {$1}
+  | public {$1}
+  | return {$1}
+  | rule {$1}
+  | rules {$1}
+  | Self {$1}
+  | struct {$1}
+  | super {$1}
+  | switch {$1}
+  | then {$1}
+  | this {$1}
+  | throw {$1}
+  | token {$1}
+  | tokens {$1}
+  | trait {$1}
+  | unsafe {$1}
+  | var {$1}
+  | while {$1}
+  | doc_comment {$1}
+  | identifier {$1}
+  | macro_identifier {$1}
+  | upper_identifier {$1}
+  | "++" {$1}
+  | "--" {$1}
+  | '+' {$1}
+  | '-' {$1}
+  | '*' {$1}
+  | '/' {$1}
+  | '%' {$1}
+  | "==" {$1}
+  | "!=" {$1}
+  | ">=" {$1}
+  | "<=" {$1}
+  | "<<" {$1}
+  | ">>" {$1}
+  | '>' {$1}
+  | '<' {$1}
+  | "&&" {$1}
+  | "||" {$1}
+  | '&' {$1}
+  | '|' {$1}
+  | '^' {$1}
+  | '=' {$1}
+  | assign_op {$1}
+  | '!' {$1}
+  | '~' {$1}
+  | "::" {$1}
+  | custom_op {$1}
+  | bool {$1}
+  | str {$1}
+  | float {$1}
+  | int {$1}
 {
 
 data Parser a = ParseResult a | Err Error
@@ -605,16 +719,22 @@ thenP = (>>=)
 returnP = return
 
 parseError [] = Err $ err ParseError ("Unexpected end of input")
-parseError t = Err $ err ParseError ("Unexpected " ++ (show $ fst et) ++ " at line " ++ (show $ start_line $ snd et) ++ ", col " ++ (show $ start_col $ snd et)) where et = t !! 0
+parseError t = Err $ errp ParseError ("Unexpected " ++ (show $ fst et)) (snd et) where et = t !! 0
 
 -- projections
-extract_lex_macro (Lex x,_) = x
 extract_identifier (LowerIdentifier x,_) = x
+extract_macro_identifier (MacroIdentifier x,_) = x
 extract_upper_identifier (UpperIdentifier x,_) = x
 extract_bool (LiteralBool x) = x
 extract_lit (LiteralInt x) = x
 extract_lit (LiteralFloat x) = x
 extract_lit (LiteralString x) = x
+extract_assign_op (Op (AssignOp x),_) = x
+extract_custom_op (Op (Custom x),_) = x
+extract_doc_comment (DocComment x,_) = x
+
+tc :: [Token] -> [TokenClass]
+tc t = [fst t' | t' <- t]
 
 p = snd
 

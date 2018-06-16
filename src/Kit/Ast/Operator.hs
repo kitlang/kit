@@ -1,6 +1,6 @@
 module Kit.Ast.Operator where
 
-  import qualified Data.ByteString.Lazy.Char8 as B
+  import Kit.Str
 
   data Operator
     = Inc
@@ -30,5 +30,36 @@ module Kit.Ast.Operator where
     | Deref
     | Assign
     | AssignOp Operator
-    | Custom B.ByteString
-    deriving (Eq, Show)
+    | Custom Str
+    deriving (Eq)
+
+  instance Show Operator where
+    show op = case op of
+      Inc -> "++"
+      Dec -> "--"
+      Add -> "+"
+      Sub -> "-"
+      Mul -> "*"
+      Div -> "/"
+      Mod -> "%"
+      Eq -> "=="
+      Neq -> "!="
+      Gte -> ">="
+      Lte -> "<="
+      LeftShift -> "<<<"
+      RightShift -> ">>>"
+      Gt -> ">"
+      Lt -> "<"
+      And -> "&&"
+      Or -> "||"
+      BitAnd -> "&"
+      BitOr -> "|"
+      BitXor -> "^"
+      Invert -> "!"
+      InvertBits -> "~"
+      Cons -> "::"
+      Ref -> "&"
+      Deref -> "*"
+      Assign -> "="
+      AssignOp op -> "=" ++ (show op)
+      Custom op -> "custom operator"

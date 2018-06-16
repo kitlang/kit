@@ -1,6 +1,6 @@
 module Kit.Ast.Expr where
 
-  import qualified Data.ByteString.Lazy.Char8 as B
+  import Kit.Str
   import Kit.Ast.Modifier
   import Kit.Ast.Operator
   import Kit.Parser.Span
@@ -8,9 +8,9 @@ module Kit.Ast.Expr where
   import Kit.Ast.Value
   import Kit.Parser.Token
 
-  type ModulePath = [B.ByteString]
+  type ModulePath = [Str]
 
-  data Expr = Expr {expr :: ExprType, pos :: Span} deriving (Show)
+  data Expr = Expr {expr :: ExprType, pos :: Span, expr_type :: Maybe ConcreteType} deriving (Show)
   instance Eq Expr where
     (==) a b = (expr a) == (expr b) && (pos a == pos b || pos b == null_span)
 
@@ -18,16 +18,19 @@ module Kit.Ast.Expr where
   e et = ep et null_span
 
   ep :: ExprType -> Span -> Expr
-  ep et p = Expr {expr = et, pos = p}
+  ep et p = Expr {expr = et, pos = p, expr_type = Nothing}
 
   pe :: Span -> ExprType -> Expr
   pe p et = ep et p
 
   me :: Span -> Expr -> Expr
-  me p ex = Expr {expr = expr ex, pos = p}
+  me p ex = Expr {expr = expr ex, pos = p, expr_type = Nothing}
+
+  te :: Expr -> ConcreteType -> Expr
+  te ex t = ex {expr_type = Just t}
 
   data MatchCase = MatchCase {match_pattern :: Expr, match_body :: Expr} deriving (Eq, Show)
-  data Metadata = Metadata {meta_name :: B.ByteString, meta_args :: [Expr]} deriving (Eq, Show)
+  data Metadata = Metadata {meta_name :: Str, meta_args :: [Expr]} deriving (Eq, Show)
 
   data ExprType
     = Block [Expr]
@@ -35,31 +38,31 @@ module Kit.Ast.Expr where
     | Literal ValueLiteral
     | This
     | Self
-    | Identifier B.ByteString
-    | TypeConstructor B.ByteString
+    | Lvalue Lvalue
+    | TypeConstructor Str
     | TypeAnnotation Expr TypeSpec
     | PreUnop Operator Expr
     | PostUnop Operator Expr
     | Binop Operator Expr Expr
-    | For B.ByteString Expr Expr
+    | For Expr Expr Expr
     | While Expr Expr
     | If Expr Expr (Maybe Expr)
     | Continue
     | Break
-    | Return Expr
+    | Return (Maybe Expr)
     | Throw Expr
     | Match Expr [MatchCase] (Maybe Expr)
     | InlineCall Expr
-    | Field Expr B.ByteString
+    | Field Expr Str
     | ArrayAccess Expr Expr
     | Call Expr [Expr]
     | Cast Expr TypeSpec
-    | TokenExpr TokenClass
+    | TokenExpr [TokenClass]
     | Unsafe Expr
-    | BlockComment B.ByteString
+    | BlockComment Str
     | New TypeSpec [Expr]
-    | LexMacro B.ByteString [TokenClass]
-    | Var VarDefinition
+    | LexMacro Str [TokenClass]
+    | VarDef VarDefinition
     | RangeLiteral Expr Expr
     | VectorLiteral [Expr]
     | Import ModulePath
@@ -70,8 +73,8 @@ module Kit.Ast.Expr where
     deriving (Eq, Show)
 
   data Structure = Structure {
-    structure_name :: B.ByteString,
-    structure_doc :: Maybe B.ByteString,
+    structure_name :: Str,
+    structure_doc :: Maybe Str,
     structure_meta :: [Metadata],
     structure_modifiers :: [Modifier],
     structure_rules :: [RewriteRule],
@@ -82,12 +85,17 @@ module Kit.Ast.Expr where
     = Atom
     | Struct {struct_params :: [TypeParam], struct_fields :: [VarDefinition]}
     | Enum {enum_params :: [TypeParam], enum_variants :: [EnumVariant]}
-    | Abstract {abstract_params :: [TypeParam], abstract_underlying_type :: TypeSpec}
+    | Abstract {abstract_params :: [TypeParam], abstract_underlying_type :: Maybe TypeSpec}
+    deriving (Eq, Show)
+
+  data Lvalue
+    = Var Str
+    | MacroVar Str
     deriving (Eq, Show)
 
   data VarDefinition = VarDefinition {
-    var_name :: B.ByteString,
-    var_doc :: Maybe B.ByteString,
+    var_name :: Lvalue,
+    var_doc :: Maybe Str,
     var_meta :: [Metadata],
     var_modifiers :: [Modifier],
     var_type :: Maybe TypeSpec,
@@ -95,16 +103,16 @@ module Kit.Ast.Expr where
   } deriving (Eq, Show)
 
   data EnumVariant = EnumVariant {
-    variant_name :: B.ByteString,
-    variant_doc :: Maybe B.ByteString,
+    variant_name :: Str,
+    variant_doc :: Maybe Str,
     variant_meta :: [Metadata],
     variant_modifiers :: [Modifier],
     variant_args :: [ArgSpec]
   } deriving (Eq, Show)
 
   data FunctionDefinition = FunctionDefinition {
-    function_name :: B.ByteString,
-    function_doc :: Maybe B.ByteString,
+    function_name :: Str,
+    function_doc :: Maybe Str,
     function_meta :: [Metadata],
     function_modifiers :: [Modifier],
     function_params :: [TypeParam],
@@ -114,13 +122,15 @@ module Kit.Ast.Expr where
   } deriving (Eq, Show)
 
   data ArgSpec = ArgSpec {
-    arg_name :: B.ByteString,
+    arg_name :: Str,
     arg_type :: Maybe TypeSpec,
     arg_default :: Maybe Expr
   } deriving (Eq, Show)
 
-  data RewriteRule = RewriteRule {
-    rule_doc :: Maybe B.ByteString,
+  data RewriteRule = Rule TermRewriteRule | Function FunctionDefinition deriving (Eq, Show)
+
+  data TermRewriteRule = TermRewriteRule {
+    rule_doc :: Maybe Str,
     rule_meta :: [Metadata],
     rule_modifiers :: [Modifier],
     rule_params :: [TypeParam],
@@ -130,8 +140,8 @@ module Kit.Ast.Expr where
   } deriving (Eq, Show)
 
   data TraitDefinition = TraitDefinition {
-    trait_name :: B.ByteString,
-    trait_doc :: Maybe B.ByteString,
+    trait_name :: Str,
+    trait_doc :: Maybe Str,
     trait_meta :: [Metadata],
     trait_modifiers :: [Modifier],
     trait_params :: [TypeParam],
@@ -142,5 +152,11 @@ module Kit.Ast.Expr where
     impl_trait :: TypeSpec,
     impl_for :: TypeSpec,
     impl_rules :: [RewriteRule],
-    impl_doc :: Maybe B.ByteString
+    impl_doc :: Maybe Str
   } deriving (Eq, Show)
+
+  -- TODO
+  -- Apply a transform to an expression tree, returning the transformed
+  -- expression.
+  expr_apply :: (Expr -> Expr) -> Expr -> Expr
+  expr_apply f expr = expr
