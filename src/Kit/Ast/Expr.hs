@@ -1,14 +1,13 @@
 module Kit.Ast.Expr where
 
   import Kit.Str
+  import Kit.Ast.Base
   import Kit.Ast.Modifier
   import Kit.Ast.Operator
   import Kit.Parser.Span
   import Kit.Ast.Type
   import Kit.Ast.Value
   import Kit.Parser.Token
-
-  type ModulePath = [Str]
 
   data Expr = Expr {expr :: ExprType, pos :: Span, expr_type :: Maybe ConcreteType} deriving (Show)
   instance Eq Expr where
@@ -53,7 +52,7 @@ module Kit.Ast.Expr where
     | Throw Expr
     | Match Expr [MatchCase] (Maybe Expr)
     | InlineCall Expr
-    | Field Expr Str
+    | Field Expr Lvalue
     | ArrayAccess Expr Expr
     | Call Expr [Expr]
     | Cast Expr TypeSpec
@@ -61,11 +60,15 @@ module Kit.Ast.Expr where
     | Unsafe Expr
     | BlockComment Str
     | New TypeSpec [Expr]
+    | Copy Expr
+    | Delete Expr
+    | Move Expr
     | LexMacro Str [TokenClass]
     | VarDef VarDefinition
     | RangeLiteral Expr Expr
     | VectorLiteral [Expr]
     | Import ModulePath
+    | Include IncludePath
     | FunctionDeclaration FunctionDefinition
     | TypeDeclaration Structure
     | TraitDeclaration TraitDefinition
@@ -84,13 +87,8 @@ module Kit.Ast.Expr where
   data StructureType
     = Atom
     | Struct {struct_params :: [TypeParam], struct_fields :: [VarDefinition]}
-    | Enum {enum_params :: [TypeParam], enum_variants :: [EnumVariant]}
+    | Enum {enum_params :: [TypeParam], enum_variants :: [EnumVariant], enum_underlying_type :: Maybe TypeSpec}
     | Abstract {abstract_params :: [TypeParam], abstract_underlying_type :: Maybe TypeSpec}
-    deriving (Eq, Show)
-
-  data Lvalue
-    = Var Str
-    | MacroVar Str
     deriving (Eq, Show)
 
   data VarDefinition = VarDefinition {
@@ -107,7 +105,8 @@ module Kit.Ast.Expr where
     variant_doc :: Maybe Str,
     variant_meta :: [Metadata],
     variant_modifiers :: [Modifier],
-    variant_args :: [ArgSpec]
+    variant_args :: [ArgSpec],
+    variant_value :: Maybe Expr
   } deriving (Eq, Show)
 
   data FunctionDefinition = FunctionDefinition {

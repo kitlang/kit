@@ -3,7 +3,7 @@
  * Vector.
  */
 struct Array[T] {
-    public var buffer: Vector[T];
+    var a: Vector[T];
     var _length: Int;
 
     /**
@@ -11,11 +11,11 @@ struct Array[T] {
      * need initially, this is more efficient than allowing the Array to
      * dynamically expand.
      */
-    public static function withCapacity(n: Int) => Array[T] {
+    public static function withCapacity(n: Int): Array[T] {
         return new Array(n);
     }
 
-    public function pop() => Null[T] {
+    public function pop(): Null[T] {
         if _length >= 0 {
             Some(a[--_length]);
         } else {
@@ -23,12 +23,12 @@ struct Array[T] {
         }
     }
 
-    public function push(value: T) => T {
+    public function push(value: T): T {
         ensureSize(_length + 1);
         return a[_length++] = value;
     }
 
-    public function concat(other: Array[T]) => Array[T] {
+    public function concat(other: Array[T]): Array[T] {
         var n = new Array(length + other.length);
         for i in 0 ... length {
             n.push(this[i]);
@@ -39,7 +39,7 @@ struct Array[T] {
         return i;
     }
 
-    function ensureSize(n: Int) => {
+    function ensureSize(n: Int) {
         if a.len < n {
             var l = _length;
             while l < n {
@@ -51,88 +51,55 @@ struct Array[T] {
         }
     }
 
+    public function new(capacity: Int = 16) {
+        a = new Vector(capacity);
+        _length = 0;
+    }
+
     public rules {
-        /**
-         * Create an empty Array.
-         */
-        new Self() => {
-            a = new Vector(16);
-            _length = 0;
-        }
-
-        /**
-         * Create an array with a reserved capacity.
-         */
-        new Self(capacity: Int) => {
-            a = new Vector(capacity);
-            _length = 0;
-        }
-
-        inline (v: Vector[T]) as Self => {
-            return new Array(v);
-        }
-
-        inline Self as Vector[T] => {
-            return this.buffer;
-        }
-
-        inline this :: (other: Self): Array[T] => {
-            return concat(other);
-        }
-
-        /**
-        * Returns the length of the array.
-        */
-        inline this.length => Int {
-            return _length;
-        }
+        // FIXME
+        ((v: Vector[T]) as Self) => new Array(v);
+        // FIXME
+        (Self as Vector[T]) => this.a;
+        (this :: (other: Self)) => (concat(other));
+        (this.length) => this._length;
 
         /**
          * Returns the first element in the array, or None if the array is empty.
          */
-        this.first => Null[T] {
-            return if _length > 0 {
-                Some(this[0]);
-            } else {
-                None;
-            }
+        (this.first) => if _length > 0 {
+            Some(this[0]);
+        } else {
+            None;
         }
 
         /**
          * Returns the last element in the array, or None if the array is empty.
          */
-        this.last => Null[T] {
-            return if _length > 0 {
-                Some(this[_length - 1]);
-            } else {
-                None;
-            }
+        (this.last) => if _length > 0 {
+            Some(this[_length - 1]);
+        } else {
+            None;
         }
 
-        inline this[pos: Int] => T {
-            return this.buffer[pos];
-        }
+        (this[pos: Int]) => this.a[pos];
 
-        inline this[pos: Int] = (val: T) => T {
-            return this.buffer[pos] = val;
-        }
+        (this[pos: Int] = (val: T)) => this.a[pos] = val;
 
         // optimize Array iteration at compile time when the type is known
-        macro for $ident in this {$e} => {
-            return tokens {
-                var __id = 0;
-                var __length = this.length;
-                while __i++ < __length {
-                    var $ident = this[__i];
-                    $e;
-                }
+        (for $ident in this {$e}) => {
+            var __id = 0;
+            var __length = this.length;
+            while __i++ < __length {
+                var $ident = this[__i];
+                $e;
             }
         }
     }
 }
 
 implement Iterable[T] for Array[T] {
-    public rule this.iterator() => {
+    public function iterator() {
         return new ArrayIterator(this);
     }
 }
@@ -141,14 +108,14 @@ struct ArrayIterator[T] {
     public var index: Uint;
     public var array: Ref[Array[T]];
 
-    public rule new Self(array: Ref[Array[T]]) => {
+    public function new(array: Ref[Array[T]]) {
         this.array = array;
         this.index = 0;
     }
 }
 
 implement Iterator[T] for ArrayIterator[T] {
-    public rule this.next() => Null[T] {
+    public function next(): Null[T] {
         return if index < array.length {
             Some(array[index++]);
         } else {

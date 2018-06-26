@@ -4,7 +4,7 @@
  * contains the state for a single iteration.
  */
 trait Iterable[T] {
-    public rule iterator() => Iterator[T];
+    public function iterator(): Iterator[T];
 }
 
 /**
@@ -12,5 +12,5 @@ trait Iterable[T] {
  * of values. Each call to `next` should return the next value, or None.
  */
 trait Iterator[T] {
-    public rule this.next() => Null[T];
+    public function next(): Null[T];
 }

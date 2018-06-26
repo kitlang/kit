@@ -1,7 +1,7 @@
 module Kit.Parser.SpanSpec where
 
   import Test.Hspec
-  import Kit.Parser.Span
+  import Kit.Parser
 
   spec :: Spec
   spec = do

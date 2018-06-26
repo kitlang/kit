@@ -13,3 +13,5 @@ module Kit.Str where
   s_dropWhile = B.dropWhile
   s_findIndices = B.findIndices
   s_readFile = B.readFile
+  s_concat = B.concat
+  s_split = B.split

@@ -1,15 +1,12 @@
-module Kit.CodeGen.CSpec where
+module Kit.CodeGen.C.CExprSpec where
 
   import Test.Hspec
   import Test.QuickCheck
   import Text.PrettyPrint
   import Language.C
   import Data.List
+  import Kit.Ast
   import Kit.Str
-  import Kit.Ast.Expr
-  import Kit.Ast.Operator
-  import Kit.Ast.Type
-  import Kit.Ast.Value
   import Kit.CodeGen.C
 
   showctype x = intercalate " " [show $ pretty t | t <- ctype x]
@@ -17,7 +14,7 @@ module Kit.CodeGen.CSpec where
   showstmt x = renderStyle (Style {mode = LeftMode}) $ pretty $ transpile_stmt x
   showblock x = renderStyle (Style {mode = LeftMode}) $ pretty $ transpile_stmt $ e $ Block x
 
-  ident x = e $ Lvalue $ Var $ s_pack x
+  ident x = e $ Lvalue $ Var x
 
   spec :: Spec
   spec = do
@@ -37,6 +34,14 @@ module Kit.CodeGen.CSpec where
         showctype (BasicType (TypeFloat 64)) `shouldBe` "double"
       it "transpiles void types" $ do
         showctype (BasicType TypeVoid) `shouldBe` "void"
+      it "transpiles atom types" $ do
+        showctype (BasicType $ TypeAtom "MyAtom") `shouldBe` "unsigned long"
+      it "transpiles enum types" $ do
+        showctype (BasicType $ TypeSimpleEnum ("MyEnum") []) `shouldBe` "MyEnum"
+        showctype (BasicType $ TypeComplexEnum ("MyEnum2") []) `shouldBe` "MyEnum2"
+      it "transpiles file types" $ do
+        -- known: not implemented yet
+        showctype (BasicType $ TypeFile) `shouldBe` "*FILE"
 
     describe "Transpile statements" $ do
       it "transpiles return statements" $ do
@@ -53,35 +58,35 @@ module Kit.CodeGen.CSpec where
       it "transpiles local variable declarations" $ do
         showblock [
             te (e $ VarDef $ VarDefinition {
-              var_name = Var $ s_pack "my_var",
+              var_name = Var "my_var",
               var_default = Just $ ident "a"
             }) (BasicType (TypeUint 16)),
             te (e $ VarDef $ VarDefinition {
-              var_name = Var $ s_pack "my_var2",
+              var_name = Var "my_var2",
               var_default = Nothing
             }) (BasicType (TypeFloat 32))
           ] `shouldBe` "{\nunsigned short my_var = a;\nfloat my_var2;\n}"
       it "transpiles while loops" $ do
         showstmt (e $ While (ident "a") (e $ Continue)) `shouldBe` "while (a)\ncontinue;"
       it "transpiles for loops" $ do
-        showstmt (e $ For (te (ident "a") (BasicType $ TypeUint 8)) (e $ RangeLiteral (e $ Literal $ IntValue $ s_pack "1") (e $ Literal $ IntValue $ s_pack "5")) (e $ Continue)) `shouldBe` "for (unsigned char a = 1; a < 5; ++a)\ncontinue;"
+        showstmt (e $ For (te (ident "a") (BasicType $ TypeUint 8)) (e $ RangeLiteral (e $ Literal $ IntValue "1") (e $ Literal $ IntValue "5")) (e $ Continue)) `shouldBe` "for (unsigned char a = 1; a < 5; ++a)\ncontinue;"
 
     describe "Transpile expressions" $ do
       it "transpiles identifiers" $ do
-        showexpr (e $ Lvalue (Var $ s_pack "apple_banana")) `shouldBe` "apple_banana"
+        showexpr (e $ Lvalue (Var "apple_banana")) `shouldBe` "apple_banana"
       it "transpiles bool literals" $ do
         showexpr (e $ Literal $ BoolValue False) `shouldBe` "0"
         showexpr (e $ Literal $ BoolValue True) `shouldBe` "1"
       it "transpiles int literals" $ do
-        showexpr (e $ Literal $ IntValue $ s_pack "1") `shouldBe` "1"
-        showexpr (e $ Literal $ IntValue $ s_pack "0100") `shouldBe` "100"
-        showexpr (e $ Literal $ IntValue $ s_pack "0x1234") `shouldBe` "4660"
-        showexpr (e $ Literal $ IntValue $ s_pack "0b0") `shouldBe` "0"
-        showexpr (e $ Literal $ IntValue $ s_pack "0b1") `shouldBe` "1"
-        showexpr (e $ Literal $ IntValue $ s_pack "0b011001") `shouldBe` "25"
-        showexpr (e $ Literal $ IntValue $ s_pack "0o1732") `shouldBe` "986"
+        showexpr (e $ Literal $ IntValue "1") `shouldBe` "1"
+        showexpr (e $ Literal $ IntValue "0100") `shouldBe` "100"
+        showexpr (e $ Literal $ IntValue "0x1234") `shouldBe` "4660"
+        showexpr (e $ Literal $ IntValue "0b0") `shouldBe` "0"
+        showexpr (e $ Literal $ IntValue "0b1") `shouldBe` "1"
+        showexpr (e $ Literal $ IntValue "0b011001") `shouldBe` "25"
+        showexpr (e $ Literal $ IntValue "0o1732") `shouldBe` "986"
       it "transpiles float literals" $ do
-        showexpr (e $ Literal $ FloatValue $ s_pack "0.1") `shouldBe` "0.1"
+        showexpr (e $ Literal $ FloatValue "0.1") `shouldBe` "0.1"
       it "transpiles binary operations" $ do
         showexpr (e $ Binop Add (ident "a") (ident "b")) `shouldBe` "a + b"
         showexpr (e $ Binop Sub (ident "a") (ident "b")) `shouldBe` "a - b"
@@ -100,14 +105,14 @@ module Kit.CodeGen.CSpec where
         showexpr (e $ PostUnop Inc (ident "a")) `shouldBe` "a++"
         showexpr (e $ PostUnop Dec (ident "a")) `shouldBe` "a--"
       it "transpiles field access" $ do
-        showexpr (e $ Field (ident "a") (s_pack "abc")) `shouldBe` "a.abc"
+        showexpr (e $ Field (ident "a") (Var "abc")) `shouldBe` "a.abc"
       it "transpiles array access" $ do
         showexpr (e $ ArrayAccess (ident "a") (ident "b")) `shouldBe` "a[b]"
       it "transpiles function calls" $ do
         showexpr (e $ Call (ident "a") [(ident "b"), (ident "c")]) `shouldBe` "a(b, c)"
       it "transpiles casts" $ do
-        showexpr (te (e $ Cast (ident "a") (ParameterizedTypePath (([], s_pack ""), []))) (BasicType $ TypeVoid)) `shouldBe` "(void) a"
-        showexpr (te (e $ Cast (ident "abc") (ParameterizedTypePath (([], s_pack ""), []))) (BasicType $ TypeInt 8)) `shouldBe` "(signed char) abc"
+        showexpr (te (e $ Cast (ident "a") (ParameterizedTypePath (([], ""), []))) (BasicType $ TypeVoid)) `shouldBe` "(void) a"
+        showexpr (te (e $ Cast (ident "abc") (ParameterizedTypePath (([], ""), []))) (BasicType $ TypeInt 8)) `shouldBe` "(signed char) abc"
       {-it "transpiles vector literals" $ do
         showexpr (e $ VectorLiteral [(ident "b"), (ident "c")]) `shouldBe` "[b, c]"-}
 

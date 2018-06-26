@@ -1,13 +1,10 @@
 struct Map[K, V] {
-    public rule this.exists(key: K) => Bool;
-    public rule this.get(key: K) => Null[V];
-    public rule this.set(key: K, value: V) => V;
+    public function exists(key: K): Bool;
+    public function get(key: K): Null[V];
+    public function set(key: K, value: V): V;
 
-    public inline rule this[key: K] => Null[V] {
-        return this.get(key);
-    }
-
-    public inline rule this[key: K] = (value: V) => V {
-        return this.set(key, value);
+    public rules {
+        inline (this[key: K]) => this.get(key);
+        inline (this[key: K] = (value: V)) => this.set(key, value);
     }
 }

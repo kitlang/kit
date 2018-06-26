@@ -6,5 +6,5 @@
  * will take the value of the metadata argument.)
  */
 abstract Const[T]: T {
-    public rule (_: T) as Const[T];
+    public rule ((_: T) as Const[T]);
 }

@@ -55,7 +55,9 @@ tokens :-
   case { tok KeywordCase }
   code { tok KeywordCode }
   continue { tok KeywordContinue }
+  copy { tok KeywordCopy }
   default { tok KeywordDefault }
+  delete { tok KeywordDelete }
   do { tok KeywordDo }
   else { tok KeywordElse }
   enum { tok KeywordEnum }
@@ -64,10 +66,12 @@ tokens :-
   if { tok KeywordIf }
   implement { tok KeywordImplement }
   import { tok KeywordImport }
+  include { tok KeywordInclude }
   inline { tok KeywordInline }
   in { tok KeywordIn }
   macro { tok KeywordMacro }
   match { tok KeywordMatch }
+  move { tok KeywordMove }
   new { tok KeywordNew }
   op { tok KeywordOp }
   override { tok KeywordOverride }
@@ -140,13 +144,14 @@ tokens :-
   "!" { tok $ Op Invert }
   "~" { tok $ Op InvertBits }
   "::" { tok $ Op Cons }
-  [\*\/\+\-\^\=\<\>\!\&\%\~\@\?\:]+ { tok' (\s -> Op $ Custom s) }
+  [\*\/\+\-\^\=\<\>\!\&\%\~\@\?\:\.]+ { tok' (\s -> Op $ Custom s) }
 
   -- identifiers
   [a-z_][a-zA-Z0-9_]* "!" { tok' (\s -> Lex $ s_take (s_length s - 1) s) }
   [a-z_][a-zA-Z0-9_]* { tokString LowerIdentifier }
   [A-Z][a-zA-Z0-9_]* { tokString UpperIdentifier }
   "$" [a-z_][a-zA-Z0-9_]* { tok' (\s -> MacroIdentifier $ s_drop 1 s) }
+  "${" [a-z_][a-zA-Z0-9_]* "}" { tok' (\s -> MacroIdentifier $ s_take (s_length s - 3) $ s_drop 2 s) }
 
 {
 -- determine the end of a span containing this ByteString and beginning at (line, col)

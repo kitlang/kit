@@ -1,36 +1,35 @@
 /**
- * Represents a nullable value.
+ * A typesafe nullable pointer.
  */
-enum Null[T] {
-    Some(value: T);
-    None;
-
+abstract Null[T]: Raw[T] {
     public rules {
-        this.isNull() => Bool {
-            return match this {
-                None => true;
-                default => false;
-            }
+        (this as Raw[T]);
+        ((x: T) as Null[T]) => (&x);
+
+        (this.isNull()) => (this as CPtr[T]) == 0;
+        (null : Null[T]) => 0;
+
+        (*this): T => if this.isNull() {
+            throw NullValueError;
+        } else {
+            *(this as Raw[T]);
         }
 
-        this.isSome() => Bool {
-            return !this.isNull();
+        (this ?? (other: Raw[T])): Null[T] => if this.isNull() {
+            other;
+        } else {
+            this;
         }
 
-        this.unwrap() => T {
-            return match this {
-                Some(v) => v;
-                default => throw NullValueError;
-            }
-        }
-
-        this ?? (other: T) => T {
-            return match this {
-                Some(v) => v;
-                default => other;
-            }
+        (this ?. $id) => if this.isNull() {
+            null;
+        } else {
+            (*this).$id;
         }
     }
 }
 
+/**
+ * Thrown when attempting to use a null value.
+ */
 atom NullValueError;

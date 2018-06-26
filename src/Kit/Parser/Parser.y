@@ -2,13 +2,9 @@
 module Kit.Parser.Parser where
 
 import qualified Data.ByteString.Lazy.Char8 as B
+import Kit.Ast
 import Kit.Error
-import Kit.Ast.Expr
-import Kit.Ast.Modifier
-import Kit.Ast.Operator
-import Kit.Ast.Type
-import Kit.Ast.Value
-import Kit.Parser.Lexer
+import Kit.Parser.Base
 import Kit.Parser.Span
 import Kit.Parser.Token
 }
@@ -45,7 +41,9 @@ import Kit.Parser.Token
   case {(KeywordCase,_)}
   code {(KeywordCode,_)}
   continue {(KeywordContinue,_)}
+  copy {(KeywordCopy,_)}
   default {(KeywordDefault,_)}
+  delete {(KeywordDelete,_)}
   do {(KeywordDo,_)}
   else {(KeywordElse,_)}
   enum {(KeywordEnum,_)}
@@ -54,10 +52,12 @@ import Kit.Parser.Token
   if {(KeywordIf,_)}
   implement {(KeywordImplement,_)}
   import {(KeywordImport,_)}
+  include {(KeywordInclude,_)}
   inline {(KeywordInline,_)}
   in {(KeywordIn,_)}
   macro {(KeywordMacro,_)}
   match {(KeywordMatch,_)}
+  move {(KeywordMove,_)}
   new {(KeywordNew,_)}
   op {(KeywordOp,_)}
   override {(KeywordOverride,_)}
@@ -125,6 +125,8 @@ Expressions_ :: {[Expr]}
 
 ToplevelExpr :: {Expr}
   : import ModulePath ';' {pe (p $1 <+> p $3) $ Import (reverse $ fst $2)}
+  | include '<' str '>' ';' {pe (p $1 <+> p $5) $ Include $ SystemHeader $ extract_lit $ fst $3}
+  | include str ';' {pe (p $1 <+> p $3) $ Include $ LocalHeader $ extract_lit $ fst $2}
   | DocMetaMods atom upper_identifier ';' {
     pe (fp [p $1, p $2, p $4]) $ TypeDeclaration $ Structure {
       structure_name = extract_upper_identifier $3,
@@ -135,16 +137,17 @@ ToplevelExpr :: {Expr}
       structure_type = Atom
     }
   }
-  | DocMetaMods enum upper_identifier TypeParams '{' RewriteRulesOrVariants '}' {
-    pe (fp [p $1, p $2, p $7]) $ TypeDeclaration $ Structure {
+  | DocMetaMods enum upper_identifier TypeParams TypeAnnotation '{' RewriteRulesOrVariants '}' {
+    pe (fp [p $1, p $2, p $8]) $ TypeDeclaration $ Structure {
       structure_name = extract_upper_identifier $3,
       structure_doc = doc $1,
       structure_meta = reverse $ metas $1,
       structure_modifiers = reverse $ mods $1,
-      structure_rules = reverse (snd $6),
+      structure_rules = reverse (snd $7),
       structure_type = Enum {
         enum_params = fst $4,
-        enum_variants = reverse (fst $6)
+        enum_variants = reverse (fst $7),
+        enum_underlying_type = fst $5
       }
     }
   }
@@ -197,13 +200,15 @@ ToplevelExpr :: {Expr}
 Statement :: {Expr}
   : StandaloneExpr {$1}
   | VarDefinition {pe (p $1) $ VarDef $ fst $1}
+  | copy Expr ';' {pe (p $1 <+> p $3) $ Copy $2}
+  | delete Expr ';' {pe (p $1 <+> p $3) $ Delete $2}
+  | move Expr ';' {pe (p $1 <+> p $3) $ Move $2}
   | return Statement {pe (p $1 <+> pos $2) $ Return $ Just $2}
   | return ';' {pe (p $1 <+> p $2) $ Return $ Nothing}
   | throw Statement {pe (p $1 <+> pos $2) $ Throw $2}
   | continue ';' {pe (p $1 <+> p $2) $ Continue}
   | break ';' {pe (p $1 <+> p $2) $ Break}
   | tokens LexMacroTokenBlock {pe (snd $1 <+> snd $2) $ TokenExpr $ tc (fst $2)}
-  | Expr ';' {me (pos $1 <+> p $2) $1}
   | macro_identifier {pe (p $1) (Lvalue $ MacroVar $ extract_macro_identifier $1)}
 
 StandaloneExpr :: {Expr}
@@ -214,11 +219,17 @@ StandaloneExpr :: {Expr}
   | while Expr ExprBlock {pe (p $1 <+> pos $3) $ While $2 $3}
   | match Expr '{' MatchCases DefaultMatchCase '}' {pe (p $1 <+> p $6) $ Match $2 (reverse $4) $5}
   | FunctionDecl {$1}
+  | Expr ';' {me (pos $1 <+> p $2) $1}
+
+FunctionName :: {(B.ByteString, Span)}
+  : identifier {(extract_identifier $1, snd $1)}
+  | new {(B.pack "new", snd $1)}
+  | delete {(B.pack "delete", snd $1)}
 
 FunctionDecl :: {Expr}
-  : DocMetaMods function identifier TypeParams '(' Args ')' FunctionTypeAnnotation OptionalBody {
+  : DocMetaMods function FunctionName TypeParams '(' Args ')' TypeAnnotation OptionalBody {
     pe (fp [p $1, p $2, p $7, snd $8, snd $9]) $ FunctionDeclaration $ FunctionDefinition {
-      function_name = extract_identifier $3,
+      function_name = fst $3,
       function_doc = doc $1,
       function_meta = reverse $ metas $1,
       function_modifiers = reverse $ mods $1,
@@ -295,11 +306,6 @@ TypeAnnotation :: {(Maybe TypeSpec, Span)}
   : {(Nothing, null_span)}
   | ':' TypeSpec {(Just $ fst $2, p $1 <+> p $2)}
 
-FunctionTypeAnnotation :: {(Maybe TypeSpec, Span)}
-  : {(Nothing, null_span)}
-  | "=>" TypeSpec {(Just $ fst $2, p $1 <+> p $2)}
-  | "=>" {(Nothing, null_span)}
-
 TypeSpec :: {(TypeSpec, Span)}
   : TypePath TypeParams {(ParameterizedTypePath (fst $1, reverse $ fst $2), p $1 <+> p $2)}
 
@@ -310,6 +316,10 @@ OptionalTypeSpec :: {(Maybe TypeSpec, Span)}
 OptionalBody :: {(Maybe Expr, Span)}
   : ';' {(Nothing, null_span)}
   | ExprBlock {(Just $1, pos $1)}
+
+OptionalRuleBody :: {(Maybe Expr, Span)}
+  : ';' {(Nothing, null_span)}
+  | StandaloneExpr {(Just $1, pos $1)}
 
 TypeParams :: {([TypeParam], Span)}
   : {([], null_span)}
@@ -363,7 +373,18 @@ EnumVariant :: {EnumVariant}
         variant_doc = doc $ fst $1,
         variant_meta = reverse $ metas $ fst $1,
         variant_modifiers = reverse $ mods $ fst $1,
-        variant_args = []
+        variant_args = [],
+        variant_value = Nothing
+      }
+    }
+  | EnumPrefix '=' Expr ';' {
+      EnumVariant {
+        variant_name = snd $1,
+        variant_doc = doc $ fst $1,
+        variant_meta = reverse $ metas $ fst $1,
+        variant_modifiers = reverse $ mods $ fst $1,
+        variant_args = [],
+        variant_value = Just $3
       }
     }
   | EnumPrefix '(' Args ')' ';' {
@@ -372,7 +393,8 @@ EnumVariant :: {EnumVariant}
         variant_doc = doc $ fst $1,
         variant_meta = reverse $ metas $ fst $1,
         variant_modifiers = reverse $ mods $ fst $1,
-        variant_args = reverse $3
+        variant_args = reverse $3,
+        variant_value = Nothing
       }
     }
 
@@ -411,26 +433,29 @@ RewriteExpr :: {Expr}
   : Expr {$1}
   | StandaloneExpr {$1}
 
+PrefixedRule :: {((DocMetaMod, [TypeParam]), Expr)}
+  : RulePrefix '(' RewriteExpr ')' {($1, $3)}
+
 RewriteRule :: {RewriteRule}
-  : RulePrefix RewriteExpr "=>" OptionalTypeSpec OptionalBody {
+  : PrefixedRule TypeAnnotation "=>" OptionalRuleBody {
     Rule TermRewriteRule {
-      rule_doc = doc $ fst $1,
-      rule_meta = reverse $ metas $ fst $1,
-      rule_modifiers = reverse $ mods $ fst $1,
-      rule_params = snd $1,
-      rule_pattern = $2,
-      rule_type = fst $4,
-      rule_body = fst $5
+      rule_doc = doc $ fst $ fst $1,
+      rule_meta = reverse $ metas $ fst $ fst $1,
+      rule_modifiers = reverse $ mods $ fst $ fst $1,
+      rule_params = snd $ fst $1,
+      rule_pattern = snd $1,
+      rule_type = fst $2,
+      rule_body = fst $4
     }
   }
-  | RulePrefix RewriteExpr ';' {
+  | PrefixedRule TypeAnnotation ';' {
     Rule TermRewriteRule {
-      rule_doc = doc $ fst $1,
-      rule_meta = reverse $ metas $ fst $1,
-      rule_modifiers = reverse $ mods $ fst $1,
-      rule_params = snd $1,
-      rule_pattern = $2,
-      rule_type = Nothing,
+      rule_doc = doc $ fst $ fst $1,
+      rule_meta = reverse $ metas $ fst $ fst $1,
+      rule_modifiers = reverse $ mods $ fst $ fst $1,
+      rule_params = snd $ fst $1,
+      rule_pattern = snd $1,
+      rule_type = fst $2,
       rule_body = Nothing
     }
   }
@@ -459,12 +484,15 @@ ShortRules :: {[(Maybe B.ByteString, [Metadata], [Modifier], Expr, Maybe TypeSpe
   : {[]}
   | ShortRules ShortRule {$2 : $1}
 
+ShortRulePrefix :: {(DocMetaMod, Expr)}
+  : DocMetaMods '(' RewriteExpr ')' {($1, $3)}
+
 ShortRule :: {(Maybe B.ByteString, [Metadata], [Modifier], Expr, Maybe TypeSpec, Maybe Expr)}
-  : DocMetaMods RewriteExpr "=>" OptionalTypeSpec OptionalBody {
-    (doc $1, metas $1, mods $1, $2, fst $4, fst $5)
+  : ShortRulePrefix TypeAnnotation "=>" OptionalRuleBody {
+    (doc $ fst $1, metas $ fst $1, mods $ fst $1, snd $1, fst $2, fst $4)
   }
-  | DocMetaMods Expr ';' {
-    (doc $1, metas $1, mods $1, $2, Nothing, Nothing)
+  | ShortRulePrefix TypeAnnotation ';' {
+    (doc $ fst $1, metas $ fst $1, mods $ fst $1, snd $1, fst $2, Nothing)
   }
 
 Expr :: {Expr}
@@ -546,13 +574,13 @@ VecExpr :: {Expr}
   | '[' ']' { pe (p $1 <+> p $2) $ VectorLiteral []}
   | CastExpr {$1}
 
-CastExpr :: {Expr}
-  : CastExpr as TypeSpec {pe (pos $1 <+> snd $3) $ Cast $1 $ fst $3}
-  | NewExpr {$1}
-
 ArrayElems :: {[Expr]}
   : Expr {[$1]}
   | ArrayElems ',' Expr {$3 : $1}
+
+CastExpr :: {Expr}
+  : CastExpr as TypeSpec {pe (pos $1 <+> snd $3) $ Cast $1 $ fst $3}
+  | NewExpr {$1}
 
 NewExpr :: {Expr}
   : new TypeSpec '(' CallArgs ')' {pe (p $1 <+> p $5) $ New (fst $2) (reverse $4)}
@@ -567,8 +595,8 @@ CallExpr :: {Expr}
   | FieldExpr {$1}
 
 FieldExpr :: {Expr}
-  : FieldExpr '.' identifier {pe (pos $1 <+> p $3) $ Field $1 $ extract_identifier $3}
-  | TypeAnnotatedExpr {$1}
+: FieldExpr '.' Lvalue {pe (pos $1 <+> p $3) $ Field $1 $ fst $3}
+| TypeAnnotatedExpr {$1}
 
 TypeAnnotatedExpr :: {Expr}
   : TypeAnnotatedExpr ':' TypeSpec {pe (pos $1 <+> snd $3) $ TypeAnnotation $1 (fst $3)}
@@ -627,7 +655,9 @@ LexMacroToken :: {Token}
   | case {$1}
   | code {$1}
   | continue {$1}
+  | copy {$1}
   | default {$1}
+  | delete {$1}
   | do {$1}
   | else {$1}
   | enum {$1}
@@ -636,10 +666,12 @@ LexMacroToken :: {Token}
   | if {$1}
   | implement {$1}
   | import {$1}
+  | include {$1}
   | inline {$1}
   | in {$1}
   | macro {$1}
   | match {$1}
+  | move {$1}
   | new {$1}
   | op {$1}
   | override {$1}
@@ -649,6 +681,7 @@ LexMacroToken :: {Token}
   | rule {$1}
   | rules {$1}
   | Self {$1}
+  | static {$1}
   | struct {$1}
   | super {$1}
   | switch {$1}
@@ -696,24 +729,6 @@ LexMacroToken :: {Token}
   | float {$1}
   | int {$1}
 {
-
-data Parser a = ParseResult a | Err Error
-
-instance Functor Parser where
-  fmap f (Err e) = Err e
-  fmap f (ParseResult x) = ParseResult (f x)
-
-instance Applicative Parser where
-  pure = ParseResult
-  (<*>) (ParseResult f) (ParseResult x) = ParseResult (f x)
-  (<*>) (Err e) _ = Err e
-  (<*>) _ (Err e) = Err e
-
-instance Monad Parser where
-  (>>=) m f = case m of
-                Err e -> Err e
-                ParseResult x -> f x
-  return = ParseResult
 
 thenP = (>>=)
 returnP = return

@@ -2,19 +2,27 @@
 
 module Main where
 
+  import Control.Exception
+  import Control.Monad
   import System.Environment
+  import System.Exit
+  import System.IO
   import Options.Applicative
   import Data.Semigroup ((<>))
   import Kit
+  import Kit.Ast
+  import Kit.Compiler
+  import Kit.Error
+  import Kit.Str
 
   data Options = Options {
-    show_version :: Bool,
-    verbose :: Bool,
-    target :: String,
-    main_class :: String,
-    output_dir :: String,
-    source_paths :: [String],
-    defines :: [String]
+    opt_show_version :: Bool,
+    opt_verbose :: Bool,
+    opt_target :: String,
+    opt_main_module :: String,
+    opt_output_dir :: FilePath,
+    opt_source_paths :: [FilePath],
+    opt_defines :: [String]
   } deriving (Eq, Show)
 
   options :: Parser Options
@@ -36,6 +44,8 @@ module Main where
   helper' :: Parser (a -> a)
   helper' = abortOption ShowHelpText $ mconcat [long "help", short 'h', help "show this help text and exit", hidden]
 
+  p = prefs (showHelpOnError)
+
   main :: IO ()
   main = do
     argv <- getArgs
@@ -46,8 +56,18 @@ module Main where
                 <> header ("kitc v" ++ version)
               )) args
 
-    if show_version opts
+    if opt_show_version opts
       then putStrLn $ "kitc v" ++ version
-      else do return ()
-    where
-      p = prefs (showHelpOnError)
+      else do
+        let context = compile_context {
+            context_main_module = parseModulePath $ s_pack $ opt_main_module opts,
+            context_output_dir = opt_output_dir opts,
+            context_source_paths = opt_source_paths opts,
+            context_defines = map (\s -> (takeWhile (/= '=') s, drop 1 $ dropWhile (/= '=') s)) (opt_defines opts)
+          }
+
+        result <- tryCompile context
+        case result of
+          Left (Errs []) -> do logError (err Unknown "An unknown error has occurred"); exitWith $ ExitFailure 1
+          Left (Errs errs) -> do forM errs logError; exitWith $ ExitFailure 1
+          Right () -> return ()

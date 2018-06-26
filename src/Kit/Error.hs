@@ -1,5 +1,8 @@
+{-# LANGUAGE DeriveAnyClass #-}
+
 module Kit.Error where
 
+  import Control.Exception
   import Control.Monad
   import System.Console.ANSI
   import System.IO
@@ -8,6 +11,7 @@ module Kit.Error where
   data ErrorType
     = ParseError
     | ImportError
+    | Unknown
     deriving (Eq, Show)
 
   data Error = Error {
@@ -15,7 +19,9 @@ module Kit.Error where
     err_pos :: Maybe Span,
     err_file :: Maybe FilePath,
     err_type :: ErrorType
-    } deriving (Eq, Show)
+    } deriving (Eq, Show, Exception)
+
+  newtype Errors = Errs [Error] deriving (Eq, Show, Exception)
 
   err :: ErrorType -> String -> Error
   err t msg = Error { err_msg = msg, err_pos = Nothing, err_file = Nothing, err_type = t }
@@ -68,8 +74,3 @@ module Kit.Error where
                 hPutStrLn stderr $ "            " ++ (take ((start_col span) - 1) (repeat ' ')) ++ (take ((end_col span) - (start_col span) + 1) $ repeat '^')
               else do return ()
     return ()
-
-
-    {-
-return ()
--}

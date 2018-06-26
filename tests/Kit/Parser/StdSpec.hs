@@ -1,14 +1,13 @@
-module StdSpec where
+module Kit.Parser.StdSpec where
 
   import Control.Monad
-  import Kit.Str
   import System.Directory
   import System.FilePath
   import Test.Hspec
   import Test.QuickCheck
   import Kit.Error
   import Kit.Parser
-  import Kit.Parser.Parser
+  import Kit.Str
 
   isKitFile :: FilePath -> Bool
   isKitFile f = takeExtension f == ".kit"

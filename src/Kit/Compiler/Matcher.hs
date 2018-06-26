@@ -1,9 +1,14 @@
-module Kit.Compiler.Rewriter where
+module Kit.Compiler.Matcher where
 
+  import Kit.Ast.Base
   import Kit.Ast.Expr
 
   -- TODO: optimize
   type RewriteRules = [RewriteRule]
+
+  match :: Expr -> Maybe [(Lvalue, Expr)]
+  -- TODO
+  match x = Nothing
 
   rewrite :: RewriteRules -> Expr -> Expr
   rewrite (h:t) x = rewrite t (rewrite1 h x)

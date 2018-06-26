@@ -31,7 +31,9 @@ module Kit.Parser.Token where
     | KeywordCase
     | KeywordCode
     | KeywordContinue
+    | KeywordCopy
     | KeywordDefault
+    | KeywordDelete
     | KeywordDo
     | KeywordElse
     | KeywordEnum
@@ -40,10 +42,12 @@ module Kit.Parser.Token where
     | KeywordIf
     | KeywordImplement
     | KeywordImport
+    | KeywordInclude
     | KeywordInline
     | KeywordIn
     | KeywordMacro
     | KeywordMatch
+    | KeywordMove
     | KeywordNew
     | KeywordOp
     | KeywordOverride
@@ -103,7 +107,9 @@ module Kit.Parser.Token where
       KeywordCase -> "case"
       KeywordCode -> "code"
       KeywordContinue -> "continue"
+      KeywordCopy -> "copy"
       KeywordDefault -> "default"
+      KeywordDelete -> "delete"
       KeywordDo -> "do"
       KeywordElse -> "else"
       KeywordEnum -> "enum"
@@ -112,10 +118,12 @@ module Kit.Parser.Token where
       KeywordIf -> "if"
       KeywordImplement -> "implement"
       KeywordImport -> "import"
+      KeywordInclude -> "include"
       KeywordInline -> "inline"
       KeywordIn -> "in"
       KeywordMacro -> "macro"
       KeywordMatch -> "match"
+      KeywordMove -> "move"
       KeywordNew -> "new"
       KeywordOp -> "op"
       KeywordOverride -> "override"
@@ -125,6 +133,7 @@ module Kit.Parser.Token where
       KeywordRule -> "rule"
       KeywordRules -> "rules"
       KeywordSelf -> "self"
+      KeywordStatic -> "static"
       KeywordStruct -> "struct"
       KeywordSuper -> "super"
       KeywordSwitch -> "switch"

@@ -13,7 +13,7 @@ module Main where
       setSGR [SetColor Foreground Vivid Green]
       putStrLn "._,\n\
         \     `._ _,-.   )      _,.-'\n\
-        \        `    G.m-^^m`m'"
+        \        `    G.Q-^^u`u'"
 
       setSGR [SetColor Foreground Vivid Cyan]
       putStrLn "\n\

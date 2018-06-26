@@ -1,0 +1,89 @@
+/**
+ * An automatically dereferencing C pointer to type T.
+ */
+abstract Raw[T]: CPtr[T] {
+    public rules {
+        (this as CPtr[T]);
+        ((_: CPtr[T]) as Self);
+        (this as T) => (*this);
+        (this.$x) => (*this).$x;
+        ((x: T) as Raw[T]) => (&x);
+    }
+}
+
+/**
+ * A smart pointer to type T. When this pointer goes out of scope, the
+ * memory will be reclaimed immediately.
+ */
+abstract Unique[T]: Raw[T] {
+    public rules {
+        ((_:Raw[T]) as Self);
+
+        // assignment of this value to a pointer generates a weak reference
+        ((x: Raw[T]) = this) => x = this.weak();
+    }
+
+    public function delete();
+
+    /**
+     * Obtain a weak reference to the underlying value. When the unique pointer
+     * is destroyed, this reference will no longer be valid.
+     */
+    public function weak(): Weak[T] {
+        return (this as Raw[T]) as Weak[T];
+    }
+}
+
+/**
+ * A smart pointer to type T that employs reference counting. Call `ref()` to
+ * obtain an additional reference; when all references go out of scope, the
+ * memory will be reclaimed immediately.
+ */
+struct Shared[T] {
+    var rc: Raw[Uint] = 1;
+    var value: Raw[T];
+
+    public rules {
+        (this as T) => this.value;
+        (this.$x) => this.value.$x;
+
+        // assignment of this value to a pointer generates a weak reference
+        ((x: Raw[T]) = this) => x = this.weak();
+    }
+
+    public function new(value: T) {
+        this.value = value;
+    }
+
+    public function delete() {
+        --rc;
+        if rc <= 0 {
+            delete rc;
+            delete value;
+        }
+    }
+
+    /**
+     * Obtain a new reference and increment the reference count.
+     */
+    public function ref(): Shared[T] {
+        ++rc;
+        return this;
+    }
+
+    /**
+     * Obtain a weak reference without incrementing the reference count.
+     */
+    public function weak(): Weak[T] {
+        return value;
+    }
+}
+
+/**
+ * A weak reference to a value of type T.
+ */
+abstract Weak[T]: Raw[T] {
+    public rules {
+        ((_:Raw[T]) as Self);
+    }
+}

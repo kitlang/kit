@@ -1,0 +1,36 @@
+/**
+ * Represents a nullable value.
+ */
+enum Option[T] {
+    Some(value: T);
+    None;
+
+    public rules {
+        (this.isNone()) => match this {
+            None => true;
+            default => false;
+        }
+
+        (this.isSome()) => !this.isNone();
+
+        (this.unwrap()): T => match this {
+            Some(v) => v;
+            default => throw NoValueError;
+        }
+
+        (this ?? (other: T)): T => match this {
+            Some(v) => v;
+            default => other;
+        }
+
+        (this ?. $id) => match this {
+            Some(v) => Some(v.$id);
+            default => None;
+        }
+    }
+}
+
+/**
+ * Thrown when a None value is unwrapped.
+ */
+atom NoValueError;

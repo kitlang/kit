@@ -1,0 +1,34 @@
+enum Either[A, B] {
+    Left(a: A);
+    Right(b: B);
+
+    public function isLeft() {
+        return match this {
+            Left(_) => true;
+            Right(_) => false;
+        }
+    }
+
+    public function isRight() {
+        return match this {
+            Left(_) => false;
+            Right(_) => true;
+        }
+    }
+
+    public function unwrapLeft() {
+        return match this {
+            Left(l) => l;
+            Right(_) => throw WrongValueError;
+        }
+    }
+
+    public function unwrapRight() {
+        return match this {
+            Left(_) => throw WrongValueError;
+            Right(r) => r;
+        }
+    }
+}
+
+atom WrongValueError;
