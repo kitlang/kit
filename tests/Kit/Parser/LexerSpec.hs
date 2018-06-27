@@ -6,8 +6,8 @@ module Kit.Parser.LexerSpec where
   import Kit.Str
   import Kit.Parser
 
-  lx s = map token_type $ scanTokens s
-  lx2 s = scanTokens s
+  lx s = map token_type $ scanTokens Nothing s
+  lx2 s = scanTokens Nothing s
 
   spec :: Spec
   spec = do

@@ -13,6 +13,7 @@ module Main where
   import Kit.Ast
   import Kit.Compiler
   import Kit.Error
+  import Kit.Hash
   import Kit.Str
 
   data Options = Options {
@@ -59,11 +60,13 @@ module Main where
     if opt_show_version opts
       then putStrLn $ "kitc v" ++ version
       else do
+        modules <- h_new
         let context = compile_context {
             context_main_module = parseModulePath $ s_pack $ opt_main_module opts,
             context_output_dir = opt_output_dir opts,
             context_source_paths = opt_source_paths opts,
-            context_defines = map (\s -> (takeWhile (/= '=') s, drop 1 $ dropWhile (/= '=') s)) (opt_defines opts)
+            context_defines = map (\s -> (takeWhile (/= '=') s, drop 1 $ dropWhile (/= '=') s)) (opt_defines opts),
+            context_modules = modules
           }
 
         result <- tryCompile context

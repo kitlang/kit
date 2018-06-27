@@ -18,3 +18,6 @@ module Kit.Parser.SpanSpec where
         (null_span) <+> (sp 1 2 3 4) `shouldBe` (sp 1 2 3 4)
         (sp 1 2 3 4) <+> (null_span) `shouldBe` (sp 1 2 3 4)
         (null_span) <+> (null_span) `shouldBe` null_span
+      it "maintains span file info when merging" $ do
+        (fsp "abc" 2 1 3 5) <+> (sp 2 1 3 5) `shouldBe` (fsp "abc" 2 1 3 5)
+        (sp 2 1 3 5) <+> (fsp "abc" 2 1 3 5) `shouldBe` (fsp "abc" 2 1 3 5)

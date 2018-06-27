@@ -6,9 +6,9 @@ module Kit.Parser.ParserSpec where
   import Kit.Ast
   import Kit.Parser
 
-  testParse s = unwrapParsed $ parseTokens (scanTokens  s)
-  testParseExpr s = unwrapParsed $ parseExpr (scanTokens  s)
-  testParseStmt s = unwrapParsed $ parseStatement (scanTokens  s)
+  testParse s = unwrapParsed $ parseTokens (scanTokens Nothing s)
+  testParseExpr s = unwrapParsed $ parseExpr (scanTokens Nothing s)
+  testParseStmt s = unwrapParsed $ parseStatement (scanTokens Nothing s)
   testParseExprs s = unwrapParsed $ parseString s
   unwrapParsed x = case x of
                      ParseResult r -> r

@@ -161,7 +161,7 @@ posnOffset (line, col) s = (line + length indices, if length indices == 0 then c
                                  l = (fromIntegral $ s_length s)
 
 -- wrapper to convert an Alex position to a Span
-pos2span (AlexPn _ line col) s = Span {start_line = line, start_col = col, end_line = end_line, end_col = end_col} where (end_line, end_col) = posnOffset (line, col) s
+pos2span (AlexPn _ line col) s = sp line col end_line end_col where (end_line, end_col) = posnOffset (line, col) s
 
 -- token helpers
 tok' f p s = (f s, pos2span p s)
@@ -176,12 +176,14 @@ token_pos (_, p) = p
 token_type :: Token -> TokenClass
 token_type (t, _) = t
 
-scanTokens str = go (alexStartPos,'\n',str,0)
+scanTokens f str = go (alexStartPos,'\n',str,0)
   where go inp@(pos,_,str,n) =
           case alexScan inp 0 of
             AlexEOF -> []
             AlexError ((AlexPn _ line column),_,r,_) -> error $ "lexical error at line " ++ (show line) ++ ", column " ++ (show column) ++ ": " ++ (show r)
             AlexSkip  inp' len     -> go inp'
             AlexToken inp'@(_,_,_,n') _ act ->
-              act pos (ByteString.take (n'-n) str) : go inp'
+              (a, b) : go inp'
+              where (a', b') = act pos (ByteString.take (n'-n) str)
+                    (a, b) = (a', b' {file = f})
 }

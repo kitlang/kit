@@ -15,3 +15,4 @@ module Kit.Str where
   s_readFile = B.readFile
   s_concat = B.concat
   s_split = B.split
+  s_join = B.intercalate

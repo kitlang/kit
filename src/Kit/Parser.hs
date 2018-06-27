@@ -18,11 +18,9 @@ module Kit.Parser(
   import Kit.Str
 
   parseString :: Str -> Parser [Expr]
-  parseString s = parseTokens (scanTokens s)
+  parseString s = parseTokens (scanTokens Nothing s)
 
   parseFile :: FilePath -> IO (Parser [Expr])
   parseFile f = do
     contents <- s_readFile f
-    return $ case parseString contents of
-      ParseResult r -> ParseResult r
-      Err e -> Err $ errf e f
+    return $ parseTokens (scanTokens (Just $ s_pack f) contents)

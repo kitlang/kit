@@ -1,11 +1,12 @@
 module Kit.Compiler.Module where
 
   import Kit.Ast
+  import Kit.Parser.Span
 
   data Module = Module {
     mod_path :: ModulePath,
     mod_contents :: [Expr],
-    mod_imports :: [ModulePath],
+    mod_imports :: [(ModulePath, Span)],
     mod_types :: [Expr]
   } deriving (Eq, Show)
 
@@ -17,8 +18,8 @@ module Kit.Compiler.Module where
     mod_types = []
   }
 
-  find_imports :: [Expr] -> [ModulePath]
-  find_imports exprs = foldr (\e acc -> case expr e of
-      Import mp -> mp : acc
+  find_imports :: [Expr] -> [(ModulePath, Span)]
+  find_imports exprs = foldr (\e acc -> case e of
+      Expr {expr = Import mp, pos = p} -> (mp, p) : acc
       _ -> acc
     ) [] exprs

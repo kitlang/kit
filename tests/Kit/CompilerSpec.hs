@@ -25,4 +25,4 @@ module Kit.CompilerSpec where
         let exprs = case parseString "import a; import b.c; function main() {} import d;" of
                       ParseResult e -> e
                       Err _ -> []
-        mod_imports (new_mod [] exprs) `shouldBe` [["a"], ["b", "c"], ["d"]]
+        map fst (mod_imports (new_mod [] exprs)) `shouldBe` [["a"], ["b", "c"], ["d"]]

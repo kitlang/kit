@@ -734,7 +734,7 @@ thenP = (>>=)
 returnP = return
 
 parseError [] = Err $ err ParseError ("Unexpected end of input")
-parseError t = Err $ errp ParseError ("Unexpected " ++ (show $ fst et)) (snd et) where et = t !! 0
+parseError t = Err $ errp ParseError ("Unexpected " ++ (show $ fst et)) (Just $ snd et) where et = t !! 0
 
 -- projections
 extract_identifier (LowerIdentifier x,_) = x

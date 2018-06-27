@@ -7,6 +7,7 @@ module Kit.Error where
   import System.Console.ANSI
   import System.IO
   import Kit.Parser.Span
+  import Kit.Str
 
   data ErrorType
     = ParseError
@@ -17,60 +18,60 @@ module Kit.Error where
   data Error = Error {
     err_msg :: String,
     err_pos :: Maybe Span,
-    err_file :: Maybe FilePath,
     err_type :: ErrorType
     } deriving (Eq, Show, Exception)
 
   newtype Errors = Errs [Error] deriving (Eq, Show, Exception)
 
   err :: ErrorType -> String -> Error
-  err t msg = Error { err_msg = msg, err_pos = Nothing, err_file = Nothing, err_type = t }
-  errp :: ErrorType -> String -> Span -> Error
-  errp t msg p = Error { err_msg = msg, err_pos = Just p, err_file = Nothing, err_type = t }
-
-  errf :: Error -> FilePath -> Error
-  errf e fp = e {err_file = Just fp}
+  err t msg = Error { err_msg = msg, err_pos = Nothing, err_type = t }
+  errp :: ErrorType -> String -> Maybe Span -> Error
+  errp t msg p = Error { err_msg = msg, err_pos = p, err_type = t }
 
   logError :: Error -> IO ()
   logError e = do
-    case (err_file e, err_pos e) of
-      (Just f, Just s) -> do
-        setSGR [SetColor Foreground Vivid White]
-        hPutStr stderr $ f ++ ":" ++ (show $ start_line s) ++ ": "
-        setSGR [SetColor Foreground Dull White]
-        hPutStrLn stderr $ err_msg e
-        displayFileSnippet f s
-        setSGR [Reset]
-      _ -> do
-        setSGR [SetColor Foreground Vivid White]
+    case err_pos e of
+      Just pos@Span {file = Just f, start_line = start} -> do
+        hSetSGR stderr [SetColor Foreground Vivid Red, SetConsoleIntensity BoldIntensity]
         hPutStr stderr $ "Error: "
-        setSGR [SetColor Foreground Dull White]
+        hSetSGR stderr [SetColor Foreground Vivid White, SetConsoleIntensity BoldIntensity]
+        hPutStr stderr $ (s_unpack f) ++ ":" ++ (show start) ++ ": "
+        hSetSGR stderr [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
         hPutStrLn stderr $ err_msg e
-        setSGR [Reset]
+        displayFileSnippet (s_unpack f) pos
+        hSetSGR stderr [Reset]
+      _ -> do
+        hSetSGR stderr [SetColor Foreground Vivid Red, SetConsoleIntensity BoldIntensity]
+        hPutStr stderr $ "Error: "
+        hSetSGR stderr [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
+        hPutStrLn stderr $ err_msg e
+        hSetSGR stderr [Reset]
 
   lpad :: String -> Int -> String
   lpad s n = (take (n - length s) (repeat ' ')) ++ s
 
   displayFileSnippet :: FilePath -> Span -> IO ()
   displayFileSnippet fp span = do
-    setSGR [SetColor Foreground Vivid White]
-    hPutStrLn stderr $ "\n  " ++ (show fp) ++ ":"
+    hSetSGR stderr [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
+    hPutStrLn stderr $ "\n  <" ++ fp ++ ">:"
     contents <- readFile $ fp
     let content_lines = lines contents
     forM_ [(end_line span) .. (start_line span)] $ \n -> do
+      hSetSGR stderr [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
       if n == (start_line span) + 2
         then do hPutStrLn stderr $ "\n  ...\n"
         else if n > (start_line span) + 2 && n < (end_line span) - 1
           then do return ()
           else do
             let line = content_lines !! (n - 1)
-            setSGR [SetColor Foreground Vivid White]
+            hSetSGR stderr [SetConsoleIntensity NormalIntensity]
             hPutStr stderr $ (lpad (show n) 8) ++ "    "
-            setSGR [SetColor Foreground Dull White]
+            hSetSGR stderr [SetConsoleIntensity FaintIntensity]
             hPutStrLn stderr $ line
             if (start_line span) < (end_line span) || (start_col span) > 1 || (end_col span) < length line
               then do
-                setSGR [SetColor Foreground Vivid Yellow]
+                hSetSGR stderr [SetColor Foreground Vivid Yellow, SetConsoleIntensity BoldIntensity]
                 hPutStrLn stderr $ "            " ++ (take ((start_col span) - 1) (repeat ' ')) ++ (take ((end_col span) - (start_col span) + 1) $ repeat '^')
               else do return ()
+    hPutStrLn stderr ""
     return ()
