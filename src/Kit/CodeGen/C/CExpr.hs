@@ -61,10 +61,9 @@ module Kit.CodeGen.C.CExpr where
   var_to_cdeclr x = u $ CDeclr (Just $ internalIdent $ s_unpack x) [] (Nothing) []
 
   transpile_block_item :: Expr -> CBlockItem
-  transpile_block_item (Expr {expr = (VarDef v), expr_type = Just t}) =
+  transpile_block_item (Expr {expr = (VarDeclaration v), expr_type = Just t}) =
     CBlockDecl $ u $ CDecl (ctype t) [(Just vn, body, Nothing)]
-    where vn = case var_name v of
-                 Var x -> var_to_cdeclr x
+    where vn = var_to_cdeclr $ lvalue_name $ var_name v
           body = case var_default v of
                    Just x -> Just $ u $ CInitExpr $ transpile_expr x
                    Nothing -> Nothing

@@ -1,7 +1,8 @@
 module Kit.Compiler (
   tryCompile,
   module Kit.Compiler.Context,
-  module Kit.Compiler.Module
+  module Kit.Compiler.Module,
+  module Kit.Compiler.Scope
 ) where
 
   import Control.Exception
@@ -12,6 +13,7 @@ module Kit.Compiler (
   import Kit.Ast
   import Kit.Compiler.Context
   import Kit.Compiler.Module
+  import Kit.Compiler.Scope
   import Kit.Error
   import Kit.Hash
   import Kit.Parser
@@ -28,6 +30,7 @@ module Kit.Compiler (
   compile ctx = do
     modules <- h_new
     let ctx' = ctx {context_modules = modules}
+    -- load the main module and all of its dependencies recursively
     mainModule <- loadModule ctx' (context_main_module ctx') Nothing
     return ()
 
@@ -37,12 +40,19 @@ module Kit.Compiler (
     case existing of
       Just x -> return x
       Nothing -> do
-        exprs <- parseModuleExprs ctx mod pos
-        let m = new_mod mod exprs
+        m <- _loadModule ctx mod pos
+        h_insert (context_modules ctx) mod m
         errs <- foldM (_loadImportedModule ctx) [] (mod_imports m)
         if errs == []
           then return m
           else throw $ Errs errs
+
+  _loadModule :: CompileContext -> ModulePath -> Maybe Span -> IO Module
+  _loadModule ctx mod pos = do
+    exprs <- parseModuleExprs ctx mod pos
+    m <- newMod mod exprs
+    findTopLevels ctx m
+    return m
 
   _loadImportedModule :: CompileContext -> [Error] -> (ModulePath, Span) -> IO [Error]
   _loadImportedModule ctx acc (mod, pos) = do
@@ -57,7 +67,7 @@ module Kit.Compiler (
     parsed <- parseFile path
     case parsed of
       ParseResult r -> return r
-      Err e -> throw $ Errs [e]
+      Err e -> throw $ Errs [e {err_msg = "Parse error: " ++ (err_msg e)}]
 
   findModule :: CompileContext -> ModulePath -> Maybe Span -> IO FilePath
   findModule ctx mod pos = do
@@ -72,3 +82,14 @@ module Kit.Compiler (
              pos
         ]
       else return $ head matches
+
+  findTopLevels :: CompileContext -> Module -> IO ()
+  findTopLevels ctx mod = do forM (mod_contents mod) (_checkForTopLevel ctx mod); return ()
+
+  _checkForTopLevel :: CompileContext -> Module -> Expr -> IO ()
+  _checkForTopLevel ctx m e = do
+    case expr e of
+      TypeDeclaration s -> h_insert (mod_types m) (structure_name s) s
+      VarDeclaration v -> h_insert (mod_vars m) (lvalue_name $ var_name v) (VarBinding v)
+      FunctionDeclaration f -> h_insert (mod_vars m) (function_name f) (FunctionBinding f)
+      _ -> return ()

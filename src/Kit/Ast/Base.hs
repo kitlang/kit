@@ -16,6 +16,10 @@ module Kit.Ast.Base where
     | MacroVar Str
     deriving (Eq, Show)
 
+  lvalue_name x = case x of
+    Var s -> s
+    MacroVar s -> s
+
   data IncludePath
     = SystemHeader Str
     | LocalHeader Str

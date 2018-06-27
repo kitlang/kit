@@ -57,11 +57,11 @@ module Kit.CodeGen.C.CExprSpec where
         showstmt (e $ If (e $ Literal $ BoolValue True) (e $ Continue) (Nothing)) `shouldBe` "if (1)\n{\ncontinue;\n}"
       it "transpiles local variable declarations" $ do
         showblock [
-            te (e $ VarDef $ VarDefinition {
+            te (e $ VarDeclaration $ VarDefinition {
               var_name = Var "my_var",
               var_default = Just $ ident "a"
             }) (BasicType (TypeUint 16)),
-            te (e $ VarDef $ VarDefinition {
+            te (e $ VarDeclaration $ VarDefinition {
               var_name = Var "my_var2",
               var_default = Nothing
             }) (BasicType (TypeFloat 32))

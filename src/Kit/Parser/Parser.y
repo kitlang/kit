@@ -77,6 +77,7 @@ import Kit.Parser.Token
   token {(KeywordToken,_)}
   tokens {(KeywordTokens,_)}
   trait {(KeywordTrait,_)}
+  typedef {(KeywordTypedef,_)}
   unsafe {(KeywordUnsafe,_)}
   var {(KeywordVar,_)}
   while {(KeywordWhile,_)}
@@ -127,6 +128,19 @@ ToplevelExpr :: {Expr}
   : import ModulePath ';' {pe (p $1 <+> p $3) $ Import (reverse $ fst $2)}
   | include '<' str '>' ';' {pe (p $1 <+> p $5) $ Include $ SystemHeader $ extract_lit $ fst $3}
   | include str ';' {pe (p $1 <+> p $3) $ Include $ LocalHeader $ extract_lit $ fst $2}
+  | DocMetaMods typedef upper_identifier TypeParams '=' TypeSpec ';' {
+    pe (fp [p $1, p $2, p $7]) $ TypeDeclaration $ Structure {
+      structure_name = extract_upper_identifier $3,
+      structure_doc = doc $1,
+      structure_meta = reverse $ metas $1,
+      structure_modifiers = reverse $ mods $1,
+      structure_rules = [],
+      structure_type = Typedef {
+        typedef_params = fst $4,
+        typedef_definition = fst $6
+      }
+    }
+  }
   | DocMetaMods atom upper_identifier ';' {
     pe (fp [p $1, p $2, p $4]) $ TypeDeclaration $ Structure {
       structure_name = extract_upper_identifier $3,
@@ -195,11 +209,12 @@ ToplevelExpr :: {Expr}
       impl_doc = doc $1
     }
   }
-  | Statement {$1}
+  | VarDefinition {pe (p $1) $ VarDeclaration $ fst $1}
+  | FunctionDecl {$1}
 
 Statement :: {Expr}
   : StandaloneExpr {$1}
-  | VarDefinition {pe (p $1) $ VarDef $ fst $1}
+  | VarDefinition {pe (p $1) $ VarDeclaration $ fst $1}
   | copy Expr ';' {pe (p $1 <+> p $3) $ Copy $2}
   | delete Expr ';' {pe (p $1 <+> p $3) $ Delete $2}
   | move Expr ';' {pe (p $1 <+> p $3) $ Move $2}
@@ -218,7 +233,6 @@ StandaloneExpr :: {Expr}
   | for Lvalue in Expr ExprBlock {pe (p $1 <+> pos $5) $ For (pe (snd $2) (Lvalue $ fst $2)) $4 $5}
   | while Expr ExprBlock {pe (p $1 <+> pos $3) $ While $2 $3}
   | match Expr '{' MatchCases DefaultMatchCase '}' {pe (p $1 <+> p $6) $ Match $2 (reverse $4) $5}
-  | FunctionDecl {$1}
   | Expr ';' {me (pos $1 <+> p $2) $1}
 
 FunctionName :: {(B.ByteString, Span)}
@@ -461,7 +475,7 @@ RewriteRule :: {RewriteRule}
   }
   | FunctionDecl {
     case expr $1 of
-      FunctionDeclaration f -> Function f
+      FunctionDeclaration f -> Method f
   }
 
 RuleBlock :: {[RewriteRule]}
@@ -691,6 +705,7 @@ LexMacroToken :: {Token}
   | token {$1}
   | tokens {$1}
   | trait {$1}
+  | typedef {$1}
   | unsafe {$1}
   | var {$1}
   | while {$1}

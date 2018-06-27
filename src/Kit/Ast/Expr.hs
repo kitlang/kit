@@ -64,11 +64,11 @@ module Kit.Ast.Expr where
     | Delete Expr
     | Move Expr
     | LexMacro Str [TokenClass]
-    | VarDef VarDefinition
     | RangeLiteral Expr Expr
     | VectorLiteral [Expr]
     | Import ModulePath
     | Include IncludePath
+    | VarDeclaration VarDefinition
     | FunctionDeclaration FunctionDefinition
     | TypeDeclaration Structure
     | TraitDeclaration TraitDefinition
@@ -89,6 +89,7 @@ module Kit.Ast.Expr where
     | Struct {struct_params :: [TypeParam], struct_fields :: [VarDefinition]}
     | Enum {enum_params :: [TypeParam], enum_variants :: [EnumVariant], enum_underlying_type :: Maybe TypeSpec}
     | Abstract {abstract_params :: [TypeParam], abstract_underlying_type :: Maybe TypeSpec}
+    | Typedef {typedef_params :: [TypeParam], typedef_definition :: TypeSpec}
     deriving (Eq, Show)
 
   data VarDefinition = VarDefinition {
@@ -126,7 +127,7 @@ module Kit.Ast.Expr where
     arg_default :: Maybe Expr
   } deriving (Eq, Show)
 
-  data RewriteRule = Rule TermRewriteRule | Function FunctionDefinition deriving (Eq, Show)
+  data RewriteRule = Rule TermRewriteRule | Method FunctionDefinition deriving (Eq, Show)
 
   data TermRewriteRule = TermRewriteRule {
     rule_doc :: Maybe Str,
@@ -153,6 +154,11 @@ module Kit.Ast.Expr where
     impl_rules :: [RewriteRule],
     impl_doc :: Maybe Str
   } deriving (Eq, Show)
+
+  data Binding
+    = VarBinding VarDefinition
+    | FunctionBinding FunctionDefinition
+    deriving (Eq, Show)
 
   -- TODO
   -- Apply a transform to an expression tree, returning the transformed

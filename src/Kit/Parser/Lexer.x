@@ -1,14 +1,5 @@
 {
 {-# LANGUAGE OverloadedStrings                  #-}
-{-# LANGUAGE NoMonomorphismRestriction          #-}
-{-# LANGUAGE CPP                                #-}
-{-# OPTIONS_GHC -fno-warn-unused-binds          #-}
-{-# OPTIONS_GHC -fno-warn-missing-signatures    #-}
-{-# OPTIONS_GHC -fno-warn-unused-matches        #-}
-{-# OPTIONS_GHC -fno-warn-unused-imports        #-}
-{-# OPTIONS_GHC -fno-warn-name-shadowing        #-}
-{-# OPTIONS_GHC -fno-warn-tabs                  #-}
-{-# OPTIONS_GHC -funbox-strict-fields           #-}
 
 module Kit.Parser.Lexer where
 
@@ -91,6 +82,7 @@ tokens :-
   token { tok KeywordToken }
   tokens { tok KeywordTokens }
   trait { tok KeywordTrait }
+  typedef { tok KeywordTypedef }
   unsafe { tok KeywordUnsafe }
   var { tok KeywordVar }
   while { tok KeywordWhile }

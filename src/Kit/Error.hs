@@ -52,7 +52,7 @@ module Kit.Error where
 
   displayFileSnippet :: FilePath -> Span -> IO ()
   displayFileSnippet fp span = do
-    hSetSGR stderr [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
+    hSetSGR stderr [SetColor Foreground Vivid Blue, SetConsoleIntensity NormalIntensity]
     hPutStrLn stderr $ "\n  <" ++ fp ++ ">:"
     contents <- readFile $ fp
     let content_lines = lines contents

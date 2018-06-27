@@ -9,7 +9,6 @@ module Kit.Parser.ParserSpec where
   testParse s = unwrapParsed $ parseTokens (scanTokens Nothing s)
   testParseExpr s = unwrapParsed $ parseExpr (scanTokens Nothing s)
   testParseStmt s = unwrapParsed $ parseStatement (scanTokens Nothing s)
-  testParseExprs s = unwrapParsed $ parseString s
   unwrapParsed x = case x of
                      ParseResult r -> r
                      Err e -> error $ show e
@@ -59,7 +58,7 @@ module Kit.Parser.ParserSpec where
         testParseStmt "tokens { a {} this, }" `shouldBe` (e $ TokenExpr [LowerIdentifier "a", CurlyBraceOpen, CurlyBraceClose, KeywordThis, Comma])
 
       it "parses functions" $ do
-        testParseStmt "/**test*/ #[meta] inline function abc[A, B: Int, C: (ToString, ToInt)](a: A, b: B = 2, c: C): Something { print(a); print(b); print(c); }" `shouldBe` (pe (sp 1 11 1 137) $
+        testParse "/**test*/ #[meta] inline function abc[A, B: Int, C: (ToString, ToInt)](a: A, b: B = 2, c: C): Something { print(a); print(b); print(c); }" `shouldBe` [(pe (sp 1 11 1 137) $
           FunctionDeclaration $ FunctionDefinition {
             function_name = "abc",
             function_doc = Just "test",
@@ -102,12 +101,37 @@ module Kit.Parser.ParserSpec where
               e $ Call (e $ Lvalue $ Var "print") [e $ Lvalue $ Var "b"],
               e $ Call (e $ Lvalue $ Var "print") [e $ Lvalue $ Var "c"]
             ]
-          })
+          })]
 
     describe "Parse toplevel statements" $ do
       it "parses imports" $ do
         testParse "import a;" `shouldBe` [e $ Import ["a"]]
         testParse "import a.b.c; import d;" `shouldBe` [e $ Import ["a", "b", "c"], e $ Import ["d"]]
+
+
+      it "parses typedefs" $ do
+        testParse "typedef MyType = OtherType;" `shouldBe` [e $ TypeDeclaration $ Structure {
+          structure_name = "MyType",
+          structure_doc = Nothing,
+          structure_meta = [],
+          structure_modifiers = [],
+          structure_rules = [],
+          structure_type = Typedef {
+            typedef_params = [],
+            typedef_definition = ParameterizedTypePath (([], "OtherType"), [])
+          }
+        }]
+        testParse "typedef MyType[A] = OtherType[B];" `shouldBe` [e $ TypeDeclaration $ Structure {
+          structure_name = "MyType",
+          structure_doc = Nothing,
+          structure_meta = [],
+          structure_modifiers = [],
+          structure_rules = [],
+          structure_type = Typedef {
+            typedef_params = [TypeParam {t = (([], "A"),[]), constraints = []}],
+            typedef_definition = ParameterizedTypePath (([], "OtherType"), [TypeParam {t = (([], "B"),[]), constraints = []}])
+          }
+        }]
 
       it "parses atoms" $ do
         testParse "atom MyAtom;" `shouldBe` [e $ TypeDeclaration $ Structure {
@@ -230,4 +254,4 @@ module Kit.Parser.ParserSpec where
 
     describe "Parses expression lists" $ do
       it "parses multiple statements" $ do
-        testParseExprs "break; continue;" `shouldBe` [e Break, e Continue]
+        testParse "import a; import b;" `shouldBe` [e $ Import ["a"], e $ Import ["b"]]

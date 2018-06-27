@@ -67,6 +67,7 @@ module Kit.Parser.Token where
     | KeywordToken
     | KeywordTokens
     | KeywordTrait
+    | KeywordTypedef
     | KeywordUnsafe
     | KeywordVar
     | KeywordWhile
@@ -143,6 +144,7 @@ module Kit.Parser.Token where
       KeywordToken -> "token"
       KeywordTokens -> "tokens"
       KeywordTrait -> "trait"
+      KeywordTypedef -> "typedef"
       KeywordUnsafe -> "unsafe"
       KeywordVar -> "var"
       KeywordWhile -> "while"
