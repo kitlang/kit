@@ -30,6 +30,8 @@ module Kit.Error where
 
   logError :: Error -> IO ()
   logError e = do
+    hSetSGR stderr [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
+    hPutStrLn stderr $ take 40 (repeat '-')
     case err_pos e of
       Just pos@Span {file = Just f, start_line = start} -> do
         hSetSGR stderr [SetColor Foreground Vivid Red, SetConsoleIntensity BoldIntensity]
@@ -39,13 +41,12 @@ module Kit.Error where
         hSetSGR stderr [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
         hPutStrLn stderr $ err_msg e
         displayFileSnippet (s_unpack f) pos
-        hSetSGR stderr [Reset]
       _ -> do
         hSetSGR stderr [SetColor Foreground Vivid Red, SetConsoleIntensity BoldIntensity]
         hPutStr stderr $ "Error: "
         hSetSGR stderr [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
         hPutStrLn stderr $ err_msg e
-        hSetSGR stderr [Reset]
+    hSetSGR stderr [Reset]
 
   lpad :: String -> Int -> String
   lpad s n = (take (n - length s) (repeat ' ')) ++ s

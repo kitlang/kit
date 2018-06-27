@@ -22,7 +22,8 @@ library:
   - Kit.CodeGen.C
   - Kit.Compiler
   - Kit.Error
-  - Kit.Hash
+  - Kit.HashTable
+  - Kit.Log
   - Kit.Parser
   - Kit.Str
   dependencies:
@@ -36,6 +37,7 @@ library:
   - language-c
   - pretty
   - text
+  - time
   - transformers
 
 executables:
@@ -47,6 +49,7 @@ executables:
     - ansi-terminal
     - kitlang
     - optparse-applicative ==0.14.2.0
+    - time
 
   kit:
     main: Main.hs

@@ -1,4 +1,4 @@
-module Kit.Hash where
+module Kit.HashTable where
 
   import Data.Hashable
   import qualified Data.HashTable.IO as H

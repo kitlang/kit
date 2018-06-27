@@ -4,6 +4,7 @@ module Main where
 
   import Control.Exception
   import Control.Monad
+  import Data.Time
   import System.Environment
   import System.Exit
   import System.IO
@@ -13,7 +14,8 @@ module Main where
   import Kit.Ast
   import Kit.Compiler
   import Kit.Error
-  import Kit.Hash
+  import Kit.HashTable
+  import Kit.Log
   import Kit.Str
 
   data Options = Options {
@@ -49,6 +51,7 @@ module Main where
 
   main :: IO ()
   main = do
+    startTime <- getCurrentTime
     argv <- getArgs
     let args = if length argv == 0 then ["--help"] else argv
 
@@ -61,16 +64,28 @@ module Main where
       then putStrLn $ "kitc v" ++ version
       else do
         modules <- h_new
+        std <- lookupEnv "KIT_STD_PATH"
+        let std_path = case std of
+                         Just x -> x
+                         Nothing -> "std"
         let context = compile_context {
             context_main_module = parseModulePath $ s_pack $ opt_main_module opts,
             context_output_dir = opt_output_dir opts,
-            context_source_paths = opt_source_paths opts,
+            context_source_paths = opt_source_paths opts ++ [std_path],
             context_defines = map (\s -> (takeWhile (/= '=') s, drop 1 $ dropWhile (/= '=') s)) (opt_defines opts),
-            context_modules = modules
+            context_modules = modules,
+            context_verbose = opt_verbose opts
           }
 
         result <- tryCompile context
-        case result of
-          Left (Errs []) -> do logError (err Unknown "An unknown error has occurred"); exitWith $ ExitFailure 1
-          Left (Errs errs) -> do forM errs logError; exitWith $ ExitFailure 1
-          Right () -> return ()
+        endTime <- getCurrentTime
+        status <- case result of
+          Left (Errs []) -> do logError (err Unknown ("An unknown error has occurred. Please report this!\n\n" ++ show context)); return 1
+          Left (Errs errs) -> do forM errs logError; return 1
+          Right () -> return 0
+        printLog $ "total compile time: " ++ (show $ diffUTCTime endTime startTime)
+        if status == 0
+          then return ()
+          else do
+            errorLog $ "compilation failed"
+            exitWith $ ExitFailure status

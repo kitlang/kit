@@ -1,7 +1,7 @@
 module Kit.Compiler.Scope where
 
   import Kit.Ast
-  import Kit.Hash
+  import Kit.HashTable
   import Kit.Str
 
   data Scope = Scope {

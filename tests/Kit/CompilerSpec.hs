@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -w #-}
+
 module Kit.CompilerSpec where
 
   import Test.Hspec
@@ -5,7 +7,7 @@ module Kit.CompilerSpec where
   import Kit.Ast
   import Kit.Compiler
   import Kit.Error
-  import Kit.Hash
+  import Kit.HashTable
   import Kit.Parser
   import Kit.Str
 
@@ -42,6 +44,8 @@ module Kit.CompilerSpec where
     describe "Variable resolution" $ do
       it "resolves variables to scopes, falling back to modules" $ do
         m <- newMod ["abc"] []
+        -- if we look for a binding in brokenMod, the test will fail
+        let brokenMod = Module {}
         h_insert (mod_vars m) "a" (newVar "a1")
         h_insert (mod_vars m) "b" (newVar "b1")
         h_insert (mod_vars m) "c" (newVar "c1")
@@ -52,8 +56,8 @@ module Kit.CompilerSpec where
         bindToScope s2 "a" (newVar "a3")
         let scopes = [s2, s1]
         let ctx = compile_context
-        fa <- findVar ctx scopes m "a"
-        fb <- findVar ctx scopes m "b"
+        fa <- findVar ctx scopes brokenMod "a"
+        fb <- findVar ctx scopes brokenMod "b"
         fc <- findVar ctx scopes m "c"
         fd <- findVar ctx scopes m "d"
         fa `shouldBe` (Just $ newVar "a3")
