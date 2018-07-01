@@ -6,6 +6,7 @@ module Kit.CompilerSpec where
   import Test.QuickCheck
   import Kit.Ast
   import Kit.Compiler
+  import Kit.Compiler.Passes
   import Kit.Error
   import Kit.HashTable
   import Kit.Parser
@@ -31,7 +32,8 @@ module Kit.CompilerSpec where
   spec = do
     describe "tryCompile" $ do
       it "fails when main doesn't exist" $ do
-        result <- expectFail compile_context {context_main_module = ["module", "that", "doesnt", "exist"]}
+        ctx <- compile_context
+        result <- expectFail ctx {context_main_module = ["module", "that", "doesnt", "exist"]}
         result `shouldBe` True
 
       it "finds imports" $ do
@@ -40,6 +42,13 @@ module Kit.CompilerSpec where
                       Err _ -> []
         m <- newMod [] exprs
         map fst (mod_imports m) `shouldBe` [["a"], ["b", "c"], ["d"]]
+
+      it "generates headers/code in the correct directories" $ do
+        ctx <- compile_context
+        includePath ctx ["apple"] `shouldBe` "build/include/apple.h"
+        includePath ctx ["apple", "banana"] `shouldBe` "build/include/apple/banana.h"
+        libPath ctx ["apple"] `shouldBe` "build/lib/apple.c"
+        libPath ctx ["apple", "banana"] `shouldBe` "build/lib/apple/banana.c"
 
     describe "Variable resolution" $ do
       it "resolves variables to scopes, falling back to modules" $ do
@@ -55,7 +64,7 @@ module Kit.CompilerSpec where
         s2 <- newScope
         bindToScope s2 "a" (newVar "a3")
         let scopes = [s2, s1]
-        let ctx = compile_context
+        ctx <- compile_context
         fa <- findVar ctx scopes brokenMod "a"
         fb <- findVar ctx scopes brokenMod "b"
         fc <- findVar ctx scopes m "c"

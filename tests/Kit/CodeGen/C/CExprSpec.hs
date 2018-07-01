@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -w #-}
+
 module Kit.CodeGen.C.CExprSpec where
 
   import Test.Hspec
@@ -6,114 +8,104 @@ module Kit.CodeGen.C.CExprSpec where
   import Language.C
   import Data.List
   import Kit.Ast
+  import Kit.Ir
   import Kit.Str
   import Kit.CodeGen.C
 
   showctype x = intercalate " " [show $ pretty t | t <- ctype x]
   showexpr x = renderStyle (Style {mode = LeftMode}) $ pretty $ transpile_expr x
   showstmt x = renderStyle (Style {mode = LeftMode}) $ pretty $ transpile_stmt x
-  showblock x = renderStyle (Style {mode = LeftMode}) $ pretty $ transpile_stmt $ e $ Block x
-
-  ident x = e $ Lvalue $ Var x
+  showblock x = renderStyle (Style {mode = LeftMode}) $ pretty $ transpile_stmt $ IrBlock x
 
   spec :: Spec
   spec = do
     describe "Transpile basic types" $ do
       it "transpiles int types" $ do
-        showctype (BasicType (TypeInt 8)) `shouldBe` "signed char"
-        showctype (BasicType (TypeInt 16)) `shouldBe` "signed short"
-        showctype (BasicType (TypeInt 32)) `shouldBe` "signed long"
-        showctype (BasicType (TypeInt 64)) `shouldBe` "signed long long"
+        showctype (TypeInt 8) `shouldBe` "signed char"
+        showctype (TypeInt 16) `shouldBe` "signed short"
+        showctype (TypeInt 32) `shouldBe` "signed long"
+        showctype (TypeInt 64) `shouldBe` "signed long long"
       it "transpiles unsigned int types" $ do
-        showctype (BasicType (TypeUint 8)) `shouldBe` "unsigned char"
-        showctype (BasicType (TypeUint 16)) `shouldBe` "unsigned short"
-        showctype (BasicType (TypeUint 32)) `shouldBe` "unsigned long"
-        showctype (BasicType (TypeUint 64)) `shouldBe` "unsigned long long"
+        showctype (TypeUint 8) `shouldBe` "unsigned char"
+        showctype (TypeUint 16) `shouldBe` "unsigned short"
+        showctype (TypeUint 32) `shouldBe` "unsigned long"
+        showctype (TypeUint 64) `shouldBe` "unsigned long long"
       it "transpiles float types" $ do
-        showctype (BasicType (TypeFloat 32)) `shouldBe` "float"
-        showctype (BasicType (TypeFloat 64)) `shouldBe` "double"
+        showctype (TypeFloat 32) `shouldBe` "float"
+        showctype (TypeFloat 64) `shouldBe` "double"
       it "transpiles void types" $ do
-        showctype (BasicType TypeVoid) `shouldBe` "void"
+        showctype TypeVoid `shouldBe` "void"
       it "transpiles atom types" $ do
-        showctype (BasicType $ TypeAtom "MyAtom") `shouldBe` "unsigned long"
+        showctype (TypeAtom "MyAtom") `shouldBe` "unsigned long"
       it "transpiles enum types" $ do
-        showctype (BasicType $ TypeSimpleEnum ("MyEnum") []) `shouldBe` "MyEnum"
-        showctype (BasicType $ TypeComplexEnum ("MyEnum2") []) `shouldBe` "MyEnum2"
-      it "transpiles file types" $ do
-        -- known: not implemented yet
-        showctype (BasicType $ TypeFile) `shouldBe` "*FILE"
+        showctype (TypeSimpleEnum "MyEnum" []) `shouldBe` "MyEnum"
+        showctype (TypeComplexEnum "MyEnum2" []) `shouldBe` "MyEnum2"
 
     describe "Transpile statements" $ do
       it "transpiles return statements" $ do
-        showstmt (e $ Return Nothing) `shouldBe` "return;"
-        showstmt (e $ Return $ Just $ ident "abc") `shouldBe` "return abc;"
+        showstmt (IrReturn Nothing) `shouldBe` "return;"
+        showstmt (IrReturn $ Just $ IrIdentifier "abc") `shouldBe` "return abc;"
       it "transpiles continue and break" $ do
-        showstmt (e $ Continue) `shouldBe` "continue;"
-        showstmt (e $ Break) `shouldBe` "break;"
+        showstmt (IrContinue) `shouldBe` "continue;"
+        showstmt (IrBreak) `shouldBe` "break;"
       it "transpiles statement blocks" $ do
-        showstmt (e $ Block [e $ Continue, e $ Break]) `shouldBe` "{\ncontinue;\nbreak;\n}"
+        showstmt (IrBlock [IrContinue, IrBreak]) `shouldBe` "{\ncontinue;\nbreak;\n}"
       it "transpiles if statements" $ do
-        showstmt (e $ If (e $ Literal $ BoolValue True) (e $ Continue) (Just $ e $ Break)) `shouldBe` "if (1)\n{\ncontinue;\n}\nelse\n{\nbreak;\n}"
-        showstmt (e $ If (e $ Literal $ BoolValue True) (e $ Continue) (Nothing)) `shouldBe` "if (1)\n{\ncontinue;\n}"
+        showstmt (IrIf (IrLiteral $ BoolValue True) (IrContinue) (Just $ IrBreak)) `shouldBe` "if (1)\n{\ncontinue;\n}\nelse\n{\nbreak;\n}"
+        showstmt (IrIf (IrLiteral $ BoolValue True) (IrContinue) (Nothing)) `shouldBe` "if (1)\n{\ncontinue;\n}"
       it "transpiles local variable declarations" $ do
         showblock [
-            te (e $ VarDeclaration $ VarDefinition {
-              var_name = Var "my_var",
-              var_default = Just $ ident "a"
-            }) (BasicType (TypeUint 16)),
-            te (e $ VarDeclaration $ VarDefinition {
-              var_name = Var "my_var2",
-              var_default = Nothing
-            }) (BasicType (TypeFloat 32))
+            IrVarDeclaration "my_var" (TypeUint 16) (Just $ IrIdentifier "a"),
+            IrVarDeclaration "my_var2" (TypeFloat 32) Nothing
           ] `shouldBe` "{\nunsigned short my_var = a;\nfloat my_var2;\n}"
       it "transpiles while loops" $ do
-        showstmt (e $ While (ident "a") (e $ Continue)) `shouldBe` "while (a)\ncontinue;"
+        showstmt (IrWhile (IrIdentifier "a") (IrContinue)) `shouldBe` "while (a)\ncontinue;"
       it "transpiles for loops" $ do
-        showstmt (e $ For (te (ident "a") (BasicType $ TypeUint 8)) (e $ RangeLiteral (e $ Literal $ IntValue "1") (e $ Literal $ IntValue "5")) (e $ Continue)) `shouldBe` "for (unsigned char a = 1; a < 5; ++a)\ncontinue;"
+        showstmt (IrFor "a" (TypeUint 8) (IrLiteral $ IntValue "1") (IrLiteral $ IntValue "5") (IrContinue)) `shouldBe` "for (unsigned char a = 1; a < 5; ++a)\ncontinue;"
 
     describe "Transpile expressions" $ do
       it "transpiles identifiers" $ do
-        showexpr (e $ Lvalue (Var "apple_banana")) `shouldBe` "apple_banana"
+        showexpr (IrIdentifier "apple_banana") `shouldBe` "apple_banana"
       it "transpiles bool literals" $ do
-        showexpr (e $ Literal $ BoolValue False) `shouldBe` "0"
-        showexpr (e $ Literal $ BoolValue True) `shouldBe` "1"
+        showexpr (IrLiteral $ BoolValue False) `shouldBe` "0"
+        showexpr (IrLiteral $ BoolValue True) `shouldBe` "1"
       it "transpiles int literals" $ do
-        showexpr (e $ Literal $ IntValue "1") `shouldBe` "1"
-        showexpr (e $ Literal $ IntValue "0100") `shouldBe` "100"
-        showexpr (e $ Literal $ IntValue "0x1234") `shouldBe` "4660"
-        showexpr (e $ Literal $ IntValue "0b0") `shouldBe` "0"
-        showexpr (e $ Literal $ IntValue "0b1") `shouldBe` "1"
-        showexpr (e $ Literal $ IntValue "0b011001") `shouldBe` "25"
-        showexpr (e $ Literal $ IntValue "0o1732") `shouldBe` "986"
+        showexpr (IrLiteral $ IntValue "1") `shouldBe` "1"
+        showexpr (IrLiteral $ IntValue "0100") `shouldBe` "100"
+        showexpr (IrLiteral $ IntValue "0x1234") `shouldBe` "4660"
+        showexpr (IrLiteral $ IntValue "0b0") `shouldBe` "0"
+        showexpr (IrLiteral $ IntValue "0b1") `shouldBe` "1"
+        showexpr (IrLiteral $ IntValue "0b011001") `shouldBe` "25"
+        showexpr (IrLiteral $ IntValue "0o1732") `shouldBe` "986"
       it "transpiles float literals" $ do
-        showexpr (e $ Literal $ FloatValue "0.1") `shouldBe` "0.1"
+        showexpr (IrLiteral $ FloatValue "0.1") `shouldBe` "0.1"
       it "transpiles binary operations" $ do
-        showexpr (e $ Binop Add (ident "a") (ident "b")) `shouldBe` "a + b"
-        showexpr (e $ Binop Sub (ident "a") (ident "b")) `shouldBe` "a - b"
-        showexpr (e $ Binop Mod (ident "a") (ident "b")) `shouldBe` "a % b"
-        showexpr (e $ Binop LeftShift (ident "a") (ident "b")) `shouldBe` "a << b"
-        showexpr (e $ Binop And (ident "a") (ident "b")) `shouldBe` "a && b"
-        showexpr (e $ Binop BitAnd (ident "a") (ident "b")) `shouldBe` "a & b"
-        showexpr (e $ Binop BitXor (ident "a") (ident "b")) `shouldBe` "a ^ b"
+        showexpr (IrBinop Add (IrIdentifier "a") (IrIdentifier "b")) `shouldBe` "a + b"
+        showexpr (IrBinop Sub (IrIdentifier "a") (IrIdentifier "b")) `shouldBe` "a - b"
+        showexpr (IrBinop Mod (IrIdentifier "a") (IrIdentifier "b")) `shouldBe` "a % b"
+        showexpr (IrBinop LeftShift (IrIdentifier "a") (IrIdentifier "b")) `shouldBe` "a << b"
+        showexpr (IrBinop And (IrIdentifier "a") (IrIdentifier "b")) `shouldBe` "a && b"
+        showexpr (IrBinop BitAnd (IrIdentifier "a") (IrIdentifier "b")) `shouldBe` "a & b"
+        showexpr (IrBinop BitXor (IrIdentifier "a") (IrIdentifier "b")) `shouldBe` "a ^ b"
       it "transpiles prefix unary operations" $ do
-        showexpr (e $ PreUnop Sub (ident "a")) `shouldBe` "-a"
-        showexpr (e $ PreUnop Invert (ident "a")) `shouldBe` "!a"
-        showexpr (e $ PreUnop InvertBits (ident "a")) `shouldBe` "~a"
-        showexpr (e $ PreUnop Inc (ident "a")) `shouldBe` "++a"
-        showexpr (e $ PreUnop Dec (ident "a")) `shouldBe` "--a"
+        showexpr (IrPreUnop Sub (IrIdentifier "a")) `shouldBe` "-a"
+        showexpr (IrPreUnop Invert (IrIdentifier "a")) `shouldBe` "!a"
+        showexpr (IrPreUnop InvertBits (IrIdentifier "a")) `shouldBe` "~a"
+        showexpr (IrPreUnop Inc (IrIdentifier "a")) `shouldBe` "++a"
+        showexpr (IrPreUnop Dec (IrIdentifier "a")) `shouldBe` "--a"
       it "transpiles postfix unary operations" $ do
-        showexpr (e $ PostUnop Inc (ident "a")) `shouldBe` "a++"
-        showexpr (e $ PostUnop Dec (ident "a")) `shouldBe` "a--"
+        showexpr (IrPostUnop Inc (IrIdentifier "a")) `shouldBe` "a++"
+        showexpr (IrPostUnop Dec (IrIdentifier "a")) `shouldBe` "a--"
       it "transpiles field access" $ do
-        showexpr (e $ Field (ident "a") (Var "abc")) `shouldBe` "a.abc"
+        showexpr (IrField (IrIdentifier "a") "abc") `shouldBe` "a.abc"
       it "transpiles array access" $ do
-        showexpr (e $ ArrayAccess (ident "a") (ident "b")) `shouldBe` "a[b]"
+        showexpr (IrArrayAccess (IrIdentifier "a") (IrIdentifier "b")) `shouldBe` "a[b]"
       it "transpiles function calls" $ do
-        showexpr (e $ Call (ident "a") [(ident "b"), (ident "c")]) `shouldBe` "a(b, c)"
+        showexpr (IrCall (IrIdentifier "a") [(IrIdentifier "b"), (IrIdentifier "c")]) `shouldBe` "a(b, c)"
       it "transpiles casts" $ do
-        showexpr (te (e $ Cast (ident "a") (ParameterizedTypePath (([], ""), []))) (BasicType $ TypeVoid)) `shouldBe` "(void) a"
-        showexpr (te (e $ Cast (ident "abc") (ParameterizedTypePath (([], ""), []))) (BasicType $ TypeInt 8)) `shouldBe` "(signed char) abc"
+        showexpr (IrCast (IrIdentifier "a") TypeVoid) `shouldBe` "(void) a"
+        showexpr (IrCast (IrIdentifier "abc") (TypeInt 8)) `shouldBe` "(signed char) abc"
       {-it "transpiles vector literals" $ do
-        showexpr (e $ VectorLiteral [(ident "b"), (ident "c")]) `shouldBe` "[b, c]"-}
+        showexpr (VectorLiteral [(IrIdentifier "b"), (IrIdentifier "c")]) `shouldBe` "[b, c]"-}
 
       -- TODO: vector literal

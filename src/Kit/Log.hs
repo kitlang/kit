@@ -12,45 +12,45 @@ module Kit.Log where
   data LogLevel
     = Notice
     | Debug
-    | Info
     | Warning
     | Error
+
+  normal = SetConsoleIntensity NormalIntensity
+  bold = SetConsoleIntensity BoldIntensity
+  color = SetColor Foreground Vivid
 
   logColor lv = case lv of
     Notice -> White
     Debug -> Blue
-    Info -> Cyan
     Warning -> Yellow
     Error -> Red
 
   logPrefix :: LogLevel -> IO ()
   logPrefix lv = do
-    hSetSGR stderr [SetColor Foreground Vivid (logColor lv), SetConsoleIntensity BoldIntensity]
+    hSetSGR stderr [color (logColor lv), normal]
     case lv of
       Notice -> hPutStr stderr "===> "
       Debug -> hPutStr stderr "DBG: "
-      Info -> hPutStr stderr "INF: "
       Warning -> hPutStr stderr "WRN: "
       Error -> hPutStr stderr "ERR: "
 
   logMsg :: LogLevel -> String -> IO ()
   logMsg lv msg = do
-    hSetSGR stderr [SetColor Foreground Vivid Blue, SetConsoleIntensity NormalIntensity]
+    hSetSGR stderr [color Blue, normal]
     hPutStr stderr "["
-    hSetSGR stderr [SetColor Foreground Vivid Cyan, SetConsoleIntensity NormalIntensity]
+    hSetSGR stderr [color Cyan, normal]
     t <- getCurrentTime
     hPutStr stderr $ formatTime defaultTimeLocale "%F %T.%6q" t
-    hSetSGR stderr [SetColor Foreground Vivid Blue, SetConsoleIntensity NormalIntensity]
+    hSetSGR stderr [color Blue, normal]
     hPutStr stderr "] "
     logPrefix lv
     let intensity = case lv of
-                      Notice -> BoldIntensity
-                      _ -> NormalIntensity
-    hSetSGR stderr [SetColor Foreground Vivid White, SetConsoleIntensity intensity]
+                      Notice -> bold
+                      _ -> normal
+    hSetSGR stderr [color (logColor lv), intensity]
     hPutStrLn stderr msg
     hSetSGR stderr [Reset]
 
   printLog = logMsg Notice
-  infoLog = logMsg Info
   warningLog = logMsg Warning
   errorLog = logMsg Error

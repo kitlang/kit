@@ -1,6 +1,7 @@
 module Kit.Ast.Base where
 
   import Data.List
+  import System.FilePath
   import Kit.Str
 
   type ModulePath = [Str]
@@ -11,6 +12,9 @@ module Kit.Ast.Base where
   showModulePath :: ModulePath -> Str
   showModulePath s = s_join "." s
 
+  moduleFilePath :: ModulePath -> FilePath
+  moduleFilePath mod = replaceExtension (joinPath (map s_unpack mod)) ".kit"
+
   data Lvalue
     = Var Str
     | MacroVar Str
@@ -19,8 +23,3 @@ module Kit.Ast.Base where
   lvalue_name x = case x of
     Var s -> s
     MacroVar s -> s
-
-  data IncludePath
-    = SystemHeader Str
-    | LocalHeader Str
-    deriving (Eq, Show)

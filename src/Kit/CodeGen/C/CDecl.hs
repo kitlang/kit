@@ -4,17 +4,8 @@ module Kit.CodeGen.C.CDecl where
   import Language.C
   import Kit.Ast
   import Kit.CodeGen.C.CExpr
+  import Kit.Ir
   import Kit.Str
-
-  param_name :: ParameterizedType -> String
-  -- TODO
-  param_name p = show p
-
-  monomorph_suffix :: [ParameterizedType] -> String
-  monomorph_suffix tp = intercalate "_" (map param_name tp)
-
-  cstruct_name :: ModulePath -> [ParameterizedType] -> Structure -> String
-  cstruct_name m tp s = (intercalate "_" $ map s_unpack m) ++ "__" ++ (s_unpack $ structure_name s) ++ (if length tp > 0 then "__" else "") ++ (monomorph_suffix tp)
 
   cdecl :: BasicType -> [CDecl]
   {- Kit struct = C struct -}
@@ -23,7 +14,7 @@ module Kit.CodeGen.C.CDecl where
           CStorageSpec $ u $ CTypedef,
           CTypeSpec $ u $ CSUType $ u $ CStruct CStructTag Nothing (Just f) []
         ] [(Just $ u $ CDeclr (Just $ internalIdent $ s_unpack name) [] Nothing [], Nothing, Nothing)]]
-      where f = [u $ CDecl (ctype (BasicType t)) [(Just $ u $ CDeclr (Just $ internalIdent $ s_unpack n) [] Nothing [], Nothing, Nothing)] | (n, t) <- fields]
+      where f = [u $ CDecl (ctype t) [(Just $ u $ CDeclr (Just $ internalIdent $ s_unpack n) [] Nothing [], Nothing, Nothing)] | (n, t) <- fields]
 
   {- Simple enums (no variant has any fields) will generate a C enum. -}
   cdecl (TypeSimpleEnum name variant_names)

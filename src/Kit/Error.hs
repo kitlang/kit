@@ -12,6 +12,8 @@ module Kit.Error where
   data ErrorType
     = ParseError
     | ImportError
+    | IncludeError
+    | ValidationError
     | Unknown
     deriving (Eq, Show)
 

@@ -30,6 +30,7 @@ module Kit.Parser.Token where
     | KeywordBreak
     | KeywordCase
     | KeywordCode
+    | KeywordConst
     | KeywordContinue
     | KeywordCopy
     | KeywordDefault
@@ -107,6 +108,7 @@ module Kit.Parser.Token where
       KeywordBreak -> "break"
       KeywordCase -> "case"
       KeywordCode -> "code"
+      KeywordConst -> "const"
       KeywordContinue -> "continue"
       KeywordCopy -> "copy"
       KeywordDefault -> "default"

@@ -5,7 +5,7 @@ module Kit.CodeGen.C.CDeclSpec where
   import Text.PrettyPrint
   import Language.C
   import Data.List
-  import Kit.Ast
+  import Kit.Ir
   import Kit.Str
   import Kit.CodeGen.C
 

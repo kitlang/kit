@@ -4,6 +4,7 @@ module Main where
 
   import Control.Exception
   import Control.Monad
+  import Data.IORef
   import Data.Time
   import System.Environment
   import System.Exit
@@ -25,6 +26,7 @@ module Main where
     opt_main_module :: String,
     opt_output_dir :: FilePath,
     opt_source_paths :: [FilePath],
+    opt_include_paths :: [FilePath],
     opt_defines :: [String]
   } deriving (Eq, Show)
 
@@ -36,12 +38,11 @@ module Main where
     <*> strOption (long "main" <> short 'm' <> showDefault <> value "main" <> metavar "MODULE" <> help "module path containing main() function")
     <*> strOption (long "output" <> short 'o' <> showDefault <> value "build" <> metavar "DIR" <> help "sets the output directory")
     <*> many sourceDirParser
+    <*> many includeDirParser
     <*> many definesParser
 
-  sourceDirParser :: Parser String
   sourceDirParser = strOption (long "src" <> short 's' <> metavar "DIR" <> help "add a source directory")
-
-  definesParser :: Parser String
+  includeDirParser = strOption (long "include" <> short 'I' <> metavar "DIR" <> help "add a header include directory")
   definesParser = strOption (long "define" <> short 'D' <> metavar "KEY[=VAL]" <> help "add a define")
 
   helper' :: Parser (a -> a)
@@ -68,19 +69,21 @@ module Main where
         let std_path = case std of
                          Just x -> x
                          Nothing -> "std"
-        let context = compile_context {
+        base_context <- compile_context
+        let ctx = base_context {
             context_main_module = parseModulePath $ s_pack $ opt_main_module opts,
             context_output_dir = opt_output_dir opts,
+            context_include_paths = opt_include_paths opts ++ ["/usr/include"],
             context_source_paths = opt_source_paths opts ++ [std_path],
             context_defines = map (\s -> (takeWhile (/= '=') s, drop 1 $ dropWhile (/= '=') s)) (opt_defines opts),
             context_modules = modules,
             context_verbose = opt_verbose opts
           }
 
-        result <- tryCompile context
+        result <- tryCompile ctx
         endTime <- getCurrentTime
         status <- case result of
-          Left (Errs []) -> do logError (err Unknown ("An unknown error has occurred. Please report this!\n\n" ++ show context)); return 1
+          Left (Errs []) -> do logError (err Unknown ("An unknown error has occurred. Please report this!\n\n" ++ show ctx)); return 1
           Left (Errs errs) -> do forM errs logError; return 1
           Right () -> return 0
         printLog $ "total compile time: " ++ (show $ diffUTCTime endTime startTime)

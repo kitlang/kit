@@ -110,61 +110,65 @@ module Kit.Parser.ParserSpec where
 
 
       it "parses typedefs" $ do
-        testParse "typedef MyType = OtherType;" `shouldBe` [e $ TypeDeclaration $ Structure {
-          structure_name = "MyType",
-          structure_doc = Nothing,
-          structure_meta = [],
-          structure_modifiers = [],
-          structure_rules = [],
-          structure_type = Typedef {
-            typedef_params = [],
+        testParse "typedef MyType = OtherType;" `shouldBe` [e $ TypeDeclaration $ TypeDefinition {
+          type_name = "MyType",
+          type_doc = Nothing,
+          type_meta = [],
+          type_modifiers = [],
+          type_rules = [],
+          type_params = [],
+          type_type = Typedef {
             typedef_definition = ParameterizedTypePath (([], "OtherType"), [])
           }
         }]
-        testParse "typedef MyType[A] = OtherType[B];" `shouldBe` [e $ TypeDeclaration $ Structure {
-          structure_name = "MyType",
-          structure_doc = Nothing,
-          structure_meta = [],
-          structure_modifiers = [],
-          structure_rules = [],
-          structure_type = Typedef {
-            typedef_params = [TypeParam {t = (([], "A"),[]), constraints = []}],
+        testParse "typedef MyType[A] = OtherType[B];" `shouldBe` [e $ TypeDeclaration $ TypeDefinition {
+          type_name = "MyType",
+          type_doc = Nothing,
+          type_meta = [],
+          type_modifiers = [],
+          type_rules = [],
+          type_params = [TypeParam {t = (([], "A"),[]), constraints = []}],
+          type_type = Typedef {
             typedef_definition = ParameterizedTypePath (([], "OtherType"), [TypeParam {t = (([], "B"),[]), constraints = []}])
           }
         }]
 
       it "parses atoms" $ do
-        testParse "atom MyAtom;" `shouldBe` [e $ TypeDeclaration $ Structure {
-          structure_name = "MyAtom",
-          structure_type = Atom,
-          structure_doc = Nothing,
-          structure_meta = [],
-          structure_modifiers = [],
-          structure_rules = []
+        testParse "atom MyAtom;" `shouldBe` [e $ TypeDeclaration $ TypeDefinition {
+          type_name = "MyAtom",
+          type_type = Atom,
+          type_doc = Nothing,
+          type_meta = [],
+          type_modifiers = [],
+          type_rules = [],
+          type_params = []
         }]
-        testParse "public atom MyAtom;" `shouldBe` [e $ TypeDeclaration $ Structure {
-          structure_name = "MyAtom",
-          structure_type = Atom,
-          structure_doc = Nothing,
-          structure_meta = [],
-          structure_modifiers = [Public],
-          structure_rules = []
+        testParse "public atom MyAtom;" `shouldBe` [e $ TypeDeclaration $ TypeDefinition {
+          type_name = "MyAtom",
+          type_type = Atom,
+          type_doc = Nothing,
+          type_meta = [],
+          type_modifiers = [Public],
+          type_rules = [],
+          type_params = []
         }]
-        testParse "/** Doc*/ atom MyAtom;" `shouldBe` [e $ TypeDeclaration $ Structure {
-          structure_name = "MyAtom",
-          structure_type = Atom,
-          structure_doc = Just "Doc",
-          structure_meta = [],
-          structure_modifiers = [],
-          structure_rules = []
+        testParse "/** Doc*/ atom MyAtom;" `shouldBe` [e $ TypeDeclaration $ TypeDefinition {
+          type_name = "MyAtom",
+          type_type = Atom,
+          type_doc = Just "Doc",
+          type_meta = [],
+          type_modifiers = [],
+          type_rules = [],
+          type_params = []
         }]
-        testParse "/** Doc*/ #[meta] public atom MyAtom;" `shouldBe` [e $ TypeDeclaration $ Structure {
-          structure_name = "MyAtom",
-          structure_type = Atom,
-          structure_doc = Just "Doc",
-          structure_meta = [Metadata {meta_name = "meta", meta_args = []}],
-          structure_modifiers = [Public],
-          structure_rules = []
+        testParse "/** Doc*/ #[meta] public atom MyAtom;" `shouldBe` [e $ TypeDeclaration $ TypeDefinition {
+          type_name = "MyAtom",
+          type_type = Atom,
+          type_doc = Just "Doc",
+          type_meta = [Metadata {meta_name = "meta", meta_args = []}],
+          type_modifiers = [Public],
+          type_rules = [],
+          type_params = []
         }]
 
       it "parses enums" $ do
@@ -172,14 +176,14 @@ module Kit.Parser.ParserSpec where
               \    Apple;\n\
               \    Banana(i: Int);\n\
               \    /**Abc*/ Strawberry = 1;\n\
-              \}" `shouldBe` [e $ TypeDeclaration $ Structure {
-          structure_name = "MyEnum",
-          structure_doc = Nothing,
-          structure_meta = [],
-          structure_modifiers = [],
-          structure_rules = [],
-          structure_type = Enum {
-            enum_params = [],
+              \}" `shouldBe` [e $ TypeDeclaration $ TypeDefinition {
+          type_name = "MyEnum",
+          type_doc = Nothing,
+          type_meta = [],
+          type_modifiers = [],
+          type_rules = [],
+          type_params = [],
+          type_type = Enum {
             enum_underlying_type = Just (ParameterizedTypePath (([], "Float"),[])),
             enum_variants = [
               EnumVariant {
@@ -215,14 +219,14 @@ module Kit.Parser.ParserSpec where
               \    var abc;\n\
               \    public var def;\n\
               \    /** test */ #[meta] var ghi: Int = 1;\n\
-              \}" `shouldBe` [e $ TypeDeclaration $ Structure {
-          structure_name = "MyStruct",
-          structure_doc = Nothing,
-          structure_meta = [],
-          structure_modifiers = [],
-          structure_rules = [],
-          structure_type = Struct {
-            struct_params = [],
+              \}" `shouldBe` [e $ TypeDeclaration $ TypeDefinition {
+          type_name = "MyStruct",
+          type_doc = Nothing,
+          type_meta = [],
+          type_modifiers = [],
+          type_rules = [],
+          type_params = [],
+          type_type = Struct {
             struct_fields = [
               VarDefinition {
                 var_name = Var "abc",
@@ -254,4 +258,4 @@ module Kit.Parser.ParserSpec where
 
     describe "Parses expression lists" $ do
       it "parses multiple statements" $ do
-        testParse "import a; import b;" `shouldBe` [e $ Import ["a"], e $ Import ["b"]]
+        testParse "import a; import b; import c; import d;" `shouldBe` [e $ Import ["a"], e $ Import ["b"], e $ Import ["c"], e $ Import ["d"]]

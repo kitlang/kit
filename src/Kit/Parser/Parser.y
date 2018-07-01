@@ -40,6 +40,7 @@ import Kit.Parser.Token
   break {(KeywordBreak,_)}
   case {(KeywordCase,_)}
   code {(KeywordCode,_)}
+  const {(KeywordConst,_)}
   continue {(KeywordContinue,_)}
   copy {(KeywordCopy,_)}
   default {(KeywordDefault,_)}
@@ -122,72 +123,72 @@ Expressions :: {[Expr]}
   : Expressions_ {reverse $1}
 Expressions_ :: {[Expr]}
   : {[]}
-  | Expressions ToplevelExpr {$2 : $1}
+  | Expressions_ ToplevelExpr {$2 : $1}
 
 ToplevelExpr :: {Expr}
   : import ModulePath ';' {pe (p $1 <+> p $3) $ Import (reverse $ fst $2)}
-  | include '<' str '>' ';' {pe (p $1 <+> p $5) $ Include $ SystemHeader $ extract_lit $ fst $3}
-  | include str ';' {pe (p $1 <+> p $3) $ Include $ LocalHeader $ extract_lit $ fst $2}
+  | include str ';' {pe (p $1 <+> p $3) $ Include $ B.unpack $ extract_lit $ fst $2}
   | DocMetaMods typedef upper_identifier TypeParams '=' TypeSpec ';' {
-    pe (fp [p $1, p $2, p $7]) $ TypeDeclaration $ Structure {
-      structure_name = extract_upper_identifier $3,
-      structure_doc = doc $1,
-      structure_meta = reverse $ metas $1,
-      structure_modifiers = reverse $ mods $1,
-      structure_rules = [],
-      structure_type = Typedef {
-        typedef_params = fst $4,
+    pe (fp [p $1, p $2, p $7]) $ TypeDeclaration $ TypeDefinition {
+      type_name = extract_upper_identifier $3,
+      type_doc = doc $1,
+      type_meta = reverse $ metas $1,
+      type_modifiers = reverse $ mods $1,
+      type_rules = [],
+      type_params = fst $4,
+      type_type = Typedef {
         typedef_definition = fst $6
       }
     }
   }
   | DocMetaMods atom upper_identifier ';' {
-    pe (fp [p $1, p $2, p $4]) $ TypeDeclaration $ Structure {
-      structure_name = extract_upper_identifier $3,
-      structure_doc = doc $1,
-      structure_meta = reverse $ metas $1,
-      structure_modifiers = reverse $ mods $1,
-      structure_rules = [],
-      structure_type = Atom
+    pe (fp [p $1, p $2, p $4]) $ TypeDeclaration $ TypeDefinition {
+      type_name = extract_upper_identifier $3,
+      type_doc = doc $1,
+      type_meta = reverse $ metas $1,
+      type_modifiers = reverse $ mods $1,
+      type_rules = [],
+      type_params = [],
+      type_type = Atom
     }
   }
   | DocMetaMods enum upper_identifier TypeParams TypeAnnotation '{' RewriteRulesOrVariants '}' {
-    pe (fp [p $1, p $2, p $8]) $ TypeDeclaration $ Structure {
-      structure_name = extract_upper_identifier $3,
-      structure_doc = doc $1,
-      structure_meta = reverse $ metas $1,
-      structure_modifiers = reverse $ mods $1,
-      structure_rules = reverse (snd $7),
-      structure_type = Enum {
-        enum_params = fst $4,
+    pe (fp [p $1, p $2, p $8]) $ TypeDeclaration $ TypeDefinition {
+      type_name = extract_upper_identifier $3,
+      type_doc = doc $1,
+      type_meta = reverse $ metas $1,
+      type_modifiers = reverse $ mods $1,
+      type_rules = reverse (snd $7),
+      type_params = fst $4,
+      type_type = Enum {
         enum_variants = reverse (fst $7),
         enum_underlying_type = fst $5
       }
     }
   }
   | DocMetaMods struct upper_identifier TypeParams '{' RewriteRulesOrFields '}' {
-    pe (fp [p $1, p $2, p $7]) $ TypeDeclaration $ Structure {
-      structure_name = extract_upper_identifier $3,
-      structure_doc = doc $1,
-      structure_meta = reverse $ metas $1,
-      structure_modifiers = reverse $ mods $1,
-      structure_rules = reverse (snd $6),
-      structure_type = Struct {
-        struct_params = fst $4,
+    pe (fp [p $1, p $2, p $7]) $ TypeDeclaration $ TypeDefinition {
+      type_name = extract_upper_identifier $3,
+      type_doc = doc $1,
+      type_meta = reverse $ metas $1,
+      type_modifiers = reverse $ mods $1,
+      type_rules = reverse (snd $6),
+      type_params = fst $4,
+      type_type = Struct {
         struct_fields = reverse (fst $6)
       }
     }
   }
   | DocMetaMods abstract upper_identifier TypeParams TypeAnnotation '{' RewriteRules '}' {
-    pe (fp [p $1, p $2, p $8]) $ TypeDeclaration $ Structure {
-      structure_name = extract_upper_identifier $3,
-      structure_doc = doc $1,
-      structure_meta = reverse $ metas $1,
-      structure_modifiers = reverse $ mods $1,
-      structure_rules = reverse $7,
-      structure_type = Abstract {
-        abstract_underlying_type = fst $5,
-        abstract_params = fst $4
+    pe (fp [p $1, p $2, p $8]) $ TypeDeclaration $ TypeDefinition {
+      type_name = extract_upper_identifier $3,
+      type_doc = doc $1,
+      type_meta = reverse $ metas $1,
+      type_modifiers = reverse $ mods $1,
+      type_rules = reverse $7,
+      type_params = fst $4,
+      type_type = Abstract {
+        abstract_underlying_type = fst $5
       }
     }
   }
@@ -312,6 +313,7 @@ Modifiers :: {([Modifier], Span)}
   | Modifiers inline {(Inline : fst $1, snd $1 <+> p $2)}
   | Modifiers override {(Override : fst $1, snd $1 <+> p $2)}
   | Modifiers static {(Static : fst $1, snd $1 <+> p $2)}
+  | Modifiers const {(Const : fst $1, snd $1 <+> p $2)}
 
 DocMetaMods :: {((Maybe B.ByteString, [Metadata], [Modifier]), Span)}
   : DocComment Metas Modifiers {(($1, fst $2, fst $3), (p $2) <+> (p $3))}
@@ -668,6 +670,7 @@ LexMacroToken :: {Token}
   | break {$1}
   | case {$1}
   | code {$1}
+  | const {$1}
   | continue {$1}
   | copy {$1}
   | default {$1}

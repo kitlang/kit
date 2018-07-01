@@ -9,7 +9,7 @@ module Kit.Ast.Expr where
   import Kit.Ast.Value
   import Kit.Parser.Token
 
-  data Expr = Expr {expr :: ExprType, pos :: Span, expr_type :: Maybe ConcreteType} deriving (Show)
+  data Expr = Expr {expr :: ExprType, pos :: Span} deriving (Show)
   instance Eq Expr where
     (==) a b = (expr a) == (expr b) && (pos a == pos b || pos b == null_span)
 
@@ -17,16 +17,13 @@ module Kit.Ast.Expr where
   e et = ep et null_span
 
   ep :: ExprType -> Span -> Expr
-  ep et p = Expr {expr = et, pos = p, expr_type = Nothing}
+  ep et p = Expr {expr = et, pos = p}
 
   pe :: Span -> ExprType -> Expr
   pe p et = ep et p
 
   me :: Span -> Expr -> Expr
-  me p ex = Expr {expr = expr ex, pos = p, expr_type = Nothing}
-
-  te :: Expr -> ConcreteType -> Expr
-  te ex t = ex {expr_type = Just t}
+  me p ex = Expr {expr = expr ex, pos = p}
 
   data MatchCase = MatchCase {match_pattern :: Expr, match_body :: Expr} deriving (Eq, Show)
   data Metadata = Metadata {meta_name :: Str, meta_args :: [Expr]} deriving (Eq, Show)
@@ -67,29 +64,30 @@ module Kit.Ast.Expr where
     | RangeLiteral Expr Expr
     | VectorLiteral [Expr]
     | Import ModulePath
-    | Include IncludePath
+    | Include FilePath
     | VarDeclaration VarDefinition
     | FunctionDeclaration FunctionDefinition
-    | TypeDeclaration Structure
+    | TypeDeclaration TypeDefinition
     | TraitDeclaration TraitDefinition
     | Implement TraitImplementation
     deriving (Eq, Show)
 
-  data Structure = Structure {
-    structure_name :: Str,
-    structure_doc :: Maybe Str,
-    structure_meta :: [Metadata],
-    structure_modifiers :: [Modifier],
-    structure_rules :: [RewriteRule],
-    structure_type :: StructureType
+  data TypeDefinition = TypeDefinition {
+    type_name :: Str,
+    type_doc :: Maybe Str,
+    type_meta :: [Metadata],
+    type_modifiers :: [Modifier],
+    type_rules :: [RewriteRule],
+    type_type :: TypeDefinitionType,
+    type_params :: [TypeParam]
   } deriving (Eq, Show)
 
-  data StructureType
+  data TypeDefinitionType
     = Atom
-    | Struct {struct_params :: [TypeParam], struct_fields :: [VarDefinition]}
-    | Enum {enum_params :: [TypeParam], enum_variants :: [EnumVariant], enum_underlying_type :: Maybe TypeSpec}
-    | Abstract {abstract_params :: [TypeParam], abstract_underlying_type :: Maybe TypeSpec}
-    | Typedef {typedef_params :: [TypeParam], typedef_definition :: TypeSpec}
+    | Struct {struct_fields :: [VarDefinition]}
+    | Enum {enum_variants :: [EnumVariant], enum_underlying_type :: Maybe TypeSpec}
+    | Abstract {abstract_underlying_type :: Maybe TypeSpec}
+    | Typedef {typedef_definition :: TypeSpec}
     deriving (Eq, Show)
 
   data VarDefinition = VarDefinition {

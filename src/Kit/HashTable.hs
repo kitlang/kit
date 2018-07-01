@@ -7,7 +7,7 @@ module Kit.HashTable where
 
   -- defaulting a bit larger so we don't have to resize as frequently
   h_new :: (Eq k, Hashable k) => IO (HashTable k v)
-  h_new = H.newSized 128
+  h_new = H.newSized 16
 
   h_newSized :: (Eq k, Hashable k) => Int -> IO (HashTable k v)
   h_newSized n = H.newSized n
@@ -34,3 +34,6 @@ module Kit.HashTable where
     return $ case val of
       Just x -> x
       Nothing -> error "Unexpected missing HashTable key"
+
+  h_toList :: (Eq k, Hashable k) => HashTable k v -> IO [(k, v)]
+  h_toList = H.toList

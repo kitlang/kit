@@ -7,4 +7,5 @@ module Kit.Ast.Modifier where
     | Inline
     | Override
     | Static
+    | Const
     deriving (Eq, Show)

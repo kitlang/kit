@@ -45,6 +45,7 @@ tokens :-
   break { tok KeywordBreak }
   case { tok KeywordCase }
   code { tok KeywordCode }
+  const { tok KeywordConst }
   continue { tok KeywordContinue }
   copy { tok KeywordCopy }
   default { tok KeywordDefault }

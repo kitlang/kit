@@ -2,69 +2,75 @@ module Kit.CodeGen.C.CExpr where
 
   import Numeric
   import Language.C
-  import Kit.Ast
+  import Language.C.Data.Position
+  import Kit.Ast.Operator
+  import Kit.Ast.Value
+  import Kit.Ir
+  import Kit.Parser.Span
   import Kit.Str
 
   u x = x undefNode
+  cpos p x = x $ case (file p) of
+    Just f -> mkNodeInfoOnlyPos $ position 0 (s_unpack f) (start_line p) (start_col p) Nothing
+    Nothing -> undefNode
   ct x = CTypeSpec $ u x
 
   type_name_decl name = ct $ CTypeDef $ internalIdent $ s_unpack name
 
-  ctype :: ConcreteType -> [CDeclSpec]
-  ctype (BasicType TypeVoid) = [ct CVoidType]
-  ctype (BasicType (TypeInt 8)) = [ct CSignedType, ct CCharType]
-  ctype (BasicType (TypeInt 16)) = [ct CSignedType, ct CShortType]
-  ctype (BasicType (TypeInt 32)) = [ct CSignedType, ct CLongType]
-  ctype (BasicType (TypeInt 64)) = [ct CSignedType, ct CLongType, ct CLongType]
-  ctype (BasicType (TypeUint 8)) = [ct CUnsigType, ct CCharType]
-  ctype (BasicType (TypeUint 16)) = [ct CUnsigType, ct CShortType]
-  ctype (BasicType (TypeUint 32)) = [ct CUnsigType, ct CLongType]
-  ctype (BasicType (TypeUint 64)) = [ct CUnsigType, ct CLongType, ct CLongType]
-  ctype (BasicType (TypeFloat 32)) = [ct CFloatType]
-  ctype (BasicType (TypeFloat 64)) = [ct CDoubleType]
-  ctype (BasicType (TypeAtom _)) = [ct CUnsigType, ct CLongType]
-  ctype (BasicType (TypeStruct (name, _))) = [type_name_decl name]
-  ctype (BasicType (TypeSimpleEnum name _)) = [type_name_decl name]
-  ctype (BasicType (TypeComplexEnum name _)) = [type_name_decl name]
-  ctype (BasicType (TypeFile)) = [type_name_decl "FILE"]
+  ctype :: BasicType -> [CDeclSpec]
+  ctype TypeVoid = [ct CVoidType]
+  ctype (TypeInt 8) = [ct CSignedType, ct CCharType]
+  ctype (TypeInt 16) = [ct CSignedType, ct CShortType]
+  ctype (TypeInt 32) = [ct CSignedType, ct CLongType]
+  ctype (TypeInt 64) = [ct CSignedType, ct CLongType, ct CLongType]
+  ctype (TypeUint 8) = [ct CUnsigType, ct CCharType]
+  ctype (TypeUint 16) = [ct CUnsigType, ct CShortType]
+  ctype (TypeUint 32) = [ct CUnsigType, ct CLongType]
+  ctype (TypeUint 64) = [ct CUnsigType, ct CLongType, ct CLongType]
+  ctype (TypeFloat 32) = [ct CFloatType]
+  ctype (TypeFloat 64) = [ct CDoubleType]
+  ctype (TypeAtom _) = [ct CUnsigType, ct CLongType]
+  ctype (TypeStruct (name, _)) = [type_name_decl name]
+  ctype (TypeSimpleEnum name _) = [type_name_decl name]
+  ctype (TypeComplexEnum name _) = [type_name_decl name]
 
   --transpile :: [Expr] -> [CStat]
   --transpile exprs
 
-  transpile_expr :: Expr -> CExpr
-  transpile_expr (Expr {expr = Lvalue (Var s)}) = u $ CVar $ internalIdent $ s_unpack s
-  transpile_expr (Expr {expr = Literal (BoolValue b)}) = CConst $ u $ CIntConst $ cInteger (if b then 1 else 0)
-  transpile_expr (Expr {expr = Literal (IntValue i)}) = CConst $ u $ CIntConst $ transpile_int (s_unpack i)
-  transpile_expr (Expr {expr = Literal (FloatValue f)}) = CConst $ u $ CFloatConst $ transpile_float (s_unpack f)
-  transpile_expr (Expr {expr = Binop op e1 e2}) = u $ CBinary (transpile_binop op) (transpile_expr e1) (transpile_expr e2)
-  transpile_expr (Expr {expr = PreUnop op e1}) = u $ CUnary (transpile_pre_unop op) (transpile_expr e1)
-  transpile_expr (Expr {expr = PostUnop op e1}) = u $ CUnary (transpile_post_unop op) (transpile_expr e1)
-  -- TODO: -> ?
-  transpile_expr (Expr {expr = Field e (Var s)}) = u $ CMember (transpile_expr e) (internalIdent $ s_unpack s) False
-  transpile_expr (Expr {expr = ArrayAccess e1 e2}) = u $ CIndex (transpile_expr e1) (transpile_expr e2)
-  transpile_expr (Expr {expr = Call e args}) = u $ CCall (transpile_expr e) [transpile_expr x | x <- args]
-  transpile_expr (Expr {expr = Cast e _, expr_type = Just t}) = u $ CCast (u $ CDecl (ctype t) []) (transpile_expr e)
+  transpile_expr :: IrExpr -> CExpr
+  transpile_expr (IrIdentifier s) = u $ CVar $ internalIdent $ s_unpack s
+  transpile_expr (IrLiteral (BoolValue b)) = CConst $ u $ CIntConst $ cInteger (if b then 1 else 0)
+  transpile_expr (IrLiteral (IntValue i)) = CConst $ u $ CIntConst $ transpile_int (s_unpack i)
+  transpile_expr (IrLiteral (FloatValue f)) = CConst $ u $ CFloatConst $ transpile_float (s_unpack f)
+  transpile_expr (IrBinop op e1 e2) = u $ CBinary (transpile_binop op) (transpile_expr e1) (transpile_expr e2)
+  transpile_expr (IrPreUnop op e1) = u $ CUnary (transpile_pre_unop op) (transpile_expr e1)
+  transpile_expr (IrPostUnop op e1) = u $ CUnary (transpile_post_unop op) (transpile_expr e1)
+  transpile_expr (IrField e s) = u $ CMember (transpile_expr e) (internalIdent $ s_unpack s) False
+  transpile_expr (IrArrayAccess e1 e2) = u $ CIndex (transpile_expr e1) (transpile_expr e2)
+  transpile_expr (IrCall e args) = u $ CCall (transpile_expr e) [transpile_expr x | x <- args]
+  transpile_expr (IrCast e t) = u $ CCast (u $ CDecl (ctype t) []) (transpile_expr e)
   --transpile_expr (Expr {expr = VectorLiteral e}) = u $ CA
 
-  transpile_stmt :: Expr -> CStat
-  transpile_stmt (Expr {expr = Break}) = u CBreak
-  transpile_stmt (Expr {expr = Continue}) = u CCont
-  transpile_stmt (Expr {expr = Return (Just r)}) = u $ CReturn $ Just $ transpile_expr r
-  transpile_stmt (Expr {expr = Return Nothing}) = u $ CReturn Nothing
-  transpile_stmt (Expr {expr = Block e}) = u $ CCompound [] [transpile_block_item x | x <- e]
-  transpile_stmt (Expr {expr = If cond e1 (Just e2)}) = u $ CIf (transpile_expr cond) (transpile_stmt e1) (Just $ transpile_stmt e2)
-  transpile_stmt (Expr {expr = If cond e1 Nothing}) = u $ CIf (transpile_expr cond) (transpile_stmt e1) (Nothing)
-  transpile_stmt (Expr {expr = While cond e}) = u $ CWhile (transpile_expr cond) (transpile_stmt e) False
-  transpile_stmt (Expr {expr = For (Expr {expr = Lvalue (Var v), expr_type = Just id_type}) (Expr {expr = RangeLiteral start end}) e2}) = u $ CFor (Right $ u $ CDecl (ctype id_type) [(Just $ var_to_cdeclr v, Just $ u $ CInitExpr $ transpile_expr start, Nothing)]) (Just $ transpile_expr $ e $ Binop Lt (e $ Lvalue (Var v)) (end)) (Just $ transpile_expr $ e $ PreUnop Inc (e $ Lvalue (Var v))) (transpile_stmt e2)
+  transpile_stmt :: IrExpr -> CStat
+  transpile_stmt IrBreak = u CBreak
+  transpile_stmt IrContinue = u CCont
+  transpile_stmt (IrReturn (Just r)) = u $ CReturn $ Just $ transpile_expr r
+  transpile_stmt (IrReturn Nothing) = u $ CReturn Nothing
+  transpile_stmt (IrBlock e) = u $ CCompound [] [transpile_block_item x | x <- e]
+  transpile_stmt (IrIf cond e1 (Just e2)) = u $ CIf (transpile_expr cond) (transpile_stmt e1) (Just $ transpile_stmt e2)
+  transpile_stmt (IrIf cond e1 Nothing) = u $ CIf (transpile_expr cond) (transpile_stmt e1) (Nothing)
+  transpile_stmt (IrWhile cond e) = u $ CWhile (transpile_expr cond) (transpile_stmt e) False
+  transpile_stmt (IrFor v id_type start end body) =
+    u $ CFor (Right $ u $ CDecl (ctype id_type) [(Just $ var_to_cdeclr v, Just $ u $ CInitExpr $ transpile_expr start, Nothing)]) (Just $ transpile_expr (IrBinop Lt (IrIdentifier v) (end))) (Just $ transpile_expr (IrPreUnop Inc (IrIdentifier v))) (transpile_stmt body)
   transpile_stmt e = u $ CExpr $ Just $ transpile_expr e
 
   var_to_cdeclr x = u $ CDeclr (Just $ internalIdent $ s_unpack x) [] (Nothing) []
 
-  transpile_block_item :: Expr -> CBlockItem
-  transpile_block_item (Expr {expr = (VarDeclaration v), expr_type = Just t}) =
+  transpile_block_item :: IrExpr -> CBlockItem
+  transpile_block_item (IrVarDeclaration v t var_default) =
     CBlockDecl $ u $ CDecl (ctype t) [(Just vn, body, Nothing)]
-    where vn = var_to_cdeclr $ lvalue_name $ var_name v
-          body = case var_default v of
+    where vn = var_to_cdeclr $ v
+          body = case var_default of
                    Just x -> Just $ u $ CInitExpr $ transpile_expr x
                    Nothing -> Nothing
   transpile_block_item x = CBlockStmt $ transpile_stmt x

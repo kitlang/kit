@@ -7,12 +7,12 @@ dependencies:
 - base >=4.7
 default-extensions:
 - OverloadedStrings
+ghc-options: -O -optc-O3 -fexcess-precision -optc-ffast-math -H128m +RTS -A128m -RTS
 
 library:
   source-dirs:
   - bin
   - src
-  ghc-options: -O2
   build-tools:
   - alex
   - happy
@@ -21,12 +21,15 @@ library:
   - Kit.Ast
   - Kit.CodeGen.C
   - Kit.Compiler
+  - Kit.Compiler.Passes
   - Kit.Error
   - Kit.HashTable
+  - Kit.Ir
   - Kit.Log
   - Kit.Parser
   - Kit.Str
   dependencies:
+  - aeson
   - ansi-terminal
   - array
   - bytestring
@@ -44,7 +47,6 @@ executables:
   kitc:
     main: Main.hs
     source-dirs: bin/kitc
-    ghc-options: -O2
     dependencies:
     - ansi-terminal
     - kitlang
@@ -54,7 +56,6 @@ executables:
   kit:
     main: Main.hs
     source-dirs: bin/kit
-    ghc-options: -O2
     dependencies:
     - ansi-terminal
     - optparse-applicative ==0.14.2.0

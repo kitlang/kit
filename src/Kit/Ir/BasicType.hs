@@ -1,4 +1,4 @@
-module Kit.Ast.BasicType where
+module Kit.Ir.BasicType where
 
   import Kit.Str
 
@@ -15,7 +15,7 @@ module Kit.Ast.BasicType where
     | TypeSimpleEnum Str [Str]
     | TypeComplexEnum Str [BasicStruct]
     | TypeAtom Str
-    | TypeFile
+    | TypeFunction BasicType [BasicType]
     deriving (Eq, Show)
 
   -- (Name, [(Field Name, Field Type)])
@@ -34,4 +34,3 @@ module Kit.Ast.BasicType where
   get_basic_type "Uint64" = Just $ TypeUint 64
   get_basic_type "Float32" = Just $ TypeFloat 32
   get_basic_type "Float64" = Just $ TypeFloat 64
-  get_basic_type "File" = Just TypeFile
