@@ -9,6 +9,8 @@ module Kit.Compiler.Passes.GenerateTypes where
   import Kit.Ast
   import Kit.Compiler.Context
   import Kit.Compiler.Module
+  import Kit.Compiler.Scope
+  import Kit.Compiler.Typer
   import Kit.Compiler.TypeUsage
   import Kit.Compiler.Utils
   import Kit.Error
@@ -24,22 +26,22 @@ module Kit.Compiler.Passes.GenerateTypes where
 
   generateModuleTypes :: CompileContext -> Module -> IO ()
   generateModuleTypes ctx mod = do
-    types <- h_toList $ mod_types mod
-    forM (map snd types) (generateType ctx mod)
+    types <- bindingList $ mod_types mod
+    forM types (generateType ctx mod)
     return ()
 
   generateType :: CompileContext -> Module -> TypeUsage -> IO ()
   generateType ctx mod usage = do
     typeMonomorphs <- h_toList $ monomorphs usage
-    forM (map fst typeMonomorphs) (monomorphize ctx mod (type_definition usage))
+    forM typeMonomorphs (monomorphize ctx mod (type_definition usage))
     return ()
 
-  monomorphize :: CompileContext -> Module -> TypeDefinition -> [TypeSpec] -> IO ()
+  monomorphize :: CompileContext -> Module -> TypeDefinition -> (Str, [TypeSpec]) -> IO ()
   monomorphize ctx mod t@(TypeDefinition {type_type = Struct {}}) params = do
     -- TODO
-    -- monomorphs ??
     return ()
   monomorphize ctx mod t@(TypeDefinition {type_type = Enum {}}) params = do
     -- TODO
     return ()
-  monomorphize ctx mod _ params = do return ()
+  monomorphize ctx mod _ params = do
+    return ()

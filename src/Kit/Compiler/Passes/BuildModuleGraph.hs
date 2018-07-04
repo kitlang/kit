@@ -25,7 +25,7 @@ module Kit.Compiler.Passes.BuildModuleGraph where
 
   validateMain :: CompileContext -> Module -> IO ()
   validateMain ctx mod = do
-    main <- h_lookup (mod_vars mod) "main"
+    main <- resolveLocal (mod_vars mod) "main"
     case main of
       Just (FunctionBinding f@FunctionDefinition{function_name = "main"}) -> return ()
       _ -> throw $ Errs [err ValidationError $ "main module <" ++ s_unpack (showModulePath $ mod_path mod) ++ "> doesn't have a function called 'main'"]
@@ -132,11 +132,11 @@ module Kit.Compiler.Passes.BuildModuleGraph where
       TypeDeclaration s -> do
         debugLog ctx $ "found type " ++ s_unpack (type_name s) ++ " in module <" ++ s_unpack (showModulePath $ mod_path m) ++ ">"
         usage <- newTypeUsage s
-        h_insert (mod_types m) (type_name s) usage
+        bindToScope (mod_types m) (type_name s) usage
       VarDeclaration v -> do
         debugLog ctx $ "found variable " ++ s_unpack (lvalue_name $ var_name v) ++ " in module <" ++ s_unpack (showModulePath $ mod_path m) ++ ">"
-        h_insert (mod_vars m) (lvalue_name $ var_name v) (VarBinding v)
+        bindToScope (mod_vars m) (lvalue_name $ var_name v) (VarBinding v)
       FunctionDeclaration f -> do
         debugLog ctx $ "found function " ++ s_unpack (function_name f) ++ " in module <" ++ s_unpack (showModulePath $ mod_path m) ++ ">"
-        h_insert (mod_vars m) (function_name f) (FunctionBinding f)
+        bindToScope (mod_vars m) (function_name f) (FunctionBinding f)
       _ -> return ()

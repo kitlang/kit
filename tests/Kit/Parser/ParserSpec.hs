@@ -22,7 +22,7 @@ module Kit.Parser.ParserSpec where
         testParseExpr "Self" `shouldBe` (pe (sp 1 1 1 4) $ Self)
 
       it "parses type annotations" $ do
-        testParseExpr "x : T" `shouldBe` (pe (sp 1 1 1 5) $ TypeAnnotation (pe (sp 1 1 1 1) $ Lvalue $ Var "x") (ParameterizedTypePath (([], "T"),[])))
+        testParseExpr "x : T" `shouldBe` (pe (sp 1 1 1 5) $ TypeAnnotation (pe (sp 1 1 1 1) $ Lvalue $ Var "x") (TypeSpec (([], "T")) ([])))
 
       it "parses value literals" $ do
         testParseExpr "1" `shouldBe` (pe (sp 1 1 1 1) $ Literal $ IntValue "1")
@@ -66,36 +66,36 @@ module Kit.Parser.ParserSpec where
             function_modifiers = [Inline],
             function_params = [
               TypeParam {
-                t = (([], "A"),[]),
+                t = TypeSpec ([], "A") [],
                 constraints = []
               },
               TypeParam {
-                t = (([], "B"),[]),
-                constraints = [ParameterizedTypePath (([], "Int"),[])]
+                t = TypeSpec ([], "B") [],
+                constraints = [TypeSpec ([], "Int") []]
               },
               TypeParam {
-                t = (([], "C"),[]),
-                constraints = [ParameterizedTypePath (([], "ToString"),[]),ParameterizedTypePath (([], "ToInt"),[])]
+                t = TypeSpec ([], "C") [],
+                constraints = [TypeSpec ([], "ToString") [], TypeSpec ([], "ToInt") []]
               }
             ],
             function_args = [
               ArgSpec {
                 arg_name = "a",
-                arg_type = Just $ ParameterizedTypePath (([], "A"),[]),
+                arg_type = Just $ TypeSpec ([], "A") [],
                 arg_default = Nothing
               },
               ArgSpec {
                 arg_name = "b",
-                arg_type = Just $ ParameterizedTypePath (([], "B"),[]),
+                arg_type = Just $ TypeSpec ([], "B") [],
                 arg_default = Just $ e $ Literal $ IntValue "2"
               },
               ArgSpec {
                 arg_name = "c",
-                arg_type = Just $ ParameterizedTypePath (([], "C"),[]),
+                arg_type = Just $ TypeSpec ([], "C") [],
                 arg_default = Nothing
               }
             ],
-            function_type = Just $ ParameterizedTypePath (([], "Something"),[]),
+            function_type = Just $ TypeSpec ([], "Something") [],
             function_body = Just $ e $ Block [
               e $ Call (e $ Lvalue $ Var "print") [e $ Lvalue $ Var "a"],
               e $ Call (e $ Lvalue $ Var "print") [e $ Lvalue $ Var "b"],
@@ -118,7 +118,7 @@ module Kit.Parser.ParserSpec where
           type_rules = [],
           type_params = [],
           type_type = Typedef {
-            typedef_definition = ParameterizedTypePath (([], "OtherType"), [])
+            typedef_definition = TypeSpec ([], "OtherType") []
           }
         }]
         testParse "typedef MyType[A] = OtherType[B];" `shouldBe` [e $ TypeDeclaration $ TypeDefinition {
@@ -127,9 +127,9 @@ module Kit.Parser.ParserSpec where
           type_meta = [],
           type_modifiers = [],
           type_rules = [],
-          type_params = [TypeParam {t = (([], "A"),[]), constraints = []}],
+          type_params = [TypeParam {t = TypeSpec ([], "A") [], constraints = []}],
           type_type = Typedef {
-            typedef_definition = ParameterizedTypePath (([], "OtherType"), [TypeParam {t = (([], "B"),[]), constraints = []}])
+            typedef_definition = TypeSpec ([], "OtherType") [TypeParam {t = TypeSpec ([], "B") [], constraints = []}]
           }
         }]
 
@@ -184,7 +184,7 @@ module Kit.Parser.ParserSpec where
           type_rules = [],
           type_params = [],
           type_type = Enum {
-            enum_underlying_type = Just (ParameterizedTypePath (([], "Float"),[])),
+            enum_underlying_type = Just (TypeSpec ([], "Float") []),
             enum_variants = [
               EnumVariant {
                 variant_name = "Apple",
@@ -197,7 +197,7 @@ module Kit.Parser.ParserSpec where
               EnumVariant {
                 variant_name = "Banana",
                 variant_doc = Nothing,
-                variant_args = [ArgSpec {arg_name = "i", arg_type = Just (ParameterizedTypePath (([], "Int"),[])), arg_default = Nothing}],
+                variant_args = [ArgSpec {arg_name = "i", arg_type = Just (TypeSpec ([], "Int") []), arg_default = Nothing}],
                 variant_meta = [],
                 variant_modifiers = [],
                 variant_value = Nothing
@@ -249,7 +249,7 @@ module Kit.Parser.ParserSpec where
                 var_doc = Just "test ",
                 var_meta = [Metadata {meta_name = "meta", meta_args = []}],
                 var_modifiers = [],
-                var_type = Just (ParameterizedTypePath (([], "Int"),[])),
+                var_type = Just (TypeSpec ([], "Int") []),
                 var_default = Just $ e $ Literal $ IntValue "1"
               }
             ]

@@ -1,11 +1,7 @@
 module Kit.Ir.IrExpr where
 
   import Kit.Str
-  import Kit.Ast.Base
-  import Kit.Ast.Modifier
-  import Kit.Ast.Operator
-  import Kit.Ast.Value
-  import Kit.Ir.BasicType
+  import Kit.Ast
   import Kit.Parser.Span
 
   data IrExpr

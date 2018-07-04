@@ -1,6 +1,7 @@
 module Kit.Compiler.Context where
 
   import Control.Applicative
+  import Control.Exception
   import Control.Monad
   import Data.Aeson
   import Data.IORef
@@ -8,6 +9,8 @@ module Kit.Compiler.Context where
   import Kit.Ast
   import Kit.Compiler.Module
   import Kit.Compiler.Scope
+  import Kit.Compiler.TypeUsage
+  import Kit.Error
   import Kit.HashTable
   import Kit.Ir
   import Kit.Str
@@ -36,8 +39,8 @@ module Kit.Compiler.Context where
         "verbose" .= context_verbose ctx
       ]
 
-  compile_context :: IO CompileContext
-  compile_context = do
+  newCompileContext :: IO CompileContext
+  newCompileContext = do
     module_graph <- newIORef []
     mods <- h_new
     failed <- h_new
@@ -64,26 +67,26 @@ module Kit.Compiler.Context where
     = ModuleGraphNode ModulePath ModulePath
     deriving (Show)
 
-  findVar :: CompileContext -> [Scope] -> Module -> Str -> IO (Maybe Binding)
-  findVar ctx (scope:scopes) mod s = do
-    x <- h_lookup (scope_bindings scope) s
-    case x of
-      Just _ -> return x
-      Nothing -> findVar ctx scopes mod s
-  findVar ctx [] mod s = findModuleVar ctx mod s
+  findType :: CompileContext -> Module -> TypeSpec -> IO (Maybe ConcreteType)
+  findType ctx mod t = do return Nothing -- TODO
 
-  findModuleVar :: CompileContext -> Module -> Str -> IO (Maybe Binding)
-  findModuleVar ctx mod s = do
-    imports <- mapM (h_get (context_modules ctx)) (map fst (mod_imports mod))
-    _searchMods ctx (mod:imports) s
+  getMod :: CompileContext -> ModulePath -> IO Module
+  getMod ctx mod = do
+    m <- h_lookup (context_modules ctx) mod
+    case m of
+      Just m' -> return m'
+      Nothing -> throw $ err InternalError $ "Unexpected missing module: " ++ s_unpack (showModulePath mod)
 
-  _searchMods :: CompileContext -> [Module] -> Str -> IO (Maybe Binding)
-  _searchMods ctx (mod:mods) s = do
-    x <- h_lookup (mod_vars mod) s
-    case x of
-      Just _ -> return x
-      Nothing -> _searchMods ctx mods s
-  _searchMods ctx [] s = do return Nothing
+  resolveVar :: CompileContext -> [Scope Binding] -> Module -> Str -> IO (Maybe Binding)
+  resolveVar ctx scopes mod s = do
+    local <- resolveBinding scopes s
+    case local of
+      Just _ -> return local
+      Nothing -> do
+        imports <- mapM (getMod ctx) (map fst $ mod_imports mod)
+        resolveBinding (map mod_vars (mod : imports)) s
 
-  _findModuleVar :: CompileContext -> Module -> Str -> IO (Maybe Binding)
-  _findModuleVar ctx mod s = h_lookup (mod_vars mod) s
+  resolveType :: CompileContext -> Module -> Str -> IO (Maybe TypeUsage)
+  resolveType ctx mod s = do
+    imports <- mapM (getMod ctx) (map fst $ mod_imports mod)
+    resolveBinding (map mod_types (mod : imports)) s

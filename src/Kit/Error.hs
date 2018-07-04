@@ -14,6 +14,7 @@ module Kit.Error where
     | ImportError
     | IncludeError
     | ValidationError
+    | InternalError
     | Unknown
     deriving (Eq, Show)
 

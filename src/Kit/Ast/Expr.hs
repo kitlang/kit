@@ -1,13 +1,14 @@
 module Kit.Ast.Expr where
 
-  import Kit.Str
+  import Data.Traversable
   import Kit.Ast.Base
   import Kit.Ast.Modifier
   import Kit.Ast.Operator
-  import Kit.Parser.Span
-  import Kit.Ast.Type
+  import Kit.Ast.TypeSpec
   import Kit.Ast.Value
+  import Kit.Parser.Span
   import Kit.Parser.Token
+  import Kit.Str
 
   data Expr = Expr {expr :: ExprType, pos :: Span} deriving (Show)
   instance Eq Expr where
@@ -90,6 +91,16 @@ module Kit.Ast.Expr where
     | Typedef {typedef_definition :: TypeSpec}
     deriving (Eq, Show)
 
+  newTypeDefinition x = TypeDefinition {
+    type_name = x,
+    type_doc = Nothing,
+    type_meta = [],
+    type_modifiers = [],
+    type_rules = [],
+    type_type = Atom,
+    type_params = []
+  }
+
   data VarDefinition = VarDefinition {
     var_name :: Lvalue,
     var_doc :: Maybe Str,
@@ -98,6 +109,14 @@ module Kit.Ast.Expr where
     var_type :: Maybe TypeSpec,
     var_default :: Maybe Expr
   } deriving (Eq, Show)
+
+  newVarDefinition = VarDefinition {
+    var_doc = Nothing,
+    var_meta = [],
+    var_modifiers = [],
+    var_type = Nothing,
+    var_default = Nothing
+  }
 
   data EnumVariant = EnumVariant {
     variant_name :: Str,
@@ -158,8 +177,40 @@ module Kit.Ast.Expr where
     | FunctionBinding FunctionDefinition
     deriving (Eq, Show)
 
-  -- TODO
-  -- Apply a transform to an expression tree, returning the transformed
-  -- expression.
-  expr_apply :: (Expr -> Expr) -> Expr -> Expr
-  expr_apply f expr = expr
+  exprMap f e@(Expr {expr = et}) = case et of
+    Block children -> f $ e {expr = Block (map f children)}
+    Meta m e -> f $ e {expr = Meta m (f e)}
+    TypeAnnotation e t -> f $ e {expr = TypeAnnotation (f e) t}
+    PreUnop op e -> f $ e {expr = PreUnop op (f e)}
+    PostUnop op e -> f $ e {expr = PostUnop op (f e)}
+    Binop op e1 e2 -> f $ e {expr = Binop op (f e1) (f e2)}
+    For e1 e2 e3 -> f $ e {expr = For (f e1) (f e2) (f e3)}
+    While e1 e2 -> f $ e {expr = While (f e1) (f e2)}
+    If e1 e2 (Just e3) -> f $ e {expr = If (f e1) (f e2) (Just $ f e3)}
+    If e1 e2 Nothing -> f $ e {expr = If (f e1) (f e2) Nothing}
+    Return (Just e) -> f $ e {expr = Return (Just $ f e)}
+    Throw e -> f $ e {expr = Throw (f e)}
+    {-Match Expr [MatchCase] (Maybe Expr)
+    InlineCall Expr
+    Field Expr Lvalue
+    ArrayAccess Expr Expr
+    Call Expr [Expr]
+    Cast Expr TypeSpec
+    TokenExpr [TokenClass]
+    Unsafe Expr
+    BlockComment Str
+    New TypeSpec [Expr]
+    Copy Expr
+    Delete Expr
+    Move Expr
+    LexMacro Str [TokenClass]
+    RangeLiteral Expr Expr
+    VectorLiteral [Expr]
+    Import ModulePath
+    Include FilePath
+    VarDeclaration VarDefinition
+    FunctionDeclaration FunctionDefinition
+    TypeDeclaration TypeDefinition
+    TraitDeclaration TraitDefinition
+    Implement TraitImplementation-}
+    _ -> f e

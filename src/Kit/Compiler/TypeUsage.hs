@@ -3,10 +3,11 @@ module Kit.Compiler.TypeUsage where
   import Data.IORef
   import Kit.Ast
   import Kit.HashTable
+  import Kit.Str
 
   data TypeUsage = TypeUsage {
     type_definition :: TypeDefinition,
-    monomorphs :: HashTable [TypeSpec] ()
+    monomorphs :: HashTable Str [TypeSpec]
   } deriving (Show)
 
   newTypeUsage :: TypeDefinition -> IO TypeUsage
@@ -17,6 +18,11 @@ module Kit.Compiler.TypeUsage where
       monomorphs = monomorphs
     }
 
+  sMonomorph :: [TypeSpec] -> Str
+  -- TODO
+  sMonomorph (h:t) = "abc"
+  sMonomorph [] = ""
+
   recordUsage :: TypeUsage -> [TypeSpec] -> IO ()
   recordUsage t params = do
-    h_insert (monomorphs t) params ()
+    h_insert (monomorphs t) (sMonomorph params) params

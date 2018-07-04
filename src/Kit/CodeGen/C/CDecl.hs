@@ -7,9 +7,11 @@ module Kit.CodeGen.C.CDecl where
   import Kit.Ir
   import Kit.Str
 
+  type_name_decl name = ct $ CTypeDef $ internalIdent $ s_unpack name
+
   cdecl :: BasicType -> [CDecl]
   {- Kit struct = C struct -}
-  cdecl (TypeStruct (name, fields))
+  cdecl (BasicTypeStruct (name, fields))
     = [u $ CDecl [
           CStorageSpec $ u $ CTypedef,
           CTypeSpec $ u $ CSUType $ u $ CStruct CStructTag Nothing (Just f) []
@@ -17,7 +19,7 @@ module Kit.CodeGen.C.CDecl where
       where f = [u $ CDecl (ctype t) [(Just $ u $ CDeclr (Just $ internalIdent $ s_unpack n) [] Nothing [], Nothing, Nothing)] | (n, t) <- fields]
 
   {- Simple enums (no variant has any fields) will generate a C enum. -}
-  cdecl (TypeSimpleEnum name variant_names)
+  cdecl (BasicTypeSimpleEnum name variant_names)
     = [enum_discriminant name variant_names]
 
   {-
@@ -31,7 +33,7 @@ module Kit.CodeGen.C.CDecl where
 
     Either type of enum can be cast to the discriminant's type.
   -}
-  cdecl (TypeComplexEnum name variants)
+  cdecl (BasicTypeComplexEnum name variants)
     = (enum_discriminant discriminant_name (map (\(name, _) -> name) variants)) : (enum_struct name discriminant_name variants) : (enum_variants name variants)
     where
       discriminant_name = (s_concat [name, "_Discriminant"])
@@ -46,7 +48,7 @@ module Kit.CodeGen.C.CDecl where
                     ]
                 variant_fields = [u $ CDecl [type_name_decl $ enum_variant_name name variant_name] [(Just $ u $ CDeclr (Just $ internalIdent $ s_unpack $ s_concat ["variant_", variant_name]) [] Nothing [], Nothing, Nothing)] | (variant_name, _) <- nonempty_variants]
       enum_variants name variants =
-        map (\(variant_name, variant_fields) -> (cdecl (TypeStruct (enum_variant_name name variant_name, variant_fields))) !! 0) nonempty_variants
+        map (\(variant_name, variant_fields) -> (cdecl (BasicTypeStruct (enum_variant_name name variant_name, variant_fields))) !! 0) nonempty_variants
       nonempty_variants = filter (\(name, fields) -> fields /= []) variants
 
   enum_discriminant name variant_names

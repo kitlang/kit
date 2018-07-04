@@ -20,26 +20,31 @@ module Kit.CodeGen.C.CExprSpec where
   spec :: Spec
   spec = do
     describe "Transpile basic types" $ do
+      it "transpiles bool types" $ do
+        showctype (BasicTypeBool) `shouldBe` "_Bool"
       it "transpiles int types" $ do
-        showctype (TypeInt 8) `shouldBe` "signed char"
-        showctype (TypeInt 16) `shouldBe` "signed short"
-        showctype (TypeInt 32) `shouldBe` "signed long"
-        showctype (TypeInt 64) `shouldBe` "signed long long"
+        showctype (BasicTypeInt 8) `shouldBe` "signed char"
+        showctype (BasicTypeInt 16) `shouldBe` "signed short"
+        showctype (BasicTypeInt 32) `shouldBe` "signed long"
+        showctype (BasicTypeInt 64) `shouldBe` "signed long long"
       it "transpiles unsigned int types" $ do
-        showctype (TypeUint 8) `shouldBe` "unsigned char"
-        showctype (TypeUint 16) `shouldBe` "unsigned short"
-        showctype (TypeUint 32) `shouldBe` "unsigned long"
-        showctype (TypeUint 64) `shouldBe` "unsigned long long"
+        showctype (BasicTypeUint 8) `shouldBe` "unsigned char"
+        showctype (BasicTypeUint 16) `shouldBe` "unsigned short"
+        showctype (BasicTypeUint 32) `shouldBe` "unsigned long"
+        showctype (BasicTypeUint 64) `shouldBe` "unsigned long long"
       it "transpiles float types" $ do
-        showctype (TypeFloat 32) `shouldBe` "float"
-        showctype (TypeFloat 64) `shouldBe` "double"
+        showctype (BasicTypeFloat 32) `shouldBe` "float"
+        showctype (BasicTypeFloat 64) `shouldBe` "double"
       it "transpiles void types" $ do
-        showctype TypeVoid `shouldBe` "void"
+        showctype BasicTypeVoid `shouldBe` "void"
       it "transpiles atom types" $ do
-        showctype (TypeAtom "MyAtom") `shouldBe` "unsigned long"
-      it "transpiles enum types" $ do
-        showctype (TypeSimpleEnum "MyEnum" []) `shouldBe` "MyEnum"
-        showctype (TypeComplexEnum "MyEnum2" []) `shouldBe` "MyEnum2"
+        showctype (BasicTypeAtom "MyAtom") `shouldBe` "unsigned long"
+      it "transpiles basic enum types" $ do
+        showctype (BasicTypeSimpleEnum "MyEnum" []) `shouldBe` "enum MyEnum"
+      it "transpiles complex enum types" $ do
+        showctype (BasicTypeComplexEnum "MyEnum2" []) `shouldBe` "struct MyEnum2"
+      it "transpiles struct types" $ do
+        showctype (BasicTypeStruct ("abc", [])) `shouldBe` "struct abc"
 
     describe "Transpile statements" $ do
       it "transpiles return statements" $ do
@@ -55,13 +60,13 @@ module Kit.CodeGen.C.CExprSpec where
         showstmt (IrIf (IrLiteral $ BoolValue True) (IrContinue) (Nothing)) `shouldBe` "if (1)\n{\ncontinue;\n}"
       it "transpiles local variable declarations" $ do
         showblock [
-            IrVarDeclaration "my_var" (TypeUint 16) (Just $ IrIdentifier "a"),
-            IrVarDeclaration "my_var2" (TypeFloat 32) Nothing
+            IrVarDeclaration "my_var" (BasicTypeUint 16) (Just $ IrIdentifier "a"),
+            IrVarDeclaration "my_var2" (BasicTypeFloat 32) Nothing
           ] `shouldBe` "{\nunsigned short my_var = a;\nfloat my_var2;\n}"
       it "transpiles while loops" $ do
         showstmt (IrWhile (IrIdentifier "a") (IrContinue)) `shouldBe` "while (a)\ncontinue;"
       it "transpiles for loops" $ do
-        showstmt (IrFor "a" (TypeUint 8) (IrLiteral $ IntValue "1") (IrLiteral $ IntValue "5") (IrContinue)) `shouldBe` "for (unsigned char a = 1; a < 5; ++a)\ncontinue;"
+        showstmt (IrFor "a" (BasicTypeUint 8) (IrLiteral $ IntValue "1") (IrLiteral $ IntValue "5") (IrContinue)) `shouldBe` "for (unsigned char a = 1; a < 5; ++a)\ncontinue;"
 
     describe "Transpile expressions" $ do
       it "transpiles identifiers" $ do
@@ -103,8 +108,8 @@ module Kit.CodeGen.C.CExprSpec where
       it "transpiles function calls" $ do
         showexpr (IrCall (IrIdentifier "a") [(IrIdentifier "b"), (IrIdentifier "c")]) `shouldBe` "a(b, c)"
       it "transpiles casts" $ do
-        showexpr (IrCast (IrIdentifier "a") TypeVoid) `shouldBe` "(void) a"
-        showexpr (IrCast (IrIdentifier "abc") (TypeInt 8)) `shouldBe` "(signed char) abc"
+        showexpr (IrCast (IrIdentifier "a") BasicTypeVoid) `shouldBe` "(void) a"
+        showexpr (IrCast (IrIdentifier "abc") (BasicTypeInt 8)) `shouldBe` "(signed char) abc"
       {-it "transpiles vector literals" $ do
         showexpr (VectorLiteral [(IrIdentifier "b"), (IrIdentifier "c")]) `shouldBe` "[b, c]"-}
 

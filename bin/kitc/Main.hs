@@ -69,7 +69,7 @@ module Main where
         let std_path = case std of
                          Just x -> x
                          Nothing -> "std"
-        base_context <- compile_context
+        base_context <- newCompileContext
         let ctx = base_context {
             context_main_module = parseModulePath $ s_pack $ opt_main_module opts,
             context_output_dir = opt_output_dir opts,

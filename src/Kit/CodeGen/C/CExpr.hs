@@ -3,8 +3,7 @@ module Kit.CodeGen.C.CExpr where
   import Numeric
   import Language.C
   import Language.C.Data.Position
-  import Kit.Ast.Operator
-  import Kit.Ast.Value
+  import Kit.Ast
   import Kit.Ir
   import Kit.Parser.Span
   import Kit.Str
@@ -15,24 +14,23 @@ module Kit.CodeGen.C.CExpr where
     Nothing -> undefNode
   ct x = CTypeSpec $ u x
 
-  type_name_decl name = ct $ CTypeDef $ internalIdent $ s_unpack name
-
   ctype :: BasicType -> [CDeclSpec]
-  ctype TypeVoid = [ct CVoidType]
-  ctype (TypeInt 8) = [ct CSignedType, ct CCharType]
-  ctype (TypeInt 16) = [ct CSignedType, ct CShortType]
-  ctype (TypeInt 32) = [ct CSignedType, ct CLongType]
-  ctype (TypeInt 64) = [ct CSignedType, ct CLongType, ct CLongType]
-  ctype (TypeUint 8) = [ct CUnsigType, ct CCharType]
-  ctype (TypeUint 16) = [ct CUnsigType, ct CShortType]
-  ctype (TypeUint 32) = [ct CUnsigType, ct CLongType]
-  ctype (TypeUint 64) = [ct CUnsigType, ct CLongType, ct CLongType]
-  ctype (TypeFloat 32) = [ct CFloatType]
-  ctype (TypeFloat 64) = [ct CDoubleType]
-  ctype (TypeAtom _) = [ct CUnsigType, ct CLongType]
-  ctype (TypeStruct (name, _)) = [type_name_decl name]
-  ctype (TypeSimpleEnum name _) = [type_name_decl name]
-  ctype (TypeComplexEnum name _) = [type_name_decl name]
+  ctype BasicTypeVoid = [ct CVoidType]
+  ctype BasicTypeBool = [ct CBoolType]
+  ctype (BasicTypeInt 8) = [ct CSignedType, ct CCharType]
+  ctype (BasicTypeInt 16) = [ct CSignedType, ct CShortType]
+  ctype (BasicTypeInt 32) = [ct CSignedType, ct CLongType]
+  ctype (BasicTypeInt 64) = [ct CSignedType, ct CLongType, ct CLongType]
+  ctype (BasicTypeUint 8) = [ct CUnsigType, ct CCharType]
+  ctype (BasicTypeUint 16) = [ct CUnsigType, ct CShortType]
+  ctype (BasicTypeUint 32) = [ct CUnsigType, ct CLongType]
+  ctype (BasicTypeUint 64) = [ct CUnsigType, ct CLongType, ct CLongType]
+  ctype (BasicTypeFloat 32) = [ct CFloatType]
+  ctype (BasicTypeFloat 64) = [ct CDoubleType]
+  ctype (BasicTypeAtom _) = [ct CUnsigType, ct CLongType]
+  ctype (BasicTypeStruct (name, _)) = [ct $ CSUType $ u $ CStruct CStructTag (Just $ internalIdent $ s_unpack name) Nothing []]
+  ctype (BasicTypeSimpleEnum name _) = [ct $ CEnumType $ u $ CEnum (Just (internalIdent $ s_unpack name)) Nothing []]
+  ctype (BasicTypeComplexEnum name _) = ctype (BasicTypeStruct (name, []))
 
   --transpile :: [Expr] -> [CStat]
   --transpile exprs
