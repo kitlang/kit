@@ -242,7 +242,7 @@ FunctionName :: {(B.ByteString, Span)}
   | delete {(B.pack "delete", snd $1)}
 
 FunctionDecl :: {Expr}
-  : DocMetaMods function FunctionName TypeParams '(' Args ')' TypeAnnotation OptionalBody {
+  : DocMetaMods function FunctionName TypeParams '(' VarArgs ')' TypeAnnotation OptionalBody {
     pe (fp [p $1, p $2, p $7, snd $8, snd $9]) $ FunctionDeclaration $ FunctionDefinition {
       function_name = fst $3,
       function_doc = doc $1,
@@ -250,8 +250,9 @@ FunctionDecl :: {Expr}
       function_modifiers = reverse $ mods $1,
       function_params = fst $4,
       function_type = fst $8,
-      function_args = reverse $6,
-      function_body = fst $9
+      function_args = reverse (fst $6),
+      function_body = fst $9,
+      function_varargs = snd $6
     }
   }
 
@@ -413,6 +414,10 @@ EnumVariant :: {EnumVariant}
         variant_value = Nothing
       }
     }
+
+VarArgs :: {([ArgSpec], Bool)}
+  : Args ',' "..." {($1, True)}
+  | Args {($1, False)}
 
 Args :: {[ArgSpec]}
   : {[]}

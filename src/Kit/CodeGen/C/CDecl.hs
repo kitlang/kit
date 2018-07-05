@@ -7,7 +7,7 @@ module Kit.CodeGen.C.CDecl where
   import Kit.Ir
   import Kit.Str
 
-  type_name_decl name = ct $ CTypeDef $ internalIdent $ s_unpack name
+  type_name_decl name = CTypeSpec $ u $ CTypeDef $ internalIdent $ s_unpack name
 
   cdecl :: BasicType -> [CDecl]
   {- Kit struct = C struct -}
@@ -16,7 +16,7 @@ module Kit.CodeGen.C.CDecl where
           CStorageSpec $ u $ CTypedef,
           CTypeSpec $ u $ CSUType $ u $ CStruct CStructTag Nothing (Just f) []
         ] [(Just $ u $ CDeclr (Just $ internalIdent $ s_unpack name) [] Nothing [], Nothing, Nothing)]]
-      where f = [u $ CDecl (ctype t) [(Just $ u $ CDeclr (Just $ internalIdent $ s_unpack n) [] Nothing [], Nothing, Nothing)] | (n, t) <- fields]
+      where f = [u $ CDecl (ctype' t) [(Just $ u $ CDeclr (Just $ internalIdent $ s_unpack n) [] Nothing [], Nothing, Nothing)] | (n, t) <- fields]
 
   {- Simple enums (no variant has any fields) will generate a C enum. -}
   cdecl (BasicTypeSimpleEnum name variant_names)
@@ -43,7 +43,7 @@ module Kit.CodeGen.C.CDecl where
               CTypeSpec $ u $ CSUType $ u $ CStruct CStructTag Nothing (Just f) []
             ] [(Just $ u $ CDeclr (Just $ internalIdent $ s_unpack name) [] Nothing [], Nothing, Nothing)]
           where f = [
-                      u $ CDecl [type_name_decl discriminant_name] [(Just $ u $ CDeclr (Just $ internalIdent "__discriminant") [] Nothing [], Nothing, Nothing)],
+                      u $ CDecl [CTypeSpec $ u $ CEnumType $ u $ CEnum (Just (internalIdent $ s_unpack discriminant_name)) Nothing []] [(Just $ u $ CDeclr (Just $ internalIdent "__discriminant") [] Nothing [], Nothing, Nothing)],
                       u $ CDecl [CTypeSpec $ u $ CSUType $ u $ CStruct CUnionTag Nothing (Just variant_fields) []] [(Just $ u $ CDeclr (Just $ internalIdent "__variant") [] Nothing [], Nothing, Nothing)]
                     ]
                 variant_fields = [u $ CDecl [type_name_decl $ enum_variant_name name variant_name] [(Just $ u $ CDeclr (Just $ internalIdent $ s_unpack $ s_concat ["variant_", variant_name]) [] Nothing [], Nothing, Nothing)] | (variant_name, _) <- nonempty_variants]

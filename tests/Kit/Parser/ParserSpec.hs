@@ -14,7 +14,7 @@ module Kit.Parser.ParserSpec where
                      Err e -> error $ show e
 
   spec :: Spec
-  spec = do
+  spec = parallel $ do
     describe "Parse expressions" $ do
       it "parses identifiers" $ do
         testParseExpr "apple" `shouldBe` (pe (sp 1 1 1 5) $ Lvalue $ Var "apple")
@@ -58,7 +58,7 @@ module Kit.Parser.ParserSpec where
         testParseStmt "tokens { a {} this, }" `shouldBe` (e $ TokenExpr [LowerIdentifier "a", CurlyBraceOpen, CurlyBraceClose, KeywordThis, Comma])
 
       it "parses functions" $ do
-        testParse "/**test*/ #[meta] inline function abc[A, B: Int, C: (ToString, ToInt)](a: A, b: B = 2, c: C): Something { print(a); print(b); print(c); }" `shouldBe` [(pe (sp 1 11 1 137) $
+        testParse "/**test*/ #[meta] inline function abc[A, B: Int, C: (ToString, ToInt)](a: A, b: B = 2, c: C, ...): Something { print(a); print(b); print(c); }" `shouldBe` [(pe (sp 1 11 1 142) $
           FunctionDeclaration $ FunctionDefinition {
             function_name = "abc",
             function_doc = Just "test",
@@ -100,7 +100,8 @@ module Kit.Parser.ParserSpec where
               e $ Call (e $ Lvalue $ Var "print") [e $ Lvalue $ Var "a"],
               e $ Call (e $ Lvalue $ Var "print") [e $ Lvalue $ Var "b"],
               e $ Call (e $ Lvalue $ Var "print") [e $ Lvalue $ Var "c"]
-            ]
+            ],
+            function_varargs = True
           })]
 
     describe "Parse toplevel statements" $ do

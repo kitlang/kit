@@ -26,7 +26,7 @@ module Kit.Parser.StdSpec where
   stdFiles = readDir "std"
 
   spec :: Spec
-  spec = do
+  spec = parallel $ do
     describe "Kit standard library" $ do
       paths <- runIO stdFiles
       forM_ (paths) $ \path -> do

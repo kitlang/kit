@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -w #-}
+
 module Kit.CodeGen.C.CDeclSpec where
 
   import Test.Hspec
@@ -30,5 +32,5 @@ module Kit.CodeGen.C.CDeclSpec where
         shouldBe
           (showstruct (BasicTypeComplexEnum "MyEnum" [("Variant1", []), ("Variant2", [("field1", BasicTypeInt 8), ("field2", BasicTypeUint 8)])]))
           "enum MyEnum_Discriminant {\nVariant1, Variant2\n}\n\
-          \typedef struct {\nMyEnum_Discriminant __discriminant;\nunion {\nMyEnum_Variant_Variant2 variant_Variant2;\n} __variant;\n} MyEnum\n\
+          \typedef struct {\nenum MyEnum_Discriminant __discriminant;\nunion {\nMyEnum_Variant_Variant2 variant_Variant2;\n} __variant;\n} MyEnum\n\
           \typedef struct {\nsigned char field1; unsigned char field2;\n} MyEnum_Variant_Variant2"

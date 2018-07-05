@@ -3,7 +3,8 @@ module Kit.Compiler (
   module Kit.Compiler.Context,
   module Kit.Compiler.Module,
   module Kit.Compiler.Passes,
-  module Kit.Compiler.Scope
+  module Kit.Compiler.Scope,
+  module Kit.Compiler.TypeUsage
 ) where
 
   import Control.Exception
@@ -17,6 +18,7 @@ module Kit.Compiler (
   import Kit.Compiler.Module
   import Kit.Compiler.Passes
   import Kit.Compiler.Scope
+  import Kit.Compiler.TypeUsage
   import Kit.Compiler.Utils
   import Kit.Error
   import Kit.HashTable

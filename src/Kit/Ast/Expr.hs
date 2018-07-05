@@ -29,6 +29,9 @@ module Kit.Ast.Expr where
   data MatchCase = MatchCase {match_pattern :: Expr, match_body :: Expr} deriving (Eq, Show)
   data Metadata = Metadata {meta_name :: Str, meta_args :: [Expr]} deriving (Eq, Show)
 
+  meta s = Metadata {meta_name = s, meta_args = []}
+  metaExtern = meta "extern"
+
   data ExprType
     = Block [Expr]
     | Meta Metadata Expr
@@ -97,8 +100,8 @@ module Kit.Ast.Expr where
     type_meta = [],
     type_modifiers = [],
     type_rules = [],
-    type_type = Atom,
-    type_params = []
+    type_params = [],
+    type_type = undefined
   }
 
   data VarDefinition = VarDefinition {
@@ -111,9 +114,10 @@ module Kit.Ast.Expr where
   } deriving (Eq, Show)
 
   newVarDefinition = VarDefinition {
+    var_name = undefined,
     var_doc = Nothing,
     var_meta = [],
-    var_modifiers = [],
+    var_modifiers = [Public],
     var_type = Nothing,
     var_default = Nothing
   }
@@ -135,14 +139,33 @@ module Kit.Ast.Expr where
     function_params :: [TypeParam],
     function_args :: [ArgSpec],
     function_type :: Maybe TypeSpec,
-    function_body :: Maybe Expr
+    function_body :: Maybe Expr,
+    function_varargs :: Bool
   } deriving (Eq, Show)
+
+  newFunctionDefinition = FunctionDefinition {
+    function_name = undefined,
+    function_doc = Nothing,
+    function_meta = [],
+    function_modifiers = [Public],
+    function_params = [],
+    function_args = [],
+    function_type = Nothing,
+    function_body = Nothing,
+    function_varargs = False
+  }
 
   data ArgSpec = ArgSpec {
     arg_name :: Str,
     arg_type :: Maybe TypeSpec,
     arg_default :: Maybe Expr
   } deriving (Eq, Show)
+
+  newArgSpec = ArgSpec {
+    arg_name = undefined,
+    arg_type = Nothing,
+    arg_default = Nothing
+  }
 
   data RewriteRule = Rule TermRewriteRule | Method FunctionDefinition deriving (Eq, Show)
 

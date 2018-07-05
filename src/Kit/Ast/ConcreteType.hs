@@ -10,9 +10,11 @@ module Kit.Ast.ConcreteType where
     | TypeEnum ModulePath Str
     | TypeAbstract ModulePath Str
     | TypeTypedef ModulePath Str
-    | TypeFunction ConcreteType [ConcreteType]
+    | TypeFunction ConcreteType [(Str, ConcreteType)]
     | TypeUnknown TypeVar
     | TypeBasicType BasicType
+    | TypePtr ConcreteType
+    | TypeArr ConcreteType (Maybe Int)
     deriving (Eq, Show)
 
   type TypeVar = Int

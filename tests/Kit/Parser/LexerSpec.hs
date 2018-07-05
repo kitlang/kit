@@ -10,7 +10,7 @@ module Kit.Parser.LexerSpec where
   lx2 s = scanTokens Nothing s
 
   spec :: Spec
-  spec = do
+  spec = parallel $ do
     describe "Lexer" $ do
       it "lexes identifiers" $ do
         lx2 "apple Banana $macro_var ${macro_var2}" `shouldBe` [

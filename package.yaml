@@ -75,3 +75,5 @@ tests:
     - language-c
     - pretty
     - QuickCheck
+    extra-source-files:
+    - tests/Kit/Compiler/Passes/test_header.h
