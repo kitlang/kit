@@ -87,7 +87,7 @@ module Kit.Compiler.Passes.IncludeCModulesSpec where
             ]
           })),
           ("Parses functions with struct return value/arguments", "struct_func", FunctionBinding ((externFunctionDef "struct_func") {
-            function_type = Just $ ConcreteType $ TypeStruct [] "Struct3",
+            function_type = Just $ ConcreteType $ TypeStruct [] "Struct1",
             function_args = [
               newArgSpec {arg_name = "a", arg_type = Just $ ConcreteType $ TypeStruct [] "Struct2"}
             ]
@@ -122,6 +122,13 @@ module Kit.Compiler.Passes.IncludeCModulesSpec where
           }),
           ("Parses empty struct typedefs", "Struct3", (newTypeDefinition "Struct3") {
             type_type = Struct {struct_fields = []}
+          }),
+          ("Parses enum definitions", "Enum1", (newTypeDefinition "Enum1") {
+            type_type = Enum {enum_variants = [
+              newEnumVariant {variant_name = "apple"},
+              newEnumVariant {variant_name = "banana"},
+              newEnumVariant {variant_name = "strawberry"}
+            ], enum_underlying_type = Nothing}
           })
         ] (\(label, name, val) -> it label $ do
             header <- testHeader

@@ -131,6 +131,15 @@ module Kit.Ast.Expr where
     variant_value :: Maybe Expr
   } deriving (Eq, Show)
 
+  newEnumVariant = EnumVariant {
+    variant_name = undefined,
+    variant_doc = Nothing,
+    variant_meta = [],
+    variant_modifiers = [],
+    variant_args = [],
+    variant_value = Nothing
+  }
+
   data FunctionDefinition = FunctionDefinition {
     function_name :: Str,
     function_doc :: Maybe Str,

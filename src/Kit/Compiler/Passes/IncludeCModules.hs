@@ -62,12 +62,8 @@ module Kit.Compiler.Passes.IncludeCModules where
     case h of
       CDeclExt cdecl -> do
         let declarations = decomposeCDecl cdecl
-        if length declarations > 0
-          then do
-            let (_, _, typeSpec, _) = head declarations
-            forM (parseSUSpec typeSpec) (\t -> addTypeDeclaration ctx mod t)
-            return ()
-          else do return ()
+        let (_, _, typeSpec, _) = head declarations
+        forM (parseNonInitSpec typeSpec) (\t -> addTypeDeclaration ctx mod t)
         forM declarations (\(name, storageSpec, typeSpec, derivedSpec) ->
           do
             addCDecl ctx mod name (typeFromSpec typeSpec derivedSpec)
@@ -149,7 +145,7 @@ module Kit.Compiler.Passes.IncludeCModules where
   parseTypedefSpec (h:t) name  = parseTypedefSpec t name
   parseTypedefSpec [] _ = []
 
-  parseSUSpec ((CSUType (CStruct CStructTag (Just (Ident name _ _)) fields _ _) _):_) =
+  parseNonInitSpec ((CSUType (CStruct CStructTag (Just (Ident name _ _)) fields _ _) _):_) =
     case fields of
       Just fields ->
         [(newTypeDefinition (s_pack name)) {
@@ -158,8 +154,14 @@ module Kit.Compiler.Passes.IncludeCModules where
           }
         }]
       Nothing -> []
-
-  parseSUSpec _ = []
+  parseNonInitSpec ((CEnumType (CEnum (Just (Ident name _ _)) (Just variants) _ _) _):_) =
+    [(newTypeDefinition (s_pack name)) {
+      type_type = Enum {
+        enum_variants = [newEnumVariant {variant_name = s_pack variantName} | (Ident variantName _ _, _) <- variants],
+        enum_underlying_type = Nothing
+      }
+    }]
+  parseNonInitSpec _ = []
 
   addTypeDeclaration :: CompileContext -> Module -> TypeDefinition -> IO ()
   addTypeDeclaration ctx mod t = do

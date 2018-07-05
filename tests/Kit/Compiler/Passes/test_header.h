@@ -34,5 +34,5 @@ int *pointer_var3(int arg1);
 void void_func1();
 int int_func1();
 float func_with_args(int arg1, unsigned long long arg2);
-struct Struct3 struct_func(struct Struct2 a);
+struct Struct1 struct_func(struct Struct2 a);
 float (*pointer_func)(int *arg1);
