@@ -43,7 +43,7 @@ module Kit.Compiler (
     includeCModules ctx
     printLog "typing expressions"
     typeExpressions ctx
-    printLog "generating types"
+    printLog "generating type declarations"
     generateTypes ctx
     printLog "generating code"
     generateCode ctx

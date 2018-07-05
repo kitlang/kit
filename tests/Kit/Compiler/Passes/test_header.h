@@ -36,3 +36,4 @@ int int_func1();
 float func_with_args(int arg1, unsigned long long arg2);
 struct Struct1 struct_func(struct Struct2 a);
 float (*pointer_func)(int *arg1);
+void varargs_func(int a, ...);

@@ -71,7 +71,7 @@ module Kit.Compiler.Passes.IncludeCModulesSpec where
             var_type = Just $ ConcreteType $ TypePtr (TypePtr (TypeBasicType $ BasicTypeInt 16))
           })),
           ("Parses function pointer vars", "pointer_var3", VarBinding ((externVarDef "pointer_var3") {
-            var_type = Just $ ConcreteType $ TypePtr (TypeFunction (TypeBasicType $ BasicTypeInt 16) [("arg1", TypeBasicType $ BasicTypeInt 16)])
+            var_type = Just $ ConcreteType $ TypePtr (TypeFunction (TypeBasicType $ BasicTypeInt 16) [("arg1", TypeBasicType $ BasicTypeInt 16)] False)
           })),
           ("Parses void functions", "void_func1", FunctionBinding ((externFunctionDef "void_func1") {
             function_type = Just $ ConcreteType $ TypeBasicType $ BasicTypeVoid
@@ -96,6 +96,13 @@ module Kit.Compiler.Passes.IncludeCModulesSpec where
             function_type = Just $ ConcreteType $ TypePtr $ TypeBasicType $ BasicTypeFloat 32,
             function_args = [
               newArgSpec {arg_name = "arg1", arg_type = Just $ ConcreteType $ TypePtr $ TypeBasicType $ BasicTypeInt 16}
+            ]
+          })),
+          ("Parses variadic functions", "varargs_func", FunctionBinding ((externFunctionDef "varargs_func") {
+            function_type = Just $ ConcreteType $ TypeBasicType $ BasicTypeVoid,
+            function_varargs = True,
+            function_args = [
+              newArgSpec {arg_name = "a", arg_type = Just $ ConcreteType $ TypeBasicType $ BasicTypeInt 16}
             ]
           }))
         ] (\(label, name, val) -> it label $ do

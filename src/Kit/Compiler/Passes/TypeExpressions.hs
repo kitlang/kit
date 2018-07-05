@@ -9,6 +9,7 @@ module Kit.Compiler.Passes.TypeExpressions where
   import Kit.Ast
   import Kit.Compiler.Context
   import Kit.Compiler.Module
+  import Kit.Compiler.Scope
   import Kit.Compiler.Utils
   import Kit.Error
   import Kit.HashTable
@@ -16,4 +17,7 @@ module Kit.Compiler.Passes.TypeExpressions where
 
   typeExpressions :: CompileContext -> IO ()
   typeExpressions ctx = do
+    mainModule <- h_get (context_modules ctx) (context_main_module ctx)
+    main <- resolveLocal (mod_vars mainModule) "main"
+    putStrLn $ show (main)
     return ()

@@ -24,13 +24,15 @@ module Kit.Compiler.Module where
     types <- newScope
     vars <- newScope
     contents <- newIORef exprs
+    ir <- newIORef []
     return $ Module {
         mod_path = path,
         mod_contents = contents,
         mod_imports = _findImports path exprs,
         mod_includes = _findIncludes exprs,
         mod_types = types,
-        mod_vars = vars
+        mod_vars = vars,
+        mod_ir = ir
       }
 
   newCMod :: [Expr] -> IO Module
@@ -38,13 +40,15 @@ module Kit.Compiler.Module where
     types <- newScope
     vars <- newScope
     contents <- newIORef exprs
+    ir <- newIORef []
     return $ Module {
         mod_path = [],
         mod_contents = contents,
         mod_imports = [],
         mod_includes = [],
         mod_types = types,
-        mod_vars = vars
+        mod_vars = vars,
+        mod_ir = ir
       }
 
   _findImports :: ModulePath -> [Expr] -> [(ModulePath, Span)]

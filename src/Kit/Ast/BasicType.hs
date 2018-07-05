@@ -16,7 +16,7 @@ module Kit.Ast.BasicType where
     | BasicTypeSimpleEnum Str [Str]
     | BasicTypeComplexEnum Str [BasicStruct]
     | BasicTypeAtom Str
-    | BasicTypeFunction BasicType [BasicType]
+    | BasicTypeFunction BasicType [BasicType] Bool
     -- If for some reason we can't parse type specifiers into a meaningful
     -- BasicType, the value isn't usable from Kit without casting.
     | BasicTypeUnknown

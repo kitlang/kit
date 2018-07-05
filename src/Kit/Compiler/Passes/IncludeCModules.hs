@@ -82,12 +82,13 @@ module Kit.Compiler.Passes.IncludeCModules where
   addCDecl :: CompileContext -> Module -> Str -> ConcreteType -> IO ()
   addCDecl ctx mod name t = do
     let binding = case t of
-                    TypeFunction t argTypes -> FunctionBinding $ newFunctionDefinition {
+                    TypeFunction t argTypes isVariadic -> FunctionBinding $ newFunctionDefinition {
                         function_name = name,
                         function_modifiers = [Public],
                         function_meta = [metaExtern],
                         function_type = Just (ConcreteType t),
-                        function_args = [newArgSpec {arg_name = name, arg_type = Just $ ConcreteType argType} | (name, argType) <- argTypes]
+                        function_args = [newArgSpec {arg_name = name, arg_type = Just $ ConcreteType argType} | (name, argType) <- argTypes],
+                        function_varargs = isVariadic
                       }
                     _ -> VarBinding $ newVarDefinition {
                         var_name = Var name,
@@ -178,8 +179,8 @@ module Kit.Compiler.Passes.IncludeCModules where
   parseDerivedTypeSpec :: ConcreteType -> [CDerivedDeclr] -> ConcreteType
   parseDerivedTypeSpec ct ((CPtrDeclr _ _):t) =
     parseDerivedTypeSpec (TypePtr ct) t
-  parseDerivedTypeSpec ct ((CFunDeclr (Right (params, _)) _ _):t) =
-    parseDerivedTypeSpec (TypeFunction ct [(name, typeFromSpec typeSpec derivedSpec) | p <- params, (name, _, typeSpec, derivedSpec) <- decomposeCDecl p]) t
+  parseDerivedTypeSpec ct ((CFunDeclr (Right (params, isVariadic)) _ _):t) =
+    parseDerivedTypeSpec (TypeFunction ct [(name, typeFromSpec typeSpec derivedSpec) | p <- params, (name, _, typeSpec, derivedSpec) <- decomposeCDecl p] isVariadic) t
   parseDerivedTypeSpec ct (h:t) = parseDerivedTypeSpec ct t
   parseDerivedTypeSpec ct [] = ct
 
