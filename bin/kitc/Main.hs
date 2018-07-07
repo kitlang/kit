@@ -71,13 +71,13 @@ module Main where
                          Nothing -> "std"
         base_context <- newCompileContext
         let ctx = base_context {
-            context_main_module = parseModulePath $ s_pack $ opt_main_module opts,
-            context_output_dir = opt_output_dir opts,
-            context_include_paths = opt_include_paths opts ++ ["/usr/include"],
-            context_source_paths = opt_source_paths opts ++ [std_path],
-            context_defines = map (\s -> (takeWhile (/= '=') s, drop 1 $ dropWhile (/= '=') s)) (opt_defines opts),
-            context_modules = modules,
-            context_verbose = opt_verbose opts
+            ctxMainModule = parseModulePath $ s_pack $ opt_main_module opts,
+            ctxOutputDir = opt_output_dir opts,
+            ctxIncludePaths = opt_include_paths opts ++ ["/usr/include"],
+            ctxSourcePaths = opt_source_paths opts ++ [std_path],
+            ctxDefines = map (\s -> (takeWhile (/= '=') s, drop 1 $ dropWhile (/= '=') s)) (opt_defines opts),
+            ctxModules = modules,
+            ctxVerbose = opt_verbose opts
           }
 
         result <- tryCompile ctx

@@ -9,9 +9,9 @@ import Kit.Parser.Span
 import Kit.Parser.Token
 }
 
-%name parseTokens Expressions
+%name parseTokens Statements
 %name parseExpr Expr
-%name parseStatement Statement
+%name parseTopLevelExpr TopLevelExpr
 %tokentype {Token}
 %error {parseError}
 
@@ -119,17 +119,17 @@ import Kit.Parser.Token
   int {(LiteralInt _, _)}
 %%
 
-Expressions :: {[Expr]}
-  : Expressions_ {reverse $1}
-Expressions_ :: {[Expr]}
+Statements :: {[Statement]}
+  : Statements_ {reverse $1}
+Statements_ :: {[Statement]}
   : {[]}
-  | Expressions_ ToplevelExpr {$2 : $1}
+  | Statements_ Statement {$2 : $1}
 
-ToplevelExpr :: {Expr}
-  : import ModulePath ';' {pe (p $1 <+> p $3) $ Import (reverse $ fst $2)}
-  | include str ';' {pe (p $1 <+> p $3) $ Include $ B.unpack $ extract_lit $ fst $2}
+Statement :: {Statement}
+  : import ModulePath ';' {ps (p $1 <+> p $3) $ Import (reverse $ fst $2)}
+  | include str ';' {ps (p $1 <+> p $3) $ Include $ B.unpack $ extract_lit $ fst $2}
   | DocMetaMods typedef upper_identifier TypeParams '=' TypeSpec ';' {
-    pe (fp [p $1, p $2, p $7]) $ TypeDeclaration $ TypeDefinition {
+    ps (fp [p $1, p $2, p $7]) $ TypeDeclaration $ TypeDefinition {
       type_name = extract_upper_identifier $3,
       type_doc = doc $1,
       type_meta = reverse $ metas $1,
@@ -142,7 +142,7 @@ ToplevelExpr :: {Expr}
     }
   }
   | DocMetaMods atom upper_identifier ';' {
-    pe (fp [p $1, p $2, p $4]) $ TypeDeclaration $ TypeDefinition {
+    ps (fp [p $1, p $2, p $4]) $ TypeDeclaration $ TypeDefinition {
       type_name = extract_upper_identifier $3,
       type_doc = doc $1,
       type_meta = reverse $ metas $1,
@@ -153,7 +153,7 @@ ToplevelExpr :: {Expr}
     }
   }
   | DocMetaMods enum upper_identifier TypeParams TypeAnnotation '{' RewriteRulesOrVariants '}' {
-    pe (fp [p $1, p $2, p $8]) $ TypeDeclaration $ TypeDefinition {
+    ps (fp [p $1, p $2, p $8]) $ TypeDeclaration $ TypeDefinition {
       type_name = extract_upper_identifier $3,
       type_doc = doc $1,
       type_meta = reverse $ metas $1,
@@ -167,7 +167,7 @@ ToplevelExpr :: {Expr}
     }
   }
   | DocMetaMods struct upper_identifier TypeParams '{' RewriteRulesOrFields '}' {
-    pe (fp [p $1, p $2, p $7]) $ TypeDeclaration $ TypeDefinition {
+    ps (fp [p $1, p $2, p $7]) $ TypeDeclaration $ TypeDefinition {
       type_name = extract_upper_identifier $3,
       type_doc = doc $1,
       type_meta = reverse $ metas $1,
@@ -180,7 +180,7 @@ ToplevelExpr :: {Expr}
     }
   }
   | DocMetaMods abstract upper_identifier TypeParams TypeAnnotation '{' RewriteRules '}' {
-    pe (fp [p $1, p $2, p $8]) $ TypeDeclaration $ TypeDefinition {
+    ps (fp [p $1, p $2, p $8]) $ TypeDeclaration $ TypeDefinition {
       type_name = extract_upper_identifier $3,
       type_doc = doc $1,
       type_meta = reverse $ metas $1,
@@ -193,7 +193,7 @@ ToplevelExpr :: {Expr}
     }
   }
   | DocMetaMods trait upper_identifier TypeParams '{' RewriteRules '}' {
-    pe (fp [p $1, p $2, p $7]) $ TraitDeclaration $ TraitDefinition {
+    ps (fp [p $1, p $2, p $7]) $ TraitDeclaration $ TraitDefinition {
       trait_name = extract_upper_identifier $3,
       trait_doc = doc $1,
       trait_meta = reverse $ metas $1,
@@ -203,25 +203,25 @@ ToplevelExpr :: {Expr}
     }
   }
   | DocMetaMods implement TypeSpec for TypeSpec '{' RewriteRules '}' {
-    pe (fp [p $1, p $2, p $8]) $ Implement $ TraitImplementation {
+    ps (fp [p $1, p $2, p $8]) $ Implement $ TraitImplementation {
       impl_trait = fst $3,
       impl_for = fst $5,
       impl_rules = $7,
       impl_doc = doc $1
     }
   }
-  | VarDefinition {pe (p $1) $ VarDeclaration $ fst $1}
+  | VarDefinition {ps (p $1) $ ModuleVarDeclaration $ fst $1}
   | FunctionDecl {$1}
 
-Statement :: {Expr}
+TopLevelExpr :: {Expr}
   : StandaloneExpr {$1}
   | VarDefinition {pe (p $1) $ VarDeclaration $ fst $1}
   | copy Expr ';' {pe (p $1 <+> p $3) $ Copy $2}
   | delete Expr ';' {pe (p $1 <+> p $3) $ Delete $2}
   | move Expr ';' {pe (p $1 <+> p $3) $ Move $2}
-  | return Statement {pe (p $1 <+> pos $2) $ Return $ Just $2}
+  | return TopLevelExpr {pe (p $1 <+> pos $2) $ Return $ Just $2}
   | return ';' {pe (p $1 <+> p $2) $ Return $ Nothing}
-  | throw Statement {pe (p $1 <+> pos $2) $ Throw $2}
+  | throw TopLevelExpr {pe (p $1 <+> pos $2) $ Throw $2}
   | continue ';' {pe (p $1 <+> p $2) $ Continue}
   | break ';' {pe (p $1 <+> p $2) $ Break}
   | tokens LexMacroTokenBlock {pe (snd $1 <+> snd $2) $ TokenExpr $ tc (fst $2)}
@@ -241,9 +241,9 @@ FunctionName :: {(B.ByteString, Span)}
   | new {(B.pack "new", snd $1)}
   | delete {(B.pack "delete", snd $1)}
 
-FunctionDecl :: {Expr}
+FunctionDecl :: {Statement}
   : DocMetaMods function FunctionName TypeParams '(' VarArgs ')' TypeAnnotation OptionalBody {
-    pe (fp [p $1, p $2, p $7, snd $8, snd $9]) $ FunctionDeclaration $ FunctionDefinition {
+    ps (fp [p $1, p $2, p $7, snd $8, snd $9]) $ FunctionDeclaration $ FunctionDefinition {
       function_name = fst $3,
       function_doc = doc $1,
       function_meta = reverse $ metas $1,
@@ -256,23 +256,23 @@ FunctionDecl :: {Expr}
     }
   }
 
-MatchCases :: {[MatchCase]}
+MatchCases :: {[MatchCase Expr]}
   : {[]}
   | MatchCases MatchCase {$2 : $1}
 
-MatchCase :: {MatchCase}
-  : Expr "=>" Statement {MatchCase {match_pattern = $1, match_body = $3}}
+MatchCase :: {MatchCase Expr}
+  : Expr "=>" TopLevelExpr {MatchCase {match_pattern = $1, match_body = $3}}
 
 DefaultMatchCase :: {Maybe Expr}
   : {Nothing}
-  | default "=>" Statement {Just $3}
+  | default "=>" TopLevelExpr {Just $3}
 
 ExprBlock :: {Expr}
-  : '{' Statements '}' {pe (p $1 <+> p $3) $ Block $ reverse $2}
+  : '{' TopLevelExprs '}' {pe (p $1 <+> p $3) $ Block $ reverse $2}
 
-Statements :: {[Expr]}
+TopLevelExprs :: {[Expr]}
   : {[]}
-  | Statements Statement {$2 : $1}
+  | TopLevelExprs TopLevelExpr {$2 : $1}
 
 ModulePath :: {([B.ByteString], Span)}
   : {([], null_span)}
@@ -347,8 +347,8 @@ TypeParams_ :: {[TypeParam]}
   | TypeParams_ ',' TypeParam {$3 : $1}
 
 TypeParam :: {TypeParam}
-  : TypePath TypeParams {TypeParam {t = TypeSpec (fst $1) (fst $2), constraints = []}}
-  | TypePath TypeParams ':' TypeConstraints {TypeParam {t = TypeSpec (fst $1) (fst $2), constraints = $4}}
+  : TypePath TypeParams {TypeParam {param_type = TypeSpec (fst $1) (fst $2), constraints = []}}
+  | TypePath TypeParams ':' TypeConstraints {TypeParam {param_type = TypeSpec (fst $1) (fst $2), constraints = [TypeEq (TypeSpec (fst $1) (fst $2)) constraint | constraint <- $4]}}
 
 TypeConstraints :: {[TypeSpec]}
   : TypeSpec {[fst $1]}
@@ -365,7 +365,7 @@ TypePath :: {(TypePath, Span)}
   | upper_identifier {(([], extract_upper_identifier $1), p $1)}
   | Self {(([], B.pack "Self"), p $1)}
 
-VarDefinition :: {(VarDefinition, Span)}
+VarDefinition :: {(VarDefinition Expr, Span)}
   : DocMetaMods var Lvalue TypeAnnotation OptionalDefault ';' {
     (VarDefinition {
       var_name = fst $3,
@@ -427,7 +427,7 @@ Args :: {[ArgSpec]}
 ArgSpec  :: {ArgSpec}
   : identifier TypeAnnotation OptionalDefault {ArgSpec {arg_name = extract_identifier $1, arg_type = fst $2, arg_default = $3}}
 
-RewriteRulesOrFields :: {([VarDefinition], [RewriteRule])}
+RewriteRulesOrFields :: {([VarDefinition Expr], [RewriteRule])}
   : {([], [])}
   | RewriteRulesOrFields RewriteRule {(fst $1, $2 : snd $1)}
   | RewriteRulesOrFields RuleBlock {(fst $1, $2 ++ snd $1)}
@@ -481,7 +481,7 @@ RewriteRule :: {RewriteRule}
     }
   }
   | FunctionDecl {
-    case expr $1 of
+    case stmt $1 of
       FunctionDeclaration f -> Method f
   }
 

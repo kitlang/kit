@@ -17,8 +17,8 @@ module Kit.Compiler.Passes.GenerateCode where
 
   generateCode :: CompileContext -> IO ()
   generateCode ctx = do
-    mods <- h_toList $ context_modules ctx
-    forM (map snd mods) (generateModule ctx)
+    mods <- h_toList $ ctxModules ctx
+    forM_ (map snd mods) (generateModule ctx)
     return ()
 
   generateModule :: CompileContext -> Module -> IO ()
@@ -28,7 +28,7 @@ module Kit.Compiler.Passes.GenerateCode where
     return ()
 
   includePath :: CompileContext -> ModulePath -> FilePath
-  includePath ctx mod = ((context_output_dir ctx) </> "include" </> (moduleFilePath mod -<.> ".h"))
+  includePath ctx mod = ((ctxOutputDir ctx) </> "include" </> (moduleFilePath mod -<.> ".h"))
 
   libPath :: CompileContext -> ModulePath -> FilePath
-  libPath ctx mod = ((context_output_dir ctx) </> "lib" </> (moduleFilePath mod -<.> ".c"))
+  libPath ctx mod = ((ctxOutputDir ctx) </> "lib" </> (moduleFilePath mod -<.> ".c"))

@@ -2,6 +2,7 @@ module Kit.Compiler.Matcher where
 
   import Kit.Ast.Base
   import Kit.Ast.Expr
+  import Kit.Ast.Statement
 
   -- TODO: optimize
   type RewriteRules = [RewriteRule]

@@ -23,36 +23,36 @@ module Kit.Compiler.Passes.IncludeCModules where
 
   includeCModules :: CompileContext -> IO ()
   includeCModules ctx = do
-    includes <- readIORef (context_includes ctx)
-    forM includes (includeCHeader ctx)
+    includes <- readIORef (ctxIncludes ctx)
+    forM_ includes (includeCHeader ctx)
     return ()
 
   includeCHeader :: CompileContext -> FilePath -> IO Module
   includeCHeader ctx path = do
-    existing <- h_lookup (context_cmodules ctx) path
+    existing <- h_lookup (ctxCModules ctx) path
     case existing of
       Just x -> do return x
       Nothing -> do
         debugLog ctx $ "searching for header " ++ show path
-        found <- findSourceFile path (context_include_paths ctx)
+        found <- findSourceFile path (ctxIncludePaths ctx)
         case found of
           Just f -> do
             mod <- parseCHeader ctx f
-            h_insert (context_cmodules ctx) path mod
+            h_insert (ctxCModules ctx) path mod
             return mod
           Nothing -> throw $ Errs $ [
               err IncludeError ("Couldn't find header " ++ show path ++
                                 "; tried searching the following locations: \n\n" ++
-                                (intercalate "\n" ["  - " ++ (dir </> path) | dir <- context_include_paths ctx]))
+                                (intercalate "\n" ["  - " ++ (dir </> path) | dir <- ctxIncludePaths ctx]))
             ]
 
   parseCHeader :: CompileContext -> FilePath -> IO Module
   parseCHeader ctx path = do
-    parseResult <- parseCFile (newGCC "gcc") Nothing ["-I" ++ dir | dir <- context_include_paths ctx] path
+    parseResult <- parseCFile (newGCC "gcc") Nothing ["-I" ++ dir | dir <- ctxIncludePaths ctx] path
     case parseResult of
       Left e -> throw $ Errs [err IncludeError ("Parsing C header " ++ show path ++ " failed: " ++ show e)]
       Right (CTranslUnit decls _) -> do
-        mod <- newCMod []
+        mod <- newCMod
         parseCDecls ctx mod decls
         return mod
 
@@ -63,13 +63,13 @@ module Kit.Compiler.Passes.IncludeCModules where
       CDeclExt cdecl -> do
         let declarations = decomposeCDecl cdecl
         let (_, _, typeSpec, _) = head declarations
-        forM (parseNonInitSpec typeSpec) (\t -> addTypeDeclaration ctx mod t)
-        forM declarations (\(name, storageSpec, typeSpec, derivedSpec) ->
+        forM_ (parseNonInitSpec typeSpec) (\t -> addTypeDeclaration ctx mod t)
+        forM_ declarations (\(name, storageSpec, typeSpec, derivedSpec) ->
           do
             addCDecl ctx mod name (typeFromSpec typeSpec derivedSpec)
             if isTypedef storageSpec
               then do
-                forM (parseTypedefSpec typeSpec name) (\t -> addTypeDeclaration ctx mod t)
+                forM_ (parseTypedefSpec typeSpec name) (\t -> addTypeDeclaration ctx mod t)
                 return ()
               else return ()
             return ()
@@ -82,20 +82,8 @@ module Kit.Compiler.Passes.IncludeCModules where
   addCDecl :: CompileContext -> Module -> Str -> ConcreteType -> IO ()
   addCDecl ctx mod name t = do
     let binding = case t of
-                    TypeFunction t argTypes isVariadic -> FunctionBinding $ newFunctionDefinition {
-                        function_name = name,
-                        function_modifiers = [Public],
-                        function_meta = [metaExtern],
-                        function_type = Just (ConcreteType t),
-                        function_args = [newArgSpec {arg_name = name, arg_type = Just $ ConcreteType argType} | (name, argType) <- argTypes],
-                        function_varargs = isVariadic
-                      }
-                    _ -> VarBinding $ newVarDefinition {
-                        var_name = Var name,
-                        var_modifiers = [Public],
-                        var_meta = [metaExtern],
-                        var_type = Just (ConcreteType t)
-                      }
+                    TypeFunction t argTypes isVariadic -> FunctionBinding (ConcreteType t) [(name, ConcreteType argType) | (name, argType) <- argTypes] isVariadic
+                    _ -> VarBinding $ ConcreteType t
     bindToScope (mod_vars mod) name binding
     return ()
 
@@ -114,10 +102,10 @@ module Kit.Compiler.Passes.IncludeCModules where
     (CShortType _) -> _parseDeclSpec t 16 signed False
     (CIntType _) -> _parseDeclSpec t 16 signed False
     (CLongType _) -> _parseDeclSpec t (width + 32) signed False
-    (CTypeDef (Ident x _ _) _) -> Just $ TypeTypedef [] (s_pack x)
+    (CTypeDef (Ident x _ _) _) -> Just $ TypeTypedef ([], (s_pack x))
     -- anonymous structs/enums; TODO: need to generate a stub declaration for these
-    (CSUType (CStruct CStructTag (Just (Ident x _ _)) _ _ _) _) -> Just $ TypeStruct [] (s_pack x)
-    (CEnumType (CEnum (Just (Ident x _ _)) _ _ _) _) -> Just $ TypeEnum [] (s_pack x)
+    (CSUType (CStruct CStructTag (Just (Ident x _ _)) _ _ _) _) -> Just $ TypeStruct ([], (s_pack x))
+    (CEnumType (CEnum (Just (Ident x _ _)) _ _ _) _) -> Just $ TypeEnum ([], (s_pack x))
     -- this is a typedef; we'll handle it separately
 
     _ -> _parseDeclSpec t width signed float

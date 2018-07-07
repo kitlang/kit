@@ -8,7 +8,7 @@ module Kit.Parser.ParserSpec where
 
   testParse s = unwrapParsed $ parseTokens (scanTokens Nothing s)
   testParseExpr s = unwrapParsed $ parseExpr (scanTokens Nothing s)
-  testParseStmt s = unwrapParsed $ parseStatement (scanTokens Nothing s)
+  testParseTopLevel s = unwrapParsed $ parseTopLevelExpr (scanTokens Nothing s)
   unwrapParsed x = case x of
                      ParseResult r -> r
                      Err e -> error $ show e
@@ -41,24 +41,24 @@ module Kit.Parser.ParserSpec where
 
     describe "Parse statements" $ do
       it "parses blocks" $ do
-        testParseStmt "{this; Self;\n break;}" `shouldBe` (pe (sp 1 1 2 8) $ Block [pe (sp 1 2 1 6) This, pe (sp 1 8 1 12) Self, pe (sp 2 2 2 7) Break])
+        testParseTopLevel "{this; Self;\n break;}" `shouldBe` (pe (sp 1 1 2 8) $ Block [pe (sp 1 2 1 6) This, pe (sp 1 8 1 12) Self, pe (sp 2 2 2 7) Break])
 
       it "parses continue" $ do
-        testParseStmt "continue;" `shouldBe` (pe (sp 1 1 1 9) $ Continue)
+        testParseTopLevel "continue;" `shouldBe` (pe (sp 1 1 1 9) $ Continue)
 
       it "parses break" $ do
-        testParseStmt "break;" `shouldBe` (pe (sp 1 1 1 6) $ Break)
+        testParseTopLevel "break;" `shouldBe` (pe (sp 1 1 1 6) $ Break)
 
       it "parses delete statements" $ do
-        testParseStmt "delete a;" `shouldBe` (pe (sp 1 1 1 9) $ Delete (e $ Lvalue $ Var "a"))
+        testParseTopLevel "delete a;" `shouldBe` (pe (sp 1 1 1 9) $ Delete (e $ Lvalue $ Var "a"))
 
       it "parses token blocks" $ do
-        testParseStmt "tokens { }" `shouldBe` (e $ TokenExpr [])
-        testParseStmt "tokens { a }" `shouldBe` (e $ TokenExpr [LowerIdentifier "a"])
-        testParseStmt "tokens { a {} this, }" `shouldBe` (e $ TokenExpr [LowerIdentifier "a", CurlyBraceOpen, CurlyBraceClose, KeywordThis, Comma])
+        testParseTopLevel "tokens { }" `shouldBe` (e $ TokenExpr [])
+        testParseTopLevel "tokens { a }" `shouldBe` (e $ TokenExpr [LowerIdentifier "a"])
+        testParseTopLevel "tokens { a {} this, }" `shouldBe` (e $ TokenExpr [LowerIdentifier "a", CurlyBraceOpen, CurlyBraceClose, KeywordThis, Comma])
 
       it "parses functions" $ do
-        testParse "/**test*/ #[meta] inline function abc[A, B: Int, C: (ToString, ToInt)](a: A, b: B = 2, c: C, ...): Something { print(a); print(b); print(c); }" `shouldBe` [(pe (sp 1 11 1 142) $
+        testParse "/**test*/ #[meta] inline function abc[A, B: Int, C: (ToString, ToInt)](a: A, b: B = 2, c: C, ...): Something { print(a); print(b); print(c); }" `shouldBe` [(ps (sp 1 11 1 142) $
           FunctionDeclaration $ FunctionDefinition {
             function_name = "abc",
             function_doc = Just "test",
@@ -66,16 +66,16 @@ module Kit.Parser.ParserSpec where
             function_modifiers = [Inline],
             function_params = [
               TypeParam {
-                t = TypeSpec ([], "A") [],
+                param_type = TypeSpec ([], "A") [],
                 constraints = []
               },
               TypeParam {
-                t = TypeSpec ([], "B") [],
-                constraints = [TypeSpec ([], "Int") []]
+                param_type = TypeSpec ([], "B") [],
+                constraints = [TypeEq (TypeSpec ([], "B") []) (TypeSpec ([], "Int") [])]
               },
               TypeParam {
-                t = TypeSpec ([], "C") [],
-                constraints = [TypeSpec ([], "ToString") [], TypeSpec ([], "ToInt") []]
+                param_type = TypeSpec ([], "C") [],
+                constraints = [TypeEq (TypeSpec ([], "C") []) constraint | constraint <- [TypeSpec ([], "ToString") [], TypeSpec ([], "ToInt") []]]
               }
             ],
             function_args = [
@@ -106,12 +106,12 @@ module Kit.Parser.ParserSpec where
 
     describe "Parse toplevel statements" $ do
       it "parses imports" $ do
-        testParse "import a;" `shouldBe` [e $ Import ["a"]]
-        testParse "import a.b.c; import d;" `shouldBe` [e $ Import ["a", "b", "c"], e $ Import ["d"]]
+        testParse "import a;" `shouldBe` [makeStmt $ Import ["a"]]
+        testParse "import a.b.c; import d;" `shouldBe` [makeStmt $ Import ["a", "b", "c"], makeStmt $ Import ["d"]]
 
 
       it "parses typedefs" $ do
-        testParse "typedef MyType = OtherType;" `shouldBe` [e $ TypeDeclaration $ TypeDefinition {
+        testParse "typedef MyType = OtherType;" `shouldBe` [makeStmt $ TypeDeclaration $ TypeDefinition {
           type_name = "MyType",
           type_doc = Nothing,
           type_meta = [],
@@ -122,20 +122,20 @@ module Kit.Parser.ParserSpec where
             typedef_definition = TypeSpec ([], "OtherType") []
           }
         }]
-        testParse "typedef MyType[A] = OtherType[B];" `shouldBe` [e $ TypeDeclaration $ TypeDefinition {
+        testParse "typedef MyType[A] = OtherType[B];" `shouldBe` [makeStmt $ TypeDeclaration $ TypeDefinition {
           type_name = "MyType",
           type_doc = Nothing,
           type_meta = [],
           type_modifiers = [],
           type_rules = [],
-          type_params = [TypeParam {t = TypeSpec ([], "A") [], constraints = []}],
+          type_params = [TypeParam {param_type = TypeSpec ([], "A") [], constraints = []}],
           type_type = Typedef {
-            typedef_definition = TypeSpec ([], "OtherType") [TypeParam {t = TypeSpec ([], "B") [], constraints = []}]
+            typedef_definition = TypeSpec ([], "OtherType") [TypeParam {param_type = TypeSpec ([], "B") [], constraints = []}]
           }
         }]
 
       it "parses atoms" $ do
-        testParse "atom MyAtom;" `shouldBe` [e $ TypeDeclaration $ TypeDefinition {
+        testParse "atom MyAtom;" `shouldBe` [makeStmt $ TypeDeclaration $ TypeDefinition {
           type_name = "MyAtom",
           type_type = Atom,
           type_doc = Nothing,
@@ -144,7 +144,7 @@ module Kit.Parser.ParserSpec where
           type_rules = [],
           type_params = []
         }]
-        testParse "public atom MyAtom;" `shouldBe` [e $ TypeDeclaration $ TypeDefinition {
+        testParse "public atom MyAtom;" `shouldBe` [makeStmt $ TypeDeclaration $ TypeDefinition {
           type_name = "MyAtom",
           type_type = Atom,
           type_doc = Nothing,
@@ -153,7 +153,7 @@ module Kit.Parser.ParserSpec where
           type_rules = [],
           type_params = []
         }]
-        testParse "/** Doc*/ atom MyAtom;" `shouldBe` [e $ TypeDeclaration $ TypeDefinition {
+        testParse "/** Doc*/ atom MyAtom;" `shouldBe` [makeStmt $ TypeDeclaration $ TypeDefinition {
           type_name = "MyAtom",
           type_type = Atom,
           type_doc = Just "Doc",
@@ -162,7 +162,7 @@ module Kit.Parser.ParserSpec where
           type_rules = [],
           type_params = []
         }]
-        testParse "/** Doc*/ #[meta] public atom MyAtom;" `shouldBe` [e $ TypeDeclaration $ TypeDefinition {
+        testParse "/** Doc*/ #[meta] public atom MyAtom;" `shouldBe` [makeStmt $ TypeDeclaration $ TypeDefinition {
           type_name = "MyAtom",
           type_type = Atom,
           type_doc = Just "Doc",
@@ -177,7 +177,7 @@ module Kit.Parser.ParserSpec where
               \    Apple;\n\
               \    Banana(i: Int);\n\
               \    /**Abc*/ Strawberry = 1;\n\
-              \}" `shouldBe` [e $ TypeDeclaration $ TypeDefinition {
+              \}" `shouldBe` [makeStmt $ TypeDeclaration $ TypeDefinition {
           type_name = "MyEnum",
           type_doc = Nothing,
           type_meta = [],
@@ -220,7 +220,7 @@ module Kit.Parser.ParserSpec where
               \    var abc;\n\
               \    public var def;\n\
               \    /** test */ #[meta] var ghi: Int = 1;\n\
-              \}" `shouldBe` [e $ TypeDeclaration $ TypeDefinition {
+              \}" `shouldBe` [makeStmt $ TypeDeclaration $ TypeDefinition {
           type_name = "MyStruct",
           type_doc = Nothing,
           type_meta = [],
@@ -259,4 +259,4 @@ module Kit.Parser.ParserSpec where
 
     describe "Parses expression lists" $ do
       it "parses multiple statements" $ do
-        testParse "import a; import b; import c; import d;" `shouldBe` [e $ Import ["a"], e $ Import ["b"], e $ Import ["c"], e $ Import ["d"]]
+        testParse "import a; import b; import c; import d;" `shouldBe` [makeStmt $ Import ["a"], makeStmt $ Import ["b"], makeStmt $ Import ["c"], makeStmt $ Import ["d"]]

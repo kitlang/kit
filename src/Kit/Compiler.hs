@@ -2,9 +2,11 @@ module Kit.Compiler (
   tryCompile,
   module Kit.Compiler.Context,
   module Kit.Compiler.Module,
+  module Kit.Compiler.Monomorphize,
   module Kit.Compiler.Passes,
   module Kit.Compiler.Scope,
-  module Kit.Compiler.TypeUsage
+  module Kit.Compiler.TypeUsage,
+  module Kit.Compiler.Unify
 ) where
 
   import Control.Exception
@@ -16,9 +18,11 @@ module Kit.Compiler (
   import Kit.Ast
   import Kit.Compiler.Context
   import Kit.Compiler.Module
+  import Kit.Compiler.Monomorphize
   import Kit.Compiler.Passes
   import Kit.Compiler.Scope
   import Kit.Compiler.TypeUsage
+  import Kit.Compiler.Unify
   import Kit.Compiler.Utils
   import Kit.Error
   import Kit.HashTable

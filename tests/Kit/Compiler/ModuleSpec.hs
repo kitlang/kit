@@ -10,14 +10,7 @@ module Kit.Compiler.ModuleSpec where
   import Kit.Parser
   import Kit.Str
 
-  newVar s = VarBinding $ VarDefinition {
-    var_name = Var s,
-    var_doc = Nothing,
-    var_meta = [],
-    var_modifiers = [],
-    var_type = Nothing,
-    var_default = Nothing
-  }
+  newVar s = VarBinding $ TypeVar 1
 
   expectFail :: CompileContext -> IO Bool
   expectFail ctx = do

@@ -6,8 +6,6 @@ module Kit.Ast.TypeSpec where
   import Kit.Ast.ConcreteType
   import Kit.Str
 
-  -- (Optional module path or empty, type name)
-  type TypePath = ([Str], Str)
   {-
     A TypeSpec is a syntactic type.
     TypeSpec resolves to a ConcreteType (or fail to resolve)
@@ -15,12 +13,14 @@ module Kit.Ast.TypeSpec where
   -}
   data TypeSpec
     = TypeSpec TypePath [TypeParam]
+    | TypeVar TypeVar
+    | TypeFunctionSpec TypeSpec [(Str, TypeSpec)] Bool
     | ConcreteType ConcreteType
     deriving (Eq, Show)
 
   data TypeParam = TypeParam {
-    t :: TypeSpec,
-    constraints :: [TypeSpec]
+    param_type :: TypeSpec,
+    constraints :: [TypeConstraint]
   } deriving (Eq, Show)
 
   typeSpecToBasicType :: TypeSpec -> Maybe BasicType
@@ -38,3 +38,12 @@ module Kit.Ast.TypeSpec where
   typeSpecToBasicType (TypeSpec ([], "Float32") []) = Just $ BasicTypeFloat 32
   typeSpecToBasicType (TypeSpec ([], "Float64") []) = Just $ BasicTypeFloat 64
   typeSpecToBasicType _ = Nothing
+
+  data TypeConstraint
+    = TypeEq TypeSpec TypeSpec
+    | TypeNumeric TypeSpec
+    | TypeFloating TypeSpec
+    | TypeString TypeSpec
+    | TypeArray TypeSpec
+    deriving (Eq, Show)
+  type TypeVar = Int

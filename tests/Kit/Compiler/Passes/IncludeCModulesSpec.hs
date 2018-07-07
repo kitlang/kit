@@ -13,14 +13,11 @@ module Kit.Compiler.Passes.IncludeCModulesSpec where
   testHeader = do
     ctx <- newCompileContext
     -- let ctx = ctx' {
-    --   context_include_paths = ["tests/Kit/Compiler/Passes"]
+    --   ctxIncludePaths = ["tests/Kit/Compiler/Passes"]
     -- }
     parseCHeader ctx "tests/Kit/Compiler/Passes/test_header.h"
 
-  externVarDef s = newVarDefinition {
-    var_name = Var s,
-    var_meta = [metaExtern]
-  }
+  externVarDef s = newVarDefinition
 
   externFunctionDef s = newFunctionDefinition {
     function_name = s,
@@ -49,62 +46,29 @@ module Kit.Compiler.Passes.IncludeCModulesSpec where
         True `shouldBe` True
 
       forM_ [
-          ("Parses var declarations", "var1", VarBinding ((externVarDef "var1") {
-            var_type = Just $ ConcreteType $ TypeBasicType $ BasicTypeInt 16
-          })),
-          ("Parses var definitions", "var2", VarBinding ((externVarDef "var2") {
-            var_type = Just $ ConcreteType $ TypeBasicType $ BasicTypeInt 8
-          })),
-          ("Parses var definitions with multiple type specifiers", "var3", VarBinding ((externVarDef "var3") {
-            var_type = Just $ ConcreteType $ TypeBasicType $ BasicTypeUint 32
-          })),
-          ("Parses struct vars", "struct_var1", VarBinding ((externVarDef "struct_var1") {
-            var_type = Just $ ConcreteType $ TypeStruct [] "Struct2"
-          })),
-          ("Parses enum vars", "enum_var1", VarBinding ((externVarDef "enum_var1") {
-            var_type = Just $ ConcreteType $ TypeEnum [] "Enum1"
-          })),
-          ("Parses pointer vars", "pointer_var1", VarBinding ((externVarDef "pointer_var1") {
-            var_type = Just $ ConcreteType $ TypePtr (TypeBasicType $ BasicTypeInt 16)
-          })),
-          ("Parses pointers to pointer vars", "pointer_var2", VarBinding ((externVarDef "pointer_var2") {
-            var_type = Just $ ConcreteType $ TypePtr (TypePtr (TypeBasicType $ BasicTypeInt 16))
-          })),
-          ("Parses function pointer vars", "pointer_var3", VarBinding ((externVarDef "pointer_var3") {
-            var_type = Just $ ConcreteType $ TypePtr (TypeFunction (TypeBasicType $ BasicTypeInt 16) [("arg1", TypeBasicType $ BasicTypeInt 16)] False)
-          })),
-          ("Parses void functions", "void_func1", FunctionBinding ((externFunctionDef "void_func1") {
-            function_type = Just $ ConcreteType $ TypeBasicType $ BasicTypeVoid
-          })),
-          ("Parses functions with non-void types", "int_func1", FunctionBinding ((externFunctionDef "int_func1") {
-            function_type = Just $ ConcreteType $ TypeBasicType $ BasicTypeInt 16
-          })),
-          ("Parses functions with arguments", "func_with_args", FunctionBinding ((externFunctionDef "func_with_args") {
-            function_type = Just $ ConcreteType $ TypeBasicType $ BasicTypeFloat 32,
-            function_args = [
-              newArgSpec {arg_name = "arg1", arg_type = Just $ ConcreteType $ TypeBasicType $ BasicTypeInt 16},
-              newArgSpec {arg_name = "arg2", arg_type = Just $ ConcreteType $ TypeBasicType $ BasicTypeUint 64}
-            ]
-          })),
-          ("Parses functions with struct return value/arguments", "struct_func", FunctionBinding ((externFunctionDef "struct_func") {
-            function_type = Just $ ConcreteType $ TypeStruct [] "Struct1",
-            function_args = [
-              newArgSpec {arg_name = "a", arg_type = Just $ ConcreteType $ TypeStruct [] "Struct2"}
-            ]
-          })),
-          ("Parses functions with pointer return value/arguments", "pointer_func", FunctionBinding ((externFunctionDef "pointer_func") {
-            function_type = Just $ ConcreteType $ TypePtr $ TypeBasicType $ BasicTypeFloat 32,
-            function_args = [
-              newArgSpec {arg_name = "arg1", arg_type = Just $ ConcreteType $ TypePtr $ TypeBasicType $ BasicTypeInt 16}
-            ]
-          })),
-          ("Parses variadic functions", "varargs_func", FunctionBinding ((externFunctionDef "varargs_func") {
-            function_type = Just $ ConcreteType $ TypeBasicType $ BasicTypeVoid,
-            function_varargs = True,
-            function_args = [
-              newArgSpec {arg_name = "a", arg_type = Just $ ConcreteType $ TypeBasicType $ BasicTypeInt 16}
-            ]
-          }))
+          ("Parses var declarations", "var1", VarBinding (ConcreteType $ TypeBasicType $ BasicTypeInt 16)),
+          ("Parses var definitions", "var2", VarBinding (ConcreteType $ TypeBasicType $ BasicTypeInt 8)),
+          ("Parses var definitions with multiple type specifiers", "var3", VarBinding (ConcreteType $ TypeBasicType $ BasicTypeUint 32)),
+          ("Parses struct vars", "struct_var1", VarBinding (ConcreteType $ TypeStruct ([], "Struct2"))),
+          ("Parses enum vars", "enum_var1", VarBinding (ConcreteType $ TypeEnum ([], "Enum1"))),
+          ("Parses pointer vars", "pointer_var1", VarBinding (ConcreteType $ TypePtr (TypeBasicType $ BasicTypeInt 16))),
+          ("Parses pointers to pointer vars", "pointer_var2", VarBinding (ConcreteType $ TypePtr (TypePtr (TypeBasicType $ BasicTypeInt 16)))),
+          ("Parses function pointer vars", "pointer_var3", VarBinding (ConcreteType $ TypePtr (TypeFunction (TypeBasicType $ BasicTypeInt 16) [("arg1", TypeBasicType $ BasicTypeInt 16)] False))),
+          ("Parses void functions", "void_func1", FunctionBinding (ConcreteType $ TypeBasicType $ BasicTypeVoid) [] False),
+          ("Parses functions with non-void types", "int_func1", FunctionBinding (ConcreteType $ TypeBasicType $ BasicTypeInt 16) [] False),
+          ("Parses functions with arguments", "func_with_args", FunctionBinding (ConcreteType $ TypeBasicType $ BasicTypeFloat 32) [
+              ("arg1", ConcreteType $ TypeBasicType $ BasicTypeInt 16),
+              ("arg2", ConcreteType $ TypeBasicType $ BasicTypeUint 64)
+            ] False),
+          ("Parses functions with struct return value/arguments", "struct_func", FunctionBinding (ConcreteType $ TypeStruct ([], "Struct1")) [
+              ("a", ConcreteType $ TypeStruct ([], "Struct2"))
+            ] False),
+          ("Parses functions with pointer return value/arguments", "pointer_func", FunctionBinding (ConcreteType $ TypePtr $ TypeBasicType $ BasicTypeFloat 32) [
+              ("arg1", ConcreteType $ TypePtr $ TypeBasicType $ BasicTypeInt 16)
+            ] False),
+          ("Parses variadic functions", "varargs_func", FunctionBinding (ConcreteType $ TypeBasicType $ BasicTypeVoid) [
+              ("a", ConcreteType $ TypeBasicType $ BasicTypeInt 16)
+            ] True)
         ] (\(label, name, val) -> it label $ do
             header <- testHeader
             binding <- resolveLocal (mod_vars header) name

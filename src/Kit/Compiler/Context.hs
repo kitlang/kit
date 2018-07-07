@@ -16,27 +16,28 @@ module Kit.Compiler.Context where
   import Kit.Str
 
   data CompileContext = CompileContext {
-    context_main_module :: ModulePath,
-    context_source_paths :: [FilePath],
-    context_include_paths :: [FilePath],
-    context_output_dir :: FilePath,
-    context_defines :: [(String, String)],
-    context_modules :: HashTable ModulePath Module,
-    context_failed_modules :: HashTable ModulePath (),
-    context_preludes :: HashTable ModulePath [Expr],
-    context_verbose :: Bool,
-    context_module_graph :: IORef [ModuleGraphNode],
-    context_cmodules :: HashTable FilePath Module,
-    context_includes :: IORef [FilePath]
+    ctxMainModule :: ModulePath,
+    ctxSourcePaths :: [FilePath],
+    ctxIncludePaths :: [FilePath],
+    ctxOutputDir :: FilePath,
+    ctxDefines :: [(String, String)],
+    ctxModules :: HashTable ModulePath Module,
+    ctxFailedModules :: HashTable ModulePath (),
+    ctxPreludes :: HashTable ModulePath [Statement],
+    ctxVerbose :: Bool,
+    ctxModuleGraph :: IORef [ModuleGraphNode],
+    ctxCModules :: HashTable FilePath Module,
+    ctxIncludes :: IORef [FilePath],
+    ctxLastTypeVar :: IORef Int
   }
   instance Show CompileContext where
     show ctx = s_unpack $ encode $ object [
-        "main" .= (s_unpack $ showModulePath $ context_main_module ctx),
-        "src" .= context_source_paths ctx,
-        "include" .= context_include_paths ctx,
-        "out" .= context_output_dir ctx,
-        "defines" .= object [T.pack key .= value | (key, value) <- context_defines ctx],
-        "verbose" .= context_verbose ctx
+        "main" .= (s_unpack $ showModulePath $ ctxMainModule ctx),
+        "src" .= ctxSourcePaths ctx,
+        "include" .= ctxIncludePaths ctx,
+        "out" .= ctxOutputDir ctx,
+        "defines" .= object [T.pack key .= value | (key, value) <- ctxDefines ctx],
+        "verbose" .= ctxVerbose ctx
       ]
 
   newCompileContext :: IO CompileContext
@@ -47,19 +48,21 @@ module Kit.Compiler.Context where
     preludes <- h_new
     cmodules <- h_new
     includes <- newIORef []
+    lastTypeVar <- newIORef 0
     return $ CompileContext {
-        context_main_module = ["main"],
-        context_source_paths = ["src"],
-        context_include_paths = ["/usr/include"],
-        context_output_dir = "build",
-        context_defines = [],
-        context_modules = mods,
-        context_failed_modules = failed,
-        context_preludes = preludes,
-        context_verbose = False,
-        context_module_graph = module_graph,
-        context_cmodules = cmodules,
-        context_includes = includes
+        ctxMainModule = ["main"],
+        ctxSourcePaths = ["src"],
+        ctxIncludePaths = ["/usr/include"],
+        ctxOutputDir = "build",
+        ctxDefines = [],
+        ctxModules = mods,
+        ctxFailedModules = failed,
+        ctxPreludes = preludes,
+        ctxVerbose = False,
+        ctxModuleGraph = module_graph,
+        ctxCModules = cmodules,
+        ctxIncludes = includes,
+        ctxLastTypeVar = lastTypeVar
       }
 
 
@@ -72,7 +75,7 @@ module Kit.Compiler.Context where
 
   getMod :: CompileContext -> ModulePath -> IO Module
   getMod ctx mod = do
-    m <- h_lookup (context_modules ctx) mod
+    m <- h_lookup (ctxModules ctx) mod
     case m of
       Just m' -> return m'
       Nothing -> throw $ err InternalError $ "Unexpected missing module: " ++ s_unpack (showModulePath mod)
@@ -90,3 +93,10 @@ module Kit.Compiler.Context where
   resolveType ctx mod s = do
     imports <- mapM (getMod ctx) (map fst $ mod_imports mod)
     resolveBinding (map mod_types (mod : imports)) s
+
+  makeTypeVar :: CompileContext -> IO (TypeSpec)
+  makeTypeVar ctx = do
+    last <- readIORef (ctxLastTypeVar ctx)
+    let next = last + 1
+    writeIORef (ctxLastTypeVar ctx) next
+    return $ TypeVar next

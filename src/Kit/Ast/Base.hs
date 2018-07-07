@@ -6,6 +6,9 @@ module Kit.Ast.Base where
 
   type ModulePath = [Str]
 
+  -- (Optional module path or empty, type name)
+  type TypePath = (ModulePath, Str)
+
   parseModulePath :: Str -> ModulePath
   parseModulePath s = s_split '.' s
 

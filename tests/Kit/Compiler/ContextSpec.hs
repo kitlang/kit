@@ -12,14 +12,7 @@ module Kit.Compiler.ContextSpec where
   import Kit.Parser
   import Kit.Str
 
-  newVar s = VarBinding $ VarDefinition {
-    var_name = Var s,
-    var_doc = Nothing,
-    var_meta = [],
-    var_modifiers = [],
-    var_type = Nothing,
-    var_default = Nothing
-  }
+  newVar s = VarBinding (TypeVar 1)
 
   spec :: Spec
   spec = do

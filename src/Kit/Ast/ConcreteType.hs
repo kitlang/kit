@@ -6,15 +6,13 @@ module Kit.Ast.ConcreteType where
 
   data ConcreteType
     = TypeAtom Str
-    | TypeStruct ModulePath Str
-    | TypeEnum ModulePath Str
-    | TypeAbstract ModulePath Str
-    | TypeTypedef ModulePath Str
+    | TypeStruct TypePath
+    | TypeEnum TypePath
+    | TypeAbstract TypePath
+    | TypeTypedef TypePath
     | TypeFunction ConcreteType [(Str, ConcreteType)] Bool
-    | TypeUnknown TypeVar
     | TypeBasicType BasicType
     | TypePtr ConcreteType
     | TypeArr ConcreteType (Maybe Int)
+    | TypeTraitPointer TypePath
     deriving (Eq, Show)
-
-  type TypeVar = Int

@@ -26,7 +26,7 @@ module Kit.Compiler.Utils where
 
   debugLog :: CompileContext -> String -> IO ()
   debugLog ctx msg = do
-    if context_verbose ctx
+    if ctxVerbose ctx
       then logMsg Debug msg
       else return ()
 
@@ -34,7 +34,7 @@ module Kit.Compiler.Utils where
   findModule ctx mod pos = do
     let modPath = moduleFilePath mod
     debugLog ctx $ "searching for module <" ++ s_unpack (showModulePath mod) ++ ">"
-    match <- findSourceFile modPath (context_source_paths ctx)
+    match <- findSourceFile modPath (ctxSourcePaths ctx)
     case match of
       Just f -> do
         debugLog ctx $ "found module <" ++ s_unpack (showModulePath mod) ++ "> at " ++ f
@@ -43,6 +43,6 @@ module Kit.Compiler.Utils where
         throw $ Errs $ [
           errp ImportError ("Couldn't find module <" ++ s_unpack (showModulePath mod) ++
                             ">; tried searching the following locations: \n\n" ++
-                            (intercalate "\n" ["  - " ++ (dir </> modPath) | dir <- context_source_paths ctx]))
+                            (intercalate "\n" ["  - " ++ (dir </> modPath) | dir <- ctxSourcePaths ctx]))
                pos
           ]

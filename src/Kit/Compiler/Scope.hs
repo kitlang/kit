@@ -1,10 +1,13 @@
 module Kit.Compiler.Scope where
 
+  import Data.IORef
   import Kit.Ast
   import Kit.HashTable
   import Kit.Str
 
-  newtype Scope a = Scope { scopeBindings :: HashTable Str a }
+  data Scope a = Scope {
+    scopeBindings :: HashTable Str a
+  }
 
   -- Create a new scope.
   newScope :: IO (Scope a)

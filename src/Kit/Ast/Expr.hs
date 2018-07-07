@@ -2,6 +2,7 @@ module Kit.Ast.Expr where
 
   import Data.Traversable
   import Kit.Ast.Base
+  import Kit.Ast.ConcreteType
   import Kit.Ast.Modifier
   import Kit.Ast.Operator
   import Kit.Ast.TypeSpec
@@ -10,107 +11,82 @@ module Kit.Ast.Expr where
   import Kit.Parser.Token
   import Kit.Str
 
-  data Expr = Expr {expr :: ExprType, pos :: Span} deriving (Show)
-  instance Eq Expr where
-    (==) a b = (expr a) == (expr b) && (pos a == pos b || pos b == null_span)
+  class ExprWrapper a where
+    getExpr :: a -> ExprType a
+    setExpr :: a -> ExprType a -> a
+    makeExpr :: ExprType a -> a
 
-  e :: ExprType -> Expr
+  data Expr = Expr {expr :: ExprType Expr, pos :: Span} deriving (Show)
+  instance Eq Expr where
+    (==) a b = (expr a) == (expr b) && (pos a == pos b || pos a == null_span || pos b == null_span)
+  instance ExprWrapper Expr where
+    getExpr = expr
+    setExpr ex et = ex {expr = et}
+    makeExpr = e
+
+  e :: ExprType Expr -> Expr
   e et = ep et null_span
 
-  ep :: ExprType -> Span -> Expr
+  ep :: ExprType Expr -> Span -> Expr
   ep et p = Expr {expr = et, pos = p}
 
-  pe :: Span -> ExprType -> Expr
+  pe :: Span -> ExprType Expr -> Expr
   pe p et = ep et p
 
   me :: Span -> Expr -> Expr
   me p ex = Expr {expr = expr ex, pos = p}
 
-  data MatchCase = MatchCase {match_pattern :: Expr, match_body :: Expr} deriving (Eq, Show)
+  data MatchCase a = MatchCase {match_pattern :: a, match_body :: a} deriving (Eq, Show)
   data Metadata = Metadata {meta_name :: Str, meta_args :: [Expr]} deriving (Eq, Show)
 
-  meta s = Metadata {meta_name = s, meta_args = []}
+  meta s = (Metadata {meta_name = s, meta_args = []} :: Metadata)
   metaExtern = meta "extern"
 
-  data ExprType
-    = Block [Expr]
-    | Meta Metadata Expr
+  data (ExprWrapper a) => ExprType a
+    = Block [a]
+    | Meta (Metadata) a
     | Literal ValueLiteral
     | This
     | Self
     | Lvalue Lvalue
     | TypeConstructor Str
-    | TypeAnnotation Expr TypeSpec
-    | PreUnop Operator Expr
-    | PostUnop Operator Expr
-    | Binop Operator Expr Expr
-    | For Expr Expr Expr
-    | While Expr Expr
-    | If Expr Expr (Maybe Expr)
+    | TypeAnnotation a TypeSpec
+    | PreUnop Operator a
+    | PostUnop Operator a
+    | Binop Operator a a
+    | For a a a
+    | While a a
+    | If a a (Maybe a)
     | Continue
     | Break
-    | Return (Maybe Expr)
-    | Throw Expr
-    | Match Expr [MatchCase] (Maybe Expr)
-    | InlineCall Expr
-    | Field Expr Lvalue
-    | ArrayAccess Expr Expr
-    | Call Expr [Expr]
-    | Cast Expr TypeSpec
+    | Return (Maybe a)
+    | Throw a
+    | Match a [MatchCase a] (Maybe a)
+    | InlineCall a
+    | Field a Lvalue
+    | ArrayAccess a a
+    | Call a [a]
+    | Cast a TypeSpec
     | TokenExpr [TokenClass]
-    | Unsafe Expr
+    | Unsafe a
     | BlockComment Str
-    | New TypeSpec [Expr]
-    | Copy Expr
-    | Delete Expr
-    | Move Expr
+    | New TypeSpec [a]
+    | Copy a
+    | Delete a
+    | Move a
     | LexMacro Str [TokenClass]
-    | RangeLiteral Expr Expr
-    | VectorLiteral [Expr]
-    | Import ModulePath
-    | Include FilePath
-    | VarDeclaration VarDefinition
-    | FunctionDeclaration FunctionDefinition
-    | TypeDeclaration TypeDefinition
-    | TraitDeclaration TraitDefinition
-    | Implement TraitImplementation
+    | RangeLiteral a a
+    | VectorLiteral [a]
+    | VarDeclaration (VarDefinition a)
     deriving (Eq, Show)
 
-  data TypeDefinition = TypeDefinition {
-    type_name :: Str,
-    type_doc :: Maybe Str,
-    type_meta :: [Metadata],
-    type_modifiers :: [Modifier],
-    type_rules :: [RewriteRule],
-    type_type :: TypeDefinitionType,
-    type_params :: [TypeParam]
-  } deriving (Eq, Show)
-
-  data TypeDefinitionType
-    = Atom
-    | Struct {struct_fields :: [VarDefinition]}
-    | Enum {enum_variants :: [EnumVariant], enum_underlying_type :: Maybe TypeSpec}
-    | Abstract {abstract_underlying_type :: Maybe TypeSpec}
-    | Typedef {typedef_definition :: TypeSpec}
-    deriving (Eq, Show)
-
-  newTypeDefinition x = TypeDefinition {
-    type_name = x,
-    type_doc = Nothing,
-    type_meta = [],
-    type_modifiers = [],
-    type_rules = [],
-    type_params = [],
-    type_type = undefined
-  }
-
-  data VarDefinition = VarDefinition {
+  data VarDefinition a = VarDefinition {
     var_name :: Lvalue,
     var_doc :: Maybe Str,
     var_meta :: [Metadata],
     var_modifiers :: [Modifier],
     var_type :: Maybe TypeSpec,
-    var_default :: Maybe Expr
+    var_default :: Maybe a
   } deriving (Eq, Show)
 
   newVarDefinition = VarDefinition {
@@ -120,25 +96,7 @@ module Kit.Ast.Expr where
     var_modifiers = [Public],
     var_type = Nothing,
     var_default = Nothing
-  }
-
-  data EnumVariant = EnumVariant {
-    variant_name :: Str,
-    variant_doc :: Maybe Str,
-    variant_meta :: [Metadata],
-    variant_modifiers :: [Modifier],
-    variant_args :: [ArgSpec],
-    variant_value :: Maybe Expr
-  } deriving (Eq, Show)
-
-  newEnumVariant = EnumVariant {
-    variant_name = undefined,
-    variant_doc = Nothing,
-    variant_meta = [],
-    variant_modifiers = [],
-    variant_args = [],
-    variant_value = Nothing
-  }
+  } :: VarDefinition Expr
 
   data FunctionDefinition = FunctionDefinition {
     function_name :: Str,
@@ -176,73 +134,47 @@ module Kit.Ast.Expr where
     arg_default = Nothing
   }
 
-  data RewriteRule = Rule TermRewriteRule | Method FunctionDefinition deriving (Eq, Show)
-
-  data TermRewriteRule = TermRewriteRule {
-    rule_doc :: Maybe Str,
-    rule_meta :: [Metadata],
-    rule_modifiers :: [Modifier],
-    rule_params :: [TypeParam],
-    rule_type :: Maybe TypeSpec,
-    rule_pattern :: Expr,
-    rule_body :: Maybe Expr
-  } deriving (Eq, Show)
-
-  data TraitDefinition = TraitDefinition {
-    trait_name :: Str,
-    trait_doc :: Maybe Str,
-    trait_meta :: [Metadata],
-    trait_modifiers :: [Modifier],
-    trait_params :: [TypeParam],
-    trait_rules :: [RewriteRule]
-  } deriving (Eq, Show)
-
-  data TraitImplementation = TraitImplementation {
-    impl_trait :: TypeSpec,
-    impl_for :: TypeSpec,
-    impl_rules :: [RewriteRule],
-    impl_doc :: Maybe Str
-  } deriving (Eq, Show)
-
   data Binding
-    = VarBinding VarDefinition
-    | FunctionBinding FunctionDefinition
+    = VarBinding TypeSpec
+    | FunctionBinding TypeSpec [(Str, TypeSpec)] Bool
     deriving (Eq, Show)
 
-  exprMap f e@(Expr {expr = et}) = case et of
-    Block children -> f $ e {expr = Block (map f children)}
-    Meta m e -> f $ e {expr = Meta m (f e)}
-    TypeAnnotation e t -> f $ e {expr = TypeAnnotation (f e) t}
-    PreUnop op e -> f $ e {expr = PreUnop op (f e)}
-    PostUnop op e -> f $ e {expr = PostUnop op (f e)}
-    Binop op e1 e2 -> f $ e {expr = Binop op (f e1) (f e2)}
-    For e1 e2 e3 -> f $ e {expr = For (f e1) (f e2) (f e3)}
-    While e1 e2 -> f $ e {expr = While (f e1) (f e2)}
-    If e1 e2 (Just e3) -> f $ e {expr = If (f e1) (f e2) (Just $ f e3)}
-    If e1 e2 Nothing -> f $ e {expr = If (f e1) (f e2) Nothing}
-    Return (Just e) -> f $ e {expr = Return (Just $ f e)}
-    Throw e -> f $ e {expr = Throw (f e)}
-    {-Match Expr [MatchCase] (Maybe Expr)
-    InlineCall Expr
-    Field Expr Lvalue
-    ArrayAccess Expr Expr
-    Call Expr [Expr]
-    Cast Expr TypeSpec
-    TokenExpr [TokenClass]
-    Unsafe Expr
-    BlockComment Str
-    New TypeSpec [Expr]
-    Copy Expr
-    Delete Expr
-    Move Expr
-    LexMacro Str [TokenClass]
-    RangeLiteral Expr Expr
-    VectorLiteral [Expr]
-    Import ModulePath
-    Include FilePath
-    VarDeclaration VarDefinition
-    FunctionDeclaration FunctionDefinition
-    TypeDeclaration TypeDefinition
-    TraitDeclaration TraitDefinition
-    Implement TraitImplementation-}
-    _ -> f e
+  exprMap :: (ExprWrapper a) => (a -> a) -> a -> a
+  exprMap f ex = f $ setExpr ex $ case getExpr ex of
+    (Block children) -> (Block (map (exprMap f) children))
+    (Meta m e1) -> (Meta m ((exprMap f) e1))
+    (Literal l) -> (Literal l)
+    (This) -> (This)
+    (Self) -> (Self)
+    (Lvalue v) -> (Lvalue v)
+    (TypeConstructor s) -> (TypeConstructor s)
+    (TypeAnnotation e1 t) -> (TypeAnnotation ((exprMap f) e1) t)
+    (PreUnop op e1) -> (PreUnop op ((exprMap f) e1))
+    (PostUnop op e1) -> (PostUnop op ((exprMap f) e1))
+    (Binop op e1 e2) -> (Binop op ((exprMap f) e1) ((exprMap f) e2))
+    (For e1 e2 e3) -> (For ((exprMap f) e1) ((exprMap f) e2) ((exprMap f) e3))
+    (While e1 e2) -> (While ((exprMap f) e1) ((exprMap f) e2))
+    (If e1 e2 e3) -> (If ((exprMap f) e1) ((exprMap f) e2) (mapMaybeExpr (exprMap f) e3))
+    (Continue) -> (Continue)
+    (Break) -> (Break)
+    (Return e1) -> (Return (mapMaybeExpr (exprMap f) e1))
+    (Throw e1) -> (Throw ((exprMap f) e1))
+    (Match e1 cases (e2)) -> (Match ((exprMap f) e1) [MatchCase {match_pattern = (exprMap f) $ match_pattern c, match_body = (exprMap f) $ match_body c} | c <- cases] (mapMaybeExpr (exprMap f) e2))
+    (InlineCall e1) -> (InlineCall ((exprMap f) e1))
+    (Field e1 lval) -> (Field ((exprMap f) e1) lval)
+    (ArrayAccess e1 e2) -> (ArrayAccess ((exprMap f) e1) ((exprMap f) e2))
+    (Call e1 args) -> (Call ((exprMap f) e1) (map (exprMap f) args))
+    (Cast e1 t) -> (Cast ((exprMap f) e1) t)
+    (Unsafe e1) -> (Unsafe ((exprMap f) e1))
+    (BlockComment s) -> (BlockComment s)
+    (New t args) -> (New t (map (exprMap f) args))
+    (Copy e1) -> (Copy ((exprMap f) e1))
+    (Delete e1) -> (Delete ((exprMap f) e1))
+    (Move e1) -> (Move ((exprMap f) e1))
+    (LexMacro s t) -> (LexMacro s t)
+    (RangeLiteral e1 e2) -> (RangeLiteral ((exprMap f) e1) ((exprMap f) e2))
+    (VectorLiteral items) -> (VectorLiteral (map (exprMap f) items))
+    (VarDeclaration vardef) -> (VarDeclaration (vardef {var_default = mapMaybeExpr (exprMap f) $ var_default vardef}))
+
+  mapMaybeExpr f (Just ex) = Just (f ex)
+  mapMaybeExpr _ (Nothing) = Nothing

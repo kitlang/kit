@@ -11,7 +11,7 @@ module Kit.Compiler.Module where
 
   data Module = Module {
     mod_path :: ModulePath,
-    mod_contents :: IORef [Expr],
+    mod_contents :: IORef [Statement],
     mod_imports :: [(ModulePath, Span)],
     mod_includes :: [(FilePath, Span)],
     mod_types :: Scope TypeUsage,
@@ -19,27 +19,27 @@ module Kit.Compiler.Module where
     mod_ir :: IORef [IrDecl]
   }
 
-  newMod :: ModulePath -> [Expr] -> IO Module
-  newMod path exprs = do
+  newMod :: ModulePath -> [Statement] -> IO Module
+  newMod path stmts = do
     types <- newScope
     vars <- newScope
-    contents <- newIORef exprs
+    contents <- newIORef stmts
     ir <- newIORef []
     return $ Module {
         mod_path = path,
         mod_contents = contents,
-        mod_imports = _findImports path exprs,
-        mod_includes = _findIncludes exprs,
+        mod_imports = _findImports path stmts,
+        mod_includes = _findIncludes stmts,
         mod_types = types,
         mod_vars = vars,
         mod_ir = ir
       }
 
-  newCMod :: [Expr] -> IO Module
-  newCMod exprs = do
+  newCMod :: IO Module
+  newCMod = do
     types <- newScope
     vars <- newScope
-    contents <- newIORef exprs
+    contents <- newIORef []
     ir <- newIORef []
     return $ Module {
         mod_path = [],
@@ -51,28 +51,28 @@ module Kit.Compiler.Module where
         mod_ir = ir
       }
 
-  _findImports :: ModulePath -> [Expr] -> [(ModulePath, Span)]
-  _findImports mod exprs = foldr (\e acc -> case e of
-      Expr {expr = Import mp, pos = p} ->
+  _findImports :: ModulePath -> [Statement] -> [(ModulePath, Span)]
+  _findImports mod stmts = foldr (\e acc -> case e of
+      Statement {stmt = Import mp, stmtPos = p} ->
         -- eliminate self imports (e.g. from prelude)
         if mod == mp
           then acc
           else (mp, p) : acc
       _ -> acc
-    ) [] exprs
+    ) [] stmts
 
-  _findIncludes :: [Expr] -> [(FilePath, Span)]
-  _findIncludes exprs = foldr (\e acc -> case e of
-      Expr {expr = Include ip, pos = p} -> (ip, p) : acc
+  _findIncludes :: [Statement] -> [(FilePath, Span)]
+  _findIncludes stmts = foldr (\e acc -> case e of
+      Statement {stmt = Include ip, stmtPos = p} -> (ip, p) : acc
       _ -> acc
-    ) [] exprs
+    ) [] stmts
 
   getConcreteType :: ModulePath -> TypeDefinition -> ConcreteType
   getConcreteType mod t@(TypeDefinition {type_name = s, type_type = Atom}) = TypeAtom s
-  getConcreteType mod t@(TypeDefinition {type_name = s, type_type = Struct {}}) = TypeStruct mod s
-  getConcreteType mod t@(TypeDefinition {type_name = s, type_type = Enum {}}) = TypeEnum mod s
-  getConcreteType mod t@(TypeDefinition {type_name = s, type_type = Abstract {}}) = TypeAbstract mod s
-  getConcreteType mod t@(TypeDefinition {type_name = s, type_type = Typedef {}}) = TypeTypedef mod s
+  getConcreteType mod t@(TypeDefinition {type_name = s, type_type = Struct {}}) = TypeStruct (mod, s)
+  getConcreteType mod t@(TypeDefinition {type_name = s, type_type = Enum {}}) = TypeEnum (mod, s)
+  getConcreteType mod t@(TypeDefinition {type_name = s, type_type = Abstract {}}) = TypeAbstract (mod, s)
+  getConcreteType mod t@(TypeDefinition {type_name = s, type_type = Typedef {}}) = TypeTypedef (mod, s)
 
   findModuleType :: Module -> TypeSpec -> IO (Maybe ConcreteType)
   findModuleType mod (TypeSpec (path, typeName) params) = do

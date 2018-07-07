@@ -24,5 +24,5 @@ module Kit.CompilerSpec where
     describe "tryCompile" $ do
       it "fails when main doesn't exist" $ do
         ctx <- newCompileContext
-        result <- expectFail ctx {context_main_module = ["module", "that", "doesnt", "exist"]}
+        result <- expectFail ctx {ctxMainModule = ["module", "that", "doesnt", "exist"]}
         result `shouldBe` True

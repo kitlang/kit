@@ -19,7 +19,7 @@ module Kit.CodeGen.C.CDeclSpec where
   spec = do
     describe "Transpiles structures into typedefs" $ do
       it "Transpiles structs" $ do
-        showstruct (BasicTypeStruct ("MyStruct", [("a", BasicTypeInt 8), ("b", BasicTypeUint 8)])) `shouldBe` "typedef struct {\nsigned char a; unsigned char b;\n} MyStruct"
+        showstruct (BasicTypeStruct ("MyStruct", [("a", BasicTypeInt 8), ("b", BasicTypeUint 8)])) `shouldBe` "struct MyStruct {\nsigned char a; unsigned char b;\n}"
 
     describe "Transpiles simple enums" $ do
       it "Transpiles enum discriminants" $ do
@@ -32,5 +32,5 @@ module Kit.CodeGen.C.CDeclSpec where
         shouldBe
           (showstruct (BasicTypeComplexEnum "MyEnum" [("Variant1", []), ("Variant2", [("field1", BasicTypeInt 8), ("field2", BasicTypeUint 8)])]))
           "enum MyEnum_Discriminant {\nVariant1, Variant2\n}\n\
-          \typedef struct {\nenum MyEnum_Discriminant __discriminant;\nunion {\nMyEnum_Variant_Variant2 variant_Variant2;\n} __variant;\n} MyEnum\n\
-          \typedef struct {\nsigned char field1; unsigned char field2;\n} MyEnum_Variant_Variant2"
+          \struct MyEnum {\nenum MyEnum_Discriminant __discriminant;\nunion {\nMyEnum_Variant_Variant2 variant_Variant2;\n} __variant;\n}\n\
+          \struct MyEnum_Variant_Variant2 {\nsigned char field1; unsigned char field2;\n}"

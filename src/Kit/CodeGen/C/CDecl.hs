@@ -12,10 +12,7 @@ module Kit.CodeGen.C.CDecl where
   cdecl :: BasicType -> [CDecl]
   {- Kit struct = C struct -}
   cdecl (BasicTypeStruct (name, fields))
-    = [u $ CDecl [
-          CStorageSpec $ u $ CTypedef,
-          CTypeSpec $ u $ CSUType $ u $ CStruct CStructTag Nothing (Just f) []
-        ] [(Just $ u $ CDeclr (Just $ internalIdent $ s_unpack name) [] Nothing [], Nothing, Nothing)]]
+    = [u $ CDecl [CTypeSpec $ u $ CSUType $ u $ CStruct CStructTag (Just $ internalIdent $ s_unpack name) (Just f) []] []]
       where f = [u $ CDecl (ctype' t) [(Just $ u $ CDeclr (Just $ internalIdent $ s_unpack n) [] Nothing [], Nothing, Nothing)] | (n, t) <- fields]
 
   {- Simple enums (no variant has any fields) will generate a C enum. -}
@@ -38,10 +35,7 @@ module Kit.CodeGen.C.CDecl where
     where
       discriminant_name = (s_concat [name, "_Discriminant"])
       enum_struct name discriminant_name variants
-        = u $ CDecl [
-              CStorageSpec $ u $ CTypedef,
-              CTypeSpec $ u $ CSUType $ u $ CStruct CStructTag Nothing (Just f) []
-            ] [(Just $ u $ CDeclr (Just $ internalIdent $ s_unpack name) [] Nothing [], Nothing, Nothing)]
+        = u $ CDecl [CTypeSpec $ u $ CSUType $ u $ CStruct CStructTag (Just $ internalIdent $ s_unpack name) (Just f) []] []
           where f = [
                       u $ CDecl [CTypeSpec $ u $ CEnumType $ u $ CEnum (Just (internalIdent $ s_unpack discriminant_name)) Nothing []] [(Just $ u $ CDeclr (Just $ internalIdent "__discriminant") [] Nothing [], Nothing, Nothing)],
                       u $ CDecl [CTypeSpec $ u $ CSUType $ u $ CStruct CUnionTag Nothing (Just variant_fields) []] [(Just $ u $ CDeclr (Just $ internalIdent "__variant") [] Nothing [], Nothing, Nothing)]

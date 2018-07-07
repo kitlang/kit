@@ -5,8 +5,8 @@ module Kit.Parser.Base where
   data Parser a = ParseResult a | Err Error
 
   instance Functor Parser where
-      fmap f (ParseResult x) = ParseResult (f x)
-      fmap f (Err e) = Err e
+    fmap f (ParseResult x) = ParseResult (f x)
+    fmap f (Err e) = Err e
 
   instance Applicative Parser where
     pure = ParseResult
