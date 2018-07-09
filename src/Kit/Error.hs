@@ -15,6 +15,7 @@ module Kit.Error where
     | IncludeError
     | ValidationError
     | TypingError
+    | UnificationError
     | InternalError
     | Unknown
     deriving (Eq, Show)
@@ -61,11 +62,12 @@ module Kit.Error where
     hPutStrLn stderr $ "\n  <" ++ fp ++ ">:"
     contents <- readFile $ fp
     let content_lines = lines contents
-    forM_ [(end_line span) .. (start_line span)] $ \n -> do
+    putStrLn $ show span
+    forM_ [(start_line span) .. (end_line span)] $ \n -> do
       hSetSGR stderr [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
-      if n == (start_line span) + 2
+      if n == (start_line span) + 3
         then do hPutStrLn stderr $ "\n  ...\n"
-        else if n > (start_line span) + 2 && n < (end_line span) - 1
+        else if n > (start_line span) + 3 && n < (end_line span) - 2
           then do return ()
           else do
             let line = content_lines !! (n - 1)
@@ -73,10 +75,12 @@ module Kit.Error where
             hPutStr stderr $ (lpad (show n) 8) ++ "    "
             hSetSGR stderr [SetConsoleIntensity FaintIntensity]
             hPutStrLn stderr $ line
-            if (start_line span) < (end_line span) || (start_col span) > 1 || (end_col span) < length line
+            if (start_line span) <= (end_line span) || (start_col span) > 1 || (end_col span) < length line
               then do
                 hSetSGR stderr [SetColor Foreground Vivid Yellow, SetConsoleIntensity BoldIntensity]
-                hPutStrLn stderr $ "            " ++ (take ((start_col span) - 1) (repeat ' ')) ++ (take ((end_col span) - (start_col span) + 1) $ repeat '^')
+                let this_start_col = if n == start_line span then start_col span else length (takeWhile ((==) ' ') line) + 1
+                let this_end_col = if n == end_line span then end_col span else length line
+                hPutStrLn stderr $ "            " ++ (take ((this_start_col) - 1) (repeat ' ')) ++ (take ((this_end_col) - (this_start_col) + 1) $ repeat '^')
               else do return ()
     hPutStrLn stderr ""
     return ()

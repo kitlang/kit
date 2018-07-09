@@ -15,7 +15,9 @@ module Kit.Compiler.Module where
     mod_imports :: [(ModulePath, Span)],
     mod_includes :: [(FilePath, Span)],
     mod_types :: Scope TypeUsage,
+    mod_functions :: Scope FunctionDefinition,
     mod_vars :: Scope Binding,
+    mod_enums :: Scope EnumConstructor,
     mod_ir :: IORef [IrDecl]
   }
 
@@ -25,12 +27,14 @@ module Kit.Compiler.Module where
     vars <- newScope
     contents <- newIORef stmts
     ir <- newIORef []
+    functions <- newScope
     return $ Module {
         mod_path = path,
         mod_contents = contents,
         mod_imports = _findImports path stmts,
         mod_includes = _findIncludes stmts,
         mod_types = types,
+        mod_functions = functions,
         mod_vars = vars,
         mod_ir = ir
       }
@@ -39,15 +43,19 @@ module Kit.Compiler.Module where
   newCMod = do
     types <- newScope
     vars <- newScope
+    enums <- newScope
     contents <- newIORef []
     ir <- newIORef []
+    functions <- newScope
     return $ Module {
         mod_path = [],
         mod_contents = contents,
         mod_imports = [],
         mod_includes = [],
         mod_types = types,
+        mod_functions = functions,
         mod_vars = vars,
+        mod_enums = enums,
         mod_ir = ir
       }
 
@@ -67,19 +75,5 @@ module Kit.Compiler.Module where
       _ -> acc
     ) [] stmts
 
-  getConcreteType :: ModulePath -> TypeDefinition -> ConcreteType
-  getConcreteType mod t@(TypeDefinition {type_name = s, type_type = Atom}) = TypeAtom s
-  getConcreteType mod t@(TypeDefinition {type_name = s, type_type = Struct {}}) = TypeStruct (mod, s)
-  getConcreteType mod t@(TypeDefinition {type_name = s, type_type = Enum {}}) = TypeEnum (mod, s)
-  getConcreteType mod t@(TypeDefinition {type_name = s, type_type = Abstract {}}) = TypeAbstract (mod, s)
-  getConcreteType mod t@(TypeDefinition {type_name = s, type_type = Typedef {}}) = TypeTypedef (mod, s)
-
-  findModuleType :: Module -> TypeSpec -> IO (Maybe ConcreteType)
-  findModuleType mod (TypeSpec (path, typeName) params) = do
-    if path == [] || path == (mod_path mod)
-      then do
-        usage <- resolveLocal (mod_types mod) typeName
-        case usage of
-          Just (u@TypeUsage {type_definition = t}) -> return $ Just $ getConcreteType (mod_path mod) t
-          Nothing -> return $ Nothing
-      else return Nothing
+  findEnumType :: Module -> Str -> IO (Maybe EnumConstructor)
+  findEnumType mod s = resolveLocal (mod_enums mod) s

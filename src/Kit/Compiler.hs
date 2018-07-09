@@ -49,6 +49,8 @@ module Kit.Compiler (
     typeExpressions ctx
     printLog "generating type declarations"
     generateTypes ctx
+    printLog "generating internal representation"
+    generateIr ctx
     printLog "generating code"
     generateCode ctx
     printLog "finished"

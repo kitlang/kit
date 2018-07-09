@@ -7,7 +7,7 @@ enum List[T] {
 
     /**
      * Returns a new list which combines two other lists. Requires iterating
-     * over the first list, which is O(n).
+     * over both lists, which is O(n).
      */
     public function concat(other: Self[T]): Self[T] {
         var list = Empty;

@@ -82,8 +82,8 @@ module Kit.Compiler.Passes.IncludeCModules where
   addCDecl :: CompileContext -> Module -> Str -> ConcreteType -> IO ()
   addCDecl ctx mod name t = do
     let binding = case t of
-                    TypeFunction t argTypes isVariadic -> FunctionBinding (ConcreteType t) [(name, ConcreteType argType) | (name, argType) <- argTypes] isVariadic
-                    _ -> VarBinding $ ConcreteType t
+                    TypeFunction t argTypes isVariadic -> FunctionBinding t [(name, argType) | (name, argType) <- argTypes] isVariadic
+                    _ -> VarBinding $ t
     bindToScope (mod_vars mod) name binding
     return ()
 
@@ -102,10 +102,10 @@ module Kit.Compiler.Passes.IncludeCModules where
     (CShortType _) -> _parseDeclSpec t 16 signed False
     (CIntType _) -> _parseDeclSpec t 16 signed False
     (CLongType _) -> _parseDeclSpec t (width + 32) signed False
-    (CTypeDef (Ident x _ _) _) -> Just $ TypeTypedef ([], (s_pack x))
+    (CTypeDef (Ident x _ _) _) -> Just $ TypeTypedef ([], (s_pack x)) []
     -- anonymous structs/enums; TODO: need to generate a stub declaration for these
-    (CSUType (CStruct CStructTag (Just (Ident x _ _)) _ _ _) _) -> Just $ TypeStruct ([], (s_pack x))
-    (CEnumType (CEnum (Just (Ident x _ _)) _ _ _) _) -> Just $ TypeEnum ([], (s_pack x))
+    (CSUType (CStruct CStructTag (Just (Ident x _ _)) _ _ _) _) -> Just $ TypeStruct ([], (s_pack x)) []
+    (CEnumType (CEnum (Just (Ident x _ _)) _ _ _) _) -> Just $ TypeEnum ([], (s_pack x)) []
     -- this is a typedef; we'll handle it separately
 
     _ -> _parseDeclSpec t width signed float
@@ -128,7 +128,7 @@ module Kit.Compiler.Passes.IncludeCModules where
                     Nothing -> [] in
     [(newTypeDefinition name) {
       type_type = Struct {
-        struct_fields = [newVarDefinition {var_name = Var $ structFieldName field, var_type = Just $ structFieldType field} | field <- fields']
+        struct_fields = [newVarDefinition {var_name = Var $ structFieldName field, var_type = Just $ ConcreteType $ structFieldType field} | field <- fields']
       }
     }]
   parseTypedefSpec (h:t) name  = parseTypedefSpec t name
@@ -139,7 +139,7 @@ module Kit.Compiler.Passes.IncludeCModules where
       Just fields ->
         [(newTypeDefinition (s_pack name)) {
           type_type = Struct {
-            struct_fields = [newVarDefinition {var_name = Var $ structFieldName field, var_type = Just $ structFieldType field} | field <- fields]
+            struct_fields = [newVarDefinition {var_name = Var $ structFieldName field, var_type = Just $ ConcreteType $ structFieldType field} | field <- fields]
           }
         }]
       Nothing -> []
@@ -162,7 +162,7 @@ module Kit.Compiler.Passes.IncludeCModules where
     let (name, _, _, _) = head (decomposeCDecl cdecl) in name
   structFieldType cdecl =
     let (_, _, typeSpec, derivedSpec) = head (decomposeCDecl cdecl) in
-    ConcreteType (typeFromSpec typeSpec derivedSpec)
+    typeFromSpec typeSpec derivedSpec
 
   parseDerivedTypeSpec :: ConcreteType -> [CDerivedDeclr] -> ConcreteType
   parseDerivedTypeSpec ct ((CPtrDeclr _ _):t) =

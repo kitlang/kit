@@ -1,30 +1,40 @@
 module Kit.Ast.TypeSpec where
 
   import Data.Hashable
-  import Kit.Ast.Base
+  import Data.List
   import Kit.Ast.BasicType
   import Kit.Ast.ConcreteType
+  import Kit.Ast.ModulePath
   import Kit.Str
 
+  type TypeSpecArgs = [(Str, TypeSpec)]
+
   {-
-    A TypeSpec is a syntactic type.
-    TypeSpec resolves to a ConcreteType (or fail to resolve)
-    which will become an underlying BasicType at runtime
+    A TypeSpec is a syntactic type. TypeSpecs try to resolve to a specific
+    ConcreteType when expressions are typed.
   -}
   data TypeSpec
     = TypeSpec TypePath [TypeParam]
-    | TypeVar TypeVar
-    | TypeFunctionSpec TypeSpec [(Str, TypeSpec)] Bool
+    | TypeFunctionSpec TypeSpec TypeSpecArgs Bool
+    {-
+      This variant can be used to force the BasicType to resolve to a specific
+      ConcreteType without going through normal namespace resolution. This is
+      used when we already know the underlying type when generating the AST,
+      e.g. for C externs.
+    -}
     | ConcreteType ConcreteType
-    deriving (Eq, Show)
+    deriving (Eq)
+
+  instance Show TypeSpec where
+    show (TypeSpec (tp) params) = (s_unpack $ showTypePath tp) ++ (if params == [] then "" else "[" ++ (intercalate "," [show param | param <- params]) ++ "]")
 
   data TypeParam = TypeParam {
     param_type :: TypeSpec,
-    constraints :: [TypeConstraint]
+    constraints :: [TypeSpec]
   } deriving (Eq, Show)
 
   typeSpecToBasicType :: TypeSpec -> Maybe BasicType
-  typeSpecToBasicType (TypeSpec ([], "CString") []) = Just $ CString
+  typeSpecToBasicType (TypeSpec ([], "CString") []) = Just $ CPtr $ BasicTypeInt 8
   typeSpecToBasicType (TypeSpec ([], "Bool") []) = Just $ BasicTypeBool
   typeSpecToBasicType (TypeSpec ([], "Int") []) = typeSpecToBasicType (TypeSpec ([], "Int32") [])
   typeSpecToBasicType (TypeSpec ([], "Int8") []) = Just $ BasicTypeInt 8
@@ -38,12 +48,3 @@ module Kit.Ast.TypeSpec where
   typeSpecToBasicType (TypeSpec ([], "Float32") []) = Just $ BasicTypeFloat 32
   typeSpecToBasicType (TypeSpec ([], "Float64") []) = Just $ BasicTypeFloat 64
   typeSpecToBasicType _ = Nothing
-
-  data TypeConstraint
-    = TypeEq TypeSpec TypeSpec
-    | TypeNumeric TypeSpec
-    | TypeFloating TypeSpec
-    | TypeString TypeSpec
-    | TypeArray TypeSpec
-    deriving (Eq, Show)
-  type TypeVar = Int

@@ -1,11 +1,12 @@
 module Kit.Ast.Statement where
 
   import Data.Traversable
-  import Kit.Ast.Base
   import Kit.Ast.ConcreteType
   import Kit.Ast.Expr
   import Kit.Ast.Modifier
+  import Kit.Ast.ModulePath
   import Kit.Ast.Operator
+  import Kit.Ast.RewriteRule
   import Kit.Ast.TypeSpec
   import Kit.Ast.Value
   import Kit.Parser.Span
@@ -33,15 +34,41 @@ module Kit.Ast.Statement where
 
   data RewriteRule = Rule TermRewriteRule | Method FunctionDefinition deriving (Eq, Show)
 
-  data TermRewriteRule = TermRewriteRule {
-    rule_doc :: Maybe Str,
-    rule_meta :: [Metadata],
-    rule_modifiers :: [Modifier],
-    rule_params :: [TypeParam],
-    rule_type :: Maybe TypeSpec,
-    rule_pattern :: Expr,
-    rule_body :: Maybe Expr
+  data FunctionDefinition = FunctionDefinition {
+    function_name :: Str,
+    function_doc :: Maybe Str,
+    function_meta :: [Metadata],
+    function_modifiers :: [Modifier],
+    function_params :: [TypeParam],
+    function_args :: [ArgSpec],
+    function_type :: Maybe TypeSpec,
+    function_body :: Maybe Expr,
+    function_varargs :: Bool
   } deriving (Eq, Show)
+
+  newFunctionDefinition = FunctionDefinition {
+    function_name = undefined,
+    function_doc = Nothing,
+    function_meta = [],
+    function_modifiers = [Public],
+    function_params = [],
+    function_args = [],
+    function_type = Nothing,
+    function_body = Nothing,
+    function_varargs = False
+  }
+
+  data ArgSpec = ArgSpec {
+    arg_name :: Str,
+    arg_type :: Maybe TypeSpec,
+    arg_default :: Maybe Expr
+  } deriving (Eq, Show)
+
+  newArgSpec = ArgSpec {
+    arg_name = undefined,
+    arg_type = Nothing,
+    arg_default = Nothing
+  }
 
   data TraitDefinition = TraitDefinition {
     trait_name :: Str,

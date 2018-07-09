@@ -129,23 +129,26 @@ module Kit.Compiler.Passes.BuildModuleGraph where
   _checkForTopLevel :: CompileContext -> Module -> Statement -> IO ()
   _checkForTopLevel ctx m s = do
     case stmt s of
-      TypeDeclaration s -> do
-        debugLog ctx $ "found type " ++ s_unpack (type_name s) ++ " in module <" ++ s_unpack (showModulePath $ mod_path m) ++ ">"
-        usage <- newTypeUsage s
-        bindToScope (mod_types m) (type_name s) usage
+      TypeDeclaration t -> do
+        debugLog ctx $ "found type " ++ s_unpack (type_name t) ++ " in module <" ++ s_unpack (showModulePath $ mod_path m) ++ ">"
+        usage <- newTypeUsage t
+        bindToScope (mod_types m) (type_name t) usage
+        case t of
+          TypeDefinition {type_name = type_name, type_type = Enum {enum_variants = variants}} -> do
+            forM_ (variants) (\variant -> do
+              args <- mapM (\arg -> do t <- resolveMaybeTypeOrFail ctx m (stmtPos s) (arg_type arg); return (arg_name arg, t)) (variant_args variant)
+              let constructor = ((mod_path m, type_name), args)
+              bindToScope (mod_enums m) (variant_name variant) constructor
+              return ())
+          _ -> do return ()
       ModuleVarDeclaration v -> do
         debugLog ctx $ "found variable " ++ s_unpack (lvalue_name $ var_name v) ++ " in module <" ++ s_unpack (showModulePath $ mod_path m) ++ ">"
-        varType <- _resolveMaybeType ctx (var_type v)
+        varType <- resolveMaybeTypeOrFail ctx m (stmtPos s) (var_type v)
         bindToScope (mod_vars m) (lvalue_name $ var_name v) (VarBinding (varType))
       FunctionDeclaration f -> do
         debugLog ctx $ "found function " ++ s_unpack (function_name f) ++ " in module <" ++ s_unpack (showModulePath $ mod_path m) ++ ">"
-        functionType <- _resolveMaybeType ctx (function_type f)
-        args <- mapM (\arg -> do t <- _resolveMaybeType ctx (arg_type arg); return (arg_name arg, t)) (function_args f)
+        functionType <- resolveMaybeTypeOrFail ctx m (stmtPos s) (function_type f)
+        args <- mapM (\arg -> do t <- resolveMaybeTypeOrFail ctx m (stmtPos s) (arg_type arg); return (arg_name arg, t)) (function_args f)
         bindToScope (mod_vars m) (function_name f) (FunctionBinding (functionType) args (function_varargs f))
+        bindToScope (mod_functions m) (function_name f) f
       _ -> return ()
-
-  _resolveMaybeType :: CompileContext -> Maybe TypeSpec -> IO TypeSpec
-  _resolveMaybeType ctx t = do
-    case t of
-      Just t -> do return t
-      Nothing -> makeTypeVar ctx

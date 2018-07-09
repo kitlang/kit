@@ -2,9 +2,12 @@ module Kit.Ast.BasicType where
 
   import Kit.Str
 
+  {-
+    A BasicType is a specific runtime type. BasicTypes are either C types or
+    simple combinations of C types.
+  -}
   data BasicType
-    = CString
-    | CArray BasicType (Maybe Int)
+    = CArray BasicType (Maybe Int)
     | CPtr BasicType
     | BasicTypeVoid
     | BasicTypeBool
@@ -21,6 +24,8 @@ module Kit.Ast.BasicType where
     -- BasicType, the value isn't usable from Kit without casting.
     | BasicTypeUnknown
     deriving (Eq, Show)
+
+  -- instance Show BasicType where
 
   -- (Name, [(Field Name, Field Type)])
   type BasicStruct = (Str, [(Str, BasicType)])

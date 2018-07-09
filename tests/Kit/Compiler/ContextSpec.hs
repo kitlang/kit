@@ -12,7 +12,7 @@ module Kit.Compiler.ContextSpec where
   import Kit.Parser
   import Kit.Str
 
-  newVar s = VarBinding (TypeVar 1)
+  newVar s = VarBinding $ TypeBasicType BasicTypeVoid
 
   spec :: Spec
   spec = do

@@ -10,7 +10,7 @@ module Kit.Compiler.ModuleSpec where
   import Kit.Parser
   import Kit.Str
 
-  newVar s = VarBinding $ TypeVar 1
+  newVar s = VarBinding $ TypeBasicType BasicTypeVoid
 
   expectFail :: CompileContext -> IO Bool
   expectFail ctx = do

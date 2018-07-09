@@ -71,11 +71,11 @@ module Kit.Parser.ParserSpec where
               },
               TypeParam {
                 param_type = TypeSpec ([], "B") [],
-                constraints = [TypeEq (TypeSpec ([], "B") []) (TypeSpec ([], "Int") [])]
+                constraints = [(TypeSpec ([], "Int") [])]
               },
               TypeParam {
                 param_type = TypeSpec ([], "C") [],
-                constraints = [TypeEq (TypeSpec ([], "C") []) constraint | constraint <- [TypeSpec ([], "ToString") [], TypeSpec ([], "ToInt") []]]
+                constraints = [TypeSpec ([], "ToString") [], TypeSpec ([], "ToInt") []]
               }
             ],
             function_args = [

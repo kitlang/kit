@@ -348,7 +348,7 @@ TypeParams_ :: {[TypeParam]}
 
 TypeParam :: {TypeParam}
   : TypePath TypeParams {TypeParam {param_type = TypeSpec (fst $1) (fst $2), constraints = []}}
-  | TypePath TypeParams ':' TypeConstraints {TypeParam {param_type = TypeSpec (fst $1) (fst $2), constraints = [TypeEq (TypeSpec (fst $1) (fst $2)) constraint | constraint <- $4]}}
+  | TypePath TypeParams ':' TypeConstraints {TypeParam {param_type = TypeSpec (fst $1) (fst $2), constraints = $4}}
 
 TypeConstraints :: {[TypeSpec]}
   : TypeSpec {[fst $1]}
@@ -628,7 +628,7 @@ BaseExpr :: {Expr}
   | this {pe (snd $1) This}
   | Self {pe (snd $1) Self}
   | Lvalue {pe (snd $1) $ Lvalue $ fst $1}
-  | upper_identifier {pe (snd $1) $ TypeConstructor $ extract_upper_identifier $1}
+  | upper_identifier {pe (snd $1) $ EnumConstructor $ extract_upper_identifier $1}
   | '(' Expr ')' {me (p $1 <+> p $3) $2}
 
 Lvalue :: {(Lvalue, Span)}

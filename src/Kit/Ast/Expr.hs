@@ -1,8 +1,8 @@
 module Kit.Ast.Expr where
 
   import Data.Traversable
-  import Kit.Ast.Base
   import Kit.Ast.ConcreteType
+  import Kit.Ast.Lvalue
   import Kit.Ast.Modifier
   import Kit.Ast.Operator
   import Kit.Ast.TypeSpec
@@ -49,7 +49,7 @@ module Kit.Ast.Expr where
     | This
     | Self
     | Lvalue Lvalue
-    | TypeConstructor Str
+    | EnumConstructor Str
     | TypeAnnotation a TypeSpec
     | PreUnop Operator a
     | PostUnop Operator a
@@ -89,6 +89,7 @@ module Kit.Ast.Expr where
     var_default :: Maybe a
   } deriving (Eq, Show)
 
+  newVarDefinition :: (ExprWrapper a) => VarDefinition a
   newVarDefinition = VarDefinition {
     var_name = undefined,
     var_doc = Nothing,
@@ -96,48 +97,7 @@ module Kit.Ast.Expr where
     var_modifiers = [Public],
     var_type = Nothing,
     var_default = Nothing
-  } :: VarDefinition Expr
-
-  data FunctionDefinition = FunctionDefinition {
-    function_name :: Str,
-    function_doc :: Maybe Str,
-    function_meta :: [Metadata],
-    function_modifiers :: [Modifier],
-    function_params :: [TypeParam],
-    function_args :: [ArgSpec],
-    function_type :: Maybe TypeSpec,
-    function_body :: Maybe Expr,
-    function_varargs :: Bool
-  } deriving (Eq, Show)
-
-  newFunctionDefinition = FunctionDefinition {
-    function_name = undefined,
-    function_doc = Nothing,
-    function_meta = [],
-    function_modifiers = [Public],
-    function_params = [],
-    function_args = [],
-    function_type = Nothing,
-    function_body = Nothing,
-    function_varargs = False
   }
-
-  data ArgSpec = ArgSpec {
-    arg_name :: Str,
-    arg_type :: Maybe TypeSpec,
-    arg_default :: Maybe Expr
-  } deriving (Eq, Show)
-
-  newArgSpec = ArgSpec {
-    arg_name = undefined,
-    arg_type = Nothing,
-    arg_default = Nothing
-  }
-
-  data Binding
-    = VarBinding TypeSpec
-    | FunctionBinding TypeSpec [(Str, TypeSpec)] Bool
-    deriving (Eq, Show)
 
   exprMap :: (ExprWrapper a) => (a -> a) -> a -> a
   exprMap f ex = f $ setExpr ex $ case getExpr ex of
@@ -147,7 +107,7 @@ module Kit.Ast.Expr where
     (This) -> (This)
     (Self) -> (Self)
     (Lvalue v) -> (Lvalue v)
-    (TypeConstructor s) -> (TypeConstructor s)
+    (EnumConstructor s) -> (EnumConstructor s)
     (TypeAnnotation e1 t) -> (TypeAnnotation ((exprMap f) e1) t)
     (PreUnop op e1) -> (PreUnop op ((exprMap f) e1))
     (PostUnop op e1) -> (PostUnop op ((exprMap f) e1))

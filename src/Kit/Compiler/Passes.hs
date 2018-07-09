@@ -3,6 +3,7 @@ module Kit.Compiler.Passes (
   module Kit.Compiler.Passes.IncludeCModules,
   module Kit.Compiler.Passes.TypeExpressions,
   module Kit.Compiler.Passes.GenerateTypes,
+  module Kit.Compiler.Passes.GenerateIr,
   module Kit.Compiler.Passes.GenerateCode
 ) where
 
@@ -10,4 +11,5 @@ module Kit.Compiler.Passes (
   import Kit.Compiler.Passes.IncludeCModules
   import Kit.Compiler.Passes.TypeExpressions
   import Kit.Compiler.Passes.GenerateTypes
+  import Kit.Compiler.Passes.GenerateIr
   import Kit.Compiler.Passes.GenerateCode
