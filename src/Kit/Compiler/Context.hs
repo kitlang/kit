@@ -9,6 +9,7 @@ module Kit.Compiler.Context where
   import Kit.Ast
   import Kit.Compiler.Module
   import Kit.Compiler.Scope
+  import Kit.Compiler.TypedDecl
   import Kit.Compiler.TypeUsage
   import Kit.Error
   import Kit.HashTable
@@ -29,7 +30,8 @@ module Kit.Compiler.Context where
     ctxCModules :: HashTable FilePath Module,
     ctxIncludes :: IORef [FilePath],
     ctxLastTypeVar :: IORef Int,
-    ctxTypeVariables :: HashTable Int TypeVariableState
+    ctxTypeVariables :: HashTable Int TypeVariableState,
+    ctxTypedDecls :: HashTable TypePath TypedDecl
   }
   instance Show CompileContext where
     show ctx = s_unpack $ encode $ object [
@@ -48,6 +50,7 @@ module Kit.Compiler.Context where
     failed <- h_new
     preludes <- h_new
     cmodules <- h_new
+    typedDecls <- h_new
     includes <- newIORef []
     lastTypeVar <- newIORef 0
     typeVars <- h_new
@@ -65,7 +68,8 @@ module Kit.Compiler.Context where
         ctxCModules = cmodules,
         ctxIncludes = includes,
         ctxLastTypeVar = lastTypeVar,
-        ctxTypeVariables = typeVars
+        ctxTypeVariables = typeVars,
+        ctxTypedDecls = typedDecls
       }
 
 
@@ -94,9 +98,9 @@ module Kit.Compiler.Context where
     last <- readIORef (ctxLastTypeVar ctx)
     let next = last + 1
     writeIORef (ctxLastTypeVar ctx) next
-    return $ TypeVar next
+    return $ TypeTypeVar (TypeVar next)
 
-  getTypeVar :: CompileContext -> TypeVar -> IO (Maybe TypeVariableState)
+  getTypeVar :: CompileContext -> Int -> IO (Maybe TypeVariableState)
   getTypeVar ctx tv = h_lookup (ctxTypeVariables ctx) tv
 
   resolveVar :: CompileContext -> [Scope Binding] -> Module -> Str -> IO (Maybe Binding)
@@ -107,56 +111,3 @@ module Kit.Compiler.Context where
       Nothing -> do
         imports <- mapM (getMod ctx) (map fst $ mod_imports mod)
         resolveBinding (map mod_vars (mod : imports)) s
-
-  resolveType :: CompileContext -> Module -> TypeSpec -> IO (Maybe ConcreteType)
-  resolveType ctx mod t = do
-    case t of
-      ConcreteType (TypeTypedef t params) -> return $ Just (TypeTypedef t params) -- TODO: dereference immediately here
-      ConcreteType ct -> return $ Just ct
-      _ -> do
-        -- TODO
-        return Nothing
-
-  resolveMaybeType :: CompileContext -> Module -> Maybe TypeSpec -> IO (Maybe ConcreteType)
-  resolveMaybeType ctx mod t = do
-    case t of
-      Just t -> resolveType ctx mod t
-      Nothing -> do
-        var <- makeTypeVar ctx
-        return $ Just var
-
-  resolveTypeOrFail ctx mod pos t = do
-    result <- resolveType ctx mod t
-    case result of
-      Just t -> return t
-      Nothing -> throw $ Errs [errp TypingError ("Unknown type: " ++ (show t)) (Just pos)]
-
-  resolveMaybeTypeOrFail ctx mod pos t = do
-    result <- resolveMaybeType ctx mod t
-    case result of
-      Just t -> return t
-      Nothing -> throw $ Errs [errp TypingError ("Unknown type: " ++ (show (case t of {Just x -> x}))) (Just pos)]
-
-  resolveTypeUsage :: CompileContext -> Module -> Str -> IO (Maybe TypeUsage)
-  resolveTypeUsage ctx mod s = do
-    imports <- mapM (getMod ctx) (map fst $ mod_imports mod)
-    resolveBinding (map mod_types (mod : imports)) s
-
-  resolveEnum :: CompileContext -> Module -> Str -> IO (Maybe EnumConstructor)
-  resolveEnum ctx mod s = do
-    imports <- mapM (getMod ctx) (map fst $ mod_imports mod)
-    resolveBinding (map mod_enums (mod : imports)) s
-
-  knownType :: CompileContext -> ConcreteType -> IO ConcreteType
-  knownType ctx t = do
-    case t of
-      TypeVar x -> do
-        result <- h_lookup (ctxTypeVariables ctx) (x)
-        case result of
-          -- Specific known type
-          Just (Right t) -> return t
-          -- Constraints, but no specific type; return type var
-          Just (Left _) -> return t
-          -- Hasn't been unified with anything; return type var
-          Nothing -> return t
-      t -> return t

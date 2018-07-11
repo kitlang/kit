@@ -9,6 +9,8 @@ module Kit.Compiler.Passes.TypeExpressions where
   import Kit.Compiler.Context
   import Kit.Compiler.Module
   import Kit.Compiler.Scope
+  import Kit.Compiler.TypeContext
+  import Kit.Compiler.TypedDecl
   import Kit.Compiler.TypedExpr
   import Kit.Compiler.Unify
   import Kit.Compiler.Utils
@@ -17,48 +19,43 @@ module Kit.Compiler.Passes.TypeExpressions where
   import Kit.Parser
   import Kit.Str
 
-  data TypeContext = TypeContext {
-    tctxScopes :: [Scope Binding],
-    tctxReturnType :: Maybe ConcreteType,
-    tctxThis :: Maybe ConcreteType,
-    tctxSelf :: Maybe ConcreteType,
-    tctxLoopCount :: Int,
-    tctxRewriteRecursionDepth :: Int
-  }
-
-  newTypeContext :: [Scope Binding] -> IO TypeContext
-  newTypeContext scopes = do
-    scope <- newScope
-    lastTypeVar <- newIORef 0
-    return $ TypeContext {tctxScopes = scope : scopes, tctxReturnType = Nothing, tctxThis = Nothing, tctxSelf = Nothing, tctxLoopCount = 0, tctxRewriteRecursionDepth = 0}
-
   typeExpressions :: CompileContext -> IO ()
   typeExpressions ctx = do
     mainModule <- h_get (ctxModules ctx) (ctxMainModule ctx)
     main <- resolveLocal (mod_functions mainModule) "main"
     case main of
       Just main -> do
-        case function_body main of
-          Just x -> do
-            returnType <- resolveMaybeTypeOrFail ctx mainModule (pos x) (function_type main)
-            result <- typeFunctionBody ctx mainModule x returnType
-            putStrLn $ show result
-            inferredReturnType <- knownType ctx returnType
-            putStrLn $ show inferredReturnType
-          Nothing -> throw $ Errs [err ValidationError ("main function is missing a function body")]
-        return ()
+        typeFunction ctx mainModule main
       Nothing -> throw $ Errs [err ValidationError ("main module " ++ (s_unpack $ showModulePath $ mod_path mainModule) ++ " is missing a main function")]
 
   basicType = TypeBasicType
   voidType = TypeBasicType BasicTypeVoid
 
-  typeFunctionBody :: CompileContext -> Module -> Expr -> ConcreteType -> IO TypedExpr
-  typeFunctionBody ctx mod x returnType = do
-    imports <- mapM (\(mp, _) -> getMod ctx mp) (mod_imports mod)
-    includes <- mapM (\(mp, _) -> getCMod ctx mp) (mod_includes mod)
-    tctx <- newTypeContext ((mod_vars mod) : ([mod_vars imp | imp <- imports] ++ [mod_vars inc | inc <- includes]))
-    result <- typeExpr ctx (tctx {tctxReturnType = Just returnType}) mod x
-    return result
+  typeFunction :: CompileContext -> Module -> FunctionDefinition -> IO ()
+  typeFunction ctx mod f = do
+    case function_body f of
+      Just x -> do
+        imports <- mapM (\(mp, _) -> getMod ctx mp) (mod_imports mod)
+        includes <- mapM (\(mp, _) -> getCMod ctx mp) (mod_includes mod)
+        functionScope <- newScope
+        tctx <- newTypeContext ((mod_vars mod) : ([mod_vars imp | imp <- imports] ++ [mod_vars inc | inc <- includes]))
+        args <- mapM (\arg -> do argType <- resolveMaybeTypeOrFail ctx tctx mod (pos x) (arg_type arg); return (arg_name arg, argType)) (function_args f)
+        returnType <- resolveMaybeTypeOrFail ctx tctx mod (pos x) (function_type f)
+        typedBody <- typeExpr ctx (tctx {tctxScopes = functionScope : (tctxScopes tctx), tctxReturnType = Just returnType}) mod x
+        resolvedReturnType <- knownType ctx tctx returnType
+        -- Try to unify with void; if unification doesn't fail, we didn't encounter a return statement, so the function is void.
+        let finalReturnType = case unify (resolvedReturnType) (TypeBasicType BasicTypeVoid) of
+                                TypeConstraintNotSatisfied -> resolvedReturnType
+                                _ -> TypeBasicType BasicTypeVoid
+        let typedFunction = TypedFunction {
+          typedFunctionName = function_name f,
+          typedFunctionReturnType = finalReturnType,
+          typedFunctionArgs = args,
+          typedFunctionBody = typedBody,
+          typedFunctionVariadic = (function_varargs f)
+        }
+        bindToScope (mod_typed_contents mod) (function_name f) typedFunction
+      Nothing -> throw $ Errs [err ValidationError ("main function is missing a function body")]
 
   {-
     Converts a tree of untyped AST to Typed AST.
@@ -112,7 +109,7 @@ module Kit.Compiler.Passes.TypeExpressions where
           MacroVar vname -> throw $ Errs [errp TypingError ("Macro variable $" ++ (s_unpack vname) ++ " can only be used in a rewrite rule") (Just pos)]
 
       (EnumConstructor s) -> do
-        enumConstructor <- resolveEnum ctx mod s
+        enumConstructor <- resolveEnum ctx tctx mod s
         case enumConstructor of
           Just (t, args) -> if args == []
             then return $ makeExprTyped (EnumConstructor s) (TypeEnum t []) pos
@@ -121,8 +118,8 @@ module Kit.Compiler.Passes.TypeExpressions where
 
       (TypeAnnotation e1 t) -> do
         r1 <- r e1
-        t <- resolveTypeOrFail ctx mod pos t
-        resolve (TypeEq (inferredType r1) t)
+        t <- resolveTypeOrFail ctx tctx mod pos t
+        resolve $ TypeEq (inferredType r1) t
         return r1
 
       (PreUnop op e1) -> do
@@ -153,14 +150,15 @@ module Kit.Compiler.Passes.TypeExpressions where
         r2 <- r e2
         scope <- newScope
         r3 <- typeExpr ctx (tctx {tctxScopes = scope : (tctxScopes tctx), tctxLoopCount = (tctxLoopCount tctx) + 1}) mod e3
-        resolve (TypeClassMember TypeIterable (inferredType r2))
-        return $ makeExprTyped (For (makeExprTyped (Lvalue v) TypeLvalue pos1) r2 r3) voidType pos
+        tv <- makeTypeVar ctx
+        resolve $ TypeClassMember (TypeIterable tv) (inferredType r2)
+        return $ makeExprTyped (For (makeExprTyped (Lvalue v) (TypeLvalue tv) pos1) r2 r3) voidType pos
 
       (While e1 e2) -> do
         r1 <- r e1
         scope <- newScope
         r2 <- typeExpr ctx (tctx {tctxScopes = scope : (tctxScopes tctx), tctxLoopCount = (tctxLoopCount tctx) + 1}) mod e2
-        resolve (TypeEq (inferredType r1) (basicType BasicTypeBool))
+        resolve $ TypeEq (inferredType r1) (basicType BasicTypeBool)
         return $ makeExprTyped (While r1 r2) voidType pos
 
       (If e1 e2 (Just e3)) -> do
@@ -176,7 +174,7 @@ module Kit.Compiler.Passes.TypeExpressions where
         r1 <- r e1
         scope <- newScope
         r2 <- typeExpr ctx (tctx {tctxScopes = scope : (tctxScopes tctx)}) mod e2
-        resolve (TypeEq (inferredType r1) (basicType BasicTypeBool))
+        resolve $ TypeEq (inferredType r1) (basicType BasicTypeBool)
         return $ makeExprTyped (If r1 r2 Nothing) voidType pos
 
       (Continue) -> do
@@ -192,10 +190,10 @@ module Kit.Compiler.Passes.TypeExpressions where
         case (tctxReturnType tctx, e1) of
           (Just rt, Just e1) -> do
             r1 <- r e1
-            resolveList [TypeEq (rt) (inferredType r1), TypeClassMember TypeNotVoid rt]
+            resolve $ TypeEq (rt) (inferredType r1)
             return $ makeExprTyped (Return $ Just r1) voidType pos
           (Just rt, Nothing) -> do
-            resolve (TypeEq voidType (rt))
+            resolve $ TypeEq voidType (rt)
             return $ makeExprTyped (Return Nothing) voidType pos
           (Nothing, _) -> throw $ Errs [err TypingError "Can't `return` outside of a function"]
 
@@ -229,14 +227,14 @@ module Kit.Compiler.Passes.TypeExpressions where
       (VectorLiteral items) -> throw $ Errs [err InternalError "Not yet implemented"]
 
       (VarDeclaration vardef@(VarDefinition {var_name = Var vname, var_default = Just e1})) -> do
-        varType <- resolveMaybeTypeOrFail ctx mod pos (var_type vardef)
+        varType <- resolveMaybeTypeOrFail ctx tctx mod pos (var_type vardef)
         r1 <- r e1
         bindToScope (head $ tctxScopes tctx) vname (VarBinding varType)
         resolve $ TypeEq (varType) (inferredType r1)
         return $ makeExprTyped (VarDeclaration $ ((newVarDefinition :: VarDefinition TypedExpr) {var_name = var_name vardef, var_type = var_type vardef, var_default = Just r1})) voidType pos
 
       (VarDeclaration vardef@(VarDefinition {var_name = Var vname, var_default = Nothing})) -> do
-        varType <- resolveMaybeTypeOrFail ctx mod pos (var_type vardef)
+        varType <- resolveMaybeTypeOrFail ctx tctx mod pos (var_type vardef)
         bindToScope (head $ tctxScopes tctx) vname (VarBinding varType)
         return $ makeExprTyped (VarDeclaration ((newVarDefinition :: VarDefinition TypedExpr) {var_name = var_name vardef, var_type = var_type vardef, var_default = Nothing})) voidType pos
 

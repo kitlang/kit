@@ -36,81 +36,82 @@ module Kit.CodeGen.C.CExpr where
   --transpile :: [Expr] -> [CStat]
   --transpile exprs
 
-  transpile_expr :: IrExpr -> CExpr
-  transpile_expr (IrIdentifier s) = u $ CVar $ internalIdent $ s_unpack s
-  transpile_expr (IrLiteral (BoolValue b)) = CConst $ u $ CIntConst $ cInteger (if b then 1 else 0)
-  transpile_expr (IrLiteral (IntValue i)) = CConst $ u $ CIntConst $ transpile_int (s_unpack i)
-  transpile_expr (IrLiteral (FloatValue f)) = CConst $ u $ CFloatConst $ transpile_float (s_unpack f)
-  transpile_expr (IrBinop op e1 e2) = u $ CBinary (transpile_binop op) (transpile_expr e1) (transpile_expr e2)
-  transpile_expr (IrPreUnop op e1) = u $ CUnary (transpile_pre_unop op) (transpile_expr e1)
-  transpile_expr (IrPostUnop op e1) = u $ CUnary (transpile_post_unop op) (transpile_expr e1)
-  transpile_expr (IrField e s) = u $ CMember (transpile_expr e) (internalIdent $ s_unpack s) False
-  transpile_expr (IrArrayAccess e1 e2) = u $ CIndex (transpile_expr e1) (transpile_expr e2)
-  transpile_expr (IrCall e args) = u $ CCall (transpile_expr e) [transpile_expr x | x <- args]
-  transpile_expr (IrCast e t) = u $ CCast (u $ CDecl (ctype' t) []) (transpile_expr e)
-  --transpile_expr (Expr {expr = VectorLiteral e}) = u $ CA
+  transpileExpr :: IrExpr -> CExpr
+  transpileExpr (IrIdentifier s) = u $ CVar $ internalIdent $ s_unpack s
+  transpileExpr (IrLiteral (BoolValue b)) = CConst $ u $ CIntConst $ cInteger (if b then 1 else 0)
+  transpileExpr (IrLiteral (IntValue i)) = CConst $ u $ CIntConst $ transpileInt (s_unpack i)
+  transpileExpr (IrLiteral (FloatValue f)) = CConst $ u $ CFloatConst $ transpileFloat (s_unpack f)
+  transpileExpr (IrLiteral (StringValue s)) = CConst $ u $ CStrConst $ cString $ s_unpack s
+  transpileExpr (IrBinop op e1 e2) = u $ CBinary (transpileBinop op) (transpileExpr e1) (transpileExpr e2)
+  transpileExpr (IrPreUnop op e1) = u $ CUnary (transpilePreUnop op) (transpileExpr e1)
+  transpileExpr (IrPostUnop op e1) = u $ CUnary (transpilePostUnop op) (transpileExpr e1)
+  transpileExpr (IrField e s) = u $ CMember (transpileExpr e) (internalIdent $ s_unpack s) False
+  transpileExpr (IrArrayAccess e1 e2) = u $ CIndex (transpileExpr e1) (transpileExpr e2)
+  transpileExpr (IrCall e args) = u $ CCall (transpileExpr e) [transpileExpr x | x <- args]
+  transpileExpr (IrCast e t) = u $ CCast (u $ CDecl (ctype' t) []) (transpileExpr e)
+  --transpileExpr (Expr {expr = VectorLiteral e}) = u $ CA
 
-  transpile_stmt :: IrExpr -> CStat
-  transpile_stmt IrBreak = u CBreak
-  transpile_stmt IrContinue = u CCont
-  transpile_stmt (IrReturn (Just r)) = u $ CReturn $ Just $ transpile_expr r
-  transpile_stmt (IrReturn Nothing) = u $ CReturn Nothing
-  transpile_stmt (IrBlock e) = u $ CCompound [] [transpile_block_item x | x <- e]
-  transpile_stmt (IrIf cond e1 (Just e2)) = u $ CIf (transpile_expr cond) (transpile_stmt e1) (Just $ transpile_stmt e2)
-  transpile_stmt (IrIf cond e1 Nothing) = u $ CIf (transpile_expr cond) (transpile_stmt e1) (Nothing)
-  transpile_stmt (IrWhile cond e) = u $ CWhile (transpile_expr cond) (transpile_stmt e) False
-  transpile_stmt (IrFor v id_type start end body) =
-    u $ CFor (Right $ u $ CDecl (ctype' id_type) [(Just $ var_to_cdeclr v, Just $ u $ CInitExpr $ transpile_expr start, Nothing)]) (Just $ transpile_expr (IrBinop Lt (IrIdentifier v) (end))) (Just $ transpile_expr (IrPreUnop Inc (IrIdentifier v))) (transpile_stmt body)
-  transpile_stmt e = u $ CExpr $ Just $ transpile_expr e
+  transpileStmt :: IrExpr -> CStat
+  transpileStmt IrBreak = u CBreak
+  transpileStmt IrContinue = u CCont
+  transpileStmt (IrReturn (Just r)) = u $ CReturn $ Just $ transpileExpr r
+  transpileStmt (IrReturn Nothing) = u $ CReturn Nothing
+  transpileStmt (IrBlock e) = u $ CCompound [] [transpileBlockItem x | x <- e]
+  transpileStmt (IrIf cond e1 (Just e2)) = u $ CIf (transpileExpr cond) (transpileStmt e1) (Just $ transpileStmt e2)
+  transpileStmt (IrIf cond e1 Nothing) = u $ CIf (transpileExpr cond) (transpileStmt e1) (Nothing)
+  transpileStmt (IrWhile cond e) = u $ CWhile (transpileExpr cond) (transpileStmt e) False
+  transpileStmt (IrFor v id_type start end body) =
+    u $ CFor (Right $ u $ CDecl (ctype' id_type) [(Just $ var_to_cdeclr v, Just $ u $ CInitExpr $ transpileExpr start, Nothing)]) (Just $ transpileExpr (IrBinop Lt (IrIdentifier v) (end))) (Just $ transpileExpr (IrPreUnop Inc (IrIdentifier v))) (transpileStmt body)
+  transpileStmt e = u $ CExpr $ Just $ transpileExpr e
 
   var_to_cdeclr x = u $ CDeclr (Just $ internalIdent $ s_unpack x) [] (Nothing) []
 
-  transpile_block_item :: IrExpr -> CBlockItem
-  transpile_block_item (IrVarDeclaration v t var_default) =
+  transpileBlockItem :: IrExpr -> CBlockItem
+  transpileBlockItem (IrVarDeclaration v t var_default) =
     CBlockDecl $ u $ CDecl (ctype' t) [(Just vn, body, Nothing)]
     where vn = var_to_cdeclr $ v
           body = case var_default of
-                   Just x -> Just $ u $ CInitExpr $ transpile_expr x
+                   Just x -> Just $ u $ CInitExpr $ transpileExpr x
                    Nothing -> Nothing
-  transpile_block_item x = CBlockStmt $ transpile_stmt x
+  transpileBlockItem x = CBlockStmt $ transpileStmt x
 
   -- TODO: validate
   r1 x = fst (x !! 0)
 
-  transpile_int ('0':'x':s) = cInteger $ r1 $ readHex s
-  transpile_int ('0':'b':s) = cInteger $ r1 $ readInt 2 isBin readBin s
+  transpileInt ('0':'x':s) = cInteger $ r1 $ readHex s
+  transpileInt ('0':'b':s) = cInteger $ r1 $ readInt 2 isBin readBin s
                               where isBin x = (x == '0' || x == '1')
                                     readBin '0' = 0
                                     readBin '1' = 1
-  transpile_int ('0':'o':s) = cInteger $ r1 $ readOct ('0':s)
-  transpile_int s = cInteger $ r1 $ readDec s
+  transpileInt ('0':'o':s) = cInteger $ r1 $ readOct ('0':s)
+  transpileInt s = cInteger $ r1 $ readDec s
 
-  transpile_float s = cFloat $ r1 $ readFloat s
+  transpileFloat s = cFloat $ r1 $ readFloat s
 
-  transpile_binop Add = CAddOp
-  transpile_binop Sub = CSubOp
-  transpile_binop Mul = CMulOp
-  transpile_binop Div = CDivOp
-  transpile_binop Mod = CRmdOp
-  transpile_binop Eq = CEqOp
-  transpile_binop Neq = CNeqOp
-  transpile_binop Gt = CGrOp
-  transpile_binop Lt = CLeOp
-  transpile_binop Gte = CGeqOp
-  transpile_binop Lte = CLeqOp
-  transpile_binop LeftShift = CShlOp
-  transpile_binop RightShift = CShrOp
-  transpile_binop And = CLndOp
-  transpile_binop Or = CLorOp
-  transpile_binop BitAnd = CAndOp
-  transpile_binop BitOr = COrOp
-  transpile_binop BitXor = CXorOp
+  transpileBinop Add = CAddOp
+  transpileBinop Sub = CSubOp
+  transpileBinop Mul = CMulOp
+  transpileBinop Div = CDivOp
+  transpileBinop Mod = CRmdOp
+  transpileBinop Eq = CEqOp
+  transpileBinop Neq = CNeqOp
+  transpileBinop Gt = CGrOp
+  transpileBinop Lt = CLeOp
+  transpileBinop Gte = CGeqOp
+  transpileBinop Lte = CLeqOp
+  transpileBinop LeftShift = CShlOp
+  transpileBinop RightShift = CShrOp
+  transpileBinop And = CLndOp
+  transpileBinop Or = CLorOp
+  transpileBinop BitAnd = CAndOp
+  transpileBinop BitOr = COrOp
+  transpileBinop BitXor = CXorOp
 
-  transpile_pre_unop Inc = CPreIncOp
-  transpile_pre_unop Dec = CPreDecOp
-  transpile_pre_unop Sub = CMinOp
-  transpile_pre_unop Invert = CNegOp
-  transpile_pre_unop InvertBits = CCompOp
+  transpilePreUnop Inc = CPreIncOp
+  transpilePreUnop Dec = CPreDecOp
+  transpilePreUnop Sub = CMinOp
+  transpilePreUnop Invert = CNegOp
+  transpilePreUnop InvertBits = CCompOp
 
-  transpile_post_unop Inc = CPostIncOp
-  transpile_post_unop Dec = CPostDecOp
+  transpilePostUnop Inc = CPostIncOp
+  transpilePostUnop Dec = CPostDecOp

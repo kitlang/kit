@@ -19,13 +19,13 @@ module Kit.Ast.BasicType where
     | BasicTypeSimpleEnum Str [Str]
     | BasicTypeComplexEnum Str [BasicStruct]
     | BasicTypeAtom Str
-    | BasicTypeFunction BasicType [BasicType] Bool
+    | BasicTypeFunction BasicType BasicArgs Bool
     -- If for some reason we can't parse type specifiers into a meaningful
     -- BasicType, the value isn't usable from Kit without casting.
     | BasicTypeUnknown
     deriving (Eq, Show)
 
-  -- instance Show BasicType where
+  type BasicArgs = [(Str, BasicType)]
 
   -- (Name, [(Field Name, Field Type)])
-  type BasicStruct = (Str, [(Str, BasicType)])
+  type BasicStruct = (Str, BasicArgs)

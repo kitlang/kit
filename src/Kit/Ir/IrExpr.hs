@@ -24,14 +24,3 @@ module Kit.Ir.IrExpr where
     | IrCArrLiteral [IrExpr]
     | IrVarDeclaration Str BasicType (Maybe IrExpr)
     deriving (Eq, Show)
-
-  data IrDecl
-    = IrVar Str BasicType (Maybe IrExpr)
-    | IrFunction
-    | IrType BasicType
-
-  data IrModule = IrModule {
-    irmod_path :: ModulePath,
-    irmod_declarations :: [IrDecl],
-    irmod_includes :: [FilePath]
-  }

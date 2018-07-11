@@ -26,5 +26,5 @@ module Kit.Compiler.ModuleSpec where
         let exprs = case parseString "import a; import b.c; function main() {} import d;" of
                       ParseResult e -> e
                       Err _ -> []
-        m <- newMod [] exprs
+        m <- newMod [] exprs ""
         map fst (mod_imports m) `shouldBe` [["a"], ["b", "c"], ["d"]]

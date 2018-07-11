@@ -6,12 +6,12 @@ module Kit.Ast.ConcreteType where
   import Kit.Ast.ModulePath
   import Kit.Str
 
-  type TypeVar = Int
   type ConcreteArgs = [(Str, ConcreteType)]
 
   {-
-    A ConcreteType is a specific compile-time type. Not all ConcreteTypes will
-    exist at runtime; abstracts and ranges for example will disappear. The
+    A ConcreteType is either a specific compile-time type, or something like a
+    type variable or type parameter that resolves to one. Not all ConcreteTypes
+    will exist at runtime; abstracts and ranges for example will disappear. The
     underlying BasicType will be the expression's runtime type.
   -}
   data ConcreteType
@@ -25,10 +25,10 @@ module Kit.Ast.ConcreteType where
     | TypePtr ConcreteType
     | TypeArr ConcreteType (Maybe Int)
     | TypeEnumConstructor TypePath ConcreteArgs
-    | TypeLvalue
+    | TypeLvalue ConcreteType
     | TypeRange
     | TypeTraitPointer TypePath
-    | TypeVar TypeVar
+    | TypeTypeVar TypeVar
     deriving (Eq)
 
   instance Show ConcreteType where
@@ -47,10 +47,10 @@ module Kit.Ast.ConcreteType where
     show (TypeArr t (Just i)) = "(" ++ (show t) ++ ")[" ++ (show i) ++ "]"
     show (TypeArr t Nothing) = "(" ++ (show t) ++ ")[]"
     show (TypeEnumConstructor tp _) = "enum " ++ (show tp) ++ " constructor"
-    show (TypeLvalue) = "lvalue"
+    show (TypeLvalue t) = "lvalue of " ++ (show t)
     show (TypeRange) = "range"
     show (TypeTraitPointer tp) = "trait object of " ++ (s_unpack $ showTypePath tp)
-    show (TypeVar i) = "{{type var #" ++ (show i) ++ "}}"
+    show (TypeTypeVar i) = show i
 
   data Binding
     = VarBinding ConcreteType
@@ -58,3 +58,36 @@ module Kit.Ast.ConcreteType where
     deriving (Eq, Show)
 
   type EnumConstructor = (TypePath, ConcreteArgs)
+
+  data TypeVar
+    = TypeVar Int
+    | TypeParamVar Str
+    deriving (Eq)
+
+  instance Show TypeVar where
+    show (TypeVar i) = "type var #" ++ (show i)
+    show (TypeParamVar s) = "type param " ++ (s_unpack s)
+
+
+  typeNameToConcreteType :: Str -> Maybe ConcreteType
+  typeNameToConcreteType "CString" = Just $ TypeBasicType $ CPtr $ BasicTypeInt 8
+  typeNameToConcreteType "Bool" = Just $ TypeBasicType $ BasicTypeBool
+  typeNameToConcreteType "Int8" = Just $ TypeBasicType $ BasicTypeInt 8
+  typeNameToConcreteType "Int16" = Just $ TypeBasicType $ BasicTypeInt 16
+  typeNameToConcreteType "Int32" = Just $ TypeBasicType $ BasicTypeInt 32
+  typeNameToConcreteType "Int64" = Just $ TypeBasicType $ BasicTypeInt 64
+  typeNameToConcreteType "Uint8" = Just $ TypeBasicType $ BasicTypeUint 8
+  typeNameToConcreteType "Uint16" = Just $ TypeBasicType $ BasicTypeUint 16
+  typeNameToConcreteType "Uint32" = Just $ TypeBasicType $ BasicTypeUint 32
+  typeNameToConcreteType "Uint64" = Just $ TypeBasicType $ BasicTypeUint 64
+  typeNameToConcreteType "Float32" = Just $ TypeBasicType $ BasicTypeFloat 32
+  typeNameToConcreteType "Float64" = Just $ TypeBasicType $ BasicTypeFloat 64
+  typeNameToConcreteType "Byte" = typeNameToConcreteType "Uint8"
+  typeNameToConcreteType "Char" = typeNameToConcreteType "Int8"
+  typeNameToConcreteType "Short" = typeNameToConcreteType "Int16"
+  typeNameToConcreteType "Int" = typeNameToConcreteType "Int32"
+  typeNameToConcreteType "Long" = typeNameToConcreteType "Int64"
+  typeNameToConcreteType "Float" = typeNameToConcreteType "Float32"
+  typeNameToConcreteType "Double" = typeNameToConcreteType "Float64"
+  typeNameToConcreteType "Void" = Just $ TypeBasicType BasicTypeVoid
+  typeNameToConcreteType _ = Nothing

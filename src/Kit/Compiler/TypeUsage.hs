@@ -38,3 +38,13 @@ module Kit.Compiler.TypeUsage where
             let monomorph = monomorphizeType (zip ((map param_type (type_params def))) params) def
             h_insert (type_monomorphs t) key monomorph
             return monomorph
+
+  -- concreteTypeFromTypeDefinition :: ModulePath -> TypeDefinition -> ConcreteType
+  -- concreteTypeFromTypeDefinition mod (TypeDefinition {type_name = type_name, type_type = t, type_params = params}) =
+  --   case t of
+  --     Atom -> TypeAtom type_name
+  --     Struct {} -> TypeStruct (mod, type_name) params'
+  --     Enum {} -> TypeEnum (mod, type_name) params'
+  --     Abstract {} -> TypeAbstract (mod, type_name) params'
+  --     Typedef {} -> TypeTypedef (mod, type_name) params'
+  --   where params' =

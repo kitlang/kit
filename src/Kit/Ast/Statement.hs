@@ -13,12 +13,12 @@ module Kit.Ast.Statement where
   import Kit.Parser.Token
   import Kit.Str
 
-  data Statement = Statement {stmt :: StatementType, stmtPos :: Span} deriving (Show)
+  data Statement = Statement {stmt :: StatementType Expr, stmtPos :: Span} deriving (Show)
   instance Eq Statement where
     (==) a b = (stmt a) == (stmt b) && (stmtPos a == stmtPos b || stmtPos a == null_span || stmtPos b == null_span)
 
-  data StatementType
-    = ModuleVarDeclaration (VarDefinition Expr)
+  data StatementType a
+    = ModuleVarDeclaration (VarDefinition a)
     | FunctionDeclaration FunctionDefinition
     | TypeDeclaration TypeDefinition
     | TraitDeclaration TraitDefinition
@@ -29,7 +29,7 @@ module Kit.Ast.Statement where
 
   makeStmt st = Statement {stmt = st, stmtPos = null_span}
 
-  ps :: Span -> StatementType -> Statement
+  ps :: Span -> StatementType Expr -> Statement
   ps p st = Statement {stmt = st, stmtPos = p}
 
   data RewriteRule = Rule TermRewriteRule | Method FunctionDefinition deriving (Eq, Show)

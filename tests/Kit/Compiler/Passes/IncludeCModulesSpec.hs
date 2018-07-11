@@ -103,7 +103,7 @@ module Kit.Compiler.Passes.IncludeCModulesSpec where
           })
         ] (\(label, name, val) -> it label $ do
             header <- testHeader
-            binding <- resolveLocal (mod_types header) name
+            binding <- resolveLocal (mod_type_definitions header) name
             let binding' = case binding of
                              Just (TypeUsage {type_definition = t}) -> Just t
                              Nothing -> Nothing

@@ -11,26 +11,27 @@ module Kit.Compiler.Unify where
 
   checkConstraint :: TypeConstraint -> TypeInformation
   checkConstraint (TypeEq a b) = unify a b
-  checkConstraint (TypeClassMember cls (TypeVar v)) = TypeVarHasConstraint v (TypeClassMember cls)
-  checkConstraint (TypeClassMember TypeNotVoid (TypeBasicType BasicTypeVoid)) = TypeConstraintNotSatisfied
-  checkConstraint (TypeClassMember TypeNotVoid t) = TypeConstraintSatisfied
+  checkConstraint (TypeClassMember cls (TypeTypeVar v)) = TypeVarHasConstraint v (TypeClassMember cls)
   -- TODO
-  checkConstraint (TypeClassMember TypeNumeric t) = TypeConstraintNotSatisfied
-  checkConstraint (TypeClassMember TypeIntegral t) = TypeConstraintNotSatisfied
-  checkConstraint (TypeClassMember TypeFloating t) = TypeConstraintNotSatisfied
-  checkConstraint (TypeClassMember TypeString t) = TypeConstraintNotSatisfied
-  checkConstraint (TypeClassMember TypeSequence t) = TypeConstraintNotSatisfied
-  checkConstraint (TypeClassMember TypeIterable t) = TypeConstraintNotSatisfied
+  checkConstraint (TypeClassMember TypeNumeric x) = TypeConstraintNotSatisfied
+  checkConstraint (TypeClassMember TypeIntegral x) = TypeConstraintNotSatisfied
+  checkConstraint (TypeClassMember TypeFloating x) = TypeConstraintNotSatisfied
+  checkConstraint (TypeClassMember TypeString x) = TypeConstraintNotSatisfied
+  checkConstraint (TypeClassMember (TypeSequence t) x) = TypeConstraintNotSatisfied
+  checkConstraint (TypeClassMember (TypeIterable t) x) = TypeConstraintNotSatisfied
 
   -- Check whether type a unifies with b; i.e., can a value of type A be
   -- assigned to a variable of type B?
   unify :: ConcreteType -> ConcreteType -> TypeInformation
-  unify x (TypeVar v) = TypeVarIs v x
-  unify (TypeVar v) x = TypeVarIs v x
+  unify x (TypeTypeVar v) = TypeVarIs v x
+  unify (TypeTypeVar v) x = TypeVarIs v x
+  unify x y = unifyConcrete x y
   unifyConcrete (TypeBasicType a) (TypeBasicType b) = unifyBasic a b
   unifyConcrete a b = if a == b then TypeConstraintSatisfied else TypeConstraintNotSatisfied
 
   unifyBasic :: BasicType -> BasicType -> TypeInformation
+  unifyBasic (BasicTypeVoid) _ = TypeConstraintNotSatisfied
+  unifyBasic _ (BasicTypeVoid) = TypeConstraintNotSatisfied
   unifyBasic (BasicTypeInt _) (BasicTypeInt _) = TypeConstraintSatisfied
   unifyBasic (BasicTypeUint _) (BasicTypeInt _) = TypeConstraintSatisfied
   unifyBasic (BasicTypeInt _) (BasicTypeUint _) = TypeConstraintSatisfied
@@ -40,22 +41,22 @@ module Kit.Compiler.Unify where
   unifyBasic (BasicTypeUnknown) (_) = TypeConstraintNotSatisfied
   unifyBasic a b = if a == b then TypeConstraintSatisfied else TypeConstraintNotSatisfied
 
-  applySubstitution :: CompileContext -> TypeVar -> ConcreteType -> IO ()
-  applySubstitution ctx tv ct = do
-    existing <- getTypeVar ctx tv
-    case existing of
-      Just (Left constraints) -> do
-        -- TODO: make sure we can resolve all constraints
-        return ()
-      _ -> return ()
-    h_insert (ctxTypeVariables ctx) tv (Right ct)
-    return ()
-
   resolveConstraint :: CompileContext -> Span -> TypeConstraint -> IO ()
   resolveConstraint ctx pos constraint = do
     result <- resolveConstraintOrThrow pos constraint
     case result of
-      TypeVarIs id x -> applySubstitution ctx id x
+      TypeVarIs (TypeVar id) x -> do
+        existing <- getTypeVar ctx id
+        case existing of
+          Just (Left constraints) -> do
+            -- TODO: make sure we can resolve all constraints
+            return ()
+          _ -> return ()
+        h_insert (ctxTypeVariables ctx) id (Right x)
+        return ()
+      TypeVarIs (TypeParamVar s) x -> do
+        -- TODO
+        return ()
       TypeVarHasConstraint id x -> return () -- TODO
 
   resolveConstraintOrThrow :: Span -> TypeConstraint -> IO TypeInformation

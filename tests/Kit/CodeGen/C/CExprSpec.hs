@@ -13,9 +13,9 @@ module Kit.CodeGen.C.CExprSpec where
   import Kit.CodeGen.C
 
   showctype x = intercalate " " [show $ pretty t | t <- ctype x]
-  showexpr x = renderStyle (Style {mode = LeftMode}) $ pretty $ transpile_expr x
-  showstmt x = renderStyle (Style {mode = LeftMode}) $ pretty $ transpile_stmt x
-  showblock x = renderStyle (Style {mode = LeftMode}) $ pretty $ transpile_stmt $ IrBlock x
+  showexpr x = renderStyle (Style {mode = LeftMode}) $ pretty $ transpileExpr x
+  showstmt x = renderStyle (Style {mode = LeftMode}) $ pretty $ transpileStmt x
+  showblock x = renderStyle (Style {mode = LeftMode}) $ pretty $ transpileStmt $ IrBlock x
 
   spec :: Spec
   spec = do

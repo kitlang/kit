@@ -52,7 +52,7 @@ module Kit.Compiler.Passes.IncludeCModules where
     case parseResult of
       Left e -> throw $ Errs [err IncludeError ("Parsing C header " ++ show path ++ " failed: " ++ show e)]
       Right (CTranslUnit decls _) -> do
-        mod <- newCMod
+        mod <- newCMod path
         parseCDecls ctx mod decls
         return mod
 
@@ -156,7 +156,7 @@ module Kit.Compiler.Passes.IncludeCModules where
   addTypeDeclaration ctx mod t = do
     let name = (type_name t)
     usage <- newTypeUsage t
-    bindToScope (mod_types mod) name usage
+    bindToScope (mod_type_definitions mod) name usage
 
   structFieldName cdecl =
     let (name, _, _, _) = head (decomposeCDecl cdecl) in name

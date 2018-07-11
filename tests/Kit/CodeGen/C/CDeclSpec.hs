@@ -13,7 +13,7 @@ module Kit.CodeGen.C.CDeclSpec where
   import Kit.CodeGen.C
 
   showstruct x = intercalate "\n" [renderStyle (Style {mode = LeftMode}) $ pretty $ xi | xi <- cdecl x]
-  showdisc name variant_names = renderStyle (Style {mode = LeftMode}) $ pretty $ enum_discriminant name variant_names
+  showdisc name variant_names = renderStyle (Style {mode = LeftMode}) $ pretty $ enumDiscriminant name variant_names
 
   spec :: Spec
   spec = do

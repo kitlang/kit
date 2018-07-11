@@ -10,6 +10,7 @@ module Kit.Compiler.Passes.BuildModuleGraph where
   import Kit.Compiler.Context
   import Kit.Compiler.Module
   import Kit.Compiler.Scope
+  import Kit.Compiler.TypeContext
   import Kit.Compiler.TypeUsage
   import Kit.Compiler.Utils
   import Kit.Error
@@ -28,8 +29,13 @@ module Kit.Compiler.Passes.BuildModuleGraph where
     main <- resolveLocal (mod_vars mod) "main"
     case main of
       Just (FunctionBinding _ _ _) -> return ()
-      _ -> throw $ Errs [err ValidationError $ "main module <" ++ s_unpack (showModulePath $ mod_path mod) ++ "> doesn't have a function called 'main'"]
+      _ -> throw $ Errs [err ValidationError $ (show mod) ++ " doesn't have a function called 'main'; main module requires a main function"]
 
+  {-
+    Load a module, if it hasn't already been loaded. Also triggers recursive
+    loading of the module's imports and initial type resolution of top level
+    declarations.
+  -}
   loadModule :: CompileContext -> ModulePath -> Maybe Span -> IO Module
   loadModule ctx mod pos = do
     existing <- h_lookup (ctxModules ctx) mod
@@ -44,10 +50,13 @@ module Kit.Compiler.Passes.BuildModuleGraph where
           Nothing -> do
             m <- _loadModule ctx mod pos
             h_insert (ctxModules ctx) mod m
-            debugLog ctx $ "module <" ++ s_unpack (showModulePath mod) ++ "> imports: " ++ (intercalate ", " (map (s_unpack . showModulePath . fst) $ mod_imports m))
+            if mod_imports m /= []
+              then debugLog ctx $ "module <" ++ s_unpack (showModulePath mod) ++ "> imports: " ++ (intercalate ", " (map (s_unpack . showModulePath . fst) $ mod_imports m))
+              else return ()
             forM_ (mod_imports m) (\(mod',_) -> modifyIORef (ctxModuleGraph ctx) (\current -> ModuleGraphNode mod mod' : current))
             forM_ (mod_includes m) (\(mod',_) -> modifyIORef (ctxIncludes ctx) (\current -> mod' : current))
             errs <- foldM (_loadImportedModule ctx) [] (mod_imports m)
+            findTopLevels ctx m
             if errs == []
               then return m
               else throw $ Errs $ nub errs
@@ -92,16 +101,15 @@ module Kit.Compiler.Passes.BuildModuleGraph where
             case found of
               Left _ -> do return []
               Right r -> do
-                preludes <- parseModuleExprs ctx preludePath Nothing
+                (path, preludes) <- parseModuleExprs ctx preludePath Nothing
                 h_insert (ctxPreludes ctx) mod preludes
                 return preludes
 
   _loadModule :: CompileContext -> ModulePath -> Maybe Span -> IO Module
   _loadModule ctx mod pos = do
-    exprs <- parseModuleExprs ctx mod pos
+    (fp, exprs) <- parseModuleExprs ctx mod pos
     prelude <- _loadPreludes ctx (take (length mod - 1) mod)
-    m <- newMod mod (prelude ++ exprs)
-    findTopLevels ctx m
+    m <- newMod mod (prelude ++ exprs) fp
     return m
 
   _loadImportedModule :: CompileContext -> [Error] -> (ModulePath, Span) -> IO [Error]
@@ -111,12 +119,12 @@ module Kit.Compiler.Passes.BuildModuleGraph where
       Left (Errs errs) -> acc ++ errs
       Right m -> acc
 
-  parseModuleExprs :: CompileContext -> ModulePath -> Maybe Span -> IO [Statement]
+  parseModuleExprs :: CompileContext -> ModulePath -> Maybe Span -> IO (FilePath, [Statement])
   parseModuleExprs ctx mod pos = do
     path <- findModule ctx mod pos
     parsed <- parseFile path
     case parsed of
-      ParseResult r -> return r
+      ParseResult r -> return (path, r)
       Err e -> do
         h_insert (ctxFailedModules ctx) mod ()
         throw $ Errs [e {err_msg = "Parse error: " ++ (err_msg e)}]
@@ -128,27 +136,28 @@ module Kit.Compiler.Passes.BuildModuleGraph where
 
   _checkForTopLevel :: CompileContext -> Module -> Statement -> IO ()
   _checkForTopLevel ctx m s = do
+    tctx <- newTypeContext []
     case stmt s of
       TypeDeclaration t -> do
-        debugLog ctx $ "found type " ++ s_unpack (type_name t) ++ " in module <" ++ s_unpack (showModulePath $ mod_path m) ++ ">"
+        debugLog ctx $ "found type " ++ s_unpack (type_name t) ++ " in " ++ (show m)
         usage <- newTypeUsage t
-        bindToScope (mod_types m) (type_name t) usage
+        bindToScope (mod_type_definitions m) (type_name t) usage
         case t of
           TypeDefinition {type_name = type_name, type_type = Enum {enum_variants = variants}} -> do
             forM_ (variants) (\variant -> do
-              args <- mapM (\arg -> do t <- resolveMaybeTypeOrFail ctx m (stmtPos s) (arg_type arg); return (arg_name arg, t)) (variant_args variant)
+              args <- mapM (\arg -> do t <- resolveMaybeTypeOrFail ctx tctx m (stmtPos s) (arg_type arg); return (arg_name arg, t)) (variant_args variant)
               let constructor = ((mod_path m, type_name), args)
               bindToScope (mod_enums m) (variant_name variant) constructor
               return ())
           _ -> do return ()
       ModuleVarDeclaration v -> do
-        debugLog ctx $ "found variable " ++ s_unpack (lvalue_name $ var_name v) ++ " in module <" ++ s_unpack (showModulePath $ mod_path m) ++ ">"
-        varType <- resolveMaybeTypeOrFail ctx m (stmtPos s) (var_type v)
+        debugLog ctx $ "found variable " ++ s_unpack (lvalue_name $ var_name v) ++ " in " ++ (show m)
+        varType <- resolveMaybeTypeOrFail ctx tctx m (stmtPos s) (var_type v)
         bindToScope (mod_vars m) (lvalue_name $ var_name v) (VarBinding (varType))
       FunctionDeclaration f -> do
-        debugLog ctx $ "found function " ++ s_unpack (function_name f) ++ " in module <" ++ s_unpack (showModulePath $ mod_path m) ++ ">"
-        functionType <- resolveMaybeTypeOrFail ctx m (stmtPos s) (function_type f)
-        args <- mapM (\arg -> do t <- resolveMaybeTypeOrFail ctx m (stmtPos s) (arg_type arg); return (arg_name arg, t)) (function_args f)
+        debugLog ctx $ "found function " ++ s_unpack (function_name f) ++ " in " ++ (show m)
+        functionType <- resolveMaybeTypeOrFail ctx tctx m (stmtPos s) (function_type f)
+        args <- mapM (\arg -> do t <- resolveMaybeTypeOrFail ctx tctx m (stmtPos s) (arg_type arg); return (arg_name arg, t)) (function_args f)
         bindToScope (mod_vars m) (function_name f) (FunctionBinding (functionType) args (function_varargs f))
         bindToScope (mod_functions m) (function_name f) f
       _ -> return ()

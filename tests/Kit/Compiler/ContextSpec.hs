@@ -26,7 +26,7 @@ module Kit.Compiler.ContextSpec where
 
     describe "Variable resolution" $ do
       it "resolves variables to scopes, falling back to modules" $ do
-        m <- newMod ["abc"] []
+        m <- newMod ["abc"] [] ""
         -- if we look for a binding in brokenMod, the test will fail
         let brokenMod = undefined--Module {}
         bindToScope (mod_vars m) "a" (newVar "a1")

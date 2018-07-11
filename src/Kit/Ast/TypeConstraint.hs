@@ -1,5 +1,6 @@
 module Kit.Ast.TypeConstraint where
 
+  import Kit.Ast.BasicType
   import Kit.Ast.ConcreteType
 
   data TypeConstraint
@@ -12,9 +13,8 @@ module Kit.Ast.TypeConstraint where
     | TypeIntegral
     | TypeFloating
     | TypeString
-    | TypeSequence
-    | TypeIterable
-    | TypeNotVoid
+    | TypeSequence ConcreteType
+    | TypeIterable ConcreteType
     deriving (Eq)
 
   instance Show InternalTypeClass where
@@ -22,9 +22,8 @@ module Kit.Ast.TypeConstraint where
     show TypeIntegral = "(integral)"
     show TypeFloating = "(floating)"
     show TypeString = "(string)"
-    show TypeSequence = "(sequence)"
-    show TypeIterable = "(iterable)"
-    show TypeIterable = "(not void)"
+    show (TypeSequence t) = "(sequence of " ++ (show t) ++ ")"
+    show (TypeIterable t) = "(iterable of " ++ (show t) ++ ")"
 
   data TypeInformation
     = TypeVarIs TypeVar ConcreteType
@@ -46,3 +45,16 @@ module Kit.Ast.TypeConstraint where
     show TypeConstraintNotSatisfied = "not satisfied"
 
   type TypeVariableState = (Either [ConcreteType -> TypeConstraint] ConcreteType)
+
+  {-
+    For ergonomics, we'll use a representative default type for some internal
+    typeclasses when no specific member is known.
+  -}
+  defaultClassMember :: InternalTypeClass -> Maybe ConcreteType
+  defaultClassMember TypeNumeric = Just $ TypeBasicType (BasicTypeInt 32)
+  defaultClassMember TypeIntegral = Just $ TypeBasicType (BasicTypeInt 32)
+  defaultClassMember TypeFloating = Just $ TypeBasicType (BasicTypeFloat 64)
+  defaultClassMember TypeString = Just $ TypeBasicType (CPtr (BasicTypeInt 8))
+  defaultClassMember (TypeSequence t) = Just $ TypeArr t Nothing
+  defaultClassMember (TypeIterable t) = Just $ TypeArr t Nothing
+  defaultClassMember _ = Nothing

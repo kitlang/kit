@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
+
 module Kit.Ast.Expr where
 
   import Data.Traversable
@@ -125,6 +127,7 @@ module Kit.Ast.Expr where
     (ArrayAccess e1 e2) -> (ArrayAccess ((exprMap f) e1) ((exprMap f) e2))
     (Call e1 args) -> (Call ((exprMap f) e1) (map (exprMap f) args))
     (Cast e1 t) -> (Cast ((exprMap f) e1) t)
+    (TokenExpr tc) -> (TokenExpr tc)
     (Unsafe e1) -> (Unsafe ((exprMap f) e1))
     (BlockComment s) -> (BlockComment s)
     (New t args) -> (New t (map (exprMap f) args))
