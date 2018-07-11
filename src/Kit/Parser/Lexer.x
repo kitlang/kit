@@ -91,9 +91,9 @@ tokens :-
   -- literals
   "true" { tok $ LiteralBool True }
   "false" { tok $ LiteralBool False }
-  [\"] [^\"]* [\"] { tok' (\s -> LiteralString $ s_take (s_length s - 2) $ s_drop 1 s) }
-  "'" [^\']* "'" { tok' (\s -> LiteralString $ s_take (s_length s - 2) $ s_drop 1 s) }
-  [\"]{3} ([^\"]|\"[^\"]|\"\"[^\"]|\n)* [\"]{3} { tok' (\s -> LiteralString $ s_take (s_length s - 6) $ s_drop 3 s) }
+  [\"] (\\.|[^\"])* [\"] { tok' (\s -> LiteralString $ processStringLiteral $ s_take (s_length s - 2) $ s_drop 1 s) }
+  "'" (\\.|[^\'])* "'" { tok' (\s -> LiteralString $ processStringLiteral $ s_take (s_length s - 2) $ s_drop 1 s) }
+  [\"]{3} ([^\"]|\"[^\"]|\"\"[^\"]|\n)* [\"]{3} { tok' (\s -> LiteralString $ processStringLiteral $ s_take (s_length s - 6) $ s_drop 3 s) }
   \-?[0-9]+ "." [0-9]* { tok' (\s -> LiteralFloat s) }
   "0x" [0-9a-f]+ { tok' (\s -> LiteralInt s) }
   "0b" [01]+ { tok' (\s -> LiteralInt s) }
@@ -140,9 +140,10 @@ tokens :-
   [\*\/\+\-\^\=\<\>\!\&\%\~\@\?\:\.]+ { tok' (\s -> Op $ Custom s) }
 
   -- identifiers
-  [a-z_][a-zA-Z0-9_]* "!" { tok' (\s -> Lex $ s_take (s_length s - 1) s) }
-  [a-z_][a-zA-Z0-9_]* { tokString LowerIdentifier }
-  [A-Z][a-zA-Z0-9_]* { tokString UpperIdentifier }
+  [_]*[a-z][a-zA-Z0-9_]* "!" { tok' (\s -> Lex $ s_take (s_length s - 1) s) }
+  [_]*[a-z][a-zA-Z0-9_]* { tokString LowerIdentifier }
+  "_" { tokString LowerIdentifier }
+  [_]*[A-Z][a-zA-Z0-9_]* { tokString UpperIdentifier }
   "$" [a-z_][a-zA-Z0-9_]* { tok' (\s -> MacroIdentifier $ s_drop 1 s) }
   "${" [a-z_][a-zA-Z0-9_]* "}" { tok' (\s -> MacroIdentifier $ s_take (s_length s - 3) $ s_drop 2 s) }
 
@@ -155,6 +156,20 @@ posnOffset (line, col) s = (line + length indices, if length indices == 0 then c
 
 -- wrapper to convert an Alex position to a Span
 pos2span (AlexPn _ line col) s = sp line col end_line end_col where (end_line, end_col) = posnOffset (line, col) s
+
+processStringLiteral :: Str -> Str
+processStringLiteral s = s_pack (_processString (s_unpack s) False) -- FIXME: better way?
+_processString ('\\':t) False = _processString t True
+_processString (h:t) False = h : (_processString t False)
+_processString ('a':t) True = '\a' : (_processString t False)
+_processString ('b':t) True = '\b' : (_processString t False)
+_processString ('f':t) True = '\f' : (_processString t False)
+_processString ('n':t) True = '\n' : (_processString t False)
+_processString ('r':t) True = '\r' : (_processString t False)
+_processString ('t':t) True = '\t' : (_processString t False)
+_processString ('v':t) True = '\v' : (_processString t False)
+_processString (h:t) True = h : (_processString t False)
+_processString [] _ = ""
 
 -- token helpers
 tok' f p s = (f s, pos2span p s)

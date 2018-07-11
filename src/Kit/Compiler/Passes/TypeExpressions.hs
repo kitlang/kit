@@ -21,26 +21,28 @@ module Kit.Compiler.Passes.TypeExpressions where
 
   typeExpressions :: CompileContext -> IO ()
   typeExpressions ctx = do
-    mainModule <- h_get (ctxModules ctx) (ctxMainModule ctx)
-    main <- resolveLocal (mod_functions mainModule) "main"
-    case main of
-      Just main -> do
-        typeFunction ctx mainModule main
-      Nothing -> throw $ Errs [err ValidationError ("main module " ++ (s_unpack $ showModulePath $ mod_path mainModule) ++ " is missing a main function")]
+    mods <- h_toList $ ctxModules ctx
+    forM_ (map snd mods) (typeModuleExpressions ctx)
+
+  typeModuleExpressions :: CompileContext -> Module -> IO ()
+  typeModuleExpressions ctx mod = do
+    bindings <- bindingList (mod_functions mod)
+    forM_ bindings (typeFunction ctx mod)
 
   basicType = TypeBasicType
   voidType = TypeBasicType BasicTypeVoid
 
   typeFunction :: CompileContext -> Module -> FunctionDefinition -> IO ()
   typeFunction ctx mod f = do
+    debugLog ctx $ "typing function " ++ s_unpack (function_name f) ++ " in " ++ show mod
     case function_body f of
       Just x -> do
         imports <- mapM (\(mp, _) -> getMod ctx mp) (mod_imports mod)
         includes <- mapM (\(mp, _) -> getCMod ctx mp) (mod_includes mod)
         functionScope <- newScope
         tctx <- newTypeContext ((mod_vars mod) : ([mod_vars imp | imp <- imports] ++ [mod_vars inc | inc <- includes]))
-        args <- mapM (\arg -> do argType <- resolveMaybeTypeOrFail ctx tctx mod (pos x) (arg_type arg); return (arg_name arg, argType)) (function_args f)
-        returnType <- resolveMaybeTypeOrFail ctx tctx mod (pos x) (function_type f)
+        args <- mapM (\arg -> do argType <- resolveMaybeType ctx tctx mod (arg_type arg); return (arg_name arg, argType)) (function_args f)
+        returnType <- resolveMaybeType ctx tctx mod (function_type f)
         typedBody <- typeExpr ctx (tctx {tctxScopes = functionScope : (tctxScopes tctx), tctxReturnType = Just returnType}) mod x
         resolvedReturnType <- knownType ctx tctx returnType
         -- Try to unify with void; if unification doesn't fail, we didn't encounter a return statement, so the function is void.
@@ -70,11 +72,10 @@ module Kit.Compiler.Passes.TypeExpressions where
     After typing a subexpression, rewrite rules may take effect and trigger typing of the result.
   -}
   typeExpr :: CompileContext -> TypeContext -> Module -> Expr -> IO TypedExpr
-  typeExpr ctx tctx mod ex@(Expr {expr = et, pos = pos}) =
-    let r = typeExpr ctx tctx mod in
-    let resolve constraint = resolveConstraint ctx pos constraint in
-    let resolveList constraints = resolveConstraints ctx pos constraints in
-    case et of
+  typeExpr ctx tctx mod ex@(Expr {expr = et, pos = pos}) = do
+    let r = typeExpr ctx tctx mod
+    let resolve pos constraint = resolveConstraint ctx pos constraint
+    result <- case et of
       (Block children) -> do
         typedChildren <- mapM r children
         return $ makeExprTyped (Block typedChildren) (inferredType $ last typedChildren) pos
@@ -85,7 +86,7 @@ module Kit.Compiler.Passes.TypeExpressions where
 
       (Literal l) -> do
         typeVar <- makeTypeVar ctx
-        resolveList $ literalConstraints l typeVar
+        mapM_ (resolve pos) $ literalConstraints l typeVar
         return $ makeExprTyped (Literal l) typeVar pos
 
       (This) -> do
@@ -118,22 +119,22 @@ module Kit.Compiler.Passes.TypeExpressions where
 
       (TypeAnnotation e1 t) -> do
         r1 <- r e1
-        t <- resolveTypeOrFail ctx tctx mod pos t
-        resolve $ TypeEq (inferredType r1) t
+        t <- resolveType ctx tctx mod t
+        resolve (tPos r1) $ TypeEq (inferredType r1) t
         return r1
 
       (PreUnop op e1) -> do
         r1 <- r e1
         tv <- makeTypeVar ctx
         let (t, constraints) = opTypes op tv [inferredType r1]
-        resolveList constraints
+        mapM_ (resolve pos) constraints
         return $ makeExprTyped (PreUnop op r1) t pos
 
       (PostUnop op e1) -> do
         r1 <- r e1
         tv <- makeTypeVar ctx
         let (t, constraints) = opTypes op tv [inferredType r1]
-        resolveList constraints
+        mapM_ (resolve $ tPos r1) constraints
         return $ makeExprTyped (PostUnop op r1) t pos
 
       (Binop (AssignOp x) e1 e2) -> do
@@ -143,7 +144,7 @@ module Kit.Compiler.Passes.TypeExpressions where
         r2 <- r e2
         tv <- makeTypeVar ctx
         let (t, constraints) = opTypes op tv [inferredType r1, inferredType r2]
-        resolveList constraints
+        mapM_ (resolve $ tPos r1) constraints
         return $ makeExprTyped (Binop op r1 r2) t pos
 
       (For (Expr {expr = Lvalue v, pos = pos1}) e2 e3) -> do
@@ -151,14 +152,14 @@ module Kit.Compiler.Passes.TypeExpressions where
         scope <- newScope
         r3 <- typeExpr ctx (tctx {tctxScopes = scope : (tctxScopes tctx), tctxLoopCount = (tctxLoopCount tctx) + 1}) mod e3
         tv <- makeTypeVar ctx
-        resolve $ TypeClassMember (TypeIterable tv) (inferredType r2)
+        resolve (tPos r2) $ TypeClassMember (TypeIterable tv) (inferredType r2)
         return $ makeExprTyped (For (makeExprTyped (Lvalue v) (TypeLvalue tv) pos1) r2 r3) voidType pos
 
       (While e1 e2) -> do
         r1 <- r e1
         scope <- newScope
         r2 <- typeExpr ctx (tctx {tctxScopes = scope : (tctxScopes tctx), tctxLoopCount = (tctxLoopCount tctx) + 1}) mod e2
-        resolve $ TypeEq (inferredType r1) (basicType BasicTypeBool)
+        resolve (tPos r1) $ TypeEq (inferredType r1) (basicType BasicTypeBool)
         return $ makeExprTyped (While r1 r2) voidType pos
 
       (If e1 e2 (Just e3)) -> do
@@ -168,13 +169,15 @@ module Kit.Compiler.Passes.TypeExpressions where
         scope2 <- newScope
         r3 <- typeExpr ctx (tctx {tctxScopes = scope2 : (tctxScopes tctx)}) mod e3
         tv <- makeTypeVar ctx
-        resolveList [TypeEq (inferredType r1) (basicType BasicTypeBool), TypeEq (inferredType r2) (inferredType r3), TypeEq (inferredType r2) (tv)]
+        resolve (tPos r1) $ TypeEq (inferredType r1) (basicType BasicTypeBool)
+        resolve pos $ TypeEq (inferredType r2) (inferredType r3)
+        resolve (tPos r2) $ TypeEq (inferredType r2) (tv)
         return $ makeExprTyped (If r1 r2 (Just r3)) (tv) pos
       (If e1 e2 Nothing) -> do
         r1 <- r e1
         scope <- newScope
         r2 <- typeExpr ctx (tctx {tctxScopes = scope : (tctxScopes tctx)}) mod e2
-        resolve $ TypeEq (inferredType r1) (basicType BasicTypeBool)
+        resolve (tPos r1) $ TypeEq (inferredType r1) (basicType BasicTypeBool)
         return $ makeExprTyped (If r1 r2 Nothing) voidType pos
 
       (Continue) -> do
@@ -190,10 +193,10 @@ module Kit.Compiler.Passes.TypeExpressions where
         case (tctxReturnType tctx, e1) of
           (Just rt, Just e1) -> do
             r1 <- r e1
-            resolve $ TypeEq (rt) (inferredType r1)
+            resolve (tPos r1) $ TypeEq (rt) (inferredType r1)
             return $ makeExprTyped (Return $ Just r1) voidType pos
           (Just rt, Nothing) -> do
-            resolve $ TypeEq voidType (rt)
+            resolve pos $ TypeEq voidType (rt)
             return $ makeExprTyped (Return Nothing) voidType pos
           (Nothing, _) -> throw $ Errs [err TypingError "Can't `return` outside of a function"]
 
@@ -209,7 +212,12 @@ module Kit.Compiler.Passes.TypeExpressions where
       (InlineCall e1) -> throw $ Errs [err InternalError "Not yet implemented"]
       (Field e1 lval) -> throw $ Errs [err InternalError "Not yet implemented"]
       (ArrayAccess e1 e2) -> throw $ Errs [err InternalError "Not yet implemented"]
-      (Cast e1 t) -> throw $ Errs [err InternalError "Not yet implemented"]
+
+      (Cast e1 t) -> do
+        r1 <- r e1
+        t' <- resolveType ctx tctx mod t
+        return $ makeExprTyped (Cast r1 t) t' pos
+
       (Unsafe e1) -> throw $ Errs [err InternalError "Not yet implemented"]
       (BlockComment s) -> do return $ makeExprTyped (BlockComment s) voidType pos
       (New t args) -> throw $ Errs [err InternalError "Not yet implemented"]
@@ -221,22 +229,26 @@ module Kit.Compiler.Passes.TypeExpressions where
       (RangeLiteral e1 e2) -> do
         r1 <- r e1
         r2 <- r e2
-        resolveList [TypeClassMember TypeIntegral (inferredType r1), TypeClassMember TypeIntegral (inferredType r2)]
+        resolve (tPos r1) $ TypeClassMember TypeIntegral (inferredType r1)
+        resolve (tPos r2) $ TypeClassMember TypeIntegral (inferredType r2)
         return $ makeExprTyped (RangeLiteral r1 r2) TypeRange pos
 
       (VectorLiteral items) -> throw $ Errs [err InternalError "Not yet implemented"]
 
       (VarDeclaration vardef@(VarDefinition {var_name = Var vname, var_default = Just e1})) -> do
-        varType <- resolveMaybeTypeOrFail ctx tctx mod pos (var_type vardef)
+        varType <- resolveMaybeType ctx tctx mod (var_type vardef)
         r1 <- r e1
         bindToScope (head $ tctxScopes tctx) vname (VarBinding varType)
-        resolve $ TypeEq (varType) (inferredType r1)
+        resolve (tPos r1) $ TypeEq (varType) (inferredType r1)
         return $ makeExprTyped (VarDeclaration $ ((newVarDefinition :: VarDefinition TypedExpr) {var_name = var_name vardef, var_type = var_type vardef, var_default = Just r1})) voidType pos
 
       (VarDeclaration vardef@(VarDefinition {var_name = Var vname, var_default = Nothing})) -> do
-        varType <- resolveMaybeTypeOrFail ctx tctx mod pos (var_type vardef)
+        varType <- resolveMaybeType ctx tctx mod (var_type vardef)
         bindToScope (head $ tctxScopes tctx) vname (VarBinding varType)
         return $ makeExprTyped (VarDeclaration ((newVarDefinition :: VarDefinition TypedExpr) {var_name = var_name vardef, var_type = var_type vardef, var_default = Nothing})) voidType pos
+
+    t' <- knownType ctx tctx (inferredType result)
+    return $ result {inferredType = t'}
 
   typeFunctionCall :: CompileContext -> TypeContext -> Module -> TypedExpr -> [TypedExpr] -> IO TypedExpr
   typeFunctionCall ctx tctx mod e@(TypedExpr {inferredType = TypeFunction rt argTypes isVariadic, tPos = pos}) args = do
@@ -249,7 +261,7 @@ module Kit.Compiler.Passes.TypeExpressions where
           then throw $ Errs [errp TypingError ("Expected " ++ (show $ length argTypes) ++ " arguments (called with " ++ (show $ length args) ++ ")") (Just pos)]
            else return ()
     -- TODO
-    resolveConstraints ctx pos [TypeEq argType (inferredType argValue) | ((_, argType), argValue) <- zip argTypes args]
+    forM_ (zip argTypes args) (\((_, argType), argValue) -> resolveConstraint ctx (tPos argValue) (TypeEq argType (inferredType argValue)))
     return $ makeExprTyped (Call e args) rt pos
 
   typeEnumConstructorCall :: CompileContext -> TypeContext -> Module -> TypedExpr -> [TypedExpr] -> IO TypedExpr

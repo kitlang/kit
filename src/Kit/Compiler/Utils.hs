@@ -33,7 +33,6 @@ module Kit.Compiler.Utils where
   findModule :: CompileContext -> ModulePath -> Maybe Span -> IO FilePath
   findModule ctx mod pos = do
     let modPath = moduleFilePath mod
-    debugLog ctx $ "searching for module <" ++ s_unpack (showModulePath mod) ++ ">"
     match <- findSourceFile modPath (ctxSourcePaths ctx)
     case match of
       Just f -> do

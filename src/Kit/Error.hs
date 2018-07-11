@@ -59,10 +59,11 @@ module Kit.Error where
   displayFileSnippet :: FilePath -> Span -> IO ()
   displayFileSnippet fp span = do
     hSetSGR stderr [SetColor Foreground Vivid Blue, SetConsoleIntensity NormalIntensity]
-    hPutStrLn stderr $ "\n  <" ++ fp ++ ">:"
+    if span == null_span
+      then hPutStrLn stderr $ "\n  " ++ show fp
+      else hPutStrLn stderr $ "\n  " ++ show span
     contents <- readFile $ fp
     let content_lines = lines contents
-    putStrLn $ show span
     forM_ [(start_line span) .. (end_line span)] $ \n -> do
       hSetSGR stderr [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
       if n == (start_line span) + 3

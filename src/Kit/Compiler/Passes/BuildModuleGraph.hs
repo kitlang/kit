@@ -21,15 +21,8 @@ module Kit.Compiler.Passes.BuildModuleGraph where
 
   buildModuleGraph :: CompileContext -> IO ()
   buildModuleGraph ctx = do
-    mainModule <- loadModule ctx (ctxMainModule ctx) Nothing
-    validateMain ctx mainModule
-
-  validateMain :: CompileContext -> Module -> IO ()
-  validateMain ctx mod = do
-    main <- resolveLocal (mod_vars mod) "main"
-    case main of
-      Just (FunctionBinding _ _ _) -> return ()
-      _ -> throw $ Errs [err ValidationError $ (show mod) ++ " doesn't have a function called 'main'; main module requires a main function"]
+    loadModule ctx (ctxMainModule ctx) Nothing
+    return ()
 
   {-
     Load a module, if it hasn't already been loaded. Also triggers recursive
@@ -56,7 +49,6 @@ module Kit.Compiler.Passes.BuildModuleGraph where
             forM_ (mod_imports m) (\(mod',_) -> modifyIORef (ctxModuleGraph ctx) (\current -> ModuleGraphNode mod mod' : current))
             forM_ (mod_includes m) (\(mod',_) -> modifyIORef (ctxIncludes ctx) (\current -> mod' : current))
             errs <- foldM (_loadImportedModule ctx) [] (mod_imports m)
-            findTopLevels ctx m
             if errs == []
               then return m
               else throw $ Errs $ nub errs
@@ -100,14 +92,14 @@ module Kit.Compiler.Passes.BuildModuleGraph where
             found <- try $ findModule ctx preludePath Nothing :: IO (Either Errors FilePath)
             case found of
               Left _ -> do return []
-              Right r -> do
-                (path, preludes) <- parseModuleExprs ctx preludePath Nothing
+              Right fp -> do
+                (path, preludes) <- parseModuleExprs ctx mod (Just fp) Nothing
                 h_insert (ctxPreludes ctx) mod preludes
                 return preludes
 
   _loadModule :: CompileContext -> ModulePath -> Maybe Span -> IO Module
   _loadModule ctx mod pos = do
-    (fp, exprs) <- parseModuleExprs ctx mod pos
+    (fp, exprs) <- parseModuleExprs ctx mod Nothing pos
     prelude <- _loadPreludes ctx (take (length mod - 1) mod)
     m <- newMod mod (prelude ++ exprs) fp
     return m
@@ -119,45 +111,14 @@ module Kit.Compiler.Passes.BuildModuleGraph where
       Left (Errs errs) -> acc ++ errs
       Right m -> acc
 
-  parseModuleExprs :: CompileContext -> ModulePath -> Maybe Span -> IO (FilePath, [Statement])
-  parseModuleExprs ctx mod pos = do
-    path <- findModule ctx mod pos
+  parseModuleExprs :: CompileContext -> ModulePath -> Maybe FilePath -> Maybe Span -> IO (FilePath, [Statement])
+  parseModuleExprs ctx mod fp pos = do
+    path <- case fp of
+      Just fp -> do return fp
+      Nothing -> findModule ctx mod pos
     parsed <- parseFile path
     case parsed of
       ParseResult r -> return (path, r)
       Err e -> do
         h_insert (ctxFailedModules ctx) mod ()
         throw $ Errs [e {err_msg = "Parse error: " ++ (err_msg e)}]
-
-  findTopLevels :: CompileContext -> Module -> IO ()
-  findTopLevels ctx mod = do
-    contents <- readIORef $ mod_contents mod
-    forM_ contents (_checkForTopLevel ctx mod); return ()
-
-  _checkForTopLevel :: CompileContext -> Module -> Statement -> IO ()
-  _checkForTopLevel ctx m s = do
-    tctx <- newTypeContext []
-    case stmt s of
-      TypeDeclaration t -> do
-        debugLog ctx $ "found type " ++ s_unpack (type_name t) ++ " in " ++ (show m)
-        usage <- newTypeUsage t
-        bindToScope (mod_type_definitions m) (type_name t) usage
-        case t of
-          TypeDefinition {type_name = type_name, type_type = Enum {enum_variants = variants}} -> do
-            forM_ (variants) (\variant -> do
-              args <- mapM (\arg -> do t <- resolveMaybeTypeOrFail ctx tctx m (stmtPos s) (arg_type arg); return (arg_name arg, t)) (variant_args variant)
-              let constructor = ((mod_path m, type_name), args)
-              bindToScope (mod_enums m) (variant_name variant) constructor
-              return ())
-          _ -> do return ()
-      ModuleVarDeclaration v -> do
-        debugLog ctx $ "found variable " ++ s_unpack (lvalue_name $ var_name v) ++ " in " ++ (show m)
-        varType <- resolveMaybeTypeOrFail ctx tctx m (stmtPos s) (var_type v)
-        bindToScope (mod_vars m) (lvalue_name $ var_name v) (VarBinding (varType))
-      FunctionDeclaration f -> do
-        debugLog ctx $ "found function " ++ s_unpack (function_name f) ++ " in " ++ (show m)
-        functionType <- resolveMaybeTypeOrFail ctx tctx m (stmtPos s) (function_type f)
-        args <- mapM (\arg -> do t <- resolveMaybeTypeOrFail ctx tctx m (stmtPos s) (arg_type arg); return (arg_name arg, t)) (function_args f)
-        bindToScope (mod_vars m) (function_name f) (FunctionBinding (functionType) args (function_varargs f))
-        bindToScope (mod_functions m) (function_name f) f
-      _ -> return ()

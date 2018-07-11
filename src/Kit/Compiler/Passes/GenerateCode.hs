@@ -30,6 +30,7 @@ module Kit.Compiler.Passes.GenerateCode where
   generateModule ctx mod = do
     let codeFilePath = (libPath ctx $ mod_path mod)
     let headerFilePath = (includePath ctx $ mod_path mod)
+    debugLog ctx $ "generating code for " ++ show mod ++ " in " ++ (intercalate ", " [codeFilePath, headerFilePath])
     -- create output directories
     createDirectoryIfMissing True $ takeDirectory $ codeFilePath
     createDirectoryIfMissing True $ takeDirectory $ headerFilePath
@@ -52,7 +53,10 @@ module Kit.Compiler.Passes.GenerateCode where
       then hPutStrLn handle $ "#ifndef " ++ (modDef $ mod_path mod) ++ "\n#define " ++ (modDef $ mod_path mod) ++ "\n";
       else return ()
     forM_ (mod_includes mod) (\(filepath, _) -> hPutStrLn handle $ "#include \"" ++ filepath ++ "\"")
-    forM_ ((mod_path mod) : (map fst (mod_imports mod))) (\imp -> hPutStrLn handle $ "#ifndef " ++ (modDef imp) ++ "\n#include \"" ++ (relativeLibPath imp -<.> "h") ++ "\"\n#endif")
+    forM_ ((mod_path mod) : (map fst (mod_imports mod))) (\imp -> do
+      if cheader then hPutStrLn handle $ "#ifndef " ++ (modDef imp) ++ "\n" else return ()
+      hPutStrLn handle $ "#include \"" ++ (relativeLibPath imp -<.> "h") ++ "\""
+      if cheader then hPutStrLn handle $ "#endif" else return ())
 
   writeFooter :: CompileContext -> Module -> Handle -> Bool -> IO ()
   writeFooter ctx mod handle cheader = do

@@ -36,12 +36,12 @@ module Kit.Log where
 
   logMsg :: LogLevel -> String -> IO ()
   logMsg lv msg = do
-    hSetSGR stderr [color Blue, normal]
+    hSetSGR stderr [color Yellow, normal]
     hPutStr stderr "["
     hSetSGR stderr [color Cyan, normal]
     t <- getCurrentTime
     hPutStr stderr $ formatTime defaultTimeLocale "%F %T.%6q" t
-    hSetSGR stderr [color Blue, normal]
+    hSetSGR stderr [color Yellow, normal]
     hPutStr stderr "] "
     logPrefix lv
     let intensity = case lv of

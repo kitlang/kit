@@ -39,7 +39,13 @@ module Kit.Parser.LexerSpec where
         lx "1 234 0 0x123 0b101 0o0701 -1" `shouldBe` [LiteralInt "1", LiteralInt "234", LiteralInt "0", LiteralInt "0x123", LiteralInt "0b101", LiteralInt "0o0701", LiteralInt ("-1")]
       it "lexes string literals" $ do
         lx "'abc' \"def\" \"\"\"ghi\njkl\"\"\"" `shouldBe` [LiteralString "abc", LiteralString "def", LiteralString ("ghi\njkl")]
+      it "lexes special characters in string literals" $ do
         lx "'\\n'" `shouldBe` [LiteralString "\n"]
+        lx "'\\r'" `shouldBe` [LiteralString "\r"]
+        lx "'\\t'" `shouldBe` [LiteralString "\t"]
+        lx "'\\b'" `shouldBe` [LiteralString "\b"]
+      it "lexes escaped characters in string literals" $ do
+        lx "\"a\\\"\\Bc\"" `shouldBe` [LiteralString "a\"Bc"]
       it "lexes float literals" $ do
         lx "0.1 0.10000 -1.0" `shouldBe` [LiteralFloat ("0.1"), LiteralFloat ("0.10000"), LiteralFloat ("-1.0")]
       it "lexes bool literals" $ do

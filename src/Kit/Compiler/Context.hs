@@ -82,7 +82,7 @@ module Kit.Compiler.Context where
     m <- h_lookup (ctxModules ctx) mod
     case m of
       Just m' -> return m'
-      Nothing -> throw $ err InternalError $ "Unexpected missing module: " ++ s_unpack (showModulePath mod)
+      Nothing -> throw $ Errs [err InternalError $ "Unexpected missing module: " ++ s_unpack (showModulePath mod)]
 
 
   getCMod :: CompileContext -> FilePath -> IO Module
@@ -90,7 +90,7 @@ module Kit.Compiler.Context where
     m <- h_lookup (ctxCModules ctx) f
     case m of
       Just m' -> return m'
-      Nothing -> throw $ err InternalError $ "Unexpected missing C module: " ++ f
+      Nothing -> throw $ Errs [err InternalError $ "Unexpected missing C module: " ++ f]
 
 
   makeTypeVar :: CompileContext -> IO ConcreteType

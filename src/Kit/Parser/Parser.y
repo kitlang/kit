@@ -324,7 +324,7 @@ TypeAnnotation :: {(Maybe TypeSpec, Span)}
   | ':' TypeSpec {(Just $ fst $2, p $1 <+> p $2)}
 
 TypeSpec :: {(TypeSpec, Span)}
-  : TypePath TypeParams {(TypeSpec (fst $1) (reverse $ fst $2), p $1 <+> p $2)}
+  : TypePath TypeParams {(TypeSpec (fst $1) (reverse $ fst $2) (p $1 <+> p $2), p $1 <+> p $2)}
 
 OptionalTypeSpec :: {(Maybe TypeSpec, Span)}
   : {(Nothing, null_span)}
@@ -347,8 +347,8 @@ TypeParams_ :: {[TypeParam]}
   | TypeParams_ ',' TypeParam {$3 : $1}
 
 TypeParam :: {TypeParam}
-  : TypePath TypeParams {TypeParam {param_type = TypeSpec (fst $1) (fst $2), constraints = []}}
-  | TypePath TypeParams ':' TypeConstraints {TypeParam {param_type = TypeSpec (fst $1) (fst $2), constraints = $4}}
+  : TypePath TypeParams {TypeParam {param_type = TypeSpec (fst $1) (fst $2) (snd $1), constraints = []}}
+  | TypePath TypeParams ':' TypeConstraints {TypeParam {param_type = TypeSpec (fst $1) (fst $2) (snd $1), constraints = $4}}
 
 TypeConstraints :: {[TypeSpec]}
   : TypeSpec {[fst $1]}

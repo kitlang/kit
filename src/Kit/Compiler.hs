@@ -45,6 +45,8 @@ module Kit.Compiler (
     buildModuleGraph ctx
     printLog "processing C includes"
     includeCModules ctx
+    printLog "resolving module types"
+    resolveModuleTypes ctx
     printLog "typing expressions"
     typeExpressions ctx
     printLog "generating internal representation"

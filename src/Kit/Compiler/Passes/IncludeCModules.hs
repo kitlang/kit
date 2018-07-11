@@ -33,10 +33,10 @@ module Kit.Compiler.Passes.IncludeCModules where
     case existing of
       Just x -> do return x
       Nothing -> do
-        debugLog ctx $ "searching for header " ++ show path
         found <- findSourceFile path (ctxIncludePaths ctx)
         case found of
           Just f -> do
+            debugLog ctx $ "found header " ++ show path ++ " at " ++ show f
             mod <- parseCHeader ctx f
             h_insert (ctxCModules ctx) path mod
             return mod
@@ -106,8 +106,6 @@ module Kit.Compiler.Passes.IncludeCModules where
     -- anonymous structs/enums; TODO: need to generate a stub declaration for these
     (CSUType (CStruct CStructTag (Just (Ident x _ _)) _ _ _) _) -> Just $ TypeStruct ([], (s_pack x)) []
     (CEnumType (CEnum (Just (Ident x _ _)) _ _ _) _) -> Just $ TypeEnum ([], (s_pack x)) []
-    -- this is a typedef; we'll handle it separately
-
     _ -> _parseDeclSpec t width signed float
   _parseDeclSpec [] 0 _ _ = Nothing
   _parseDeclSpec [] width signed float = Just $

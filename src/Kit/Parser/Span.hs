@@ -9,8 +9,8 @@ module Kit.Parser.Span where
   instance Show Span where
     show span =
       if span == null_span
-        then "@(null)"
-        else "@" ++ (case file span of {Just f -> s_unpack f; Nothing -> "(nothing)"}) ++ ":" ++ (show $ start_line span) ++ ":" ++ (show $ start_col span) ++ "-" ++ (show $ end_line span) ++ ":" ++ (show $ end_col span)
+        then "@(???)"
+        else "@" ++ (case file span of {Just f -> s_unpack f; Nothing -> "(???)"}) ++ ":" ++ (show $ start_line span) ++ ":" ++ (show $ start_col span) ++ "-" ++ (show $ end_line span) ++ ":" ++ (show $ end_col span)
 
   null_span :: Span
   null_span = Span {file = Nothing, start_line = 0, start_col = 0, end_line = 0, end_col = 0}

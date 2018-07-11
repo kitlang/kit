@@ -28,6 +28,7 @@ module Kit.Compiler.Passes.GenerateIr where
 
   generateModuleIr :: CompileContext -> Module -> IO ()
   generateModuleIr ctx mod = do
+    debugLog ctx $ "generating IR for " ++ show mod
     bindings <- bindingList $ mod_typed_contents mod
     forM (bindings) (\t -> generateDeclIr ctx mod t)
     return ()
