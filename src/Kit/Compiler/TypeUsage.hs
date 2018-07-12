@@ -35,7 +35,7 @@ module Kit.Compiler.TypeUsage where
         case existing of
           Just td -> return td
           Nothing -> do
-            let monomorph = monomorphizeType (zip ((map param_type (type_params def))) params) def
+            let monomorph = monomorphizeType (zip (map typeParamToSpec $ type_params def) params) def
             h_insert (type_monomorphs t) key monomorph
             return monomorph
 

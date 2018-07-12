@@ -27,7 +27,7 @@ struct Struct2 struct_var1;
 enum Enum1 enum_var1;
 int *pointer_var1;
 int **pointer_var2;
-int *pointer_var3(int arg1);
+int (*pointer_var3)(int arg1);
 
 // functions
 
@@ -35,5 +35,5 @@ void void_func1();
 int int_func1();
 float func_with_args(int arg1, unsigned long long arg2);
 struct Struct1 struct_func(struct Struct2 a);
-float (*pointer_func)(int *arg1);
+float * pointer_func(int *arg1);
 void varargs_func(int a, ...);

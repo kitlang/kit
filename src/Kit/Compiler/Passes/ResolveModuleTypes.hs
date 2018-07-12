@@ -45,33 +45,35 @@ module Kit.Compiler.Passes.ResolveModuleTypes where
     unknown types are referenced.
   -}
   _checkForTopLevel :: CompileContext -> Module -> Statement -> IO ()
-  _checkForTopLevel ctx m s = do
+  _checkForTopLevel ctx mod s = do
     tctx <- newTypeContext []
     case stmt s of
-      TypeDeclaration t@(TypeDefinition {type_type = Typedef {typedef_definition = typedefType}}) -> do
-        debugLog ctx $ "found typedef " ++ s_unpack (type_name t) ++ " in " ++ (show m)
-        resolved <- resolveType ctx tctx m typedefType
-        bindToScope (mod_types m) (type_name t) resolved
       TypeDeclaration t -> do
-        debugLog ctx $ "found type " ++ s_unpack (type_name t) ++ " in " ++ (show m)
+        debugLog ctx $ "found type " ++ s_unpack (type_name t) ++ " in " ++ (show mod)
         usage <- newTypeUsage t
-        bindToScope (mod_type_definitions m) (type_name t) usage
+        bindToScope (mod_type_definitions mod) (type_name t) usage
+        ct <- typeDefinitionToConcreteType ctx tctx mod t
+        bindToScope (mod_types mod) (type_name t) ct
         case t of
           TypeDefinition {type_name = type_name, type_type = Enum {enum_variants = variants}} -> do
             forM_ (variants) (\variant -> do
-              args <- mapM (\arg -> do t <- resolveMaybeType ctx tctx m (arg_type arg); return (arg_name arg, t)) (variant_args variant)
-              let constructor = ((mod_path m, type_name), args)
-              bindToScope (mod_enums m) (variant_name variant) constructor
+              args <- mapM (\arg -> do t <- resolveMaybeType ctx tctx mod (arg_type arg); return (arg_name arg, t)) (variant_args variant)
+              let constructor = ((mod_path mod, type_name), args)
+              bindToScope (mod_enums mod) (variant_name variant) constructor
               return ())
           _ -> do return ()
+      Typedef a b -> do
+        debugLog ctx $ "found typedef " ++ s_unpack a ++ " -> " ++ (show b) ++ " in " ++ (show mod)
+        b' <- resolveType ctx tctx mod b
+        bindToScope (mod_types mod) a b'
       ModuleVarDeclaration v -> do
-        debugLog ctx $ "found variable " ++ s_unpack (lvalue_name $ var_name v) ++ " in " ++ (show m)
-        varType <- resolveMaybeType ctx tctx m (var_type v)
-        bindToScope (mod_vars m) (lvalue_name $ var_name v) (VarBinding (varType))
+        debugLog ctx $ "found variable " ++ s_unpack (lvalue_name $ var_name v) ++ " in " ++ (show mod)
+        varType <- resolveMaybeType ctx tctx mod (var_type v)
+        bindToScope (mod_vars mod) (lvalue_name $ var_name v) (VarBinding (varType))
       FunctionDeclaration f -> do
-        debugLog ctx $ "found function " ++ s_unpack (function_name f) ++ " in " ++ (show m)
-        functionType <- resolveMaybeType ctx tctx m (function_type f)
-        args <- mapM (\arg -> do t <- resolveMaybeType ctx tctx m (arg_type arg); return (arg_name arg, t)) (function_args f)
-        bindToScope (mod_vars m) (function_name f) (FunctionBinding (functionType) args (function_varargs f))
-        bindToScope (mod_functions m) (function_name f) f
+        debugLog ctx $ "found function " ++ s_unpack (function_name f) ++ " in " ++ (show mod)
+        functionType <- resolveMaybeType ctx tctx mod (function_type f)
+        args <- mapM (\arg -> do t <- resolveMaybeType ctx tctx mod (arg_type arg); return (arg_name arg, t)) (function_args f)
+        bindToScope (mod_vars mod) (function_name f) (FunctionBinding (functionType) args (function_varargs f))
+        bindToScope (mod_functions mod) (function_name f) f
       _ -> return ()

@@ -53,7 +53,10 @@ module Kit.Compiler.Passes.GenerateCode where
       then hPutStrLn handle $ "#ifndef " ++ (modDef $ mod_path mod) ++ "\n#define " ++ (modDef $ mod_path mod) ++ "\n";
       else return ()
     forM_ (mod_includes mod) (\(filepath, _) -> hPutStrLn handle $ "#include \"" ++ filepath ++ "\"")
-    forM_ ((mod_path mod) : (map fst (mod_imports mod))) (\imp -> do
+    let imports = if cheader
+                  then (map fst (mod_imports mod))
+                  else (mod_path mod) : (map fst (mod_imports mod))
+    forM_ (imports) (\imp -> do
       if cheader then hPutStrLn handle $ "#ifndef " ++ (modDef imp) ++ "\n" else return ()
       hPutStrLn handle $ "#include \"" ++ (relativeLibPath imp -<.> "h") ++ "\""
       if cheader then hPutStrLn handle $ "#endif" else return ())

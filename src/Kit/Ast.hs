@@ -6,7 +6,6 @@ module Kit.Ast (
   module Kit.Ast.Modifier,
   module Kit.Ast.ModulePath,
   module Kit.Ast.Operator,
-  module Kit.Ast.RewriteRule,
   module Kit.Ast.Statement,
   module Kit.Ast.TypeConstraint,
   module Kit.Ast.TypeSpec,
@@ -20,7 +19,6 @@ module Kit.Ast (
   import Kit.Ast.Modifier
   import Kit.Ast.ModulePath
   import Kit.Ast.Operator
-  import Kit.Ast.RewriteRule
   import Kit.Ast.Statement
   import Kit.Ast.TypeConstraint
   import Kit.Ast.TypeSpec

@@ -30,6 +30,8 @@ module Kit.CodeGen.C.CExpr where
   ctype (BasicTypeStruct (name, _)) = [u $ CSUType $ u $ CStruct CStructTag (Just $ internalIdent $ s_unpack name) Nothing []]
   ctype (BasicTypeSimpleEnum name _) = [u $ CEnumType $ u $ CEnum (Just (internalIdent $ s_unpack name)) Nothing []]
   ctype (BasicTypeComplexEnum name _) = ctype (BasicTypeStruct (name, []))
+  -- TODO: CArr
+  -- TODO: CPtr
 
   ctype' = map CTypeSpec . ctype
 

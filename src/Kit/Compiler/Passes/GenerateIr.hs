@@ -38,13 +38,13 @@ module Kit.Compiler.Passes.GenerateIr where
     let addDecl d = modifyIORef (mod_ir mod) (\x -> d : x)
     case t of
       TypedFunction {typedFunctionName = name, typedFunctionReturnType = rt, typedFunctionBody = body, typedFunctionArgs = args, typedFunctionVariadic = varargs} -> do
-        rt <- followType ctx rt
-        typedArgs <- mapM (\(a, b) -> do t <- followType ctx b; return (a, t)) args
+        rt <- followType ctx mod rt
+        typedArgs <- mapM (\(a, b) -> do t <- followType ctx mod b; return (a, t)) args
         addDecl $ IrFunction name (BasicTypeFunction rt typedArgs varargs) (typedToIr body)
       _ -> undefined -- TODO
 
-  followType :: CompileContext -> ConcreteType -> IO BasicType
-  followType ctx t = do
+  followType :: CompileContext -> Module -> ConcreteType -> IO BasicType
+  followType ctx mod t = do
     case t of
       TypeAtom s -> return $ BasicTypeAtom s
       TypeStruct tp fieldTypes -> do
@@ -61,15 +61,21 @@ module Kit.Compiler.Passes.GenerateIr where
       -- TypeLvalue ConcreteType
       -- TypeRange
       -- TypeTraitPointer TypePath
+      TypePtr t -> do
+        t' <- followType ctx mod t
+        return $ CPtr t'
       TypeTypeVar tv -> do
         tctx <- newTypeContext [] -- TODO...
-        known <- knownType ctx tctx t
+        known <- knownType ctx tctx mod t
         case known of
           TypeTypeVar tv' ->
             if tv == tv'
               then throw $ Errs [err ValidationError ("unresolved type variable: " ++ (show tv))]
-              else followType ctx known
-          _ -> followType ctx known
+              else followType ctx mod known
+          _ -> followType ctx mod known
+      _ -> do
+        -- TODO: REMOVE
+        return $ BasicTypeUnknown
 
   typedToIr :: TypedExpr -> IrExpr
   typedToIr e@(TypedExpr {texpr = et, tPos = pos, inferredType = t}) =

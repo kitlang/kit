@@ -13,6 +13,7 @@ module Kit.Compiler.Passes.IncludeCModules where
   import Kit.Compiler.Context
   import Kit.Compiler.Module
   import Kit.Compiler.Scope
+  import Kit.Compiler.TypeContext
   import Kit.Compiler.TypeUsage
   import Kit.Compiler.Utils
   import Kit.Error
@@ -66,10 +67,13 @@ module Kit.Compiler.Passes.IncludeCModules where
         forM_ (parseNonInitSpec typeSpec) (\t -> addTypeDeclaration ctx mod t)
         forM_ declarations (\(name, storageSpec, typeSpec, derivedSpec) ->
           do
-            addCDecl ctx mod name (typeFromSpec typeSpec derivedSpec)
+            let t' = (typeFromSpec typeSpec derivedSpec)
+            addCDecl ctx mod name t'
             if isTypedef storageSpec
               then do
                 forM_ (parseTypedefSpec typeSpec name) (\t -> addTypeDeclaration ctx mod t)
+                bindToScope (mod_types mod) name t'
+                debugLog ctx $ "typedef " ++ (s_unpack name) ++ " = " ++ (show t') ++ ""
                 return ()
               else return ()
             return ()
@@ -85,6 +89,7 @@ module Kit.Compiler.Passes.IncludeCModules where
                     TypeFunction t argTypes isVariadic -> FunctionBinding t [(name, argType) | (name, argType) <- argTypes] isVariadic
                     _ -> VarBinding $ t
     bindToScope (mod_vars mod) name binding
+    debugLog ctx $ "binding " ++ (s_unpack name) ++ ": " ++ (show t) ++ ""
     return ()
 
   -- Parse CDeclSpecs to find the type of a function/variable declaration
@@ -155,6 +160,9 @@ module Kit.Compiler.Passes.IncludeCModules where
     let name = (type_name t)
     usage <- newTypeUsage t
     bindToScope (mod_type_definitions mod) name usage
+    tctx <- newTypeContext []
+    t' <- typeDefinitionToConcreteType ctx tctx mod t
+    bindToScope (mod_types mod) name t'
 
   structFieldName cdecl =
     let (name, _, _, _) = head (decomposeCDecl cdecl) in name
@@ -179,7 +187,7 @@ module Kit.Compiler.Passes.IncludeCModules where
 
   typeFromSpec :: [CTypeSpec] -> [CDerivedDeclr] -> ConcreteType
   typeFromSpec typeSpec derivedSpec =
-    parseDerivedTypeSpec (case parseDeclSpec typeSpec of {Just t -> t; Nothing -> TypeBasicType BasicTypeUnknown}) derivedSpec
+    parseDerivedTypeSpec (case parseDeclSpec typeSpec of {Just t -> t; Nothing -> TypeBasicType BasicTypeUnknown}) (reverse derivedSpec)
 
   type DecomposedCDecl = (Str, [CStorageSpec], [CTypeSpec], [CDerivedDeclr])
 

@@ -1,5 +1,6 @@
 module Kit.Ast.BasicType where
 
+  import Data.List
   import Kit.Str
 
   {-
@@ -15,7 +16,6 @@ module Kit.Ast.BasicType where
     | BasicTypeUint Int
     | BasicTypeFloat Int
     | BasicTypeStruct BasicStruct
-    | BasicTypeVector BasicType (Maybe Int)
     | BasicTypeSimpleEnum Str [Str]
     | BasicTypeComplexEnum Str [BasicStruct]
     | BasicTypeAtom Str
@@ -23,7 +23,22 @@ module Kit.Ast.BasicType where
     -- If for some reason we can't parse type specifiers into a meaningful
     -- BasicType, the value isn't usable from Kit without casting.
     | BasicTypeUnknown
-    deriving (Eq, Show)
+    deriving (Eq)
+
+  instance Show BasicType where
+    show (CArray t (Just i)) = show t ++ "[" ++ show i ++ "]"
+    show (CPtr t) = "Ptr[" ++ show t ++ "]"
+    show (BasicTypeVoid) = "Void"
+    show (BasicTypeBool) = "Bool"
+    show (BasicTypeInt w) = "Int" ++ show w
+    show (BasicTypeUint w) = "Uint" ++ show w
+    show (BasicTypeFloat w) = "Float" ++ show w
+    show (BasicTypeStruct (name, _)) = "struct " ++ s_unpack name
+    show (BasicTypeSimpleEnum name _) = "enum " ++ s_unpack name
+    show (BasicTypeComplexEnum name _) = "enum " ++ s_unpack name
+    show (BasicTypeAtom s) = "atom " ++ s_unpack s
+    show (BasicTypeFunction t args varargs) = "function (" ++ (intercalate ", " [s_unpack name ++ ": " ++ show argType | (name, argType) <- args]) ++ (if varargs then ", ..." else "") ++ "): " ++ show t
+    show (BasicTypeUnknown) = "???"
 
   type BasicArgs = [(Str, BasicType)]
 

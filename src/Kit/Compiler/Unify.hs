@@ -58,6 +58,7 @@ module Kit.Compiler.Unify where
         -- TODO
         return ()
       TypeVarHasConstraint id x -> return () -- TODO
+      _ -> return ()
 
   resolveConstraintOrThrow :: Span -> TypeConstraint -> IO TypeInformation
   resolveConstraintOrThrow pos t = do

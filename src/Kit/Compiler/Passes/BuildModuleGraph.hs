@@ -71,7 +71,7 @@ module Kit.Compiler.Passes.BuildModuleGraph where
     preludes <- _loadPrelude ctx mod
     if mod == []
       then return preludes
-      else do
+    else do
         _parents <- _loadPreludes ctx (take (length mod - 1) mod)
         return $ _parents ++ preludes
 
@@ -100,7 +100,7 @@ module Kit.Compiler.Passes.BuildModuleGraph where
   _loadModule :: CompileContext -> ModulePath -> Maybe Span -> IO Module
   _loadModule ctx mod pos = do
     (fp, exprs) <- parseModuleExprs ctx mod Nothing pos
-    prelude <- _loadPreludes ctx (take (length mod - 1) mod)
+    prelude <- if last mod == "prelude" then return [] else _loadPreludes ctx (take (length mod - 1) mod)
     m <- newMod mod (prelude ++ exprs) fp
     return m
 

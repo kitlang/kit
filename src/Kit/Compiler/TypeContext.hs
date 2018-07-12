@@ -38,37 +38,43 @@ module Kit.Compiler.TypeContext where
   -- TODO: position information
   unknownType t pos = do throw $ Errs [errp TypingError ("Unknown type: " ++ (show t)) (Just pos)]
 
-  follow :: CompileContext -> TypeContext -> ConcreteType -> IO ConcreteType
-  follow ctx tctx t = do
+  follow :: CompileContext -> TypeContext -> Module -> ConcreteType -> IO ConcreteType
+  follow ctx tctx mod t = do
     case t of
       TypeStruct tp params -> do
-        resolvedParams <- forM params (follow ctx tctx)
+        resolvedParams <- forM params (follow ctx tctx mod)
         return $ TypeStruct tp resolvedParams
       TypeEnum tp params -> do
-        resolvedParams <- forM params (follow ctx tctx)
+        resolvedParams <- forM params (follow ctx tctx mod)
         return $ TypeEnum tp resolvedParams
       TypeAbstract tp params -> do
-        resolvedParams <- forM params (follow ctx tctx)
+        resolvedParams <- forM params (follow ctx tctx mod)
         return $ TypeAbstract tp resolvedParams
       TypeFunction t args varargs -> do
-        resolved <- follow ctx tctx t
-        resolvedArgs <- forM args (\(name, t) -> do resolvedArg <- follow ctx tctx t; return (name, resolvedArg))
+        resolved <- follow ctx tctx mod t
+        resolvedArgs <- forM args (\(name, t) -> do resolvedArg <- follow ctx tctx mod t; return (name, resolvedArg))
         return $ TypeFunction resolved resolvedArgs varargs
       TypePtr t -> do
-        resolved <- follow ctx tctx t
+        resolved <- follow ctx tctx mod t
         return $ TypePtr resolved
       TypeArr t len -> do
-        resolved <- follow ctx tctx t
+        resolved <- follow ctx tctx mod t
         return $ TypeArr resolved len
       TypeEnumConstructor tp args -> do
-        resolvedArgs <- forM args (\(name, t) -> do resolvedArg <- follow ctx tctx t; return (name, resolvedArg))
+        resolvedArgs <- forM args (\(name, t) -> do resolvedArg <- follow ctx tctx mod t; return (name, resolvedArg))
         return $ TypeEnumConstructor tp resolvedArgs
+      TypeTypedef tp params -> do
+        resolveType ctx tctx mod $ TypeSpec tp [ConcreteType p | p <- params] null_span
       _ -> return t
 
+  {-
+    Attempt to resolve a TypeSpec into a ConcreteType; fail if it isn't a known
+    type.
+  -}
   resolveType :: CompileContext -> TypeContext -> Module -> TypeSpec -> IO ConcreteType
   resolveType ctx tctx mod t = do
     case t of
-      ConcreteType ct -> follow ctx tctx ct
+      ConcreteType ct -> follow ctx tctx mod ct
       TypeSpec (m, s) params pos -> do
         case m of
           [] -> do
@@ -82,15 +88,19 @@ module Kit.Compiler.TypeContext where
                 imports <- mapM (getMod ctx) (map fst $ mod_imports mod)
                 includes <- mapM (getCMod ctx) (map fst $ mod_includes mod)
                 bound <- resolveBinding (map mod_types (mod : (imports ++ includes))) s
-                case (bound <|> typeNameToConcreteType s) of
-                  Just t -> return t
-                  Nothing -> unknownType s pos
+                case bound of
+                  Just t -> follow ctx tctx mod t
+                  Nothing -> do
+                    builtin <- builtinToConcreteType ctx tctx mod s params
+                    case builtin of
+                      Just t -> follow ctx tctx mod t
+                      Nothing -> unknownType s pos
           m -> do
             -- search only a specific module for this type
             imports <- mapM (getMod ctx) [mod' | (mod', _) <- mod_imports mod, mod' == m]
             result <- resolveBinding (map mod_types imports) s
             case result of
-              Just t -> return t
+              Just t -> follow ctx tctx mod t
               Nothing -> unknownType s pos
 
       TypeFunctionSpec rt params args isVariadic -> do
@@ -108,21 +118,72 @@ module Kit.Compiler.TypeContext where
     imports <- mapM (getMod ctx) (map fst $ mod_imports mod)
     resolveBinding (map mod_enums (mod : imports)) s
 
-  knownType :: CompileContext -> TypeContext -> ConcreteType -> IO ConcreteType
-  knownType ctx tctx t = do
+  knownType :: CompileContext -> TypeContext -> Module -> ConcreteType -> IO ConcreteType
+  knownType ctx tctx mod t = do
     case t of
       TypeTypeVar (TypeVar x) -> do
         result <- h_lookup (ctxTypeVariables ctx) (x)
         case result of
           -- Specific known type
-          Just (Right t) -> knownType ctx tctx t
+          Just (Right t) -> knownType ctx tctx mod t
           -- Constraints, but no specific type; return type var
-          Just (Left _) -> follow ctx tctx t
+          Just (Left _) -> follow ctx tctx mod t
           -- Hasn't been unified with anything; return type var
-          Nothing -> follow ctx tctx t
+          Nothing -> follow ctx tctx mod t
       TypeTypeVar (TypeParamVar s) -> do
         result <- resolveBinding (tctxTypeParamScopes tctx) s
         case result of
-          Just t -> follow ctx tctx t
-          _ -> follow ctx tctx t
-      t -> follow ctx tctx t
+          Just t -> follow ctx tctx mod t
+          _ -> follow ctx tctx mod t
+      t -> follow ctx tctx mod t
+
+
+  typeDefinitionToConcreteType :: CompileContext -> TypeContext -> Module -> TypeDefinition -> IO ConcreteType
+  typeDefinitionToConcreteType ctx tctx mod (TypeDefinition {type_name = name, type_params = params, type_type = t}) = do
+    resolvedParams <- mapM (resolveType ctx tctx mod) (map typeParamToSpec params)
+    case t of
+      Atom -> return $ TypeAtom name
+      Struct {} -> return $ TypeStruct tp resolvedParams
+      Enum {} -> return $ TypeEnum tp resolvedParams
+      Abstract {} -> return $ TypeAbstract tp resolvedParams
+    where tp = (mod_path mod, name)
+
+  builtinToConcreteType :: CompileContext -> TypeContext -> Module -> Str -> [TypeSpec] -> IO (Maybe ConcreteType)
+  builtinToConcreteType ctx tctx mod s p = do
+    case (s, p) of
+      -- basics
+      ("CString", []) -> return $ Just $ TypeBasicType $ CPtr $ BasicTypeInt 8
+      ("Bool", []) -> return $ Just $ TypeBasicType $ BasicTypeBool
+      ("Int8", []) -> return $ Just $ TypeBasicType $ BasicTypeInt 8
+      ("Int16", []) -> return $ Just $ TypeBasicType $ BasicTypeInt 16
+      ("Int32", []) -> return $ Just $ TypeBasicType $ BasicTypeInt 32
+      ("Int64", []) -> return $ Just $ TypeBasicType $ BasicTypeInt 64
+      ("Uint8", []) -> return $ Just $ TypeBasicType $ BasicTypeUint 8
+      ("Uint16", []) -> return $ Just $ TypeBasicType $ BasicTypeUint 16
+      ("Uint32", []) -> return $ Just $ TypeBasicType $ BasicTypeUint 32
+      ("Uint64", []) -> return $ Just $ TypeBasicType $ BasicTypeUint 64
+      ("Float32", []) -> return $ Just $ TypeBasicType $ BasicTypeFloat 32
+      ("Float64", []) -> return $ Just $ TypeBasicType $ BasicTypeFloat 64
+      -- aliases
+      ("Byte", []) -> builtinToConcreteType ctx tctx mod "Uint8" []
+      ("Char", []) -> builtinToConcreteType ctx tctx mod "Int8" []
+      ("Short", []) -> builtinToConcreteType ctx tctx mod "Int16" []
+      ("Int", []) -> builtinToConcreteType ctx tctx mod "Int32" []
+      ("Long", []) -> builtinToConcreteType ctx tctx mod "Int64" []
+      ("Float", []) -> builtinToConcreteType ctx tctx mod "Float32" []
+      ("Double", []) -> builtinToConcreteType ctx tctx mod "Float64" []
+      ("Void", []) -> return $ Just $ TypeBasicType BasicTypeVoid
+      -- compound
+      ("Ptr", [x]) -> do
+        param <- resolveType ctx tctx mod x
+        return $ Just $ TypePtr param
+      ("Arr", [x]) -> do
+        param <- resolveType ctx tctx mod x
+        return $ Just $ TypeArr param Nothing
+      _ -> return Nothing
+
+
+  typeNameToConcreteType :: Str -> Maybe ConcreteType
+  typeNameToConcreteType "CString" = Just $ TypeBasicType $ CPtr $ BasicTypeInt 8
+
+  typeNameToConcreteType _ = Nothing

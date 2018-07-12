@@ -75,7 +75,7 @@ module Kit.Compiler.Passes.IncludeCModulesSpec where
             binding `shouldBe` Just (val))
 
       forM_ [
-          ("Parses struct declarations", "Struct1", (newTypeDefinition "Struct1") {
+          ("Parses struct declarations", "Struct1", TypeStruct ([],"Struct1") [], (newTypeDefinition "Struct1") {
             type_type = Struct {
               struct_fields = [
                 newVarDefinition {var_name = Var "field1", var_type = Just $ ConcreteType $ TypeBasicType $ BasicTypeInt 8},
@@ -83,7 +83,7 @@ module Kit.Compiler.Passes.IncludeCModulesSpec where
               ]
             }
           }),
-          ("Parses struct typedefs", "Struct2", (newTypeDefinition "Struct2") {
+          ("Parses unnamed struct typedefs", "Struct2", TypeBasicType BasicTypeUnknown, (newTypeDefinition "Struct2") {
             type_type = Struct {
               struct_fields = [
                 newVarDefinition {var_name = Var "field1", var_type = Just $ ConcreteType $ TypeBasicType $ BasicTypeInt 16},
@@ -91,20 +91,22 @@ module Kit.Compiler.Passes.IncludeCModulesSpec where
               ]
             }
           }),
-          ("Parses empty struct typedefs", "Struct3", (newTypeDefinition "Struct3") {
+          ("Parses empty struct typedefs", "Struct3", TypeStruct ([],"Struct3") [], (newTypeDefinition "Struct3") {
             type_type = Struct {struct_fields = []}
           }),
-          ("Parses enum definitions", "Enum1", (newTypeDefinition "Enum1") {
+          ("Parses enum definitions", "Enum1", TypeEnum ([],"Enum1") [], (newTypeDefinition "Enum1") {
             type_type = Enum {enum_variants = [
               newEnumVariant {variant_name = "apple"},
               newEnumVariant {variant_name = "banana"},
               newEnumVariant {variant_name = "strawberry"}
             ], enum_underlying_type = Nothing}
           })
-        ] (\(label, name, val) -> it label $ do
+        ] (\(label, name, ct, val) -> it label $ do
             header <- testHeader
             binding <- resolveLocal (mod_type_definitions header) name
             let binding' = case binding of
                              Just (TypeUsage {type_definition = t}) -> Just t
                              Nothing -> Nothing
-            binding' `shouldBe` Just val)
+            binding' `shouldBe` Just val
+            x <- resolveLocal (mod_types header) name
+            x `shouldBe` Just ct)

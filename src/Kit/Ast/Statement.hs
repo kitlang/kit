@@ -6,7 +6,6 @@ module Kit.Ast.Statement where
   import Kit.Ast.Modifier
   import Kit.Ast.ModulePath
   import Kit.Ast.Operator
-  import Kit.Ast.RewriteRule
   import Kit.Ast.TypeSpec
   import Kit.Ast.Value
   import Kit.Parser.Span
@@ -21,6 +20,7 @@ module Kit.Ast.Statement where
     = ModuleVarDeclaration (VarDefinition a)
     | FunctionDeclaration FunctionDefinition
     | TypeDeclaration TypeDefinition
+    | Typedef Str TypeSpec
     | TraitDeclaration TraitDefinition
     | Implement TraitImplementation
     | Import ModulePath
@@ -119,7 +119,6 @@ module Kit.Ast.Statement where
     | Struct {struct_fields :: [VarDefinition Expr]}
     | Enum {enum_variants :: [EnumVariant], enum_underlying_type :: Maybe TypeSpec}
     | Abstract {abstract_underlying_type :: Maybe TypeSpec}
-    | Typedef {typedef_definition :: TypeSpec}
     deriving (Eq, Show)
 
   newTypeDefinition x = TypeDefinition {
@@ -131,3 +130,21 @@ module Kit.Ast.Statement where
     type_params = [],
     type_type = undefined
   }
+
+  data TypeParam = TypeParam {
+    param_name :: Str,
+    constraints :: [TypeSpec]
+  } deriving (Eq, Show)
+
+  makeTypeParam s = TypeParam {param_name = s, constraints = []}
+  typeParamToSpec (TypeParam {param_name = s}) = makeTypeSpec s
+
+  data TermRewriteRule = TermRewriteRule {
+    rule_doc :: Maybe Str,
+    rule_meta :: [Metadata],
+    rule_modifiers :: [Modifier],
+    rule_params :: [TypeParam],
+    rule_type :: Maybe TypeSpec,
+    rule_pattern :: Expr,
+    rule_body :: Maybe Expr
+  } deriving (Eq, Show)

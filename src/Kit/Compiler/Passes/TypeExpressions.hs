@@ -44,7 +44,7 @@ module Kit.Compiler.Passes.TypeExpressions where
         args <- mapM (\arg -> do argType <- resolveMaybeType ctx tctx mod (arg_type arg); return (arg_name arg, argType)) (function_args f)
         returnType <- resolveMaybeType ctx tctx mod (function_type f)
         typedBody <- typeExpr ctx (tctx {tctxScopes = functionScope : (tctxScopes tctx), tctxReturnType = Just returnType}) mod x
-        resolvedReturnType <- knownType ctx tctx returnType
+        resolvedReturnType <- knownType ctx tctx mod returnType
         -- Try to unify with void; if unification doesn't fail, we didn't encounter a return statement, so the function is void.
         let finalReturnType = case unify (resolvedReturnType) (TypeBasicType BasicTypeVoid) of
                                 TypeConstraintNotSatisfied -> resolvedReturnType
@@ -247,7 +247,7 @@ module Kit.Compiler.Passes.TypeExpressions where
         bindToScope (head $ tctxScopes tctx) vname (VarBinding varType)
         return $ makeExprTyped (VarDeclaration ((newVarDefinition :: VarDefinition TypedExpr) {var_name = var_name vardef, var_type = var_type vardef, var_default = Nothing})) voidType pos
 
-    t' <- knownType ctx tctx (inferredType result)
+    t' <- knownType ctx tctx mod (inferredType result)
     return $ result {inferredType = t'}
 
   typeFunctionCall :: CompileContext -> TypeContext -> Module -> TypedExpr -> [TypedExpr] -> IO TypedExpr
@@ -261,7 +261,7 @@ module Kit.Compiler.Passes.TypeExpressions where
           then throw $ Errs [errp TypingError ("Expected " ++ (show $ length argTypes) ++ " arguments (called with " ++ (show $ length args) ++ ")") (Just pos)]
            else return ()
     -- TODO
-    forM_ (zip argTypes args) (\((_, argType), argValue) -> resolveConstraint ctx (tPos argValue) (TypeEq argType (inferredType argValue)))
+    forM_ (zip argTypes args) (\((_, argType), argValue) -> do t1 <- follow ctx tctx mod argType; t2 <- knownType ctx tctx mod (inferredType argValue); resolveConstraint ctx (tPos argValue) (TypeEq t1 t2))
     return $ makeExprTyped (Call e args) rt pos
 
   typeEnumConstructorCall :: CompileContext -> TypeContext -> Module -> TypedExpr -> [TypedExpr] -> IO TypedExpr

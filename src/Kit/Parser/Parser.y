@@ -128,18 +128,8 @@ Statements_ :: {[Statement]}
 Statement :: {Statement}
   : import ModulePath ';' {ps (p $1 <+> p $3) $ Import (reverse $ fst $2)}
   | include str ';' {ps (p $1 <+> p $3) $ Include $ B.unpack $ extract_lit $ fst $2}
-  | DocMetaMods typedef upper_identifier TypeParams '=' TypeSpec ';' {
-    ps (fp [p $1, p $2, p $7]) $ TypeDeclaration $ TypeDefinition {
-      type_name = extract_upper_identifier $3,
-      type_doc = doc $1,
-      type_meta = reverse $ metas $1,
-      type_modifiers = reverse $ mods $1,
-      type_rules = [],
-      type_params = fst $4,
-      type_type = Typedef {
-        typedef_definition = fst $6
-      }
-    }
+  | DocMetaMods typedef upper_identifier '=' TypeSpec ';' {
+    ps (fp [p $1, p $2, p $6]) $ Typedef (extract_upper_identifier $3) (fst $5)
   }
   | DocMetaMods atom upper_identifier ';' {
     ps (fp [p $1, p $2, p $4]) $ TypeDeclaration $ TypeDefinition {
@@ -324,7 +314,7 @@ TypeAnnotation :: {(Maybe TypeSpec, Span)}
   | ':' TypeSpec {(Just $ fst $2, p $1 <+> p $2)}
 
 TypeSpec :: {(TypeSpec, Span)}
-  : TypePath TypeParams {(TypeSpec (fst $1) (reverse $ fst $2) (p $1 <+> p $2), p $1 <+> p $2)}
+  : TypePath TypeSpecParams {(TypeSpec (fst $1) (reverse $ fst $2) (p $1 <+> p $2), p $1 <+> p $2)}
 
 OptionalTypeSpec :: {(Maybe TypeSpec, Span)}
   : {(Nothing, null_span)}
@@ -347,8 +337,16 @@ TypeParams_ :: {[TypeParam]}
   | TypeParams_ ',' TypeParam {$3 : $1}
 
 TypeParam :: {TypeParam}
-  : TypePath TypeParams {TypeParam {param_type = TypeSpec (fst $1) (fst $2) (snd $1), constraints = []}}
-  | TypePath TypeParams ':' TypeConstraints {TypeParam {param_type = TypeSpec (fst $1) (fst $2) (snd $1), constraints = $4}}
+  : upper_identifier {TypeParam {param_name = (extract_upper_identifier $1), constraints = []}}
+  | upper_identifier ':' TypeConstraints {TypeParam {param_name = (extract_upper_identifier $1), constraints = $3}}
+
+TypeSpecParams :: {([TypeSpec], Span)}
+  : {([], null_span)}
+  | '[' TypeSpecParams_ ']' {(reverse $2, p $1 <+> p $3)}
+
+TypeSpecParams_ :: {[TypeSpec]}
+  : TypeSpec {[fst $1]}
+  | TypeSpecParams_ ',' TypeSpec {(fst $3) : $1}
 
 TypeConstraints :: {[TypeSpec]}
   : TypeSpec {[fst $1]}
