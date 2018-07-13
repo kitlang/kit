@@ -52,11 +52,11 @@ typeFunction ctx mod f = do
         )
       args <- mapM
         (\arg -> do
-          argType <- resolveMaybeType ctx tctx mod (arg_type arg)
+          argType <- resolveMaybeType ctx tctx mod (pos x) (arg_type arg)
           return (arg_name arg, argType)
         )
         (function_args f)
-      returnType <- resolveMaybeType ctx tctx mod (function_type f)
+      returnType <- resolveMaybeType ctx tctx mod (pos x) (function_type f)
       typedBody  <- typeExpr
         ctx
         (tctx { tctxScopes     = functionScope : (tctxScopes tctx)
@@ -111,7 +111,7 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
       return $ makeExprTyped (Meta m r1) (inferredType $ r1) pos
 
     (Literal l) -> do
-      typeVar <- makeTypeVar ctx
+      typeVar <- makeTypeVar ctx pos
       mapM_ (resolve pos) $ literalConstraints l typeVar
       return $ makeExprTyped (Literal l) typeVar pos
 
@@ -168,24 +168,29 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
 
     (PreUnop op e1) -> do
       r1 <- r e1
-      tv <- makeTypeVar ctx
+      tv <- makeTypeVar ctx pos
       let (t, constraints) = opTypes op tv [inferredType r1]
       mapM_ (resolve pos) constraints
       return $ makeExprTyped (PreUnop op r1) t pos
 
     (PostUnop op e1) -> do
       r1 <- r e1
-      tv <- makeTypeVar ctx
+      tv <- makeTypeVar ctx pos
       let (t, constraints) = opTypes op tv [inferredType r1]
       mapM_ (resolve $ tPos r1) constraints
       return $ makeExprTyped (PostUnop op r1) t pos
 
+    (Binop Assign e1 e2) -> do
+      r1 <- r e1
+      r2 <- r e2
+      resolve (tPos r1) $ TypeEq (inferredType r1) (inferredType r2)
+      return $ makeExprTyped (Binop Assign r1 r2) (inferredType r1) pos
     (Binop (AssignOp x) e1 e2) -> do
       throw $ Errs [err InternalError "Not yet implemented"]
     (Binop op e1 e2) -> do
       r1 <- r e1
       r2 <- r e2
-      tv <- makeTypeVar ctx
+      tv <- makeTypeVar ctx pos
       let (t, constraints) = opTypes op tv [inferredType r1, inferredType r2]
       mapM_ (resolve $ tPos r1) constraints
       return $ makeExprTyped (Binop op r1 r2) t pos
@@ -201,7 +206,7 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
         )
         mod
         e3
-      tv <- makeTypeVar ctx
+      tv <- makeTypeVar ctx pos
       resolve (tPos r2) $ TypeClassMember (TypeIterable tv) (inferredType r2)
       return $ makeExprTyped
         (For (makeExprTyped (Lvalue v) (TypeLvalue tv) pos1) r2 r3)
@@ -234,7 +239,7 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
                          (tctx { tctxScopes = scope2 : (tctxScopes tctx) })
                          mod
                          e3
-      tv <- makeTypeVar ctx
+      tv <- makeTypeVar ctx pos
       resolve (tPos r1) $ TypeEq (inferredType r1) (basicType BasicTypeBool)
       resolve pos $ TypeEq (inferredType r2) (inferredType r3)
       resolve (tPos r2) $ TypeEq (inferredType r2) (tv)
@@ -312,7 +317,7 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
       throw $ Errs [err InternalError "Not yet implemented"]
 
     (VarDeclaration (Var vname) t (Just e1)) -> do
-      varType <- resolveMaybeType ctx tctx mod t
+      varType <- resolveMaybeType ctx tctx mod pos t
       r1      <- r e1
       bindToScope (head $ tctxScopes tctx) vname (VarBinding varType)
       resolve (tPos r1) $ TypeEq (varType) (inferredType r1)
@@ -320,7 +325,7 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
         $ makeExprTyped (VarDeclaration (Var vname) t (Just r1)) varType pos
 
     (VarDeclaration (Var vname) t Nothing) -> do
-      varType <- resolveMaybeType ctx tctx mod t
+      varType <- resolveMaybeType ctx tctx mod pos t
       bindToScope (head $ tctxScopes tctx) vname (VarBinding varType)
       return $ makeExprTyped (VarDeclaration (Var vname) t Nothing) varType pos
 

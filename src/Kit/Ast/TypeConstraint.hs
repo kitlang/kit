@@ -45,11 +45,27 @@ instance Show TypeInformation where
   show TypeConstraintSatisfied = "satisfied"
   show TypeConstraintNotSatisfied = "not satisfied"
 
-type TypeVariableState = (Either [ConcreteType -> TypeConstraint] ConcreteType)
+data TypeVarInfo = TypeVarInfo
+  { typeVarValue :: Maybe ConcreteType
+  , typeVarPositions :: [Span]
+  , typeVarConstraints :: [ConcreteType -> TypeConstraint]
+  }
+
+newTypeVarInfo p = TypeVarInfo
+  { typeVarValue       = Nothing
+  , typeVarPositions   = [p]
+  , typeVarConstraints = []
+  }
+addTypeVarConstraint info c =
+  info { typeVarConstraints = c : typeVarConstraints info }
+addTypeVarPosition info p =
+  info { typeVarPositions = p : typeVarPositions info }
 
 {-
   For ergonomics, we'll use a representative default type for some internal
   typeclasses when no specific member is known.
+
+  FIXME: these should be defined in user space ideally.
 -}
 defaultClassMember :: InternalTypeClass -> Maybe ConcreteType
 defaultClassMember TypeNumeric      = Just $ TypeBasicType (BasicTypeInt 32)
@@ -58,4 +74,3 @@ defaultClassMember TypeNumericMixed = Just $ TypeBasicType (BasicTypeFloat 64)
 defaultClassMember TypeString = Just $ TypeBasicType (CPtr (BasicTypeInt 8))
 defaultClassMember (TypeSequence t) = Just $ TypeArr t Nothing
 defaultClassMember (TypeIterable t) = Just $ TypeArr t Nothing
-defaultClassMember _                = Nothing

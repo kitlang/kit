@@ -55,6 +55,8 @@ transpileExpr (IrLiteral (FloatValue f)) =
   CConst $ u $ CFloatConst $ transpileFloat (s_unpack f)
 transpileExpr (IrLiteral (StringValue s)) =
   CConst $ u $ CStrConst $ cString $ s_unpack s
+transpileExpr (IrBinop Assign e1 e2) =
+  u $ CAssign (CAssignOp) (transpileExpr e1) (transpileExpr e2)
 transpileExpr (IrBinop op e1 e2) =
   u $ CBinary (transpileBinop op) (transpileExpr e1) (transpileExpr e2)
 transpileExpr (IrPreUnop op e1) =

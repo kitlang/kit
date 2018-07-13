@@ -71,7 +71,8 @@ _checkForTopLevel ctx mod s = do
               (\variant -> do
                 args <- mapM
                   (\arg -> do
-                    t <- resolveMaybeType ctx tctx mod (arg_type arg)
+                    -- FIXME: this is the statement's position, not the arg's position
+                    t <- resolveMaybeType ctx tctx mod (stmtPos s) (arg_type arg)
                     return (arg_name arg, t)
                   )
                   (variant_args variant)
@@ -98,7 +99,7 @@ _checkForTopLevel ctx mod s = do
         ++ s_unpack (var_name v)
         ++ " in "
         ++ (show mod)
-      varType <- resolveMaybeType ctx tctx mod (var_type v)
+      varType <- resolveMaybeType ctx tctx mod (stmtPos s) (var_type v)
       bindToScope (mod_vars mod) (var_name v) (VarBinding (varType))
     FunctionDeclaration f -> do
       debugLog ctx
@@ -106,10 +107,10 @@ _checkForTopLevel ctx mod s = do
         ++ s_unpack (function_name f)
         ++ " in "
         ++ (show mod)
-      functionType <- resolveMaybeType ctx tctx mod (function_type f)
+      functionType <- resolveMaybeType ctx tctx mod (stmtPos s) (function_type f)
       args         <- mapM
         (\arg -> do
-          t <- resolveMaybeType ctx tctx mod (arg_type arg)
+          t <- resolveMaybeType ctx tctx mod (stmtPos s) (arg_type arg)
           return (arg_name arg, t)
         )
         (function_args f)

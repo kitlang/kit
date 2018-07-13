@@ -61,19 +61,16 @@ resolveConstraint ctx pos constraint = do
   result <- resolveConstraintOrThrow pos constraint
   case result of
     TypeVarIs (TypeVar id) x -> do
-      existing <- getTypeVar ctx id
-      case existing of
-        Just (Left constraints) -> do
-          -- TODO: make sure we can resolve all constraints
-          return ()
-        _ -> return ()
-      h_insert (ctxTypeVariables ctx) id (Right x)
+      info <- getTypeVar ctx id
+      h_insert (ctxTypeVariables ctx) id (info { typeVarValue = Just x })
       return ()
     TypeVarIs (TypeParamVar s) x -> do
       -- TODO
       return ()
-    TypeVarHasConstraint id x -> return () -- TODO
-    _                         -> return ()
+    TypeVarHasConstraint (TypeVar id) x -> do
+      info <- getTypeVar ctx id
+      h_insert (ctxTypeVariables ctx) id (addTypeVarConstraint info x)
+    _ -> return ()
 
 resolveConstraintOrThrow :: Span -> TypeConstraint -> IO TypeInformation
 resolveConstraintOrThrow pos t = do

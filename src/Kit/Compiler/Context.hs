@@ -14,6 +14,7 @@ import Kit.Compiler.TypeUsage
 import Kit.Error
 import Kit.HashTable
 import Kit.Ir
+import Kit.Parser.Span
 import Kit.Str
 
 data CompileContext = CompileContext {
@@ -30,9 +31,10 @@ data CompileContext = CompileContext {
   ctxCModules :: HashTable FilePath Module,
   ctxIncludes :: IORef [FilePath],
   ctxLastTypeVar :: IORef Int,
-  ctxTypeVariables :: HashTable Int TypeVariableState,
+  ctxTypeVariables :: HashTable Int TypeVarInfo,
   ctxTypedDecls :: HashTable TypePath TypedDecl
 }
+
 instance Show CompileContext where
   show ctx = s_unpack $ encode $ object [
       "main" .= (s_unpack $ showModulePath $ ctxMainModule ctx),
@@ -87,7 +89,6 @@ getMod ctx mod = do
           (showModulePath mod)
       ]
 
-
 getCMod :: CompileContext -> FilePath -> IO Module
 getCMod ctx f = do
   m <- h_lookup (ctxCModules ctx) f
@@ -96,16 +97,16 @@ getCMod ctx f = do
     Nothing ->
       throw $ Errs [err InternalError $ "Unexpected missing C module: " ++ f]
 
-
-makeTypeVar :: CompileContext -> IO ConcreteType
-makeTypeVar ctx = do
+makeTypeVar :: CompileContext -> Span -> IO ConcreteType
+makeTypeVar ctx pos = do
   last <- readIORef (ctxLastTypeVar ctx)
   let next = last + 1
   writeIORef (ctxLastTypeVar ctx) next
+  h_insert (ctxTypeVariables ctx) next (newTypeVarInfo pos)
   return $ TypeTypeVar (TypeVar next)
 
-getTypeVar :: CompileContext -> Int -> IO (Maybe TypeVariableState)
-getTypeVar ctx tv = h_lookup (ctxTypeVariables ctx) tv
+getTypeVar :: CompileContext -> Int -> IO TypeVarInfo
+getTypeVar ctx tv = h_get (ctxTypeVariables ctx) tv
 
 resolveVar
   :: CompileContext -> [Scope Binding] -> Module -> Str -> IO (Maybe Binding)

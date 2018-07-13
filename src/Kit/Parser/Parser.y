@@ -233,7 +233,7 @@ FunctionName :: {(B.ByteString, Span)}
 
 FunctionDecl :: {Statement}
   : DocMetaMods function FunctionName TypeParams '(' VarArgs ')' TypeAnnotation OptionalBody {
-    ps (fp [p $1, p $2, p $7, snd $8, snd $9]) $ FunctionDeclaration $ FunctionDefinition {
+    ps (fp [p $2 <+> p $3]) $ FunctionDeclaration $ FunctionDefinition {
       function_name = fst $3,
       function_doc = doc $1,
       function_meta = reverse $ metas $1,

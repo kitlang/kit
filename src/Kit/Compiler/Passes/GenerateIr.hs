@@ -78,10 +78,11 @@ findUnderlyingType ctx mod t = do
       tctx  <- newTypeContext [] -- TODO...
       known <- knownType ctx tctx mod t
       case known of
-        TypeTypeVar tv' -> if tv == tv'
-          then
+        TypeTypeVar (tv'@(TypeVar id)) -> if tv == tv'
+          then do
+            info <- getTypeVar ctx id
             throw $ Errs
-              [err ValidationError ("unresolved type variable: " ++ (show tv))]
+              [errp ValidationError ("unresolved type variable: " ++ (show tv)) (Just $ head $ typeVarPositions info)]
           else findUnderlyingType ctx mod known
         _ -> findUnderlyingType ctx mod known
     _ -> do

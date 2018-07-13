@@ -128,26 +128,25 @@ resolveMaybeType
   :: CompileContext
   -> TypeContext
   -> Module
+  -> Span
   -> Maybe TypeSpec
   -> IO ConcreteType
-resolveMaybeType ctx tctx mod t = do
+resolveMaybeType ctx tctx mod pos t = do
   case t of
     Just t  -> resolveType ctx tctx mod t
-    Nothing -> makeTypeVar ctx
+    Nothing -> makeTypeVar ctx pos
 
 knownType
   :: CompileContext -> TypeContext -> Module -> ConcreteType -> IO ConcreteType
 knownType ctx tctx mod t = do
   case t of
     TypeTypeVar (TypeVar x) -> do
-      result <- h_lookup (ctxTypeVariables ctx) (x)
-      case result of
+      info <- h_get (ctxTypeVariables ctx) (x)
+      case typeVarValue info of
         -- Specific known type
-        Just (Right t) -> knownType ctx tctx mod t
-        -- Constraints, but no specific type; return type var
-        Just (Left  _) -> follow ctx tctx mod t
-        -- Hasn't been unified with anything; return type var
-        Nothing        -> follow ctx tctx mod t
+        Just t -> knownType ctx tctx mod t
+        -- No specific type; return type var
+        Nothing -> follow ctx tctx mod t
     TypeTypeVar (TypeParamVar s) -> do
       result <- resolveBinding (tctxTypeParamScopes tctx) s
       case result of

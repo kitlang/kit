@@ -4,6 +4,7 @@ import Data.IORef
 import Data.List
 import Kit.Ast.BasicType
 import Kit.Ast.ModulePath
+import Kit.Parser.Span
 import Kit.Str
 
 type ConcreteArgs = [(Str, ConcreteType)]
