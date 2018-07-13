@@ -7,9 +7,9 @@ module Kit.Compiler.Passes (
   module Kit.Compiler.Passes.GenerateCode
 ) where
 
-  import Kit.Compiler.Passes.BuildModuleGraph
-  import Kit.Compiler.Passes.IncludeCModules
-  import Kit.Compiler.Passes.ResolveModuleTypes
-  import Kit.Compiler.Passes.TypeExpressions
-  import Kit.Compiler.Passes.GenerateIr
-  import Kit.Compiler.Passes.GenerateCode
+import Kit.Compiler.Passes.BuildModuleGraph
+import Kit.Compiler.Passes.IncludeCModules
+import Kit.Compiler.Passes.ResolveModuleTypes
+import Kit.Compiler.Passes.TypeExpressions
+import Kit.Compiler.Passes.GenerateIr
+import Kit.Compiler.Passes.GenerateCode

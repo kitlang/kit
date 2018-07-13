@@ -4,6 +4,6 @@ module Kit.Ir (
   module Kit.Ir.IrModule
 ) where
 
-  import Kit.Ir.IrDecl
-  import Kit.Ir.IrExpr
-  import Kit.Ir.IrModule
+import Kit.Ir.IrDecl
+import Kit.Ir.IrExpr
+import Kit.Ir.IrModule

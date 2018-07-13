@@ -1,10 +1,10 @@
 module Kit.Ast.Value where
 
-  import Kit.Str
+import Kit.Str
 
-  data ValueLiteral
-    = BoolValue Bool
-    | IntValue Str
-    | FloatValue Str
-    | StringValue Str
-    deriving (Eq, Show)
+data ValueLiteral
+  = BoolValue Bool
+  | IntValue Str
+  | FloatValue Str
+  | StringValue Str
+  deriving (Eq, Show)
