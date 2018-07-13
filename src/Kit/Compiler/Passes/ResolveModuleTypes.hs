@@ -58,8 +58,8 @@ module Kit.Compiler.Passes.ResolveModuleTypes where
           TypeDefinition {type_name = type_name, type_type = Enum {enum_variants = variants}} -> do
             forM_ (variants) (\variant -> do
               args <- mapM (\arg -> do t <- resolveMaybeType ctx tctx mod (arg_type arg); return (arg_name arg, t)) (variant_args variant)
-              let constructor = ((mod_path mod, type_name), args)
-              bindToScope (mod_enums mod) (variant_name variant) constructor
+              let constructor = EnumConstructor ((mod_path mod), type_name) args
+              bindToScope (mod_vars mod) (variant_name variant) constructor
               return ())
           _ -> do return ()
       Typedef a b -> do

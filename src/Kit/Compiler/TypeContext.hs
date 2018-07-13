@@ -113,11 +113,6 @@ module Kit.Compiler.TypeContext where
       Just t -> resolveType ctx tctx mod t
       Nothing -> makeTypeVar ctx
 
-  resolveEnum :: CompileContext -> TypeContext -> Module -> Str -> IO (Maybe EnumConstructor)
-  resolveEnum ctx tctx mod s = do
-    imports <- mapM (getMod ctx) (map fst $ mod_imports mod)
-    resolveBinding (map mod_enums (mod : imports)) s
-
   knownType :: CompileContext -> TypeContext -> Module -> ConcreteType -> IO ConcreteType
   knownType ctx tctx mod t = do
     case t of

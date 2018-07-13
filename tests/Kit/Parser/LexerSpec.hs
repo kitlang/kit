@@ -44,6 +44,7 @@ module Kit.Parser.LexerSpec where
         lx "'\\r'" `shouldBe` [LiteralString "\r"]
         lx "'\\t'" `shouldBe` [LiteralString "\t"]
         lx "'\\b'" `shouldBe` [LiteralString "\b"]
+        lx "'\\\\n'" `shouldBe` [LiteralString "\\n"]
       it "lexes escaped characters in string literals" $ do
         lx "\"a\\\"\\Bc\"" `shouldBe` [LiteralString "a\"Bc"]
       it "lexes float literals" $ do

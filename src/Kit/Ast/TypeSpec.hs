@@ -5,9 +5,10 @@ module Kit.Ast.TypeSpec where
   import Kit.Ast.BasicType
   import Kit.Ast.ConcreteType
   import Kit.Ast.ModulePath
+  import Kit.Ast.Value
   import Kit.Parser.Span
   import Kit.Str
-
+  import Kit.Str
   type TypeSpecArgs = [(Str, TypeSpec)]
 
   {-
@@ -17,6 +18,7 @@ module Kit.Ast.TypeSpec where
   data TypeSpec
     = TypeSpec TypePath [TypeSpec] Span
     | TypeFunctionSpec TypeSpec [TypeSpec] TypeSpecArgs Bool
+    | TypeSpecConstant ValueLiteral
     {-
       This variant can be used to force the BasicType to resolve to a specific
       ConcreteType without going through normal namespace resolution. This is

@@ -357,10 +357,14 @@ TypeConstraints_ :: {[TypeSpec]}
   : TypeSpec {[fst $1]}
   | TypeConstraints_ ',' TypeSpec {fst $3 : $1}
 
+UpperOrLowerIdentifier :: {(B.ByteString, Span)}
+  : identifier {(extract_identifier $1, snd $1)}
+  | upper_identifier {(extract_upper_identifier $1, snd $1)}
+
 TypePath :: {(TypePath, Span)}
   : ModulePath '.' Self {((fst $1, B.pack "Self"), p $1 <+> p $3)}
   | ModulePath '.' upper_identifier {((fst $1, extract_upper_identifier $3), p $1 <+> p $3)}
-  | upper_identifier {(([], extract_upper_identifier $1), p $1)}
+  | UpperOrLowerIdentifier {(([], fst $1), p $1)}
   | Self {(([], B.pack "Self"), p $1)}
 
 VarDefinition :: {(VarDefinition Expr, Span)}
@@ -626,11 +630,10 @@ BaseExpr :: {Expr}
   | this {pe (snd $1) This}
   | Self {pe (snd $1) Self}
   | Lvalue {pe (snd $1) $ Lvalue $ fst $1}
-  | upper_identifier {pe (snd $1) $ EnumConstructor $ extract_upper_identifier $1}
   | '(' Expr ')' {me (p $1 <+> p $3) $2}
 
 Lvalue :: {(Lvalue, Span)}
-  : identifier {(Var $ extract_identifier $1, snd $1)}
+  : UpperOrLowerIdentifier {(Var $ fst $1, snd $1)}
   | macro_identifier {(MacroVar $ extract_macro_identifier $1, snd $1)}
 
 Term :: {(ValueLiteral, Span)}

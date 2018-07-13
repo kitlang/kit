@@ -55,9 +55,8 @@ module Kit.Ast.ConcreteType where
   data Binding
     = VarBinding ConcreteType
     | FunctionBinding ConcreteType [(Str, ConcreteType)] Bool
+    | EnumConstructor TypePath [(Str, ConcreteType)]
     deriving (Eq, Show)
-
-  type EnumConstructor = (TypePath, ConcreteArgs)
 
   data TypeVar
     = TypeVar Int

@@ -88,7 +88,6 @@ module Kit.Compiler.Passes.GenerateIr where
     (Self) -> throw $ Errs [errp ValidationError ("unexpected Self in typed AST") (Just pos)]
     (Lvalue (Var v)) -> IrIdentifier v
     (Lvalue (MacroVar v)) -> throw $ Errs [errp ValidationError ("unexpected macro var (" ++ (s_unpack v) ++ ") in typed AST") (Just pos)]
-    (EnumConstructor s) -> undefined -- TODO
     (TypeAnnotation e1 t) -> throw $ Errs [errp ValidationError ("unexpected type annotation in typed AST") (Just pos)]
     (PreUnop op e1) -> IrPreUnop op (typedToIr e1)
     (PostUnop op e1) -> IrPostUnop op (typedToIr e1)

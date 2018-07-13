@@ -21,7 +21,6 @@ module Kit.Compiler.Module where
     mod_functions :: Scope FunctionDefinition,
     mod_type_definitions :: Scope TypeUsage,
     mod_vars :: Scope Binding,
-    mod_enums :: Scope EnumConstructor,
     mod_typed_contents :: Scope TypedDecl,
     mod_ir :: IORef [IrDecl]
   }
@@ -49,7 +48,6 @@ module Kit.Compiler.Module where
         mod_functions = functions,
         mod_type_definitions = typeDefinitions,
         mod_vars = vars,
-        mod_enums = enums,
         mod_typed_contents = typedContents,
         mod_ir = ir
       }
@@ -74,7 +72,6 @@ module Kit.Compiler.Module where
         mod_functions = functions,
         mod_type_definitions = typeDefinitions,
         mod_vars = vars,
-        mod_enums = enums,
         mod_typed_contents = typedContents,
         mod_ir = ir
       }
@@ -94,6 +91,3 @@ module Kit.Compiler.Module where
       Statement {stmt = Include ip, stmtPos = p} -> (ip, p) : acc
       _ -> acc
     ) [] stmts
-
-  findEnumType :: Module -> Str -> IO (Maybe EnumConstructor)
-  findEnumType mod s = resolveLocal (mod_enums mod) s

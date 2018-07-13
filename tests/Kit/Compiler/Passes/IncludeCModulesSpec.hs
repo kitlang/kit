@@ -68,7 +68,8 @@ module Kit.Compiler.Passes.IncludeCModulesSpec where
             ] False),
           ("Parses variadic functions", "varargs_func", FunctionBinding (TypeBasicType $ BasicTypeVoid) [
               ("a", TypeBasicType $ BasicTypeInt 16)
-            ] True)
+            ] True),
+          ("Parses void arg functions", "void_func", FunctionBinding (TypeBasicType $ BasicTypeInt 32) [] False)
         ] (\(label, name, val) -> it label $ do
             header <- testHeader
             binding <- resolveLocal (mod_vars header) name

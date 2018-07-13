@@ -51,7 +51,6 @@ module Kit.Ast.Expr where
     | This
     | Self
     | Lvalue Lvalue
-    | EnumConstructor Str
     | TypeAnnotation a TypeSpec
     | PreUnop Operator a
     | PostUnop Operator a
@@ -109,7 +108,6 @@ module Kit.Ast.Expr where
     (This) -> (This)
     (Self) -> (Self)
     (Lvalue v) -> (Lvalue v)
-    (EnumConstructor s) -> (EnumConstructor s)
     (TypeAnnotation e1 t) -> (TypeAnnotation ((exprMap f) e1) t)
     (PreUnop op e1) -> (PreUnop op ((exprMap f) e1))
     (PostUnop op e1) -> (PostUnop op ((exprMap f) e1))

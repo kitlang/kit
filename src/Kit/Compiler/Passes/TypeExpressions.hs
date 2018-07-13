@@ -104,18 +104,15 @@ module Kit.Compiler.Passes.TypeExpressions where
           Var vname -> do
             binding <- resolveVar ctx (tctxScopes tctx) mod vname
             case binding of
-              Just (VarBinding t) -> return $ makeExprTyped (Lvalue v) t pos
-              Just (FunctionBinding f args variadic) -> return $ makeExprTyped (Lvalue v) (TypeFunction f args variadic) pos
+              Just (VarBinding t) ->
+                return $ makeExprTyped (Lvalue v) t pos
+              Just (FunctionBinding f args variadic) ->
+                return $ makeExprTyped (Lvalue v) (TypeFunction f args variadic) pos
+              Just (EnumConstructor t args) ->
+                return $ makeExprTyped (Lvalue v) t' pos
+                         where t' = if args == [] then (TypeEnum t []) else (TypeEnumConstructor t args)
               Nothing -> throw $ Errs [errp TypingError ("Unknown identifier: " ++ (s_unpack vname)) (Just pos)]
           MacroVar vname -> throw $ Errs [errp TypingError ("Macro variable $" ++ (s_unpack vname) ++ " can only be used in a rewrite rule") (Just pos)]
-
-      (EnumConstructor s) -> do
-        enumConstructor <- resolveEnum ctx tctx mod s
-        case enumConstructor of
-          Just (t, args) -> if args == []
-            then return $ makeExprTyped (EnumConstructor s) (TypeEnum t []) pos
-            else return $ makeExprTyped (EnumConstructor s) (TypeEnumConstructor t args) pos
-          Nothing -> throw $ Errs [errp TypingError ("Unknown enum constructor: " ++ (s_unpack s)) (Just pos)]
 
       (TypeAnnotation e1 t) -> do
         r1 <- r e1

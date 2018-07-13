@@ -174,7 +174,7 @@ module Kit.Compiler.Passes.IncludeCModules where
   parseDerivedTypeSpec ct ((CPtrDeclr _ _):t) =
     parseDerivedTypeSpec (TypePtr ct) t
   parseDerivedTypeSpec ct ((CFunDeclr (Right (params, isVariadic)) _ _):t) =
-    parseDerivedTypeSpec (TypeFunction ct [(name, typeFromSpec typeSpec derivedSpec) | p <- params, (name, _, typeSpec, derivedSpec) <- decomposeCDecl p] isVariadic) t
+    parseDerivedTypeSpec (TypeFunction ct [(name, typeFromSpec typeSpec derivedSpec) | p <- params, (name, _, typeSpec, derivedSpec) <- decomposeCDecl p, (typeFromSpec typeSpec derivedSpec) /= TypeBasicType BasicTypeVoid] isVariadic) t
   parseDerivedTypeSpec ct (h:t) = parseDerivedTypeSpec ct t
   parseDerivedTypeSpec ct [] = ct
 
