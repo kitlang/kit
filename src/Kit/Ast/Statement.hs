@@ -34,6 +34,26 @@ module Kit.Ast.Statement where
 
   data RewriteRule = Rule TermRewriteRule | Method FunctionDefinition deriving (Eq, Show)
 
+
+  data VarDefinition a = VarDefinition {
+    var_name :: Str,
+    var_doc :: Maybe Str,
+    var_meta :: [Metadata],
+    var_modifiers :: [Modifier],
+    var_type :: Maybe TypeSpec,
+    var_default :: Maybe a
+  } deriving (Eq, Show)
+
+  newVarDefinition :: (ExprWrapper a) => VarDefinition a
+  newVarDefinition = VarDefinition {
+    var_name = undefined,
+    var_doc = Nothing,
+    var_meta = [],
+    var_modifiers = [Public],
+    var_type = Nothing,
+    var_default = Nothing
+  }
+
   data FunctionDefinition = FunctionDefinition {
     function_name :: Str,
     function_doc :: Maybe Str,

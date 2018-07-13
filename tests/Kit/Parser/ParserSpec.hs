@@ -214,7 +214,7 @@ module Kit.Parser.ParserSpec where
           type_type = Struct {
             struct_fields = [
               VarDefinition {
-                var_name = Var "abc",
+                var_name = "abc",
                 var_doc = Nothing,
                 var_meta = [],
                 var_modifiers = [],
@@ -222,7 +222,7 @@ module Kit.Parser.ParserSpec where
                 var_default = Nothing
               },
               VarDefinition {
-                var_name = Var "def",
+                var_name = "def",
                 var_doc = Nothing,
                 var_meta = [],
                 var_modifiers = [Public],
@@ -230,7 +230,7 @@ module Kit.Parser.ParserSpec where
                 var_default = Nothing
               },
               VarDefinition {
-                var_name = Var "ghi",
+                var_name = "ghi",
                 var_doc = Just "test ",
                 var_meta = [Metadata {meta_name = "meta", meta_args = []}],
                 var_modifiers = [],

@@ -78,27 +78,8 @@ module Kit.Ast.Expr where
     | LexMacro Str [TokenClass]
     | RangeLiteral a a
     | VectorLiteral [a]
-    | VarDeclaration (VarDefinition a)
+    | VarDeclaration Lvalue (Maybe TypeSpec) (Maybe a)
     deriving (Eq, Show)
-
-  data VarDefinition a = VarDefinition {
-    var_name :: Lvalue,
-    var_doc :: Maybe Str,
-    var_meta :: [Metadata],
-    var_modifiers :: [Modifier],
-    var_type :: Maybe TypeSpec,
-    var_default :: Maybe a
-  } deriving (Eq, Show)
-
-  newVarDefinition :: (ExprWrapper a) => VarDefinition a
-  newVarDefinition = VarDefinition {
-    var_name = undefined,
-    var_doc = Nothing,
-    var_meta = [],
-    var_modifiers = [Public],
-    var_type = Nothing,
-    var_default = Nothing
-  }
 
   exprMap :: (ExprWrapper a) => (a -> a) -> a -> a
   exprMap f ex = f $ setExpr ex $ case getExpr ex of
@@ -135,7 +116,7 @@ module Kit.Ast.Expr where
     (LexMacro s t) -> (LexMacro s t)
     (RangeLiteral e1 e2) -> (RangeLiteral ((exprMap f) e1) ((exprMap f) e2))
     (VectorLiteral items) -> (VectorLiteral (map (exprMap f) items))
-    (VarDeclaration vardef) -> (VarDeclaration (vardef {var_default = mapMaybeExpr (exprMap f) $ var_default vardef}))
+    (VarDeclaration name t def) -> (VarDeclaration name t (mapMaybeExpr (exprMap f) def))
 
   mapMaybeExpr f (Just ex) = Just (f ex)
   mapMaybeExpr _ (Nothing) = Nothing

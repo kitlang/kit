@@ -109,6 +109,7 @@ module Kit.Compiler.Passes.TypeExpressions where
               Just (FunctionBinding f args variadic) ->
                 return $ makeExprTyped (Lvalue v) (TypeFunction f args variadic) pos
               Just (EnumConstructor t args) ->
+                -- TODO: handle type params
                 return $ makeExprTyped (Lvalue v) t' pos
                          where t' = if args == [] then (TypeEnum t []) else (TypeEnumConstructor t args)
               Nothing -> throw $ Errs [errp TypingError ("Unknown identifier: " ++ (s_unpack vname)) (Just pos)]
@@ -232,17 +233,17 @@ module Kit.Compiler.Passes.TypeExpressions where
 
       (VectorLiteral items) -> throw $ Errs [err InternalError "Not yet implemented"]
 
-      (VarDeclaration vardef@(VarDefinition {var_name = Var vname, var_default = Just e1})) -> do
-        varType <- resolveMaybeType ctx tctx mod (var_type vardef)
+      (VarDeclaration (Var vname) t (Just e1)) -> do
+        varType <- resolveMaybeType ctx tctx mod t
         r1 <- r e1
         bindToScope (head $ tctxScopes tctx) vname (VarBinding varType)
         resolve (tPos r1) $ TypeEq (varType) (inferredType r1)
-        return $ makeExprTyped (VarDeclaration $ ((newVarDefinition :: VarDefinition TypedExpr) {var_name = var_name vardef, var_type = var_type vardef, var_default = Just r1})) voidType pos
+        return $ makeExprTyped (VarDeclaration (Var vname) t (Just r1)) varType pos
 
-      (VarDeclaration vardef@(VarDefinition {var_name = Var vname, var_default = Nothing})) -> do
-        varType <- resolveMaybeType ctx tctx mod (var_type vardef)
+      (VarDeclaration (Var vname) t Nothing) -> do
+        varType <- resolveMaybeType ctx tctx mod t
         bindToScope (head $ tctxScopes tctx) vname (VarBinding varType)
-        return $ makeExprTyped (VarDeclaration ((newVarDefinition :: VarDefinition TypedExpr) {var_name = var_name vardef, var_type = var_type vardef, var_default = Nothing})) voidType pos
+        return $ makeExprTyped (VarDeclaration (Var vname) t Nothing) varType pos
 
     t' <- knownType ctx tctx mod (inferredType result)
     return $ result {inferredType = t'}

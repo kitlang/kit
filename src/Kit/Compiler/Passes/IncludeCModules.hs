@@ -131,7 +131,7 @@ module Kit.Compiler.Passes.IncludeCModules where
                     Nothing -> [] in
     [(newTypeDefinition name) {
       type_type = Struct {
-        struct_fields = [newVarDefinition {var_name = Var $ structFieldName field, var_type = Just $ ConcreteType $ structFieldType field} | field <- fields']
+        struct_fields = [newVarDefinition {var_name = structFieldName field, var_type = Just $ ConcreteType $ structFieldType field} | field <- fields']
       }
     }]
   parseTypedefSpec (h:t) name  = parseTypedefSpec t name
@@ -142,7 +142,7 @@ module Kit.Compiler.Passes.IncludeCModules where
       Just fields ->
         [(newTypeDefinition (s_pack name)) {
           type_type = Struct {
-            struct_fields = [newVarDefinition {var_name = Var $ structFieldName field, var_type = Just $ ConcreteType $ structFieldType field} | field <- fields]
+            struct_fields = [newVarDefinition {var_name = structFieldName field, var_type = Just $ ConcreteType $ structFieldType field} | field <- fields]
           }
         }]
       Nothing -> []

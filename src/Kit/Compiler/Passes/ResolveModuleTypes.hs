@@ -67,9 +67,9 @@ module Kit.Compiler.Passes.ResolveModuleTypes where
         b' <- resolveType ctx tctx mod b
         bindToScope (mod_types mod) a b'
       ModuleVarDeclaration v -> do
-        debugLog ctx $ "found variable " ++ s_unpack (lvalue_name $ var_name v) ++ " in " ++ (show mod)
+        debugLog ctx $ "found variable " ++ s_unpack (var_name v) ++ " in " ++ (show mod)
         varType <- resolveMaybeType ctx tctx mod (var_type v)
-        bindToScope (mod_vars mod) (lvalue_name $ var_name v) (VarBinding (varType))
+        bindToScope (mod_vars mod) (var_name v) (VarBinding (varType))
       FunctionDeclaration f -> do
         debugLog ctx $ "found function " ++ s_unpack (function_name f) ++ " in " ++ (show mod)
         functionType <- resolveMaybeType ctx tctx mod (function_type f)

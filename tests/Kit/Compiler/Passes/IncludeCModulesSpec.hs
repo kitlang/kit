@@ -79,16 +79,16 @@ module Kit.Compiler.Passes.IncludeCModulesSpec where
           ("Parses struct declarations", "Struct1", TypeStruct ([],"Struct1") [], (newTypeDefinition "Struct1") {
             type_type = Struct {
               struct_fields = [
-                newVarDefinition {var_name = Var "field1", var_type = Just $ ConcreteType $ TypeBasicType $ BasicTypeInt 8},
-                newVarDefinition {var_name = Var "field2", var_type = Just $ ConcreteType $ TypeBasicType $ BasicTypeUint 16}
+                newVarDefinition {var_name = "field1", var_type = Just $ ConcreteType $ TypeBasicType $ BasicTypeInt 8},
+                newVarDefinition {var_name = "field2", var_type = Just $ ConcreteType $ TypeBasicType $ BasicTypeUint 16}
               ]
             }
           }),
           ("Parses unnamed struct typedefs", "Struct2", TypeBasicType BasicTypeUnknown, (newTypeDefinition "Struct2") {
             type_type = Struct {
               struct_fields = [
-                newVarDefinition {var_name = Var "field1", var_type = Just $ ConcreteType $ TypeBasicType $ BasicTypeInt 16},
-                newVarDefinition {var_name = Var "field2", var_type = Just $ ConcreteType $ TypeBasicType $ BasicTypeFloat 64}
+                newVarDefinition {var_name = "field1", var_type = Just $ ConcreteType $ TypeBasicType $ BasicTypeInt 16},
+                newVarDefinition {var_name = "field2", var_type = Just $ ConcreteType $ TypeBasicType $ BasicTypeFloat 64}
               ]
             }
           }),

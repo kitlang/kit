@@ -205,7 +205,7 @@ Statement :: {Statement}
 
 TopLevelExpr :: {Expr}
   : StandaloneExpr {$1}
-  | VarDefinition {pe (p $1) $ VarDeclaration $ fst $1}
+  | var Lvalue TypeAnnotation OptionalDefault ';' {pe (p $1 <+> p $5) $ VarDeclaration (fst $2) (fst $3) $4}
   | copy Expr ';' {pe (p $1 <+> p $3) $ Copy $2}
   | delete Expr ';' {pe (p $1 <+> p $3) $ Delete $2}
   | move Expr ';' {pe (p $1 <+> p $3) $ Move $2}
@@ -368,9 +368,9 @@ TypePath :: {(TypePath, Span)}
   | Self {(([], B.pack "Self"), p $1)}
 
 VarDefinition :: {(VarDefinition Expr, Span)}
-  : DocMetaMods var Lvalue TypeAnnotation OptionalDefault ';' {
+  : DocMetaMods var UpperOrLowerIdentifier TypeAnnotation OptionalDefault ';' {
     (VarDefinition {
-      var_name = fst $3,
+      var_name = fst $ $3,
       var_doc = doc $1,
       var_meta = reverse (metas $1),
       var_type = fst $4,

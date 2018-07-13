@@ -13,21 +13,25 @@ module Kit.Compiler.Unify where
   checkConstraint (TypeEq a b) = unify a b
   checkConstraint (TypeClassMember cls (TypeTypeVar v)) = TypeVarHasConstraint v (TypeClassMember cls)
   -- TODO
-  checkConstraint (TypeClassMember TypeNumeric x) = TypeConstraintNotSatisfied
-  checkConstraint (TypeClassMember TypeIntegral x) = TypeConstraintNotSatisfied
-  checkConstraint (TypeClassMember TypeFloating x) = TypeConstraintNotSatisfied
+  checkConstraint (TypeClassMember TypeNumeric (TypeBasicType (BasicTypeInt _))) = TypeConstraintSatisfied
+  checkConstraint (TypeClassMember TypeNumeric (TypeBasicType (BasicTypeUint _))) = TypeConstraintSatisfied
+  checkConstraint (TypeClassMember TypeNumeric (TypeBasicType (BasicTypeFloat _))) = TypeConstraintSatisfied
+  checkConstraint (TypeClassMember TypeIntegral (TypeBasicType (BasicTypeInt _))) = TypeConstraintSatisfied
+  checkConstraint (TypeClassMember TypeIntegral (TypeBasicType (BasicTypeUint _))) = TypeConstraintSatisfied
+  checkConstraint (TypeClassMember TypeFloating (TypeBasicType (BasicTypeFloat _))) = TypeConstraintSatisfied
   checkConstraint (TypeClassMember TypeString x) = TypeConstraintNotSatisfied
   checkConstraint (TypeClassMember (TypeSequence t) x) = TypeConstraintNotSatisfied
   checkConstraint (TypeClassMember (TypeIterable t) x) = TypeConstraintNotSatisfied
+  checkConstraint (TypeClassMember _ _) = TypeConstraintNotSatisfied
 
   -- Check whether type a unifies with b; i.e., can a value of type A be
   -- assigned to a variable of type B?
   unify :: ConcreteType -> ConcreteType -> TypeInformation
   unify x (TypeTypeVar v) = TypeVarIs v x
   unify (TypeTypeVar v) x = TypeVarIs v x
-  unify x y = unifyConcrete x y
-  unifyConcrete (TypeBasicType a) (TypeBasicType b) = unifyBasic a b
-  unifyConcrete a b = if a == b then TypeConstraintSatisfied else TypeConstraintNotSatisfied
+  unify (TypeBasicType a) (TypeBasicType b) = unifyBasic a b
+  unify (TypePtr a) (TypePtr b) = unify a b
+  unify a b = if a == b then TypeConstraintSatisfied else TypeConstraintNotSatisfied
 
   unifyBasic :: BasicType -> BasicType -> TypeInformation
   unifyBasic (BasicTypeVoid) _ = TypeConstraintNotSatisfied

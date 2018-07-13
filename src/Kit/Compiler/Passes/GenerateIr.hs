@@ -38,14 +38,19 @@ module Kit.Compiler.Passes.GenerateIr where
     let addDecl d = modifyIORef (mod_ir mod) (\x -> d : x)
     case t of
       TypedFunction {typedFunctionName = name, typedFunctionReturnType = rt, typedFunctionBody = body, typedFunctionArgs = args, typedFunctionVariadic = varargs} -> do
-        rt <- followType ctx mod rt
-        typedArgs <- mapM (\(a, b) -> do t <- followType ctx mod b; return (a, t)) args
-        addDecl $ IrFunction name (BasicTypeFunction rt typedArgs varargs) (typedToIr body)
+        rt <- findUnderlyingType ctx mod rt
+        typedArgs <- mapM (\(a, b) -> do t <- findUnderlyingType ctx mod b; return (a, t)) args
+        body' <- typedToIr ctx mod body
+        addDecl $ IrFunction name (BasicTypeFunction rt typedArgs varargs) body'
       _ -> undefined -- TODO
 
-  followType :: CompileContext -> Module -> ConcreteType -> IO BasicType
-  followType ctx mod t = do
+  {-
+    Recursively dereference a high level ConcreteType into a BasicType.
+  -}
+  findUnderlyingType :: CompileContext -> Module -> ConcreteType -> IO BasicType
+  findUnderlyingType ctx mod t = do
     case t of
+      TypeBasicType b -> return b
       TypeAtom s -> return $ BasicTypeAtom s
       TypeStruct tp fieldTypes -> do
         -- TODO
@@ -54,7 +59,6 @@ module Kit.Compiler.Passes.GenerateIr where
       -- TypeAbstract TypePath [ConcreteType]
       -- TypeTypedef TypePath [ConcreteType]
       -- TypeFunction ConcreteType ConcreteArgs Bool
-      TypeBasicType b -> return b
       -- TypePtr ConcreteType
       -- TypeArr ConcreteType (Maybe Int)
       -- TypeEnumConstructor TypePath ConcreteArgs
@@ -62,7 +66,7 @@ module Kit.Compiler.Passes.GenerateIr where
       -- TypeRange
       -- TypeTraitPointer TypePath
       TypePtr t -> do
-        t' <- followType ctx mod t
+        t' <- findUnderlyingType ctx mod t
         return $ CPtr t'
       TypeTypeVar tv -> do
         tctx <- newTypeContext [] -- TODO...
@@ -71,49 +75,81 @@ module Kit.Compiler.Passes.GenerateIr where
           TypeTypeVar tv' ->
             if tv == tv'
               then throw $ Errs [err ValidationError ("unresolved type variable: " ++ (show tv))]
-              else followType ctx mod known
-          _ -> followType ctx mod known
+              else findUnderlyingType ctx mod known
+          _ -> findUnderlyingType ctx mod known
       _ -> do
         -- TODO: REMOVE
         return $ BasicTypeUnknown
 
-  typedToIr :: TypedExpr -> IrExpr
-  typedToIr e@(TypedExpr {texpr = et, tPos = pos, inferredType = t}) =
-    let maybeTypedToIr x = case x of {Just x -> Just $ typedToIr x; Nothing -> Nothing} in
+  typedToIr :: CompileContext -> Module -> TypedExpr -> IO IrExpr
+  typedToIr ctx mod e@(TypedExpr {texpr = et, tPos = pos, inferredType = t}) = do
+    let r x = typedToIr ctx mod x
+    let maybeR x = case x of {Just x -> do {r' <- r x; return $ Just r'}; Nothing -> return Nothing}
+    f <- findUnderlyingType ctx mod t
     case et of
-    (Block children) -> IrBlock (map typedToIr children)
-    (Meta m e1) -> typedToIr e1
-    (Literal l) -> IrLiteral l -- TODO: ??
-    (This) -> IrIdentifier "__this"
-    (Self) -> throw $ Errs [errp ValidationError ("unexpected Self in typed AST") (Just pos)]
-    (Lvalue (Var v)) -> IrIdentifier v
-    (Lvalue (MacroVar v)) -> throw $ Errs [errp ValidationError ("unexpected macro var (" ++ (s_unpack v) ++ ") in typed AST") (Just pos)]
-    (TypeAnnotation e1 t) -> throw $ Errs [errp ValidationError ("unexpected type annotation in typed AST") (Just pos)]
-    (PreUnop op e1) -> IrPreUnop op (typedToIr e1)
-    (PostUnop op e1) -> IrPostUnop op (typedToIr e1)
-    (Binop op e1 e2) -> IrBinop op (typedToIr e1) (typedToIr e2)
-    (For e1 e2 e3) -> undefined -- TODO
-    (While e1 e2) -> IrWhile (typedToIr e1) (typedToIr e2)
-    (If e1 e2 e3) -> IrIf (typedToIr e1) (typedToIr e2) (maybeTypedToIr e3)
-    (Continue) -> IrContinue
-    (Break) -> IrBreak
-    (Return e1) -> IrReturn (maybeTypedToIr e1)
-    (Throw e1) -> undefined -- TODO
-    (Match e1 cases (e2)) -> undefined -- TODO
-    (InlineCall e1) -> undefined -- TODO
-    (Field e1 (Var v)) -> IrField (typedToIr e1) v
-    (Field e1 (MacroVar v)) -> throw $ Errs [errp ValidationError ("unexpected macro var (" ++ (s_unpack v) ++ ") in typed AST") (Just pos)]
-    (ArrayAccess e1 e2) -> undefined -- TODO
-    (Call e1 args) -> IrCall (typedToIr e1) (map typedToIr args)
-    (Cast e1 t) -> undefined -- TODO
-    (TokenExpr tc) -> undefined -- TODO
-    (Unsafe e1) -> throw $ Errs [errp ValidationError ("unexpected `unsafe` in typed AST") (Just pos)]
-    (BlockComment s) -> IrBlock []
-    (New t args) -> undefined -- TODO
-    (Copy e1) -> undefined -- TODO
-    (Delete e1) -> undefined -- TODO
-    (Move e1) -> undefined -- TODO
-    (LexMacro s t) -> throw $ Errs [errp ValidationError ("unexpected lexical macro invocation in typed AST") (Just pos)]
-    (RangeLiteral e1 e2) -> throw $ Errs [errp ValidationError ("unexpected range literal in typed AST") (Just pos)]
-    (VectorLiteral items) -> IrCArrLiteral (map typedToIr items)
-    (VarDeclaration vardef) -> undefined -- TODO
+      (Block children) -> do
+        children' <- mapM r children
+        return $ IrBlock children'
+      (Meta m e1) -> r e1
+      (Literal l) -> return $ IrLiteral l -- TODO: ??
+      (This) -> return $ IrIdentifier "__this"
+      (Self) -> return $ throw $ Errs [errp ValidationError ("unexpected Self in typed AST") (Just pos)]
+      (Lvalue (Var v)) -> return $ IrIdentifier v
+      (Lvalue (MacroVar v)) -> return $ throw $ Errs [errp ValidationError ("unexpected macro var (" ++ (s_unpack v) ++ ") in typed AST") (Just pos)]
+      (TypeAnnotation e1 t) -> return $ throw $ Errs [errp ValidationError ("unexpected type annotation in typed AST") (Just pos)]
+      (PreUnop op e1) -> do
+        r1 <- r e1
+        return $ IrPreUnop op r1
+      (PostUnop op e1) -> do
+        r1 <- r e1
+        return $ IrPostUnop op r1
+      (Binop op e1 e2) -> do
+        r1 <- r e1
+        r2 <- r e2
+        return $ IrBinop op r1 r2
+      (For e1 e2 e3) -> return $ undefined -- TODO
+      (While e1 e2) -> do
+        r1 <- r e1
+        r2 <- r e2
+        return $ IrWhile r1 r2
+      (If e1 e2 e3) -> do
+        r1 <- r e1
+        r2 <- r e2
+        r3 <- maybeR e3
+        return $ IrIf r1 r2 r3
+      (Continue) -> return $ IrContinue
+      (Break) -> return $ IrBreak
+      (Return e1) -> do
+        r1 <- maybeR e1
+        return $ IrReturn r1
+      (Throw e1) -> return $ undefined -- TODO
+      (Match e1 cases (e2)) -> return $ undefined -- TODO
+      (InlineCall e1) -> return $ undefined -- TODO
+      (Field e1 (Var v)) -> do
+        r1 <- r e1
+        return $ IrField r1 v
+      (Field e1 (MacroVar v)) -> return $ throw $ Errs [errp ValidationError ("unexpected macro var (" ++ (s_unpack v) ++ ") in typed AST") (Just pos)]
+      (ArrayAccess e1 e2) -> return $ undefined -- TODO
+      (Call e1 args) -> do
+        r1 <- r e1
+        args' <- mapM r args
+        return $ IrCall r1 args'
+      (Cast e1 t2) -> do
+        r1 <- r e1
+        t1' <- findUnderlyingType ctx mod (inferredType e1)
+        return $ if t1' == f then r1 else IrCast r1 f
+      (TokenExpr tc) -> return $ undefined -- TODO
+      (Unsafe e1) -> return $ throw $ Errs [errp ValidationError ("unexpected `unsafe` in typed AST") (Just pos)]
+      (BlockComment s) -> return $ IrBlock []
+      (New t args) -> return $ undefined -- TODO
+      (Copy e1) -> return $ undefined -- TODO
+      (Delete e1) -> return $ undefined -- TODO
+      (Move e1) -> return $ undefined -- TODO
+      (LexMacro s t) -> return $ throw $ Errs [errp ValidationError ("unexpected lexical macro invocation in typed AST") (Just pos)]
+      (RangeLiteral e1 e2) -> return $ throw $ Errs [errp ValidationError ("unexpected range literal in typed AST") (Just pos)]
+      (VectorLiteral items) -> do
+        items' <- mapM r items
+        return $ IrCArrLiteral items'
+      (VarDeclaration (Var name) ts def) -> do
+        def <- maybeR def
+        return $ IrVarDeclaration name f def
