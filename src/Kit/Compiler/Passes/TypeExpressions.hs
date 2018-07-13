@@ -268,7 +268,7 @@ module Kit.Compiler.Passes.TypeExpressions where
   literalConstraints :: ValueLiteral -> ConcreteType -> [TypeConstraint]
   literalConstraints (BoolValue _) s = [TypeEq s (basicType $ BasicTypeBool)]
   literalConstraints (IntValue _) s = [TypeClassMember TypeNumeric s]
-  literalConstraints (FloatValue _) s = [TypeClassMember TypeFloating s]
+  literalConstraints (FloatValue _) s = [TypeClassMember TypeNumeric s]
   literalConstraints (StringValue _) s = [TypeClassMember TypeString s]
 
   opTypes :: Operator -> ConcreteType -> [ConcreteType] -> (ConcreteType, [TypeConstraint])

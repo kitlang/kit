@@ -12,7 +12,7 @@ module Kit.Ast.TypeConstraint where
   data InternalTypeClass
     = TypeNumeric
     | TypeIntegral
-    | TypeFloating
+    | TypeNumericMixed
     | TypeString
     | TypeSequence ConcreteType
     | TypeIterable ConcreteType
@@ -21,7 +21,7 @@ module Kit.Ast.TypeConstraint where
   instance Show InternalTypeClass where
     show TypeNumeric = "(numeric)"
     show TypeIntegral = "(integral)"
-    show TypeFloating = "(floating)"
+    show TypeNumericMixed = "(numeric, mixed)"
     show TypeString = "(string)"
     show (TypeSequence t) = "(sequence of " ++ (show t) ++ ")"
     show (TypeIterable t) = "(iterable of " ++ (show t) ++ ")"
@@ -54,7 +54,7 @@ module Kit.Ast.TypeConstraint where
   defaultClassMember :: InternalTypeClass -> Maybe ConcreteType
   defaultClassMember TypeNumeric = Just $ TypeBasicType (BasicTypeInt 32)
   defaultClassMember TypeIntegral = Just $ TypeBasicType (BasicTypeInt 32)
-  defaultClassMember TypeFloating = Just $ TypeBasicType (BasicTypeFloat 64)
+  defaultClassMember TypeNumericMixed = Just $ TypeBasicType (BasicTypeFloat 64)
   defaultClassMember TypeString = Just $ TypeBasicType (CPtr (BasicTypeInt 8))
   defaultClassMember (TypeSequence t) = Just $ TypeArr t Nothing
   defaultClassMember (TypeIterable t) = Just $ TypeArr t Nothing

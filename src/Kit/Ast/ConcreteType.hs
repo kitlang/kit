@@ -27,7 +27,7 @@ module Kit.Ast.ConcreteType where
     | TypeEnumConstructor TypePath ConcreteArgs
     | TypeLvalue ConcreteType
     | TypeRange
-    | TypeTraitPointer TypePath
+    | TypeTrait TypePath
     | TypeTypeVar TypeVar
     deriving (Eq)
 
@@ -49,7 +49,7 @@ module Kit.Ast.ConcreteType where
     show (TypeEnumConstructor tp _) = "enum " ++ (show tp) ++ " constructor"
     show (TypeLvalue t) = "lvalue of " ++ (show t)
     show (TypeRange) = "range"
-    show (TypeTraitPointer tp) = "trait object of " ++ (s_unpack $ showTypePath tp)
+    show (TypeTrait tp) = "trait " ++ (s_unpack $ showTypePath tp)
     show (TypeTypeVar i) = show i
 
   data Binding

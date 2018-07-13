@@ -18,7 +18,7 @@ module Kit.Compiler.Unify where
   checkConstraint (TypeClassMember TypeNumeric (TypeBasicType (BasicTypeFloat _))) = TypeConstraintSatisfied
   checkConstraint (TypeClassMember TypeIntegral (TypeBasicType (BasicTypeInt _))) = TypeConstraintSatisfied
   checkConstraint (TypeClassMember TypeIntegral (TypeBasicType (BasicTypeUint _))) = TypeConstraintSatisfied
-  checkConstraint (TypeClassMember TypeFloating (TypeBasicType (BasicTypeFloat _))) = TypeConstraintSatisfied
+  checkConstraint (TypeClassMember TypeNumericMixed (TypeBasicType (BasicTypeFloat _))) = TypeConstraintSatisfied
   checkConstraint (TypeClassMember TypeString x) = TypeConstraintNotSatisfied
   checkConstraint (TypeClassMember (TypeSequence t) x) = TypeConstraintNotSatisfied
   checkConstraint (TypeClassMember (TypeIterable t) x) = TypeConstraintNotSatisfied
