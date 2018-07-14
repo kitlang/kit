@@ -2,7 +2,9 @@ module Kit.Ast (
   module Kit.Ast.BasicType,
   module Kit.Ast.ConcreteType,
   module Kit.Ast.Expr,
+  module Kit.Ast.ExprType,
   module Kit.Ast.Lvalue,
+  module Kit.Ast.Metadata,
   module Kit.Ast.Modifier,
   module Kit.Ast.ModulePath,
   module Kit.Ast.Operator,
@@ -15,7 +17,9 @@ module Kit.Ast (
 import Kit.Ast.BasicType
 import Kit.Ast.ConcreteType
 import Kit.Ast.Expr
+import Kit.Ast.ExprType
 import Kit.Ast.Lvalue
+import Kit.Ast.Metadata
 import Kit.Ast.Modifier
 import Kit.Ast.ModulePath
 import Kit.Ast.Operator

@@ -12,7 +12,7 @@ import Kit.HashTable
 import Kit.Parser
 import Kit.Str
 
-newVar s = VarBinding $ TypeBasicType BasicTypeVoid
+newVar s = newBinding $ VarBinding $ TypeBasicType BasicTypeVoid
 
 spec :: Spec
 spec = do
@@ -30,9 +30,9 @@ spec = do
       m <- newMod ["abc"] [] ""
       -- if we look for a binding in brokenMod, the test will fail
       let brokenMod = undefined--Module {}
-      bindToScope (mod_vars m) "a" (newVar "a1")
-      bindToScope (mod_vars m) "b" (newVar "b1")
-      bindToScope (mod_vars m) "c" (newVar "c1")
+      bindToScope (modVars m) "a" (newVar "a1")
+      bindToScope (modVars m) "b" (newVar "b1")
+      bindToScope (modVars m) "c" (newVar "c1")
       s1 <- newScope
       bindToScope s1 "a" (newVar "a2")
       bindToScope s1 "b" (newVar "b2")

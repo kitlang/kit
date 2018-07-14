@@ -18,13 +18,20 @@ readDir d = do
   paths <- getDirectoryContents d
   files <- forM (paths) $ \d2 -> do
     isDir <- doesDirectoryExist (d </> d2)
-    if (isDir && d2 /= "." && d2 /= "..")
-      then readDir (d </> d2)
-      else return (if isKitFile d2 then [(d </> d2)] else [])
+    if (head d2) /= '_'
+      then if (isDir && d2 /= "." && d2 /= "..")
+        then readDir (d </> d2)
+        else return (if isKitFile d2 then [(d </> d2)] else [])
+      else return []
   return $ concat files
 
 stdFiles = readDir "std"
 
+{-
+  Try parsing all files in the Kit std library and verify that they pass.
+
+  TODO: also verify that they typecheck.
+-}
 spec :: Spec
 spec = parallel $ do
   describe "Kit standard library" $ do

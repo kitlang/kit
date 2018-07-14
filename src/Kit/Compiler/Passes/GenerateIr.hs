@@ -29,25 +29,29 @@ generateIr ctx = do
 generateModuleIr :: CompileContext -> Module -> IO ()
 generateModuleIr ctx mod = do
   debugLog ctx $ "generating IR for " ++ show mod
-  bindings <- bindingList $ mod_typed_contents mod
+  bindings <- bindingList $ modTypedContents mod
   forM (bindings) (\t -> generateDeclIr ctx mod t)
   return ()
 
 generateDeclIr :: CompileContext -> Module -> TypedDecl -> IO ()
 generateDeclIr ctx mod t = do
-  let addDecl d = modifyIORef (mod_ir mod) (\x -> d : x)
+  let addDecl d = modifyIORef (modIr mod) (\x -> d : x)
   case t of
-    TypedFunction { typedFunctionName = name, typedFunctionReturnType = rt, typedFunctionBody = body, typedFunctionArgs = args, typedFunctionVariadic = varargs }
+    TypedFunction (FunctionDefinition { functionName = name, functionType = rt, functionBody = Just body, functionArgs = args, functionVarargs = varargs })
       -> do
         rt        <- findUnderlyingType ctx mod rt
         typedArgs <- mapM
-          (\(a, b) -> do
-            t <- findUnderlyingType ctx mod b
-            return (a, t)
+          (\arg -> do
+            t <- findUnderlyingType ctx mod (argType arg)
+            return $ newArgSpec {argName = argName arg, argType = t, argDefault = argDefault arg}
           )
           args
         body' <- typedToIr ctx mod body
-        addDecl $ IrFunction name (BasicTypeFunction rt typedArgs varargs) body'
+        addDecl $ IrFunction $ (newFunctionDefinition :: IrFunction) {
+          functionName = name,
+          functionType = (BasicTypeFunction rt [(argName arg, argType arg) | arg <- typedArgs] varargs),
+          functionBody = Just body'
+        }
     _ -> undefined -- TODO
 
 {-
@@ -82,7 +86,12 @@ findUnderlyingType ctx mod t = do
           then do
             info <- getTypeVar ctx id
             throw $ Errs
-              [errp ValidationError ("unresolved type variable: " ++ (show tv)) (Just $ head $ typeVarPositions info)]
+              [ errp
+                  ValidationError
+                  ("Couldn't determine the type of this expression. Do you need a type annotation?"
+                  )
+                  (Just $ head $ typeVarPositions info)
+              ]
           else findUnderlyingType ctx mod known
         _ -> findUnderlyingType ctx mod known
     _ -> do
@@ -108,8 +117,8 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
       (This     ) -> return $ IrIdentifier "__this"
       (Self     ) -> return $ throw $ Errs
         [errp ValidationError ("unexpected Self in typed AST") (Just pos)]
-      (Lvalue (Var      v)) -> return $ IrIdentifier v
-      (Lvalue (MacroVar v)) -> return $ throw $ Errs
+      (Lvalue (Var v       )) -> return $ IrIdentifier v
+      (Lvalue (MacroVar v _)) -> return $ throw $ Errs
         [ errp ValidationError
                ("unexpected macro var (" ++ (s_unpack v) ++ ") in typed AST")
                (Just pos)
@@ -150,7 +159,7 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
       (Field e1 (Var v)   ) -> do
         r1 <- r e1
         return $ IrField r1 v
-      (Field e1 (MacroVar v)) -> return $ throw $ Errs
+      (Field e1 (MacroVar v _)) -> return $ throw $ Errs
         [ errp ValidationError
                ("unexpected macro var (" ++ (s_unpack v) ++ ") in typed AST")
                (Just pos)

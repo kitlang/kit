@@ -99,10 +99,10 @@ resolveType ctx tctx mod t = do
               resolveType ctx tctx mod (ConcreteType x)
             Nothing -> do
               -- search other modules
-              imports  <- mapM (getMod ctx) (map fst $ mod_imports mod)
-              includes <- mapM (getCMod ctx) (map fst $ mod_includes mod)
+              imports  <- mapM (getMod ctx) (map fst $ modImports mod)
+              includes <- mapM (getCMod ctx) (map fst $ modIncludes mod)
               bound    <- resolveBinding
-                (map mod_types (mod : (imports ++ includes)))
+                (map modTypes (mod : (imports ++ includes)))
                 s
               case bound of
                 Just t  -> follow ctx tctx mod t
@@ -114,8 +114,8 @@ resolveType ctx tctx mod t = do
         m -> do
           -- search only a specific module for this type
           imports <- mapM (getMod ctx)
-                          [ mod' | (mod', _) <- mod_imports mod, mod' == m ]
-          result <- resolveBinding (map mod_types imports) s
+                          [ mod' | (mod', _) <- modImports mod, mod' == m ]
+          result <- resolveBinding (map modTypes imports) s
           case result of
             Just t  -> follow ctx tctx mod t
             Nothing -> unknownType s pos
@@ -159,9 +159,9 @@ typeDefinitionToConcreteType
   :: CompileContext
   -> TypeContext
   -> Module
-  -> TypeDefinition
+  -> TypeDefinition Expr (Maybe TypeSpec)
   -> IO ConcreteType
-typeDefinitionToConcreteType ctx tctx mod (TypeDefinition { type_name = name, type_params = params, type_type = t })
+typeDefinitionToConcreteType ctx tctx mod (TypeDefinition { typeName = name, typeParams = params, typeType = t })
   = do
     resolvedParams <- mapM (resolveType ctx tctx mod)
                            (map typeParamToSpec params)
@@ -170,7 +170,7 @@ typeDefinitionToConcreteType ctx tctx mod (TypeDefinition { type_name = name, ty
       Struct{}   -> return $ TypeStruct tp resolvedParams
       Enum{}     -> return $ TypeEnum tp resolvedParams
       Abstract{} -> return $ TypeAbstract tp resolvedParams
-  where tp = (mod_path mod, name)
+  where tp = (modPath mod, name)
 
 builtinToConcreteType
   :: CompileContext

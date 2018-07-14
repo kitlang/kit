@@ -26,37 +26,38 @@ typeExpressions ctx = do
 
 typeModuleExpressions :: CompileContext -> Module -> IO ()
 typeModuleExpressions ctx mod = do
-  bindings <- bindingList (mod_functions mod)
+  bindings <- bindingList (modFunctions mod)
   forM_ bindings (typeFunction ctx mod)
 
 basicType = TypeBasicType
 voidType = TypeBasicType BasicTypeVoid
 
-typeFunction :: CompileContext -> Module -> FunctionDefinition -> IO ()
+typeFunction
+  :: CompileContext -> Module -> FunctionDefinition Expr (Maybe TypeSpec) -> IO ()
 typeFunction ctx mod f = do
   debugLog ctx
     $  "typing function "
-    ++ s_unpack (function_name f)
+    ++ s_unpack (functionName f)
     ++ " in "
     ++ show mod
-  case function_body f of
+  case functionBody f of
     Just x -> do
-      imports       <- mapM (\(mp, _) -> getMod ctx mp) (mod_imports mod)
-      includes      <- mapM (\(mp, _) -> getCMod ctx mp) (mod_includes mod)
+      imports       <- mapM (\(mp, _) -> getMod ctx mp) (modImports mod)
+      includes      <- mapM (\(mp, _) -> getCMod ctx mp) (modIncludes mod)
       functionScope <- newScope
       tctx          <- newTypeContext
-        ( (mod_vars mod)
-        : (  [ mod_vars imp | imp <- imports ]
-          ++ [ mod_vars inc | inc <- includes ]
+        ( (modVars mod)
+        : (  [ modVars imp | imp <- imports ]
+          ++ [ modVars inc | inc <- includes ]
           )
         )
       args <- mapM
         (\arg -> do
-          argType <- resolveMaybeType ctx tctx mod (pos x) (arg_type arg)
-          return (arg_name arg, argType)
+          argType <- resolveMaybeType ctx tctx mod (pos x) (argType arg)
+          return $ newArgSpec {argName = argName arg, argType = argType}
         )
-        (function_args f)
-      returnType <- resolveMaybeType ctx tctx mod (pos x) (function_type f)
+        (functionArgs f)
+      returnType <- resolveMaybeType ctx tctx mod (pos x) (functionType f)
       typedBody  <- typeExpr
         ctx
         (tctx { tctxScopes     = functionScope : (tctxScopes tctx)
@@ -71,14 +72,15 @@ typeFunction ctx mod f = do
             case unify (resolvedReturnType) (TypeBasicType BasicTypeVoid) of
               TypeConstraintNotSatisfied -> resolvedReturnType
               _                          -> TypeBasicType BasicTypeVoid
-      let typedFunction = TypedFunction
-            { typedFunctionName       = function_name f
-            , typedFunctionReturnType = finalReturnType
-            , typedFunctionArgs       = args
-            , typedFunctionBody       = typedBody
-            , typedFunctionVariadic   = (function_varargs f)
+      let typedFunction = (newFunctionDefinition :: TypedFunction)
+            { functionName       = functionName f
+            , functionType       = finalReturnType
+            , functionArgs       = args
+            , functionBody       = Just typedBody
+            , functionVarargs    = (functionVarargs f)
+            , functionMangleName = (functionMangleName f)
             }
-      bindToScope (mod_typed_contents mod) (function_name f) typedFunction
+      bindToScope (modTypedContents mod) (functionName f) (TypedFunction typedFunction)
     Nothing ->
       throw $ Errs
         [err ValidationError ("main function is missing a function body")]
@@ -102,9 +104,10 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
   result <- case et of
     (Block children) -> do
       typedChildren <- mapM r children
-      return $ makeExprTyped (Block typedChildren)
-                             (inferredType $ last typedChildren)
-                             pos
+      return $ makeExprTyped
+        (Block typedChildren)
+        (if children == [] then voidType else inferredType $ last typedChildren)
+        pos
 
     (Meta m e1) -> do
       r1 <- r e1
@@ -132,13 +135,14 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
         Var vname -> do
           binding <- resolveVar ctx (tctxScopes tctx) mod vname
           case binding of
-            Just (VarBinding t) -> return $ makeExprTyped (Lvalue v) t pos
-            Just (FunctionBinding f args variadic) -> return
-              $ makeExprTyped (Lvalue v) (TypeFunction f args variadic) pos
-            Just (EnumConstructor t args) ->
+            Just (Binding { bindingType = VarBinding t }) ->
+              return $ makeExprTyped (Lvalue v) t pos
+            Just (Binding { bindingType = FunctionBinding f args variadic }) ->
+              return
+                $ makeExprTyped (Lvalue v) (TypeFunction f args variadic) pos
+            Just (Binding { bindingType = EnumConstructor t args }) ->
               -- TODO: handle type params
-                                             return
-              $ makeExprTyped (Lvalue v) t' pos
+              return $ makeExprTyped (Lvalue v) t' pos
              where
               t' = if args == []
                 then (TypeEnum t [])
@@ -150,7 +154,7 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
                            ("Unknown identifier: " ++ (s_unpack vname))
                            (Just pos)
                     ]
-        MacroVar vname -> throw $ Errs
+        MacroVar vname _ -> throw $ Errs
           [ errp
               TypingError
               (  "Macro variable $"
@@ -162,37 +166,45 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
 
     (TypeAnnotation e1 t) -> do
       r1 <- r e1
-      t  <- resolveType ctx tctx mod t
+      t  <- resolveMaybeType ctx tctx mod pos t
       resolve (tPos r1) $ TypeEq (inferredType r1) t
       return r1
 
     (PreUnop op e1) -> do
       r1 <- r e1
-      tv <- makeTypeVar ctx pos
-      let (t, constraints) = opTypes op tv [inferredType r1]
-      mapM_ (resolve pos) constraints
-      return $ makeExprTyped (PreUnop op r1) t pos
+      resolve pos $ TypeClassMember TypeNumeric (inferredType r1)
+      return $ makeExprTyped (PreUnop op r1) (inferredType r1) pos
 
     (PostUnop op e1) -> do
       r1 <- r e1
-      tv <- makeTypeVar ctx pos
-      let (t, constraints) = opTypes op tv [inferredType r1]
-      mapM_ (resolve $ tPos r1) constraints
-      return $ makeExprTyped (PostUnop op r1) t pos
+      resolve pos $ TypeClassMember TypeNumeric (inferredType r1)
+      return $ makeExprTyped (PostUnop op r1) (inferredType r1) pos
 
     (Binop Assign e1 e2) -> do
       r1 <- r e1
       r2 <- r e2
-      resolve (tPos r1) $ TypeEq (inferredType r1) (inferredType r2)
+      resolve pos $ TypeEq (inferredType r1) (inferredType r2)
       return $ makeExprTyped (Binop Assign r1 r2) (inferredType r1) pos
+    (Binop (AssignOp op) e1 e2) | (op == And) || (op == Or) -> do
+      r1 <- r e1
+      r2 <- r e2
+      resolve pos $ TypeEq (inferredType r1) (inferredType r2)
+      return $ makeExprTyped
+        (Binop Assign r1 (makeExprTyped (Binop op r1 r2) (inferredType r1) pos))
+        (inferredType r1)
+        pos
     (Binop (AssignOp x) e1 e2) -> do
-      throw $ Errs [err InternalError "Not yet implemented"]
+      r1 <- r e1
+      r2 <- r e2
+      -- FIXME: this isn't right
+      resolve pos $ TypeEq (inferredType r1) (inferredType r2)
+      return $ makeExprTyped (Binop (AssignOp x) r1 r2) (inferredType r1) pos
     (Binop op e1 e2) -> do
       r1 <- r e1
       r2 <- r e2
       tv <- makeTypeVar ctx pos
       let (t, constraints) = opTypes op tv [inferredType r1, inferredType r2]
-      mapM_ (resolve $ tPos r1) constraints
+      mapM_ (resolve pos) constraints
       return $ makeExprTyped (Binop op r1 r2) t pos
 
     (For (Expr { expr = Lvalue v, pos = pos1 }) e2 e3) -> do
@@ -255,11 +267,11 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
       return $ makeExprTyped (If r1 r2 Nothing) voidType pos
 
     (Continue) -> do
-      if (tctxLoopCount tctx > 1)
+      if (tctxLoopCount tctx > 0)
         then return $ makeExprTyped (Continue) voidType pos
         else throw $ Errs [err TypingError "Can't `continue` outside of a loop"]
     (Break) -> do
-      if (tctxLoopCount tctx > 1)
+      if (tctxLoopCount tctx > 0)
         then return $ makeExprTyped (Break) voidType pos
         else throw $ Errs [err TypingError "Can't `break` outside of a loop"]
 
@@ -294,8 +306,8 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
 
     (Cast e1 t) -> do
       r1 <- r e1
-      t' <- resolveType ctx tctx mod t
-      return $ makeExprTyped (Cast r1 t) t' pos
+      t' <- resolveMaybeType ctx tctx mod pos t
+      return $ makeExprTyped (Cast r1 t') t' pos
 
     (Unsafe       e1) -> throw $ Errs [err InternalError "Not yet implemented"]
     (BlockComment s ) -> do
@@ -319,15 +331,21 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
     (VarDeclaration (Var vname) t (Just e1)) -> do
       varType <- resolveMaybeType ctx tctx mod pos t
       r1      <- r e1
-      bindToScope (head $ tctxScopes tctx) vname (VarBinding varType)
+      bindToScope
+        (head $ tctxScopes tctx)
+        vname
+        ((newBinding $ VarBinding varType) { bindingNameMangling = False })
       resolve (tPos r1) $ TypeEq (varType) (inferredType r1)
       return
-        $ makeExprTyped (VarDeclaration (Var vname) t (Just r1)) varType pos
+        $ makeExprTyped (VarDeclaration (Var vname) (varType) (Just r1)) varType pos
 
     (VarDeclaration (Var vname) t Nothing) -> do
       varType <- resolveMaybeType ctx tctx mod pos t
-      bindToScope (head $ tctxScopes tctx) vname (VarBinding varType)
-      return $ makeExprTyped (VarDeclaration (Var vname) t Nothing) varType pos
+      bindToScope
+        (head $ tctxScopes tctx)
+        vname
+        ((newBinding $ VarBinding varType) { bindingNameMangling = False })
+      return $ makeExprTyped (VarDeclaration (Var vname) varType Nothing) varType pos
 
   t' <- knownType ctx tctx mod (inferredType result)
   return $ result { inferredType = t' }
@@ -369,7 +387,7 @@ typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = TypeFunction rt argT
               (Just pos)
           ]
         else return ()
-                  -- TODO
+                              -- TODO
     forM_
       (zip argTypes args)
       (\((_, argType), argValue) -> do

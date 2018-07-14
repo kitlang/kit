@@ -15,10 +15,10 @@ import Kit.CodeGen.C
 showstruct x = intercalate
   "\n"
   [ renderStyle (Style {mode = LeftMode}) $ pretty $ xi | xi <- cdecl x ]
-showdisc name variant_names =
+showdisc name variantNames =
   renderStyle (Style {mode = LeftMode}) $ pretty $ enumDiscriminant
     name
-    variant_names
+    variantNames
 
 spec :: Spec
 spec = do

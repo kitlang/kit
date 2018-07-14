@@ -11,7 +11,6 @@ import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
-import Kit.Compiler.TypeUsage
 import Kit.Compiler.Utils
 import Kit.Error
 import Kit.HashTable
@@ -29,10 +28,10 @@ resolveModuleTypes ctx = do
 validateMain :: CompileContext -> IO ()
 validateMain ctx = do
   mod  <- getMod ctx (ctxMainModule ctx)
-  main <- resolveLocal (mod_vars mod) "main"
+  main <- resolveLocal (modVars mod) "main"
   case main of
-    Just (FunctionBinding _ _ _) -> return ()
-    _                            -> throw $ Errs
+    Just (Binding { bindingType = FunctionBinding _ _ _ }) -> return ()
+    _ -> throw $ Errs
       [ err ValidationError
         $ (show mod)
         ++ " doesn't have a function called 'main'; main module requires a main function"
@@ -40,7 +39,7 @@ validateMain ctx = do
 
 findTopLevels :: CompileContext -> Module -> IO ()
 findTopLevels ctx mod = do
-  contents <- readIORef $ mod_contents mod
+  contents <- readIORef $ modContents mod
   forM_ contents (_checkForTopLevel ctx mod)
   return ()
 
@@ -56,15 +55,14 @@ _checkForTopLevel ctx mod s = do
     TypeDeclaration t -> do
       debugLog ctx
         $  "found type "
-        ++ s_unpack (type_name t)
+        ++ s_unpack (typeName t)
         ++ " in "
         ++ (show mod)
-      usage <- newTypeUsage t
-      bindToScope (mod_type_definitions mod) (type_name t) usage
+      --bindToScope (mod_type_definitions mod) (typeName t) usage
       ct <- typeDefinitionToConcreteType ctx tctx mod t
-      bindToScope (mod_types mod) (type_name t) ct
+      bindToScope (modTypes mod) (typeName t) ct
       case t of
-        TypeDefinition { type_name = type_name, type_type = Enum { enum_variants = variants } }
+        TypeDefinition { typeName = typeName, typeType = Enum { enum_variants = variants } }
           -> do
             forM_
               (variants)
@@ -72,13 +70,19 @@ _checkForTopLevel ctx mod s = do
                 args <- mapM
                   (\arg -> do
                     -- FIXME: this is the statement's position, not the arg's position
-                    t <- resolveMaybeType ctx tctx mod (stmtPos s) (arg_type arg)
-                    return (arg_name arg, t)
+                    t <- resolveMaybeType ctx
+                                          tctx
+                                          mod
+                                          (stmtPos s)
+                                          (argType arg)
+                    return (argName arg, t)
                   )
-                  (variant_args variant)
+                  (variantArgs variant)
                 let constructor =
-                      EnumConstructor ((mod_path mod), type_name) args
-                bindToScope (mod_vars mod) (variant_name variant) constructor
+                      EnumConstructor ((modPath mod), typeName) args
+                bindToScope (modVars mod)
+                            (variantName variant)
+                            (newBinding constructor)
                 return ()
               )
         _ -> do
@@ -92,30 +96,37 @@ _checkForTopLevel ctx mod s = do
         ++ " in "
         ++ (show mod)
       b' <- resolveType ctx tctx mod b
-      bindToScope (mod_types mod) a b'
+      bindToScope (modTypes mod) a b'
     ModuleVarDeclaration v -> do
       debugLog ctx
         $  "found variable "
-        ++ s_unpack (var_name v)
+        ++ s_unpack (varName v)
         ++ " in "
         ++ (show mod)
-      varType <- resolveMaybeType ctx tctx mod (stmtPos s) (var_type v)
-      bindToScope (mod_vars mod) (var_name v) (VarBinding (varType))
+      varType <- resolveMaybeType ctx tctx mod (stmtPos s) (varType v)
+      bindToScope (modVars mod)
+                  (varName v)
+                  (newBinding $ VarBinding (varType))
     FunctionDeclaration f -> do
       debugLog ctx
         $  "found function "
-        ++ s_unpack (function_name f)
+        ++ s_unpack (functionName f)
         ++ " in "
         ++ (show mod)
-      functionType <- resolveMaybeType ctx tctx mod (stmtPos s) (function_type f)
-      args         <- mapM
+      functionType <- resolveMaybeType ctx
+                                       tctx
+                                       mod
+                                       (stmtPos s)
+                                       (functionType f)
+      args <- mapM
         (\arg -> do
-          t <- resolveMaybeType ctx tctx mod (stmtPos s) (arg_type arg)
-          return (arg_name arg, t)
+          t <- resolveMaybeType ctx tctx mod (stmtPos s) (argType arg)
+          return (argName arg, t)
         )
-        (function_args f)
-      bindToScope (mod_vars mod)
-                  (function_name f)
-                  (FunctionBinding (functionType) args (function_varargs f))
-      bindToScope (mod_functions mod) (function_name f) f
+        (functionArgs f)
+      bindToScope
+        (modVars mod)
+        (functionName f)
+        (newBinding $ FunctionBinding (functionType) args (functionVarargs f))
+      bindToScope (modFunctions mod) (functionName f) f
     _ -> return ()

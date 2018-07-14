@@ -5,8 +5,12 @@ import Kit.Ir.IrExpr
 import Kit.Parser.Span
 import Kit.Str
 
+type IrVar = VarDefinition IrExpr BasicType
+type IrFunction = FunctionDefinition IrExpr BasicType
+type IrType = TypeDefinition IrExpr BasicType
+
 data IrDecl
-  = IrVar Str BasicType (Maybe IrExpr)
-  | IrFunction Str BasicType IrExpr
-  | IrType BasicType
+  = IrVar IrVar
+  | IrFunction IrFunction
+  | IrType IrType
   deriving (Eq, Show)

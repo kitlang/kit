@@ -28,7 +28,7 @@ data ConcreteType
   | TypeEnumConstructor TypePath ConcreteArgs
   | TypeLvalue ConcreteType
   | TypeRange
-  | TypeTrait TypePath
+  | TypeTraits [TypePath]
   | TypeTypeVar TypeVar
   deriving (Eq)
 
@@ -50,14 +50,19 @@ instance Show ConcreteType where
   show (TypeEnumConstructor tp _) = "enum " ++ (show tp) ++ " constructor"
   show (TypeLvalue t) = "lvalue of " ++ (show t)
   show (TypeRange) = "range"
-  show (TypeTrait tp) = "trait " ++ (s_unpack $ showTypePath tp)
+  show (TypeTraits [tp]) = "trait " ++ (s_unpack $ showTypePath tp)
+  show (TypeTraits ts) = "traits (" ++ (intercalate " + " [s_unpack $ showTypePath tp | tp <- ts]) ++ ")"
   show (TypeTypeVar i) = show i
 
-data Binding
+data BindingType
   = VarBinding ConcreteType
   | FunctionBinding ConcreteType [(Str, ConcreteType)] Bool
   | EnumConstructor TypePath [(Str, ConcreteType)]
   deriving (Eq, Show)
+
+data Binding = Binding { bindingType :: BindingType, bindingNameMangling :: Bool } deriving (Eq, Show)
+
+newBinding b = Binding {bindingType = b, bindingNameMangling = True}
 
 data TypeVar
   = TypeVar Int

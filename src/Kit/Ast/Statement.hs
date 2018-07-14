@@ -3,6 +3,8 @@ module Kit.Ast.Statement where
 import Data.Traversable
 import Kit.Ast.ConcreteType
 import Kit.Ast.Expr
+import Kit.Ast.ExprType
+import Kit.Ast.Metadata
 import Kit.Ast.Modifier
 import Kit.Ast.ModulePath
 import Kit.Ast.Operator
@@ -12,156 +14,168 @@ import Kit.Parser.Span
 import Kit.Parser.Token
 import Kit.Str
 
-data Statement = Statement {stmt :: StatementType Expr, stmtPos :: Span} deriving (Show)
+data Statement = Statement {stmt :: StatementType Expr (Maybe TypeSpec), stmtPos :: Span} deriving (Show)
 instance Eq Statement where
   (==) a b = (stmt a) == (stmt b) && (stmtPos a == stmtPos b || stmtPos a == null_span || stmtPos b == null_span)
 
-data StatementType a
-  = ModuleVarDeclaration (VarDefinition a)
-  | FunctionDeclaration FunctionDefinition
-  | TypeDeclaration TypeDefinition
+data StatementType a b
+  = ModuleVarDeclaration (VarDefinition a b)
+  | FunctionDeclaration (FunctionDefinition a b)
+  | TypeDeclaration (TypeDefinition a b)
+  | TraitDeclaration (TraitDefinition a b)
+  | Implement (TraitImplementation a b)
+  | Specialize TypeSpec TypeSpec
   | Typedef Str TypeSpec
-  | TraitDeclaration TraitDefinition
-  | Implement TraitImplementation
   | Import ModulePath
   | Include FilePath
   deriving (Eq, Show)
 
 makeStmt st = Statement {stmt = st, stmtPos = null_span}
 
-ps :: Span -> StatementType Expr -> Statement
+ps :: Span -> StatementType Expr (Maybe TypeSpec) -> Statement
 ps p st = Statement {stmt = st, stmtPos = p}
 
-data RewriteRule = Rule TermRewriteRule | Method FunctionDefinition deriving (Eq, Show)
+type RewriteRule = RewriteRuleType Expr (Maybe TypeSpec)
 
+data RewriteRuleType a b
+  = Rule (TermRewriteRule a b)
+  | Method (FunctionDefinition a b)
+  deriving (Eq, Show)
 
-data VarDefinition a = VarDefinition {
-  var_name :: Str,
-  var_doc :: Maybe Str,
-  var_meta :: [Metadata],
-  var_modifiers :: [Modifier],
-  var_type :: Maybe TypeSpec,
-  var_default :: Maybe a
+data VarDefinition a b = VarDefinition {
+  varName :: Str,
+  varDoc :: Maybe Str,
+  varMeta :: [Metadata],
+  varModifiers :: [Modifier],
+  varType :: b,
+  varDefault :: Maybe a,
+  varMangleName :: Bool
 } deriving (Eq, Show)
 
-newVarDefinition :: (ExprWrapper a) => VarDefinition a
+newVarDefinition :: VarDefinition a b
 newVarDefinition = VarDefinition
-  { var_name      = undefined
-  , var_doc       = Nothing
-  , var_meta      = []
-  , var_modifiers = [Public]
-  , var_type      = Nothing
-  , var_default   = Nothing
+  { varName        = undefined
+  , varDoc         = Nothing
+  , varMeta        = []
+  , varModifiers   = [Public]
+  , varType        = undefined
+  , varDefault     = Nothing
+  , varMangleName = True
   }
 
-data FunctionDefinition = FunctionDefinition {
-  function_name :: Str,
-  function_doc :: Maybe Str,
-  function_meta :: [Metadata],
-  function_modifiers :: [Modifier],
-  function_params :: [TypeParam],
-  function_args :: [ArgSpec],
-  function_type :: Maybe TypeSpec,
-  function_body :: Maybe Expr,
-  function_varargs :: Bool
+data FunctionDefinition a b = FunctionDefinition {
+  functionName :: Str,
+  functionDoc :: Maybe Str,
+  functionMeta :: [Metadata],
+  functionModifiers :: [Modifier],
+  functionParams :: [TypeParam],
+  functionArgs :: [ArgSpec a b],
+  functionType :: b,
+  functionBody :: Maybe a,
+  functionVarargs :: Bool,
+  functionMangleName :: Bool
 } deriving (Eq, Show)
 
+newFunctionDefinition :: FunctionDefinition a b
 newFunctionDefinition = FunctionDefinition
-  { function_name      = undefined
-  , function_doc       = Nothing
-  , function_meta      = []
-  , function_modifiers = [Public]
-  , function_params    = []
-  , function_args      = []
-  , function_type      = Nothing
-  , function_body      = Nothing
-  , function_varargs   = False
+  { functionName        = undefined
+  , functionDoc         = Nothing
+  , functionMeta        = []
+  , functionModifiers   = [Public]
+  , functionParams      = []
+  , functionArgs        = []
+  , functionType        = undefined
+  , functionBody        = Nothing
+  , functionVarargs     = False
+  , functionMangleName = True
   }
 
-data ArgSpec = ArgSpec {
-  arg_name :: Str,
-  arg_type :: Maybe TypeSpec,
-  arg_default :: Maybe Expr
+data ArgSpec a b = ArgSpec {
+  argName :: Str,
+  argType :: b,
+  argDefault :: Maybe a
 } deriving (Eq, Show)
 
 newArgSpec =
-  ArgSpec {arg_name = undefined, arg_type = Nothing, arg_default = Nothing}
+  ArgSpec {argName = undefined, argType = Nothing, argDefault = Nothing}
 
-data TraitDefinition = TraitDefinition {
-  trait_name :: Str,
-  trait_doc :: Maybe Str,
-  trait_meta :: [Metadata],
-  trait_modifiers :: [Modifier],
-  trait_params :: [TypeParam],
-  trait_rules :: [RewriteRule]
+data TraitDefinition a b = TraitDefinition {
+  traitName :: Str,
+  traitDoc :: Maybe Str,
+  traitMeta :: [Metadata],
+  traitModifiers :: [Modifier],
+  traitParams :: [TypeParam],
+  traitRules :: [RewriteRuleType a b]
 } deriving (Eq, Show)
 
-data TraitImplementation = TraitImplementation {
-  impl_trait :: TypeSpec,
-  impl_for :: TypeSpec,
-  impl_rules :: [RewriteRule],
-  impl_doc :: Maybe Str
+data TraitImplementation a b = TraitImplementation {
+  implTrait :: TypeSpec,
+  implFor :: TypeSpec,
+  implRules :: [RewriteRuleType a b],
+  implDoc :: Maybe Str
 } deriving (Eq, Show)
 
-data EnumVariant = EnumVariant {
-  variant_name :: Str,
-  variant_doc :: Maybe Str,
-  variant_meta :: [Metadata],
-  variant_modifiers :: [Modifier],
-  variant_args :: [ArgSpec],
-  variant_value :: Maybe Expr
+data EnumVariant a b = EnumVariant {
+  variantName :: Str,
+  variantDoc :: Maybe Str,
+  variantMeta :: [Metadata],
+  variantModifiers :: [Modifier],
+  variantArgs :: [ArgSpec a b],
+  variantValue :: Maybe a
 } deriving (Eq, Show)
 
 newEnumVariant = EnumVariant
-  { variant_name      = undefined
-  , variant_doc       = Nothing
-  , variant_meta      = []
-  , variant_modifiers = []
-  , variant_args      = []
-  , variant_value     = Nothing
+  { variantName      = undefined
+  , variantDoc       = Nothing
+  , variantMeta      = []
+  , variantModifiers = []
+  , variantArgs      = []
+  , variantValue     = Nothing
   }
 
-data TypeDefinition = TypeDefinition {
-  type_name :: Str,
-  type_doc :: Maybe Str,
-  type_meta :: [Metadata],
-  type_modifiers :: [Modifier],
-  type_rules :: [RewriteRule],
-  type_type :: TypeDefinitionType,
-  type_params :: [TypeParam]
+data TypeDefinition a b = TypeDefinition {
+  typeName :: Str,
+  typeDoc :: Maybe Str,
+  typeMeta :: [Metadata],
+  typeModifiers :: [Modifier],
+  typeRules :: [RewriteRuleType a b],
+  typeType :: TypeDefinitionType a b,
+  typeParams :: [TypeParam],
+  typeMangleName :: Bool
 } deriving (Eq, Show)
 
-data TypeDefinitionType
+data TypeDefinitionType a b
   = Atom
-  | Struct {struct_fields :: [VarDefinition Expr]}
-  | Enum {enum_variants :: [EnumVariant], enum_underlying_type :: Maybe TypeSpec}
-  | Abstract {abstract_underlying_type :: Maybe TypeSpec}
+  | Struct {struct_fields :: [VarDefinition a b]}
+  | Enum {enum_variants :: [EnumVariant a b], enum_underlying_type :: b}
+  | Abstract {abstract_underlying_type :: b}
   deriving (Eq, Show)
 
 newTypeDefinition x = TypeDefinition
-  { type_name      = x
-  , type_doc       = Nothing
-  , type_meta      = []
-  , type_modifiers = []
-  , type_rules     = []
-  , type_params    = []
-  , type_type      = undefined
+  { typeName        = x
+  , typeDoc         = Nothing
+  , typeMeta        = []
+  , typeModifiers   = []
+  , typeRules       = []
+  , typeParams      = []
+  , typeType        = undefined
+  , typeMangleName = True
   }
 
 data TypeParam = TypeParam {
-  param_name :: Str,
+  paramName :: Str,
   constraints :: [TypeSpec]
 } deriving (Eq, Show)
 
-makeTypeParam s = TypeParam {param_name = s, constraints = []}
-typeParamToSpec (TypeParam { param_name = s }) = makeTypeSpec s
+makeTypeParam s = TypeParam {paramName = s, constraints = []}
+typeParamToSpec (TypeParam { paramName = s }) = makeTypeSpec s
 
-data TermRewriteRule = TermRewriteRule {
-  rule_doc :: Maybe Str,
-  rule_meta :: [Metadata],
-  rule_modifiers :: [Modifier],
-  rule_params :: [TypeParam],
-  rule_type :: Maybe TypeSpec,
-  rule_pattern :: Expr,
-  rule_body :: Maybe Expr
+data TermRewriteRule a b = TermRewriteRule {
+  ruleDoc :: Maybe Str,
+  ruleMeta :: [Metadata],
+  ruleModifiers :: [Modifier],
+  ruleParams :: [TypeParam],
+  ruleType :: b,
+  rulePattern :: Expr,
+  ruleBody :: Maybe a
 } deriving (Eq, Show)

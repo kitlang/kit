@@ -10,7 +10,6 @@ import Kit.Ast
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TypedDecl
-import Kit.Compiler.TypeUsage
 import Kit.Error
 import Kit.HashTable
 import Kit.Ir
@@ -115,5 +114,5 @@ resolveVar ctx scopes mod s = do
   case local of
     Just _  -> return local
     Nothing -> do
-      imports <- mapM (getMod ctx) (map fst $ mod_imports mod)
-      resolveBinding (map mod_vars (mod : imports)) s
+      imports <- mapM (getMod ctx) (map fst $ modImports mod)
+      resolveBinding (map modVars (mod : imports)) s

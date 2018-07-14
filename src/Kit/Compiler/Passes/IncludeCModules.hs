@@ -14,7 +14,6 @@ import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
-import Kit.Compiler.TypeUsage
 import Kit.Compiler.Utils
 import Kit.Error
 import Kit.HashTable
@@ -93,7 +92,7 @@ parseCDecls ctx mod (h : t) = do
             then do
               forM_ (parseTypedefSpec typeSpec name)
                     (\t -> addTypeDeclaration ctx mod t)
-              bindToScope (mod_types mod) name t'
+              bindToScope (modTypes mod) name t'
               debugLog ctx
                 $  "typedef "
                 ++ (s_unpack name)
@@ -112,13 +111,13 @@ parseCDecls ctx mod (h : t) = do
 
 addCDecl :: CompileContext -> Module -> Str -> ConcreteType -> IO ()
 addCDecl ctx mod name t = do
-  let binding = case t of
+  let bindingData = case t of
         TypeFunction t argTypes isVariadic -> FunctionBinding
           t
           [ (name, argType) | (name, argType) <- argTypes ]
           isVariadic
         _ -> VarBinding $ t
-  bindToScope (mod_vars mod) name binding
+  bindToScope (modVars mod) name (newBinding bindingData)
   debugLog ctx $ "binding " ++ (s_unpack name) ++ ": " ++ (show t) ++ ""
   return ()
 
@@ -156,7 +155,7 @@ isTypedef ((CTypedef _) : _) = True
 isTypedef (h            : t) = isTypedef t
 isTypedef []                 = False
 
-parseTypedefSpec :: [CTypeSpec] -> Str -> [TypeDefinition]
+parseTypedefSpec :: [CTypeSpec] -> Str -> [TypeDefinition Expr (Maybe TypeSpec)]
 parseTypedefSpec ((CTypeDef (Ident name _ _) _) : _) _ = [] -- TODO
 parseTypedefSpec ((CSUType (CStruct CStructTag _ fields _ _) _) : _) name =
   let fields' = case fields of
@@ -164,12 +163,14 @@ parseTypedefSpec ((CSUType (CStruct CStructTag _ fields _ _) _) : _) name =
         Nothing -> []
   in
     [ (newTypeDefinition name)
-        { type_type = Struct
+        { typeMangleName = False
+        , typeType        = Struct
           { struct_fields = [ newVarDefinition
-                                { var_name = structFieldName field
-                                , var_type = Just
+                                { varName        = structFieldName field
+                                , varType        = Just
                                   $ ConcreteType
                                   $ structFieldType field
+                                , varMangleName = False
                                 }
                             | field <- fields'
                             ]
@@ -183,10 +184,12 @@ parseNonInitSpec ((CSUType (CStruct CStructTag (Just (Ident name _ _)) fields _ 
   = case fields of
     Just fields
       -> [ (newTypeDefinition (s_pack name))
-             { type_type = Struct
+             { typeMangleName = False
+             , typeType        = Struct
                { struct_fields = [ newVarDefinition
-                                     { var_name = structFieldName field
-                                     , var_type = Just
+                                     { varMangleName = False
+                                     , varName        = structFieldName field
+                                     , varType        = Just
                                        $ ConcreteType
                                        $ structFieldType field
                                      }
@@ -198,8 +201,9 @@ parseNonInitSpec ((CSUType (CStruct CStructTag (Just (Ident name _ _)) fields _ 
     Nothing -> []
 parseNonInitSpec ((CEnumType (CEnum (Just (Ident name _ _)) (Just variants) _ _) _) : _)
   = [ (newTypeDefinition (s_pack name))
-        { type_type = Enum
-          { enum_variants = [ newEnumVariant { variant_name = s_pack variantName
+        { typeMangleName = False
+        , typeType        = Enum
+          { enum_variants = [ newEnumVariant { variantName = s_pack variantName
                                              }
                             | (Ident variantName _ _, _) <- variants
                             ]
@@ -209,14 +213,12 @@ parseNonInitSpec ((CEnumType (CEnum (Just (Ident name _ _)) (Just variants) _ _)
     ]
 parseNonInitSpec _ = []
 
-addTypeDeclaration :: CompileContext -> Module -> TypeDefinition -> IO ()
+addTypeDeclaration :: CompileContext -> Module -> TypeDefinition Expr (Maybe TypeSpec) -> IO ()
 addTypeDeclaration ctx mod t = do
-  let name = (type_name t)
-  usage <- newTypeUsage t
-  bindToScope (mod_type_definitions mod) name usage
+  let name = (typeName t)
   tctx <- newTypeContext []
   t'   <- typeDefinitionToConcreteType ctx tctx mod t
-  bindToScope (mod_types mod) name t'
+  bindToScope (modTypes mod) name t'
 
 structFieldName cdecl =
   let (name, _, _, _) = head (decomposeCDecl cdecl) in name

@@ -5,75 +5,69 @@ import Kit.Ast
 import Kit.Compiler.Scope
 import Kit.Compiler.TypedDecl
 import Kit.Compiler.TypedExpr
-import Kit.Compiler.TypeUsage
 import Kit.HashTable
 import Kit.Ir
 import Kit.Parser.Span
 import Kit.Str
 
 data Module = Module {
-  mod_path :: ModulePath,
-  mod_source_path :: FilePath,
-  mod_contents :: IORef [Statement],
-  mod_imports :: [(ModulePath, Span)],
-  mod_includes :: [(FilePath, Span)],
-  mod_types :: Scope ConcreteType,
-  mod_functions :: Scope FunctionDefinition,
-  mod_type_definitions :: Scope TypeUsage,
-  mod_vars :: Scope Binding,
-  mod_typed_contents :: Scope TypedDecl,
-  mod_ir :: IORef [IrDecl]
+  modPath :: ModulePath,
+  modSourcePath :: FilePath,
+  modImports :: [(ModulePath, Span)],
+  modIncludes :: [(FilePath, Span)],
+  modTypes :: Scope ConcreteType,
+  modFunctions :: Scope (FunctionDefinition Expr (Maybe TypeSpec)),
+  modContents :: IORef [Statement],
+  modTypedContents :: Scope TypedDecl,
+  modVars :: Scope Binding,
+  modIr :: IORef [IrDecl]
 }
 
 instance Show Module where
-  show m = "<module " ++ (s_unpack $ showModulePath $ mod_path m) ++ " (" ++ (mod_source_path m) ++ ")>"
+  show m = "<module " ++ (s_unpack $ showModulePath $ modPath m) ++ " (" ++ (modSourcePath m) ++ ")>"
 
 newMod :: ModulePath -> [Statement] -> FilePath -> IO Module
 newMod path stmts fp = do
-  contents        <- newIORef stmts
-  types           <- newScope
-  functions       <- newScope
-  typeDefinitions <- newScope
-  vars            <- newScope
-  enums           <- newScope
-  typedContents   <- newScope
-  ir              <- newIORef []
+  contents      <- newIORef stmts
+  types         <- newScope
+  functions     <- newScope
+  vars          <- newScope
+  enums         <- newScope
+  typedContents <- newScope
+  ir            <- newIORef []
   return $ Module
-    { mod_path             = path
-    , mod_source_path      = fp
-    , mod_contents         = contents
-    , mod_imports          = _findImports path stmts
-    , mod_includes         = _findIncludes stmts
-    , mod_types            = types
-    , mod_functions        = functions
-    , mod_type_definitions = typeDefinitions
-    , mod_vars             = vars
-    , mod_typed_contents   = typedContents
-    , mod_ir               = ir
+    { modPath          = path
+    , modSourcePath    = fp
+    , modImports       = _findImports path stmts
+    , modIncludes      = _findIncludes stmts
+    , modTypes         = types
+    , modFunctions     = functions
+    , modVars          = vars
+    , modContents      = contents
+    , modTypedContents = typedContents
+    , modIr            = ir
     }
 
 newCMod :: FilePath -> IO Module
 newCMod fp = do
-  contents        <- newIORef []
-  types           <- newScope
-  functions       <- newScope
-  typeDefinitions <- newScope
-  vars            <- newScope
-  enums           <- newScope
-  typedContents   <- newScope
-  ir              <- newIORef []
+  contents      <- newIORef []
+  types         <- newScope
+  functions     <- newScope
+  vars          <- newScope
+  enums         <- newScope
+  typedContents <- newScope
+  ir            <- newIORef []
   return $ Module
-    { mod_path             = []
-    , mod_source_path      = fp
-    , mod_contents         = contents
-    , mod_imports          = []
-    , mod_includes         = []
-    , mod_types            = types
-    , mod_functions        = functions
-    , mod_type_definitions = typeDefinitions
-    , mod_vars             = vars
-    , mod_typed_contents   = typedContents
-    , mod_ir               = ir
+    { modPath          = []
+    , modSourcePath    = fp
+    , modImports       = []
+    , modIncludes      = []
+    , modTypes         = types
+    , modFunctions     = functions
+    , modVars          = vars
+    , modContents      = contents
+    , modTypedContents = typedContents
+    , modIr            = ir
     }
 
 _findImports :: ModulePath -> [Statement] -> [(ModulePath, Span)]

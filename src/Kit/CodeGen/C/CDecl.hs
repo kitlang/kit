@@ -34,8 +34,8 @@ cdecl (BasicTypeStruct (name, fields)) =
     ]
 
 {- Simple enums (no variant has any fields) will generate a C enum. -}
-cdecl (BasicTypeSimpleEnum name variant_names) =
-  [enumDiscriminant name variant_names]
+cdecl (BasicTypeSimpleEnum name variantNames) =
+  [enumDiscriminant name variantNames]
 
 {-
   Complex enums will generate the same C enum for the discriminant, but the
@@ -92,10 +92,10 @@ cdecl (BasicTypeComplexEnum name variants) =
       ]
     variant_fields =
       [ u $ CDecl
-          [typeNameDecl $ enumVariantName name variant_name]
+          [typeNameDecl $ enumVariantName name variantName]
           [ ( Just $ u $ CDeclr
               (Just $ internalIdent $ s_unpack $ s_concat
-                ["variant_", variant_name]
+                ["variant_", variantName]
               )
               []
               Nothing
@@ -104,25 +104,25 @@ cdecl (BasicTypeComplexEnum name variants) =
             , Nothing
             )
           ]
-      | (variant_name, _) <- nonemptyVariants
+      | (variantName, _) <- nonemptyVariants
       ]
   enumVariants name variants = map
-    (\(variant_name, variant_fields) ->
+    (\(variantName, variant_fields) ->
       (cdecl
-          (BasicTypeStruct (enumVariantName name variant_name, variant_fields))
+          (BasicTypeStruct (enumVariantName name variantName, variant_fields))
         )
         !! 0
     )
     nonemptyVariants
   nonemptyVariants = filter (\(name, fields) -> fields /= []) variants
 
-enumDiscriminant name variant_names = u $ CDecl
+enumDiscriminant name variantNames = u $ CDecl
   [ CTypeSpec $ u $ CEnumType $ u $ CEnum
       (Just $ internalIdent $ s_unpack name)
-      (Just [ (internalIdent $ s_unpack v, Nothing) | v <- variant_names ])
+      (Just [ (internalIdent $ s_unpack v, Nothing) | v <- variantNames ])
       []
   ]
   []
 
-enumVariantName enum_name variant_name =
-  s_concat [enum_name, "_Variant_", variant_name]
+enumVariantName enum_name variantName =
+  s_concat [enum_name, "_Variant_", variantName]

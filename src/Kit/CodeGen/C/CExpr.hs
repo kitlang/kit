@@ -57,6 +57,8 @@ transpileExpr (IrLiteral (StringValue s)) =
   CConst $ u $ CStrConst $ cString $ s_unpack s
 transpileExpr (IrBinop Assign e1 e2) =
   u $ CAssign (CAssignOp) (transpileExpr e1) (transpileExpr e2)
+transpileExpr (IrBinop (AssignOp op) e1 e2) =
+  u $ CAssign (transpileAssignop op) (transpileExpr e1) (transpileExpr e2)
 transpileExpr (IrBinop op e1 e2) =
   u $ CBinary (transpileBinop op) (transpileExpr e1) (transpileExpr e2)
 transpileExpr (IrPreUnop op e1) =
@@ -103,12 +105,12 @@ var_to_cdeclr x =
   u $ CDeclr (Just $ internalIdent $ s_unpack x) [] (Nothing) []
 
 transpileBlockItem :: IrExpr -> CBlockItem
-transpileBlockItem (IrVarDeclaration v t var_default) = CBlockDecl $ u $ CDecl
+transpileBlockItem (IrVarDeclaration v t varDefault) = CBlockDecl $ u $ CDecl
   (ctype' t)
   [(Just vn, body, Nothing)]
  where
   vn   = var_to_cdeclr $ v
-  body = case var_default of
+  body = case varDefault of
     Just x  -> Just $ u $ CInitExpr $ transpileExpr x
     Nothing -> Nothing
 transpileBlockItem x = CBlockStmt $ transpileStmt x
@@ -145,6 +147,17 @@ transpileBinop Or         = CLorOp
 transpileBinop BitAnd     = CAndOp
 transpileBinop BitOr      = COrOp
 transpileBinop BitXor     = CXorOp
+
+transpileAssignop Add        = CAddAssOp
+transpileAssignop Sub        = CSubAssOp
+transpileAssignop Mul        = CMulAssOp
+transpileAssignop Div        = CDivAssOp
+transpileAssignop Mod        = CRmdAssOp
+transpileAssignop BitAnd     = CAndAssOp
+transpileAssignop BitOr      = COrAssOp
+transpileAssignop BitXor     = CXorAssOp
+transpileAssignop LeftShift  = CShlAssOp
+transpileAssignop RightShift = CShrAssOp
 
 transpilePreUnop Inc        = CPreIncOp
 transpilePreUnop Dec        = CPreDecOp

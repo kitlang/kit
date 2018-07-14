@@ -54,3 +54,6 @@ findModule ctx mod pos = do
               )
               pos
           ]
+
+mangleName :: ModulePath -> Str -> Str
+mangleName mp s = s_join "__" (("kit" : mp) ++ [s])

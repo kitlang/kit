@@ -30,4 +30,4 @@ spec = do
                 ParseResult e -> e
                 Err         _ -> []
       m <- newMod [] exprs ""
-      map fst (mod_imports m) `shouldBe` [["a"], ["b", "c"], ["d"]]
+      map fst (modImports m) `shouldBe` [["a"], ["b", "c"], ["d"]]

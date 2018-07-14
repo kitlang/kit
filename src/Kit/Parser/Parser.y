@@ -68,6 +68,7 @@ import Kit.Parser.Token
   rule {(KeywordRule,_)}
   rules {(KeywordRules,_)}
   Self {(KeywordSelf,_)}
+  specialize {(KeywordSpecialize,_)}
   static {(KeywordStatic,_)}
   struct {(KeywordStruct,_)}
   super {(KeywordSuper,_)}
@@ -132,73 +133,72 @@ Statement :: {Statement}
     ps (fp [p $1, p $2, p $6]) $ Typedef (extract_upper_identifier $3) (fst $5)
   }
   | DocMetaMods atom upper_identifier ';' {
-    ps (fp [p $1, p $2, p $4]) $ TypeDeclaration $ TypeDefinition {
-      type_name = extract_upper_identifier $3,
-      type_doc = doc $1,
-      type_meta = reverse $ metas $1,
-      type_modifiers = reverse $ mods $1,
-      type_rules = [],
-      type_params = [],
-      type_type = Atom
+    ps (fp [p $1, p $2, p $4]) $ TypeDeclaration $ (newTypeDefinition $ extract_upper_identifier $3) {
+      typeDoc = doc $1,
+      typeMeta = reverse $ metas $1,
+      typeModifiers = reverse $ mods $1,
+      typeRules = [],
+      typeParams = [],
+      typeType = Atom
     }
   }
   | DocMetaMods enum upper_identifier TypeParams TypeAnnotation '{' RewriteRulesOrVariants '}' {
-    ps (fp [p $1, p $2, p $8]) $ TypeDeclaration $ TypeDefinition {
-      type_name = extract_upper_identifier $3,
-      type_doc = doc $1,
-      type_meta = reverse $ metas $1,
-      type_modifiers = reverse $ mods $1,
-      type_rules = reverse (snd $7),
-      type_params = fst $4,
-      type_type = Enum {
+    ps (fp [p $1, p $2, p $8]) $ TypeDeclaration $ (newTypeDefinition $ extract_upper_identifier $3) {
+      typeDoc = doc $1,
+      typeMeta = reverse $ metas $1,
+      typeModifiers = reverse $ mods $1,
+      typeRules = reverse (snd $7),
+      typeParams = fst $4,
+      typeType = Enum {
         enum_variants = reverse (fst $7),
         enum_underlying_type = fst $5
       }
     }
   }
-  | DocMetaMods struct upper_identifier TypeParams '{' RewriteRulesOrFields '}' {
-    ps (fp [p $1, p $2, p $7]) $ TypeDeclaration $ TypeDefinition {
-      type_name = extract_upper_identifier $3,
-      type_doc = doc $1,
-      type_meta = reverse $ metas $1,
-      type_modifiers = reverse $ mods $1,
-      type_rules = reverse (snd $6),
-      type_params = fst $4,
-      type_type = Struct {
-        struct_fields = reverse (fst $6)
+  | DocMetaMods struct upper_identifier TypeParams RewriteRulesOrFieldsBody {
+    ps (fp [p $1, p $2, p $5]) $ TypeDeclaration $ (newTypeDefinition $ extract_upper_identifier $3) {
+      typeDoc = doc $1,
+      typeMeta = reverse $ metas $1,
+      typeModifiers = reverse $ mods $1,
+      typeRules = reverse $ snd $ fst $5,
+      typeParams = fst $4,
+      typeType = Struct {
+        struct_fields = reverse $ fst $ fst $5
       }
     }
   }
-  | DocMetaMods abstract upper_identifier TypeParams TypeAnnotation '{' RewriteRules '}' {
-    ps (fp [p $1, p $2, p $8]) $ TypeDeclaration $ TypeDefinition {
-      type_name = extract_upper_identifier $3,
-      type_doc = doc $1,
-      type_meta = reverse $ metas $1,
-      type_modifiers = reverse $ mods $1,
-      type_rules = reverse $7,
-      type_params = fst $4,
-      type_type = Abstract {
+  | DocMetaMods abstract upper_identifier TypeParams TypeAnnotation RewriteRulesBody {
+    ps (fp [p $1, p $2, p $6]) $ TypeDeclaration $ (newTypeDefinition $ extract_upper_identifier $3) {
+      typeDoc = doc $1,
+      typeMeta = reverse $ metas $1,
+      typeModifiers = reverse $ mods $1,
+      typeRules = reverse $ fst $6,
+      typeParams = fst $4,
+      typeType = Abstract {
         abstract_underlying_type = fst $5
       }
     }
   }
-  | DocMetaMods trait upper_identifier TypeParams '{' RewriteRules '}' {
-    ps (fp [p $1, p $2, p $7]) $ TraitDeclaration $ TraitDefinition {
-      trait_name = extract_upper_identifier $3,
-      trait_doc = doc $1,
-      trait_meta = reverse $ metas $1,
-      trait_modifiers = reverse $ mods $1,
-      trait_params = fst $4,
-      trait_rules = $6
+  | DocMetaMods trait upper_identifier TypeParams RewriteRulesBody {
+    ps (fp [p $1, p $2, p $5]) $ TraitDeclaration $ TraitDefinition {
+      traitName = extract_upper_identifier $3,
+      traitDoc = doc $1,
+      traitMeta = reverse $ metas $1,
+      traitModifiers = reverse $ mods $1,
+      traitParams = fst $4,
+      traitRules = reverse $ fst $5
     }
   }
-  | DocMetaMods implement TypeSpec for TypeSpec '{' RewriteRules '}' {
-    ps (fp [p $1, p $2, p $8]) $ Implement $ TraitImplementation {
-      impl_trait = fst $3,
-      impl_for = fst $5,
-      impl_rules = $7,
-      impl_doc = doc $1
+  | DocMetaMods implement TypeSpec for TypeSpec RewriteRulesBody {
+    ps (fp [p $1, p $2, p $6]) $ Implement $ TraitImplementation {
+      implTrait = fst $3,
+      implFor = fst $5,
+      implRules = reverse $ fst $6,
+      implDoc = doc $1
     }
+  }
+  | DocMetaMods specialize TypeSpec as TypeSpec ';' {
+    ps (fp [p $1, p $2, p $6]) $ Specialize (fst $3) (fst $5)
   }
   | VarDefinition {ps (p $1) $ ModuleVarDeclaration $ fst $1}
   | FunctionDecl {$1}
@@ -215,7 +215,8 @@ TopLevelExpr :: {Expr}
   | continue ';' {pe (p $1 <+> p $2) $ Continue}
   | break ';' {pe (p $1 <+> p $2) $ Break}
   | tokens LexMacroTokenBlock {pe (snd $1 <+> snd $2) $ TokenExpr $ tc (fst $2)}
-  | macro_identifier {pe (p $1) (Lvalue $ MacroVar $ extract_macro_identifier $1)}
+  | macro_identifier {pe (p $1) (Lvalue $ MacroVar (extract_macro_identifier $1) Nothing)}
+  | '$' '{' identifier TypeAnnotation '}' {pe (p $1) (Lvalue $ MacroVar (extract_identifier $1) (fst $4))}
 
 StandaloneExpr :: {Expr}
   : ExprBlock {$1}
@@ -233,16 +234,16 @@ FunctionName :: {(B.ByteString, Span)}
 
 FunctionDecl :: {Statement}
   : DocMetaMods function FunctionName TypeParams '(' VarArgs ')' TypeAnnotation OptionalBody {
-    ps (fp [p $2 <+> p $3]) $ FunctionDeclaration $ FunctionDefinition {
-      function_name = fst $3,
-      function_doc = doc $1,
-      function_meta = reverse $ metas $1,
-      function_modifiers = reverse $ mods $1,
-      function_params = fst $4,
-      function_type = fst $8,
-      function_args = reverse (fst $6),
-      function_body = fst $9,
-      function_varargs = snd $6
+    ps (fp [p $2 <+> p $3]) $ FunctionDeclaration $ (newFunctionDefinition :: FunctionDefinition Expr (Maybe TypeSpec)) {
+      functionName = fst $3,
+      functionDoc = doc $1,
+      functionMeta = reverse $ metas $1,
+      functionModifiers = reverse $ mods $1,
+      functionParams = fst $4,
+      functionType = fst $8,
+      functionArgs = reverse (fst $6),
+      functionBody = fst $9,
+      functionVarargs = snd $6
     }
   }
 
@@ -269,9 +270,17 @@ ModulePath :: {([B.ByteString], Span)}
   | identifier {([extract_identifier $1], p $1)}
   | ModulePath '.' identifier {(extract_identifier $3 : fst $1, snd $1 <+> p $3)}
 
+MetaArg :: {MetaArg}
+  : Term {MetaLiteral $ fst $1}
+  | Lvalue {MetaLvalue $ fst $1}
+
+MetaArgs :: {[MetaArg]}
+  : MetaArg {[$1]}
+  | MetaArgs ',' MetaArg {$3 : $1}
+
 Metadata :: {(Metadata, Span)}
-  : "#[" identifier '(' CallArgs ')' ']' {(Metadata {meta_name = extract_identifier $2, meta_args = reverse $4}, (p $1) <+> (p $6))}
-  | "#[" identifier ']' {(Metadata {meta_name = extract_identifier $2, meta_args = []}, (p $1) <+> (p $3))}
+  : "#[" identifier '(' MetaArgs ')' ']' {(Metadata {metaName = extract_identifier $2, metaArgs = reverse $4}, (p $1) <+> (p $6))}
+  | "#[" identifier ']' {(Metadata {metaName = extract_identifier $2, metaArgs = []}, (p $1) <+> (p $3))}
 
 Metas :: {([Metadata], Span)}
   : {([], null_span)}
@@ -337,8 +346,8 @@ TypeParams_ :: {[TypeParam]}
   | TypeParams_ ',' TypeParam {$3 : $1}
 
 TypeParam :: {TypeParam}
-  : upper_identifier {TypeParam {param_name = (extract_upper_identifier $1), constraints = []}}
-  | upper_identifier ':' TypeConstraints {TypeParam {param_name = (extract_upper_identifier $1), constraints = $3}}
+  : upper_identifier {TypeParam {paramName = (extract_upper_identifier $1), constraints = []}}
+  | upper_identifier ':' TypeConstraints {TypeParam {paramName = (extract_upper_identifier $1), constraints = $3}}
 
 TypeSpecParams :: {([TypeSpec], Span)}
   : {([], null_span)}
@@ -367,15 +376,15 @@ TypePath :: {(TypePath, Span)}
   | UpperOrLowerIdentifier {(([], fst $1), p $1)}
   | Self {(([], B.pack "Self"), p $1)}
 
-VarDefinition :: {(VarDefinition Expr, Span)}
+VarDefinition :: {(VarDefinition Expr (Maybe TypeSpec), Span)}
   : DocMetaMods var UpperOrLowerIdentifier TypeAnnotation OptionalDefault ';' {
-    (VarDefinition {
-      var_name = fst $ $3,
-      var_doc = doc $1,
-      var_meta = reverse (metas $1),
-      var_type = fst $4,
-      var_modifiers = reverse (mods $1),
-      var_default = $5}, fp [p $1, p $2, p $6])
+    ((newVarDefinition:: VarDefinition Expr (Maybe TypeSpec)) {
+      varName = fst $ $3,
+      varDoc = doc $1,
+      varMeta = reverse (metas $1),
+      varType = fst $4,
+      varModifiers = reverse (mods $1),
+      varDefault = $5}, fp [p $1, p $2, p $6])
   }
 
 OptionalDefault :: {Maybe Expr}
@@ -385,57 +394,57 @@ OptionalDefault :: {Maybe Expr}
 EnumPrefix :: {(DocMetaMod, B.ByteString)}
   : DocMetaMods upper_identifier {($1, extract_upper_identifier $2)}
 
-EnumVariant :: {EnumVariant}
+EnumVariant :: {EnumVariant Expr (Maybe TypeSpec)}
   : EnumPrefix ';' {
       EnumVariant {
-        variant_name = snd $1,
-        variant_doc = doc $ fst $1,
-        variant_meta = reverse $ metas $ fst $1,
-        variant_modifiers = reverse $ mods $ fst $1,
-        variant_args = [],
-        variant_value = Nothing
+        variantName = snd $1,
+        variantDoc = doc $ fst $1,
+        variantMeta = reverse $ metas $ fst $1,
+        variantModifiers = reverse $ mods $ fst $1,
+        variantArgs = [],
+        variantValue = Nothing
       }
     }
   | EnumPrefix '=' Expr ';' {
       EnumVariant {
-        variant_name = snd $1,
-        variant_doc = doc $ fst $1,
-        variant_meta = reverse $ metas $ fst $1,
-        variant_modifiers = reverse $ mods $ fst $1,
-        variant_args = [],
-        variant_value = Just $3
+        variantName = snd $1,
+        variantDoc = doc $ fst $1,
+        variantMeta = reverse $ metas $ fst $1,
+        variantModifiers = reverse $ mods $ fst $1,
+        variantArgs = [],
+        variantValue = Just $3
       }
     }
   | EnumPrefix '(' Args ')' ';' {
       EnumVariant {
-        variant_name = snd $1,
-        variant_doc = doc $ fst $1,
-        variant_meta = reverse $ metas $ fst $1,
-        variant_modifiers = reverse $ mods $ fst $1,
-        variant_args = reverse $3,
-        variant_value = Nothing
+        variantName = snd $1,
+        variantDoc = doc $ fst $1,
+        variantMeta = reverse $ metas $ fst $1,
+        variantModifiers = reverse $ mods $ fst $1,
+        variantArgs = reverse $3,
+        variantValue = Nothing
       }
     }
 
-VarArgs :: {([ArgSpec], Bool)}
+VarArgs :: {([ArgSpec Expr (Maybe TypeSpec)], Bool)}
   : Args ',' "..." {($1, True)}
   | Args {($1, False)}
 
-Args :: {[ArgSpec]}
+Args :: {[ArgSpec Expr (Maybe TypeSpec)]}
   : {[]}
   | ArgSpec {[$1]}
   | Args ',' ArgSpec {$3 : $1}
 
-ArgSpec  :: {ArgSpec}
-  : identifier TypeAnnotation OptionalDefault {ArgSpec {arg_name = extract_identifier $1, arg_type = fst $2, arg_default = $3}}
+ArgSpec  :: {ArgSpec Expr (Maybe TypeSpec)}
+  : identifier TypeAnnotation OptionalDefault {ArgSpec {argName = extract_identifier $1, argType = fst $2, argDefault = $3}}
 
-RewriteRulesOrFields :: {([VarDefinition Expr], [RewriteRule])}
+RewriteRulesOrFields :: {([VarDefinition Expr (Maybe TypeSpec)], [RewriteRule])}
   : {([], [])}
   | RewriteRulesOrFields RewriteRule {(fst $1, $2 : snd $1)}
   | RewriteRulesOrFields RuleBlock {(fst $1, $2 ++ snd $1)}
   | RewriteRulesOrFields VarDefinition {(fst $2 : fst $1, snd $1)}
 
-RewriteRulesOrVariants :: {([EnumVariant], [RewriteRule])}
+RewriteRulesOrVariants :: {([EnumVariant Expr (Maybe TypeSpec)], [RewriteRule])}
   : {([], [])}
   | RewriteRulesOrVariants RewriteRule {(fst $1, $2 : snd $1)}
   | RewriteRulesOrVariants RuleBlock {(fst $1, $2 ++ snd $1)}
@@ -445,6 +454,14 @@ RewriteRules :: {[RewriteRule]}
   : {[]}
   | RewriteRules RewriteRule {$2 : $1}
   | RewriteRules RuleBlock {$2 ++ $1}
+
+RewriteRulesBody :: {([RewriteRule], Span)}
+  : '{' RewriteRules '}' {($2, p $1 <+> p $3)}
+  | ';' {([], p $1)}
+
+RewriteRulesOrFieldsBody :: {(([VarDefinition Expr (Maybe TypeSpec)], [RewriteRule]), Span)}
+  : '{' RewriteRulesOrFields '}' {($2, p $1 <+> p $3)}
+  | ';' {(([], []), p $1)}
 
 RulePrefix :: {(DocMetaMod, [TypeParam])}
   : DocMetaMods rule TypeParams {($1, fst $3)}
@@ -462,24 +479,24 @@ PrefixedRule :: {((DocMetaMod, [TypeParam]), Expr)}
 RewriteRule :: {RewriteRule}
   : PrefixedRule TypeAnnotation "=>" OptionalRuleBody {
     Rule TermRewriteRule {
-      rule_doc = doc $ fst $ fst $1,
-      rule_meta = reverse $ metas $ fst $ fst $1,
-      rule_modifiers = reverse $ mods $ fst $ fst $1,
-      rule_params = snd $ fst $1,
-      rule_pattern = snd $1,
-      rule_type = fst $2,
-      rule_body = fst $4
+      ruleDoc = doc $ fst $ fst $1,
+      ruleMeta = reverse $ metas $ fst $ fst $1,
+      ruleModifiers = reverse $ mods $ fst $ fst $1,
+      ruleParams = snd $ fst $1,
+      rulePattern = snd $1,
+      ruleType = fst $2,
+      ruleBody = fst $4
     }
   }
   | PrefixedRule TypeAnnotation ';' {
     Rule TermRewriteRule {
-      rule_doc = doc $ fst $ fst $1,
-      rule_meta = reverse $ metas $ fst $ fst $1,
-      rule_modifiers = reverse $ mods $ fst $ fst $1,
-      rule_params = snd $ fst $1,
-      rule_pattern = snd $1,
-      rule_type = fst $2,
-      rule_body = Nothing
+      ruleDoc = doc $ fst $ fst $1,
+      ruleMeta = reverse $ metas $ fst $ fst $1,
+      ruleModifiers = reverse $ mods $ fst $ fst $1,
+      ruleParams = snd $ fst $1,
+      rulePattern = snd $1,
+      ruleType = fst $2,
+      ruleBody = Nothing
     }
   }
   | FunctionDecl {
@@ -490,17 +507,17 @@ RewriteRule :: {RewriteRule}
 RuleBlock :: {[RewriteRule]}
   : RulesPrefix '{' ShortRules '}' {
     [Rule TermRewriteRule {
-      rule_doc = (case rule_doc of
-        Just s -> rule_doc
+      ruleDoc = (case ruleDoc of
+        Just s -> ruleDoc
         Nothing -> doc $ fst $1
       ),
-      rule_meta = reverse (meta ++ (metas $ fst $1)),
-      rule_modifiers = reverse (modifiers ++ (mods $ fst $1)),
-      rule_params = snd $1,
-      rule_pattern = pattern,
-      rule_type = rule_type,
-      rule_body = body
-    } | (rule_doc, meta, modifiers, pattern, rule_type, body) <- $3]
+      ruleMeta = reverse (meta ++ (metas $ fst $1)),
+      ruleModifiers = reverse (modifiers ++ (mods $ fst $1)),
+      ruleParams = snd $1,
+      rulePattern = pattern,
+      ruleType = ruleType,
+      ruleBody = body
+    } | (ruleDoc, meta, modifiers, pattern, ruleType, body) <- $3]
   }
 
 ShortRules :: {[(Maybe B.ByteString, [Metadata], [Modifier], Expr, Maybe TypeSpec, Maybe Expr)]}
@@ -602,11 +619,11 @@ ArrayElems :: {[Expr]}
   | ArrayElems ',' Expr {$3 : $1}
 
 CastExpr :: {Expr}
-  : CastExpr as TypeSpec {pe (pos $1 <+> snd $3) $ Cast $1 $ fst $3}
+  : CastExpr as TypeSpec {pe (pos $1 <+> snd $3) $ Cast $1 (Just $ fst $3)}
   | NewExpr {$1}
 
 NewExpr :: {Expr}
-  : new TypeSpec '(' CallArgs ')' {pe (p $1 <+> p $5) $ New (fst $2) (reverse $4)}
+  : new TypeSpec '(' CallArgs ')' {pe (p $1 <+> p $5) $ New (Just $ fst $2) (reverse $4)}
   | ArrayAccessExpr {$1}
 
 ArrayAccessExpr :: {Expr}
@@ -618,11 +635,11 @@ CallExpr :: {Expr}
   | FieldExpr {$1}
 
 FieldExpr :: {Expr}
-: FieldExpr '.' Lvalue {pe (pos $1 <+> p $3) $ Field $1 $ fst $3}
-| TypeAnnotatedExpr {$1}
+  : FieldExpr '.' Lvalue {pe (pos $1 <+> p $3) $ Field $1 $ fst $3}
+  | TypeAnnotatedExpr {$1}
 
 TypeAnnotatedExpr :: {Expr}
-  : TypeAnnotatedExpr ':' TypeSpec {pe (pos $1 <+> snd $3) $ TypeAnnotation $1 (fst $3)}
+  : TypeAnnotatedExpr ':' TypeSpec {pe (pos $1 <+> snd $3) $ TypeAnnotation $1 (Just $ fst $3)}
   | BaseExpr {$1}
 
 BaseExpr :: {Expr}
@@ -634,7 +651,8 @@ BaseExpr :: {Expr}
 
 Lvalue :: {(Lvalue, Span)}
   : UpperOrLowerIdentifier {(Var $ fst $1, snd $1)}
-  | macro_identifier {(MacroVar $ extract_macro_identifier $1, snd $1)}
+  | macro_identifier {(MacroVar (extract_macro_identifier $1) Nothing, snd $1)}
+  | '$' '{' identifier TypeAnnotation '}' {(MacroVar (extract_identifier $1) (fst $4), (p $1 <+> p $5))}
 
 Term :: {(ValueLiteral, Span)}
   : bool {(BoolValue $ extract_bool $ fst $1, snd $1)}

@@ -4,7 +4,7 @@ import Kit.Ast
 import Kit.Ir.IrDecl
 
 data IrModule = IrModule {
-  irmod_path :: ModulePath,
+  irmodPath :: ModulePath,
   irmod_declarations :: [IrDecl],
-  irmod_includes :: [FilePath]
+  irmodIncludes :: [FilePath]
 }

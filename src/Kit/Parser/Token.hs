@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
+
 module Kit.Parser.Token where
 
 import Kit.Str
@@ -58,6 +60,7 @@ data TokenClass
   | KeywordRule
   | KeywordRules
   | KeywordSelf
+  | KeywordSpecialize
   | KeywordStatic
   | KeywordStruct
   | KeywordSuper
@@ -136,6 +139,7 @@ instance Show TokenClass where
     KeywordRule -> "rule"
     KeywordRules -> "rules"
     KeywordSelf -> "self"
+    KeywordSpecialize -> "specialize"
     KeywordStatic -> "static"
     KeywordStruct -> "struct"
     KeywordSuper -> "super"

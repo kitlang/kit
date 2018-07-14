@@ -28,8 +28,8 @@ generateCode ctx = do
 
 generateModule :: CompileContext -> Module -> IO ()
 generateModule ctx mod = do
-  let codeFilePath   = (libPath ctx $ mod_path mod)
-  let headerFilePath = (includePath ctx $ mod_path mod)
+  let codeFilePath   = (libPath ctx $ modPath mod)
+  let headerFilePath = (includePath ctx $ modPath mod)
   debugLog ctx
     $  "generating code for "
     ++ show mod
@@ -44,7 +44,7 @@ generateModule ctx mod = do
   writeHeader ctx mod headerFile True
   writeHeader ctx mod codeFile   False
   -- transpile and write code/declarations
-  ir <- readIORef (mod_ir mod)
+  ir <- readIORef (modIr mod)
   forM_ ir (generateDecl ctx mod codeFile headerFile)
   -- finish and close files
   writeFooter ctx mod headerFile True
@@ -57,17 +57,17 @@ writeHeader ctx mod handle cheader = do
     then
       hPutStrLn handle
       $  "#ifndef "
-      ++ (modDef $ mod_path mod)
+      ++ (modDef $ modPath mod)
       ++ "\n#define "
-      ++ (modDef $ mod_path mod)
+      ++ (modDef $ modPath mod)
       ++ "\n"
     else return ()
   forM_
-    (mod_includes mod)
+    (modIncludes mod)
     (\(filepath, _) -> hPutStrLn handle $ "#include \"" ++ filepath ++ "\"")
   let imports = if cheader
-        then (map fst (mod_imports mod))
-        else (mod_path mod) : (map fst (mod_imports mod))
+        then (map fst (modImports mod))
+        else (modPath mod) : (map fst (modImports mod))
   forM_
     (imports)
     (\imp -> do
@@ -100,6 +100,6 @@ libPath ctx mod =
 generateDecl :: CompileContext -> Module -> Handle -> Handle -> IrDecl -> IO ()
 generateDecl ctx mod codeFile headerFile decl = do
   case decl of
-    IrFunction name t body -> do
+    IrFunction (FunctionDefinition {functionName = name, functionType = t, functionBody = Just body}) -> do
       hPutStrLn headerFile (render $ pretty $ CDeclExt $ cfunDecl name t)
       hPutStrLn codeFile   (render $ pretty $ cfunDef name t body)

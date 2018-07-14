@@ -25,7 +25,7 @@ spec = parallel $ do
       testParseExpr "x : T"
         `shouldBe` (pe (sp 1 1 1 5) $ TypeAnnotation
                      (pe (sp 1 1 1 1) $ Lvalue $ Var "x")
-                     (TypeSpec (([], "T")) [] null_span)
+                     (Just $ TypeSpec (([], "T")) [] null_span)
                    )
 
     it "parses value literals" $ do
@@ -70,7 +70,7 @@ spec = parallel $ do
       testParseExpr "this as A[B]"
         `shouldBe` (e $ Cast
                      (e This)
-                     (TypeSpec ([], "A")
+                     (Just $ TypeSpec ([], "A")
                                [typeParamToSpec $ makeTypeParam "B"]
                                null_span
                      )
@@ -116,16 +116,16 @@ spec = parallel $ do
           "/**test*/ #[meta] inline function abc[A, B: Int, C: (ToString, ToInt)](a: A, b: B = 2, c: C, ...): Something { print(a); print(b); print(c); }"
         `shouldBe` [ ( ps (sp 1 26 1 37)
                      $ FunctionDeclaration
-                     $ FunctionDefinition
-                         { function_name      = "abc"
-                         , function_doc       = Just "test"
-                         , function_meta      = [ Metadata
-                                                    { meta_name = "meta"
-                                                    , meta_args = []
+                     $ (newFunctionDefinition :: FunctionDefinition Expr (Maybe TypeSpec))
+                         { functionName      = "abc"
+                         , functionDoc       = Just "test"
+                         , functionMeta      = [ Metadata
+                                                    { metaName = "meta"
+                                                    , metaArgs = []
                                                     }
                                                 ]
-                         , function_modifiers = [Inline]
-                         , function_params    = [ makeTypeParam "A"
+                         , functionModifiers = [Inline]
+                         , functionParams    = [ makeTypeParam "A"
                                                 , (makeTypeParam "B")
                                                   { constraints = [ makeTypeSpec
                                                                       "Int"
@@ -139,30 +139,30 @@ spec = parallel $ do
                                                                   ]
                                                   }
                                                 ]
-                         , function_args      = [ ArgSpec
-                                                  { arg_name    = "a"
-                                                  , arg_type    = Just
+                         , functionArgs      = [ ArgSpec
+                                                  { argName    = "a"
+                                                  , argType    = Just
                                                     $ makeTypeSpec "A"
-                                                  , arg_default = Nothing
+                                                  , argDefault = Nothing
                                                   }
                                                 , ArgSpec
-                                                  { arg_name    = "b"
-                                                  , arg_type    = Just
+                                                  { argName    = "b"
+                                                  , argType    = Just
                                                     $ makeTypeSpec "B"
-                                                  , arg_default = Just
+                                                  , argDefault = Just
                                                     $ e
                                                     $ Literal
                                                     $ IntValue "2"
                                                   }
                                                 , ArgSpec
-                                                  { arg_name    = "c"
-                                                  , arg_type    = Just
+                                                  { argName    = "c"
+                                                  , argType    = Just
                                                     $ makeTypeSpec "C"
-                                                  , arg_default = Nothing
+                                                  , argDefault = Nothing
                                                   }
                                                 ]
-                         , function_type      = Just $ makeTypeSpec "Something"
-                         , function_body      = Just $ e $ Block
+                         , functionType      = Just $ makeTypeSpec "Something"
+                         , functionBody      = Just $ e $ Block
                            [ e $ Call (e $ Lvalue $ Var "print")
                                       [e $ Lvalue $ Var "a"]
                            , e $ Call (e $ Lvalue $ Var "print")
@@ -170,7 +170,7 @@ spec = parallel $ do
                            , e $ Call (e $ Lvalue $ Var "print")
                                       [e $ Lvalue $ Var "c"]
                            ]
-                         , function_varargs   = True
+                         , functionVarargs   = True
                          }
                      )
                    ]
@@ -186,64 +186,60 @@ spec = parallel $ do
       testParse "typedef MyType = OtherType;"
         `shouldBe` [makeStmt $ Typedef "MyType" $ makeTypeSpec "OtherType"]
       {-testParse "typedef MyType[A] = OtherType[B];" `shouldBe` [makeStmt $ TypeDeclaration $ TypeDefinition {
-        type_name = "MyType",
-        type_doc = Nothing,
-        type_meta = [],
-        type_modifiers = [],
-        type_rules = [],
-        type_params = [TypeParam {param_type = makeTypeSpec "A", constraints = []}],
-        type_type = Typedef {
-          typedef_definition = TypeSpec ([], "OtherType") [TypeParam {param_type = makeTypeSpec "B", constraints = []}] null_span
+        typeName = "MyType",
+        typeDoc = Nothing,
+        typeMeta = [],
+        typeModifiers = [],
+        typeRules = [],
+        typeParams = [TypeParam {paramType = makeTypeSpec "A", constraints = []}],
+        typeType = Typedef {
+          typedef_definition = TypeSpec ([], "OtherType") [TypeParam {paramType = makeTypeSpec "B", constraints = []}] null_span
         }
       }]-}
 
     it "parses atoms" $ do
       testParse "atom MyAtom;"
-        `shouldBe` [ makeStmt $ TypeDeclaration $ TypeDefinition
-                       { type_name      = "MyAtom"
-                       , type_type      = Atom
-                       , type_doc       = Nothing
-                       , type_meta      = []
-                       , type_modifiers = []
-                       , type_rules     = []
-                       , type_params    = []
+        `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition "MyAtom")
+                       { typeType      = Atom
+                       , typeDoc       = Nothing
+                       , typeMeta      = []
+                       , typeModifiers = []
+                       , typeRules     = []
+                       , typeParams    = []
                        }
                    ]
       testParse "public atom MyAtom;"
-        `shouldBe` [ makeStmt $ TypeDeclaration $ TypeDefinition
-                       { type_name      = "MyAtom"
-                       , type_type      = Atom
-                       , type_doc       = Nothing
-                       , type_meta      = []
-                       , type_modifiers = [Public]
-                       , type_rules     = []
-                       , type_params    = []
+        `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition "MyAtom")
+                       { typeType      = Atom
+                       , typeDoc       = Nothing
+                       , typeMeta      = []
+                       , typeModifiers = [Public]
+                       , typeRules     = []
+                       , typeParams    = []
                        }
                    ]
       testParse "/** Doc*/ atom MyAtom;"
-        `shouldBe` [ makeStmt $ TypeDeclaration $ TypeDefinition
-                       { type_name      = "MyAtom"
-                       , type_type      = Atom
-                       , type_doc       = Just "Doc"
-                       , type_meta      = []
-                       , type_modifiers = []
-                       , type_rules     = []
-                       , type_params    = []
+        `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition "MyAtom")
+                       { typeType      = Atom
+                       , typeDoc       = Just "Doc"
+                       , typeMeta      = []
+                       , typeModifiers = []
+                       , typeRules     = []
+                       , typeParams    = []
                        }
                    ]
       testParse "/** Doc*/ #[meta] public atom MyAtom;"
-        `shouldBe` [ makeStmt $ TypeDeclaration $ TypeDefinition
-                       { type_name      = "MyAtom"
-                       , type_type      = Atom
-                       , type_doc       = Just "Doc"
-                       , type_meta      = [ Metadata
-                                              { meta_name = "meta"
-                                              , meta_args = []
+        `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition "MyAtom")
+                       { typeType      = Atom
+                       , typeDoc       = Just "Doc"
+                       , typeMeta      = [ Metadata
+                                              { metaName = "meta"
+                                              , metaArgs = []
                                               }
                                           ]
-                       , type_modifiers = [Public]
-                       , type_rules     = []
-                       , type_params    = []
+                       , typeModifiers = [Public]
+                       , typeRules     = []
+                       , typeParams    = []
                        }
                    ]
 
@@ -254,46 +250,45 @@ spec = parallel $ do
             \    Banana(i: Int);\n\
             \    /**Abc*/ Strawberry = 1;\n\
             \}"
-        `shouldBe` [ makeStmt $ TypeDeclaration $ TypeDefinition
-                       { type_name      = "MyEnum"
-                       , type_doc       = Nothing
-                       , type_meta      = []
-                       , type_modifiers = []
-                       , type_rules     = []
-                       , type_params    = []
-                       , type_type      = Enum
+        `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition "MyEnum")
+                       { typeDoc         = Nothing
+                       , typeMeta        = []
+                       , typeModifiers   = []
+                       , typeRules       = []
+                       , typeParams      = []
+                       , typeType        = Enum
                          { enum_underlying_type = Just (makeTypeSpec "Float")
                          , enum_variants        = [ EnumVariant
-                                                    { variant_name = "Apple"
-                                                    , variant_doc = Nothing
-                                                    , variant_args = []
-                                                    , variant_meta = []
-                                                    , variant_modifiers = []
-                                                    , variant_value = Nothing
+                                                    { variantName = "Apple"
+                                                    , variantDoc = Nothing
+                                                    , variantArgs = []
+                                                    , variantMeta = []
+                                                    , variantModifiers = []
+                                                    , variantValue = Nothing
                                                     }
                                                   , EnumVariant
-                                                    { variant_name = "Banana"
-                                                    , variant_doc = Nothing
-                                                    , variant_args = [ ArgSpec
-                                                                         { arg_name = "i"
-                                                                         , arg_type = Just
+                                                    { variantName = "Banana"
+                                                    , variantDoc = Nothing
+                                                    , variantArgs = [ ArgSpec
+                                                                         { argName = "i"
+                                                                         , argType = Just
                                                                            (makeTypeSpec
                                                                              "Int"
                                                                            )
-                                                                         , arg_default = Nothing
+                                                                         , argDefault = Nothing
                                                                          }
                                                                      ]
-                                                    , variant_meta = []
-                                                    , variant_modifiers = []
-                                                    , variant_value = Nothing
+                                                    , variantMeta = []
+                                                    , variantModifiers = []
+                                                    , variantValue = Nothing
                                                     }
                                                   , EnumVariant
-                                                    { variant_name = "Strawberry"
-                                                    , variant_doc = Just "Abc"
-                                                    , variant_args = []
-                                                    , variant_meta = []
-                                                    , variant_modifiers = []
-                                                    , variant_value = Just
+                                                    { variantName = "Strawberry"
+                                                    , variantDoc = Just "Abc"
+                                                    , variantArgs = []
+                                                    , variantMeta = []
+                                                    , variantModifiers = []
+                                                    , variantValue = Just
                                                       (e $ Literal $ IntValue "1")
                                                     }
                                                   ]
@@ -308,42 +303,41 @@ spec = parallel $ do
             \    public var def;\n\
             \    /** test */ #[meta] var ghi: Int = 1;\n\
             \}"
-        `shouldBe` [ makeStmt $ TypeDeclaration $ TypeDefinition
-                       { type_name      = "MyStruct"
-                       , type_doc       = Nothing
-                       , type_meta      = []
-                       , type_modifiers = []
-                       , type_rules     = []
-                       , type_params    = []
-                       , type_type      = Struct
-                         { struct_fields = [ VarDefinition
-                                             { var_name      = "abc"
-                                             , var_doc       = Nothing
-                                             , var_meta      = []
-                                             , var_modifiers = []
-                                             , var_type      = Nothing
-                                             , var_default   = Nothing
+        `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition "MyStruct")
+                       { typeDoc       = Nothing
+                       , typeMeta      = []
+                       , typeModifiers = []
+                       , typeRules     = []
+                       , typeParams    = []
+                       , typeType      = Struct
+                         { struct_fields = [ (newVarDefinition :: VarDefinition Expr (Maybe TypeSpec))
+                                             { varName        = "abc"
+                                             , varDoc         = Nothing
+                                             , varMeta        = []
+                                             , varModifiers   = []
+                                             , varType        = Nothing
+                                             , varDefault     = Nothing
                                              }
-                                           , VarDefinition
-                                             { var_name      = "def"
-                                             , var_doc       = Nothing
-                                             , var_meta      = []
-                                             , var_modifiers = [Public]
-                                             , var_type      = Nothing
-                                             , var_default   = Nothing
+                                           , (newVarDefinition :: VarDefinition Expr (Maybe TypeSpec))
+                                             { varName        = "def"
+                                             , varDoc         = Nothing
+                                             , varMeta        = []
+                                             , varModifiers   = [Public]
+                                             , varType        = Nothing
+                                             , varDefault     = Nothing
                                              }
-                                           , VarDefinition
-                                             { var_name      = "ghi"
-                                             , var_doc       = Just "test "
-                                             , var_meta      = [ Metadata
-                                                                   { meta_name = "meta"
-                                                                   , meta_args = []
-                                                                   }
-                                                               ]
-                                             , var_modifiers = []
-                                             , var_type      = Just
+                                           , (newVarDefinition :: VarDefinition Expr (Maybe TypeSpec))
+                                             { varName        = "ghi"
+                                             , varDoc         = Just "test "
+                                             , varMeta        = [ Metadata
+                                                                     { metaName = "meta"
+                                                                     , metaArgs = []
+                                                                     }
+                                                                 ]
+                                             , varModifiers   = []
+                                             , varType        = Just
                                                (makeTypeSpec "Int")
-                                             , var_default   = Just
+                                             , varDefault     = Just
                                                $ e
                                                $ Literal
                                                $ IntValue "1"

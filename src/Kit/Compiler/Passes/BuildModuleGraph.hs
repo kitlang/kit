@@ -11,7 +11,6 @@ import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
-import Kit.Compiler.TypeUsage
 import Kit.Compiler.Utils
 import Kit.Error
 import Kit.HashTable
@@ -46,7 +45,7 @@ loadModule ctx mod pos = do
         Nothing -> do
           m <- _loadModule ctx mod pos
           h_insert (ctxModules ctx) mod m
-          if mod_imports m /= []
+          if modImports m /= []
           then
             debugLog ctx
             $  "module <"
@@ -54,22 +53,22 @@ loadModule ctx mod pos = do
             ++ "> imports: "
             ++ (intercalate
                  ", "
-                 (map (s_unpack . showModulePath . fst) $ mod_imports m)
+                 (map (s_unpack . showModulePath . fst) $ modImports m)
                )
           else
             return ()
           forM_
-            (mod_imports m)
+            (modImports m)
             (\(mod', _) -> modifyIORef
               (ctxModuleGraph ctx)
               (\current -> ModuleGraphNode mod mod' : current)
             )
           forM_
-            (mod_includes m)
+            (modIncludes m)
             (\(mod', _) ->
               modifyIORef (ctxIncludes ctx) (\current -> mod' : current)
             )
-          errs <- foldM (_loadImportedModule ctx) [] (mod_imports m)
+          errs <- foldM (_loadImportedModule ctx) [] (modImports m)
           if errs == [] then return m else throw $ Errs $ nub errs
 
 {-

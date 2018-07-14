@@ -73,6 +73,7 @@ tokens :-
   rule { tok KeywordRule }
   rules { tok KeywordRules }
   Self { tok KeywordSelf }
+  specialize { tok KeywordSpecialize }
   static { tok KeywordStatic }
   struct { tok KeywordStruct }
   super { tok KeywordSuper }

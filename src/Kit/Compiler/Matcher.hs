@@ -5,16 +5,16 @@ import Kit.Ast.Lvalue
 import Kit.Ast.Statement
 
 -- TODO: optimize
-type RewriteRules = [RewriteRule]
+type RewriteRules a b = [RewriteRuleType a b]
 
 match :: Expr -> Maybe [(Lvalue, Expr)]
 -- TODO
 match x = Nothing
 
-rewrite :: RewriteRules -> Expr -> Expr
+rewrite :: RewriteRules a b -> a -> a
 rewrite (h : t) x = rewrite t (rewrite1 h x)
 rewrite []      x = x
 
-rewrite1 :: RewriteRule -> Expr -> Expr
+rewrite1 :: RewriteRuleType a b -> a -> a
 -- TODO
 rewrite1 r x = x
