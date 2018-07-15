@@ -70,11 +70,7 @@ _checkForTopLevel ctx mod s = do
                 args <- mapM
                   (\arg -> do
                     -- FIXME: this is the statement's position, not the arg's position
-                    t <- resolveMaybeType ctx
-                                          tctx
-                                          mod
-                                          (stmtPos s)
-                                          (argType arg)
+                    t <- resolveMaybeType ctx tctx mod (stmtPos s) (argType arg)
                     return (argName arg, t)
                   )
                   (variantArgs variant)
@@ -82,7 +78,7 @@ _checkForTopLevel ctx mod s = do
                       EnumConstructor ((modPath mod), typeName) args
                 bindToScope (modVars mod)
                             (variantName variant)
-                            (newBinding constructor)
+                            (newBinding constructor Nothing)
                 return ()
               )
         _ -> do
@@ -106,19 +102,15 @@ _checkForTopLevel ctx mod s = do
       varType <- resolveMaybeType ctx tctx mod (stmtPos s) (varType v)
       bindToScope (modVars mod)
                   (varName v)
-                  (newBinding $ VarBinding (varType))
+                  (newBinding (VarBinding (varType)) (Just $ modPath mod))
     FunctionDeclaration f -> do
       debugLog ctx
         $  "found function "
         ++ s_unpack (functionName f)
         ++ " in "
         ++ (show mod)
-      functionType <- resolveMaybeType ctx
-                                       tctx
-                                       mod
-                                       (stmtPos s)
-                                       (functionType f)
-      args <- mapM
+      functionType <- resolveMaybeType ctx tctx mod (stmtPos s) (functionType f)
+      args         <- mapM
         (\arg -> do
           t <- resolveMaybeType ctx tctx mod (stmtPos s) (argType arg)
           return (argName arg, t)
@@ -127,6 +119,8 @@ _checkForTopLevel ctx mod s = do
       bindToScope
         (modVars mod)
         (functionName f)
-        (newBinding $ FunctionBinding (functionType) args (functionVarargs f))
-      bindToScope (modFunctions mod) (functionName f) f
+        (newBinding (FunctionBinding (functionType) args (functionVarargs f))
+                    (Just $ modPath mod)
+        )
+      bindToScope (modFunctions mod) (functionName f) (f {functionNameMangling = Just $ modPath mod})
     _ -> return ()

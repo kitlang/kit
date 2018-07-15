@@ -138,7 +138,7 @@ spec = do
       (\(label, name, val) -> it label $ do
         header  <- testHeader
         binding <- resolveLocal (modVars header) name
-        binding `shouldBe` Just (newBinding val)
+        binding `shouldBe` Just (newBinding val Nothing)
       )
 
     {-forM_
@@ -146,11 +146,11 @@ spec = do
         , "Struct1"
         , TypeStruct ([], "Struct1") []
         , (newTypeDefinition "Struct1")
-          { typeMangleName = False
+          { typeNameMangling = False
           , typeType        = Struct
             { struct_fields = [ newVarDefinition
                                 { varName        = "field1"
-                                , varMangleName = False
+                                , varNameMangling = False
                                 , varType        = Just
                                   $ ConcreteType
                                   $ TypeBasicType
@@ -158,7 +158,7 @@ spec = do
                                 }
                               , newVarDefinition
                                 { varName        = "field2"
-                                , varMangleName = False
+                                , varNameMangling = False
                                 , varType        = Just
                                   $ ConcreteType
                                   $ TypeBasicType
@@ -172,11 +172,11 @@ spec = do
         , "Struct2"
         , TypeBasicType BasicTypeUnknown
         , (newTypeDefinition "Struct2")
-          { typeMangleName = False
+          { typeNameMangling = False
           , typeType        = Struct
             { struct_fields = [ newVarDefinition
                                 { varName        = "field1"
-                                , varMangleName = False
+                                , varNameMangling = False
                                 , varType        = Just
                                   $ ConcreteType
                                   $ TypeBasicType
@@ -184,7 +184,7 @@ spec = do
                                 }
                               , newVarDefinition
                                 { varName        = "field2"
-                                , varMangleName = False
+                                , varNameMangling = False
                                 , varType        = Just
                                   $ ConcreteType
                                   $ TypeBasicType
@@ -197,7 +197,7 @@ spec = do
       , ( "Parses empty struct typedefs"
         , "Struct3"
         , TypeStruct ([], "Struct3") []
-        , (newTypeDefinition "Struct3") { typeMangleName = False
+        , (newTypeDefinition "Struct3") { typeNameMangling = False
                                         , typeType        = Struct
                                           { struct_fields = []
                                           }
@@ -207,7 +207,7 @@ spec = do
         , "Enum1"
         , TypeEnum ([], "Enum1") []
         , (newTypeDefinition "Enum1")
-          { typeMangleName = False
+          { typeNameMangling = False
           , typeType        = Enum
             { enum_variants = [ newEnumVariant { variantName = "apple" }
                               , newEnumVariant { variantName = "banana" }

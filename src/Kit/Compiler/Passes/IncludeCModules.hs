@@ -117,7 +117,7 @@ addCDecl ctx mod name t = do
           [ (name, argType) | (name, argType) <- argTypes ]
           isVariadic
         _ -> VarBinding $ t
-  bindToScope (modVars mod) name (newBinding bindingData)
+  bindToScope (modVars mod) name (newBinding bindingData Nothing)
   debugLog ctx $ "binding " ++ (s_unpack name) ++ ": " ++ (show t) ++ ""
   return ()
 
@@ -163,14 +163,14 @@ parseTypedefSpec ((CSUType (CStruct CStructTag _ fields _ _) _) : _) name =
         Nothing -> []
   in
     [ (newTypeDefinition name)
-        { typeMangleName = False
-        , typeType        = Struct
+        { typeNameMangling = Nothing
+        , typeType         = Struct
           { struct_fields = [ newVarDefinition
-                                { varName        = structFieldName field
-                                , varType        = Just
+                                { varName         = structFieldName field
+                                , varType         = Just
                                   $ ConcreteType
                                   $ structFieldType field
-                                , varMangleName = False
+                                , varNameMangling = Nothing
                                 }
                             | field <- fields'
                             ]
@@ -184,12 +184,12 @@ parseNonInitSpec ((CSUType (CStruct CStructTag (Just (Ident name _ _)) fields _ 
   = case fields of
     Just fields
       -> [ (newTypeDefinition (s_pack name))
-             { typeMangleName = False
-             , typeType        = Struct
+             { typeNameMangling = Nothing
+             , typeType         = Struct
                { struct_fields = [ newVarDefinition
-                                     { varMangleName = False
-                                     , varName        = structFieldName field
-                                     , varType        = Just
+                                     { varNameMangling = Nothing
+                                     , varName         = structFieldName field
+                                     , varType         = Just
                                        $ ConcreteType
                                        $ structFieldType field
                                      }
@@ -201,8 +201,8 @@ parseNonInitSpec ((CSUType (CStruct CStructTag (Just (Ident name _ _)) fields _ 
     Nothing -> []
 parseNonInitSpec ((CEnumType (CEnum (Just (Ident name _ _)) (Just variants) _ _) _) : _)
   = [ (newTypeDefinition (s_pack name))
-        { typeMangleName = False
-        , typeType        = Enum
+        { typeNameMangling = Nothing
+        , typeType         = Enum
           { enum_variants = [ newEnumVariant { variantName = s_pack variantName
                                              }
                             | (Ident variantName _ _, _) <- variants
@@ -213,7 +213,8 @@ parseNonInitSpec ((CEnumType (CEnum (Just (Ident name _ _)) (Just variants) _ _)
     ]
 parseNonInitSpec _ = []
 
-addTypeDeclaration :: CompileContext -> Module -> TypeDefinition Expr (Maybe TypeSpec) -> IO ()
+addTypeDeclaration
+  :: CompileContext -> Module -> TypeDefinition Expr (Maybe TypeSpec) -> IO ()
 addTypeDeclaration ctx mod t = do
   let name = (typeName t)
   tctx <- newTypeContext []

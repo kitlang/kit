@@ -144,7 +144,7 @@ knownType ctx tctx mod t = do
       info <- h_get (ctxTypeVariables ctx) (x)
       case typeVarValue info of
         -- Specific known type
-        Just t -> knownType ctx tctx mod t
+        Just t  -> knownType ctx tctx mod t
         -- No specific type; return type var
         Nothing -> follow ctx tctx mod t
     TypeTypeVar (TypeParamVar s) -> do
@@ -199,6 +199,7 @@ builtinToConcreteType ctx tctx mod s p = do
     ("Char"   , [] ) -> builtinToConcreteType ctx tctx mod "Int8" []
     ("Short"  , [] ) -> builtinToConcreteType ctx tctx mod "Int16" []
     ("Int"    , [] ) -> builtinToConcreteType ctx tctx mod "Int32" []
+    ("Uint"   , [] ) -> builtinToConcreteType ctx tctx mod "Uint32" []
     ("Long"   , [] ) -> builtinToConcreteType ctx tctx mod "Int64" []
     ("Float"  , [] ) -> builtinToConcreteType ctx tctx mod "Float32" []
     ("Double" , [] ) -> builtinToConcreteType ctx tctx mod "Float64" []

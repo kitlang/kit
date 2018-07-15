@@ -1,13 +1,13 @@
 module Kit.Ast.Metadata where
 
-import Kit.Ast.Lvalue
+import Kit.Ast.Identifier
 import Kit.Ast.Value
 import Kit.Str
 
 data Metadata = Metadata {metaName :: Str, metaArgs :: [MetaArg]} deriving (Eq, Show)
 
 data MetaArg
-  = MetaLvalue Lvalue
+  = MetaIdentifier Identifier
   | MetaLiteral ValueLiteral
   deriving (Eq, Show)
 

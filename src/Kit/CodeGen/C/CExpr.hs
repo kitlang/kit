@@ -47,7 +47,7 @@ ctype' = map CTypeSpec . ctype
 
 transpileExpr :: IrExpr -> CExpr
 transpileExpr (IrIdentifier s) = u $ CVar $ internalIdent $ s_unpack s
-transpileExpr (IrLiteral (BoolValue b)) =
+transpileExpr (IrLiteral (BooIdentifier b)) =
   CConst $ u $ CIntConst $ cInteger (if b then 1 else 0)
 transpileExpr (IrLiteral (IntValue i)) =
   CConst $ u $ CIntConst $ transpileInt (s_unpack i)

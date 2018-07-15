@@ -37,21 +37,28 @@ generateDeclIr :: CompileContext -> Module -> TypedDecl -> IO ()
 generateDeclIr ctx mod t = do
   let addDecl d = modifyIORef (modIr mod) (\x -> d : x)
   case t of
-    TypedFunction (FunctionDefinition { functionName = name, functionType = rt, functionBody = Just body, functionArgs = args, functionVarargs = varargs })
+    TypedFunction f@(FunctionDefinition { functionName = name, functionType = rt, functionBody = Just body, functionArgs = args, functionVarargs = varargs })
       -> do
         rt        <- findUnderlyingType ctx mod rt
         typedArgs <- mapM
           (\arg -> do
             t <- findUnderlyingType ctx mod (argType arg)
-            return $ newArgSpec {argName = argName arg, argType = t, argDefault = argDefault arg}
+            return $ newArgSpec { argName    = argName arg
+                                , argType    = t
+                                , argDefault = argDefault arg
+                                }
           )
           args
         body' <- typedToIr ctx mod body
-        addDecl $ IrFunction $ (newFunctionDefinition :: IrFunction) {
-          functionName = name,
-          functionType = (BasicTypeFunction rt [(argName arg, argType arg) | arg <- typedArgs] varargs),
-          functionBody = Just body'
-        }
+        addDecl $ IrFunction $ ((convertFunctionDefinition f) :: IrFunction)
+          { functionName = name
+          , functionType = (BasicTypeFunction
+                             rt
+                             [ (argName arg, argType arg) | arg <- typedArgs ]
+                             varargs
+                           )
+          , functionBody = Just body'
+          }
     _ -> undefined -- TODO
 
 {-
@@ -72,7 +79,7 @@ findUnderlyingType ctx mod t = do
     -- TypePtr ConcreteType
     -- TypeArr ConcreteType (Maybe Int)
     -- TypeEnumConstructor TypePath ConcreteArgs
-    -- TypeLvalue ConcreteType
+    -- TypeIdentifier ConcreteType
     -- TypeRange
     -- TypeTraitPointer TypePath
     TypePtr t -> do
@@ -117,8 +124,9 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
       (This     ) -> return $ IrIdentifier "__this"
       (Self     ) -> return $ throw $ Errs
         [errp ValidationError ("unexpected Self in typed AST") (Just pos)]
-      (Lvalue (Var v       )) -> return $ IrIdentifier v
-      (Lvalue (MacroVar v _)) -> return $ throw $ Errs
+      (Identifier (Var v) mangle) ->
+        return $ IrIdentifier (mangleName mangle v)
+      (Identifier (MacroVar v _) _) -> return $ throw $ Errs
         [ errp ValidationError
                ("unexpected macro var (" ++ (s_unpack v) ++ ") in typed AST")
                (Just pos)
@@ -174,7 +182,7 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
         t1' <- findUnderlyingType ctx mod (inferredType e1)
         return $ if t1' == f then r1 else IrCast r1 f
       (TokenExpr tc) -> return $ undefined -- TODO
-      (Unsafe e1) ->
+      (Unsafe e1 t) ->
         return
           $ throw
           $ Errs

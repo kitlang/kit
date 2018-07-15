@@ -51,3 +51,11 @@ instance Eq TypeSpec where
   (==) (TypeFunctionSpec tp1 params1 args1 v1) (TypeFunctionSpec tp2 params2 args2 v2) = (tp1 == tp2) && (params1 == params2) && (args1 == args2) && (v1 == v2)
   (==) (ConcreteType ct1) (ConcreteType ct2) = ct1 == ct2
   (==) a b = False
+
+data TypeParam = TypeParam {
+  paramName :: Str,
+  constraints :: [TypeSpec]
+} deriving (Eq, Show)
+
+makeTypeParam s = TypeParam {paramName = s, constraints = []}
+typeParamToSpec (TypeParam { paramName = s }) = makeTypeSpec s

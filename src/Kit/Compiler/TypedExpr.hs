@@ -7,4 +7,4 @@ type TypedExprType = ExprType TypedExpr ConcreteType
 data TypedExpr = TypedExpr {texpr :: TypedExprType, tPos :: Span, inferredType :: ConcreteType} deriving (Eq, Show)
 
 makeExprTyped :: TypedExprType -> ConcreteType -> Span -> TypedExpr
-makeExprTyped et t pos = TypedExpr { texpr = et, inferredType = t, tPos = pos }
+makeExprTyped et t pos = TypedExpr {texpr = et, inferredType = t, tPos = pos}

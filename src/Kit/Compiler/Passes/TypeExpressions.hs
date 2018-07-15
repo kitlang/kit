@@ -33,7 +33,10 @@ basicType = TypeBasicType
 voidType = TypeBasicType BasicTypeVoid
 
 typeFunction
-  :: CompileContext -> Module -> FunctionDefinition Expr (Maybe TypeSpec) -> IO ()
+  :: CompileContext
+  -> Module
+  -> FunctionDefinition Expr (Maybe TypeSpec)
+  -> IO ()
 typeFunction ctx mod f = do
   debugLog ctx
     $  "typing function "
@@ -42,6 +45,8 @@ typeFunction ctx mod f = do
     ++ show mod
   case functionBody f of
     Just x -> do
+      let isMain =
+            (functionName f == "main") && (modPath mod == ctxMainModule ctx)
       imports       <- mapM (\(mp, _) -> getMod ctx mp) (modImports mod)
       includes      <- mapM (\(mp, _) -> getCMod ctx mp) (modIncludes mod)
       functionScope <- newScope
@@ -54,9 +59,10 @@ typeFunction ctx mod f = do
       args <- mapM
         (\arg -> do
           argType <- resolveMaybeType ctx tctx mod (pos x) (argType arg)
-          return $ newArgSpec {argName = argName arg, argType = argType}
+          return $ newArgSpec { argName = argName arg, argType = argType }
         )
         (functionArgs f)
+      forM_ args (\arg -> bindToScope functionScope (argName arg) (newBinding (VarBinding $ argType arg) Nothing))
       returnType <- resolveMaybeType ctx tctx mod (pos x) (functionType f)
       typedBody  <- typeExpr
         ctx
@@ -72,18 +78,22 @@ typeFunction ctx mod f = do
             case unify (resolvedReturnType) (TypeBasicType BasicTypeVoid) of
               TypeConstraintNotSatisfied -> resolvedReturnType
               _                          -> TypeBasicType BasicTypeVoid
-      let typedFunction = (newFunctionDefinition :: TypedFunction)
-            { functionName       = functionName f
-            , functionType       = finalReturnType
-            , functionArgs       = args
-            , functionBody       = Just typedBody
-            , functionVarargs    = (functionVarargs f)
-            , functionMangleName = (functionMangleName f)
-            }
-      bindToScope (modTypedContents mod) (functionName f) (TypedFunction typedFunction)
-    Nothing ->
-      throw $ Errs
-        [err ValidationError ("main function is missing a function body")]
+      let
+        typedFunction = ((convertFunctionDefinition f) :: TypedFunction)
+          { functionName         = functionName f
+          , functionType         = finalReturnType
+          , functionArgs         = args
+          , functionBody         = Just typedBody
+          , functionVarargs      = (functionVarargs f)
+          , functionNameMangling = (if isMain
+                                     then Nothing
+                                     else functionNameMangling f
+                                   )
+          }
+      bindToScope (modTypedContents mod)
+                  (functionName f)
+                  (TypedFunction typedFunction)
+    _ -> return ()
 
 {-
   Converts a tree of untyped AST to Typed AST.
@@ -130,19 +140,20 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
         Nothing -> throw $ Errs
           [errp TypingError ("`Self` can only be used in methods") (Just pos)]
 
-    (Lvalue v) -> do
+    (Identifier v _) -> do
       case v of
         Var vname -> do
           binding <- resolveVar ctx (tctxScopes tctx) mod vname
           case binding of
-            Just (Binding { bindingType = VarBinding t }) ->
-              return $ makeExprTyped (Lvalue v) t pos
-            Just (Binding { bindingType = FunctionBinding f args variadic }) ->
-              return
-                $ makeExprTyped (Lvalue v) (TypeFunction f args variadic) pos
+            Just (Binding { bindingType = VarBinding t, bindingNameMangling = mangle })
+              -> return $ makeExprTyped (Identifier v mangle) t pos
+            Just (Binding { bindingType = FunctionBinding f args variadic, bindingNameMangling = mangle })
+              -> return $ makeExprTyped (Identifier v mangle)
+                                        (TypeFunction f args variadic)
+                                        pos
             Just (Binding { bindingType = EnumConstructor t args }) ->
               -- TODO: handle type params
-              return $ makeExprTyped (Lvalue v) t' pos
+              return $ makeExprTyped (Identifier v Nothing) t' pos
              where
               t' = if args == []
                 then (TypeEnum t [])
@@ -207,7 +218,7 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
       mapM_ (resolve pos) constraints
       return $ makeExprTyped (Binop op r1 r2) t pos
 
-    (For (Expr { expr = Lvalue v, pos = pos1 }) e2 e3) -> do
+    (For (Expr { expr = Identifier v _, pos = pos1 }) e2 e3) -> do
       r2    <- r e2
       scope <- newScope
       r3    <- typeExpr
@@ -221,7 +232,10 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
       tv <- makeTypeVar ctx pos
       resolve (tPos r2) $ TypeClassMember (TypeIterable tv) (inferredType r2)
       return $ makeExprTyped
-        (For (makeExprTyped (Lvalue v) (TypeLvalue tv) pos1) r2 r3)
+        (For (makeExprTyped (Identifier v Nothing) (TypeIdentifier tv) pos1)
+             r2
+             r3
+        )
         voidType
         pos
 
@@ -309,8 +323,13 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
       t' <- resolveMaybeType ctx tctx mod pos t
       return $ makeExprTyped (Cast r1 t') t' pos
 
-    (Unsafe       e1) -> throw $ Errs [err InternalError "Not yet implemented"]
-    (BlockComment s ) -> do
+    (Unsafe e1 t) -> do
+      t' <- resolveMaybeType ctx tctx mod pos t
+      let r1 = case expr e1 of
+            Identifier i _ -> Identifier i Nothing
+            _ -> throw $ Errs [err InternalError "Not yet implemented"]
+      return $ makeExprTyped r1 t' pos
+    (BlockComment s) -> do
       return $ makeExprTyped (BlockComment s) voidType pos
     (New t args) -> throw $ Errs [err InternalError "Not yet implemented"]
     (Copy e1) -> throw $ Errs [err InternalError "Not yet implemented"]
@@ -331,21 +350,22 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
     (VarDeclaration (Var vname) t (Just e1)) -> do
       varType <- resolveMaybeType ctx tctx mod pos t
       r1      <- r e1
-      bindToScope
-        (head $ tctxScopes tctx)
-        vname
-        ((newBinding $ VarBinding varType) { bindingNameMangling = False })
+      bindToScope (head $ tctxScopes tctx)
+                  vname
+                  ((newBinding (VarBinding varType) Nothing))
       resolve (tPos r1) $ TypeEq (varType) (inferredType r1)
-      return
-        $ makeExprTyped (VarDeclaration (Var vname) (varType) (Just r1)) varType pos
+      return $ makeExprTyped (VarDeclaration (Var vname) (varType) (Just r1))
+                             varType
+                             pos
 
     (VarDeclaration (Var vname) t Nothing) -> do
       varType <- resolveMaybeType ctx tctx mod pos t
-      bindToScope
-        (head $ tctxScopes tctx)
-        vname
-        ((newBinding $ VarBinding varType) { bindingNameMangling = False })
-      return $ makeExprTyped (VarDeclaration (Var vname) varType Nothing) varType pos
+      bindToScope (head $ tctxScopes tctx)
+                  vname
+                  ((newBinding (VarBinding varType) Nothing))
+      return $ makeExprTyped (VarDeclaration (Var vname) varType Nothing)
+                             varType
+                             pos
 
   t' <- knownType ctx tctx mod (inferredType result)
   return $ result { inferredType = t' }
@@ -387,7 +407,7 @@ typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = TypeFunction rt argT
               (Just pos)
           ]
         else return ()
-                              -- TODO
+                                              -- TODO
     forM_
       (zip argTypes args)
       (\((_, argType), argValue) -> do
@@ -408,10 +428,10 @@ typeEnumConstructorCall ctx tctx mod e args = do
   return e
 
 literalConstraints :: ValueLiteral -> ConcreteType -> [TypeConstraint]
-literalConstraints (BoolValue   _) s = [TypeEq s (basicType $ BasicTypeBool)]
-literalConstraints (IntValue    _) s = [TypeClassMember TypeNumeric s]
-literalConstraints (FloatValue  _) s = [TypeClassMember TypeNumeric s]
-literalConstraints (StringValue _) s = [TypeClassMember TypeString s]
+literalConstraints (BooIdentifier _) s = [TypeEq s (basicType $ BasicTypeBool)]
+literalConstraints (IntValue      _) s = [TypeClassMember TypeNumeric s]
+literalConstraints (FloatValue    _) s = [TypeClassMember TypeNumeric s]
+literalConstraints (StringValue   _) s = [TypeClassMember TypeString s]
 
 opTypes
   :: Operator

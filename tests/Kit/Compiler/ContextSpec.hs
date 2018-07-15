@@ -12,7 +12,7 @@ import Kit.HashTable
 import Kit.Parser
 import Kit.Str
 
-newVar s = newBinding $ VarBinding $ TypeBasicType BasicTypeVoid
+newVar s = newBinding (VarBinding $ TypeBasicType BasicTypeVoid) Nothing
 
 spec :: Spec
 spec = do

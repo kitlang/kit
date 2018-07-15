@@ -26,7 +26,7 @@ data ConcreteType
   | TypePtr ConcreteType
   | TypeArr ConcreteType (Maybe Int)
   | TypeEnumConstructor TypePath ConcreteArgs
-  | TypeLvalue ConcreteType
+  | TypeIdentifier ConcreteType
   | TypeRange
   | TypeTraits [TypePath]
   | TypeTypeVar TypeVar
@@ -48,21 +48,11 @@ instance Show ConcreteType where
   show (TypeArr t (Just i)) = "Arr[" ++ (show t) ++ "] of length " ++ (show i)
   show (TypeArr t Nothing) = "Arr[" ++ (show t) ++ "]"
   show (TypeEnumConstructor tp _) = "enum " ++ (show tp) ++ " constructor"
-  show (TypeLvalue t) = "lvalue of " ++ (show t)
+  show (TypeIdentifier t) = "Identifier of " ++ (show t)
   show (TypeRange) = "range"
   show (TypeTraits [tp]) = "trait " ++ (s_unpack $ showTypePath tp)
   show (TypeTraits ts) = "traits (" ++ (intercalate " + " [s_unpack $ showTypePath tp | tp <- ts]) ++ ")"
   show (TypeTypeVar i) = show i
-
-data BindingType
-  = VarBinding ConcreteType
-  | FunctionBinding ConcreteType [(Str, ConcreteType)] Bool
-  | EnumConstructor TypePath [(Str, ConcreteType)]
-  deriving (Eq, Show)
-
-data Binding = Binding { bindingType :: BindingType, bindingNameMangling :: Bool } deriving (Eq, Show)
-
-newBinding b = Binding {bindingType = b, bindingNameMangling = True}
 
 data TypeVar
   = TypeVar Int

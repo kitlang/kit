@@ -28,59 +28,45 @@ generateCode ctx = do
 
 generateModule :: CompileContext -> Module -> IO ()
 generateModule ctx mod = do
-  let codeFilePath   = (libPath ctx $ modPath mod)
+  generateHeader ctx mod
+  generateLib    ctx mod
+
+generateHeader ctx mod = do
   let headerFilePath = (includePath ctx $ modPath mod)
   debugLog ctx
-    $  "generating code for "
+    $  "generating header for "
     ++ show mod
     ++ " in "
-    ++ (intercalate ", " [codeFilePath, headerFilePath])
-  -- create output directories
-  createDirectoryIfMissing True $ takeDirectory $ codeFilePath
+    ++ headerFilePath
   createDirectoryIfMissing True $ takeDirectory $ headerFilePath
-  codeFile   <- openFile codeFilePath WriteMode
-  headerFile <- openFile headerFilePath WriteMode
-  -- open file and write imports/includes
-  writeHeader ctx mod headerFile True
-  writeHeader ctx mod codeFile   False
-  -- transpile and write code/declarations
-  ir <- readIORef (modIr mod)
-  forM_ ir (generateDecl ctx mod codeFile headerFile)
-  -- finish and close files
-  writeFooter ctx mod headerFile True
-  writeFooter ctx mod codeFile   False
-  return ()
-
-writeHeader :: CompileContext -> Module -> Handle -> Bool -> IO ()
-writeHeader ctx mod handle cheader = do
-  if cheader
-    then
-      hPutStrLn handle
-      $  "#ifndef "
-      ++ (modDef $ modPath mod)
-      ++ "\n#define "
-      ++ (modDef $ modPath mod)
-      ++ "\n"
-    else return ()
+  handle <- openFile headerFilePath WriteMode
+  hPutStrLn handle $ "#ifndef " ++ (modDef $ modPath mod)
+  hPutStrLn handle $ "#define " ++ (modDef $ modPath mod)
   forM_
     (modIncludes mod)
     (\(filepath, _) -> hPutStrLn handle $ "#include \"" ++ filepath ++ "\"")
-  let imports = if cheader
-        then (map fst (modImports mod))
-        else (modPath mod) : (map fst (modImports mod))
   forM_
-    (imports)
+    (map fst (modImports mod))
     (\imp -> do
-      if cheader
-        then hPutStrLn handle $ "#ifndef " ++ (modDef imp) ++ "\n"
-        else return ()
       hPutStrLn handle $ "#include \"" ++ (relativeLibPath imp -<.> "h") ++ "\""
-      if cheader then hPutStrLn handle $ "#endif" else return ()
     )
+  ir <- readIORef (modIr mod)
+  forM_     ir     (generateHeaderDecl ctx mod handle)
+  hPutStrLn handle "#endif"
+  hClose handle
 
-writeFooter :: CompileContext -> Module -> Handle -> Bool -> IO ()
-writeFooter ctx mod handle cheader = do
-  if cheader then hPutStrLn handle "#endif" else return ()
+generateLib ctx mod = do
+  let codeFilePath = (libPath ctx $ modPath mod)
+  debugLog ctx $ "generating code for " ++ show mod ++ " in " ++ codeFilePath
+  -- create output directories
+  createDirectoryIfMissing True $ takeDirectory $ codeFilePath
+  handle <- openFile codeFilePath WriteMode
+  hPutStrLn handle
+    $  "#include \""
+    ++ (relativeLibPath (modPath mod) -<.> "h")
+    ++ "\""
+  ir <- readIORef (modIr mod)
+  forM_ ir (generateDecl ctx mod handle)
   hClose handle
 
 relativeLibPath :: ModulePath -> FilePath
@@ -97,9 +83,18 @@ libPath :: CompileContext -> ModulePath -> FilePath
 libPath ctx mod =
   ((ctxOutputDir ctx) </> "lib" </> (moduleFilePath mod -<.> ".c"))
 
-generateDecl :: CompileContext -> Module -> Handle -> Handle -> IrDecl -> IO ()
-generateDecl ctx mod codeFile headerFile decl = do
+generateHeaderDecl :: CompileContext -> Module -> Handle -> IrDecl -> IO ()
+generateHeaderDecl ctx mod headerFile decl = do
   case decl of
-    IrFunction (FunctionDefinition {functionName = name, functionType = t, functionBody = Just body}) -> do
-      hPutStrLn headerFile (render $ pretty $ CDeclExt $ cfunDecl name t)
-      hPutStrLn codeFile   (render $ pretty $ cfunDef name t body)
+    IrFunction (FunctionDefinition { functionName = name, functionType = t, functionBody = Just body, functionNameMangling = mangle })
+      -> do
+        let name' = mangleName mangle name
+        hPutStrLn headerFile (render $ pretty $ CDeclExt $ cfunDecl name' t)
+
+generateDecl :: CompileContext -> Module -> Handle -> IrDecl -> IO ()
+generateDecl ctx mod codeFile decl = do
+  case decl of
+    IrFunction (FunctionDefinition { functionName = name, functionType = t, functionBody = Just body, functionNameMangling = mangle })
+      -> do
+        let name' = mangleName mangle name
+        hPutStrLn codeFile (render $ pretty $ cfunDef name' t body)

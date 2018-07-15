@@ -191,8 +191,8 @@ Statement :: {Statement}
   }
   | DocMetaMods implement TypeSpec for TypeSpec RewriteRulesBody {
     ps (fp [p $1, p $2, p $6]) $ Implement $ TraitImplementation {
-      implTrait = fst $3,
-      implFor = fst $5,
+      implTrait = Just $ fst $3,
+      implFor = Just $ fst $5,
       implRules = reverse $ fst $6,
       implDoc = doc $1
     }
@@ -205,7 +205,7 @@ Statement :: {Statement}
 
 TopLevelExpr :: {Expr}
   : StandaloneExpr {$1}
-  | var Lvalue TypeAnnotation OptionalDefault ';' {pe (p $1 <+> p $5) $ VarDeclaration (fst $2) (fst $3) $4}
+  | var Identifier TypeAnnotation OptionalDefault ';' {pe (p $1 <+> p $5) $ VarDeclaration (fst $2) (fst $3) $4}
   | copy Expr ';' {pe (p $1 <+> p $3) $ Copy $2}
   | delete Expr ';' {pe (p $1 <+> p $3) $ Delete $2}
   | move Expr ';' {pe (p $1 <+> p $3) $ Move $2}
@@ -215,14 +215,13 @@ TopLevelExpr :: {Expr}
   | continue ';' {pe (p $1 <+> p $2) $ Continue}
   | break ';' {pe (p $1 <+> p $2) $ Break}
   | tokens LexMacroTokenBlock {pe (snd $1 <+> snd $2) $ TokenExpr $ tc (fst $2)}
-  | macro_identifier {pe (p $1) (Lvalue $ MacroVar (extract_macro_identifier $1) Nothing)}
-  | '$' '{' identifier TypeAnnotation '}' {pe (p $1) (Lvalue $ MacroVar (extract_identifier $1) (fst $4))}
+  | macro_identifier {pe (p $1) (Identifier (MacroVar (extract_macro_identifier $1) Nothing) Nothing)}
 
 StandaloneExpr :: {Expr}
   : ExprBlock {$1}
   | if BinopTermOr ExprBlock else ExprBlock {pe (p $1 <+> pos $5) $ If $2 $3 (Just $5)}
   | if BinopTermOr ExprBlock {pe (p $1 <+> pos $3) $ If $2 $3 (Nothing)}
-  | for Lvalue in Expr ExprBlock {pe (p $1 <+> pos $5) $ For (pe (snd $2) (Lvalue $ fst $2)) $4 $5}
+  | for Identifier in Expr ExprBlock {pe (p $1 <+> pos $5) $ For (pe (snd $2) (Identifier (fst $2) Nothing)) $4 $5}
   | while Expr ExprBlock {pe (p $1 <+> pos $3) $ While $2 $3}
   | match Expr '{' MatchCases DefaultMatchCase '}' {pe (p $1 <+> p $6) $ Match $2 (reverse $4) $5}
   | Expr ';' {me (pos $1 <+> p $2) $1}
@@ -272,7 +271,7 @@ ModulePath :: {([B.ByteString], Span)}
 
 MetaArg :: {MetaArg}
   : Term {MetaLiteral $ fst $1}
-  | Lvalue {MetaLvalue $ fst $1}
+  | Identifier {MetaIdentifier $ fst $1}
 
 MetaArgs :: {[MetaArg]}
   : MetaArg {[$1]}
@@ -635,7 +634,7 @@ CallExpr :: {Expr}
   | FieldExpr {$1}
 
 FieldExpr :: {Expr}
-  : FieldExpr '.' Lvalue {pe (pos $1 <+> p $3) $ Field $1 $ fst $3}
+  : FieldExpr '.' Identifier {pe (pos $1 <+> p $3) $ Field $1 $ fst $3}
   | TypeAnnotatedExpr {$1}
 
 TypeAnnotatedExpr :: {Expr}
@@ -646,16 +645,17 @@ BaseExpr :: {Expr}
   : Term {pe (snd $1) (Literal $ fst $1)}
   | this {pe (snd $1) This}
   | Self {pe (snd $1) Self}
-  | Lvalue {pe (snd $1) $ Lvalue $ fst $1}
+  | Identifier {pe (snd $1) $ Identifier (fst $1) Nothing}
+  | '(' unsafe Expr ')' TypeAnnotation {pe (fp [p $1, p $4, snd $5]) (Unsafe $3 (fst $5))}
   | '(' Expr ')' {me (p $1 <+> p $3) $2}
 
-Lvalue :: {(Lvalue, Span)}
+Identifier :: {(Identifier, Span)}
   : UpperOrLowerIdentifier {(Var $ fst $1, snd $1)}
   | macro_identifier {(MacroVar (extract_macro_identifier $1) Nothing, snd $1)}
-  | '$' '{' identifier TypeAnnotation '}' {(MacroVar (extract_identifier $1) (fst $4), (p $1 <+> p $5))}
+  | '$' '{' UpperOrLowerIdentifier TypeAnnotation '}' {(MacroVar (fst $3) (fst $4), (p $1 <+> p $5))}
 
 Term :: {(ValueLiteral, Span)}
-  : bool {(BoolValue $ extract_bool $ fst $1, snd $1)}
+  : bool {(BooIdentifier $ extract_bool $ fst $1, snd $1)}
   | str {(StringValue $ extract_lit $ fst $1, snd $1)}
   | int {(IntValue $ extract_lit $ fst $1, snd $1)}
   | float {(FloatValue $ extract_lit $ fst $1, snd $1)}

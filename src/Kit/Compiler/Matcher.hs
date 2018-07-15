@@ -1,13 +1,14 @@
 module Kit.Compiler.Matcher where
 
+import Kit.Ast.Declarations
 import Kit.Ast.Expr
-import Kit.Ast.Lvalue
+import Kit.Ast.Identifier
 import Kit.Ast.Statement
 
 -- TODO: optimize
 type RewriteRules a b = [RewriteRuleType a b]
 
-match :: Expr -> Maybe [(Lvalue, Expr)]
+match :: Expr -> Maybe [(Identifier, Expr)]
 -- TODO
 match x = Nothing
 

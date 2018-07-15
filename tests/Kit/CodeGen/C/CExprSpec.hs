@@ -58,9 +58,10 @@ spec = do
       showstmt (IrBlock [IrContinue, IrBreak])
         `shouldBe` "{\ncontinue;\nbreak;\n}"
     it "transpiles if statements" $ do
-      showstmt (IrIf (IrLiteral $ BoolValue True) (IrContinue) (Just $ IrBreak))
+      showstmt
+          (IrIf (IrLiteral $ BooIdentifier True) (IrContinue) (Just $ IrBreak))
         `shouldBe` "if (1)\n{\ncontinue;\n}\nelse\n{\nbreak;\n}"
-      showstmt (IrIf (IrLiteral $ BoolValue True) (IrContinue) (Nothing))
+      showstmt (IrIf (IrLiteral $ BooIdentifier True) (IrContinue) (Nothing))
         `shouldBe` "if (1)\n{\ncontinue;\n}"
     it "transpiles local variable declarations" $ do
       showblock
@@ -87,8 +88,8 @@ spec = do
     it "transpiles identifiers" $ do
       showexpr (IrIdentifier "apple_banana") `shouldBe` "apple_banana"
     it "transpiles bool literals" $ do
-      showexpr (IrLiteral $ BoolValue False) `shouldBe` "0"
-      showexpr (IrLiteral $ BoolValue True) `shouldBe` "1"
+      showexpr (IrLiteral $ BooIdentifier False) `shouldBe` "0"
+      showexpr (IrLiteral $ BooIdentifier True) `shouldBe` "1"
     it "transpiles int literals" $ do
       showexpr (IrLiteral $ IntValue "1") `shouldBe` "1"
       showexpr (IrLiteral $ IntValue "0100") `shouldBe` "100"
