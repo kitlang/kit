@@ -15,7 +15,10 @@ testHeader = do
   -- let ctx = ctx' {
   --   ctxIncludePaths = ["tests/Kit/Compiler/Passes"]
   -- }
-  parseCHeader ctx "tests/Kit/Compiler/Passes/test_header.h"
+  let testHeader = "tests/Kit/Compiler/Passes/test_header.h"
+  mod <- newCMod testHeader
+  parseCHeader ctx mod testHeader
+  return mod
 
 externVarDef s = newVarDefinition
 
@@ -39,7 +42,7 @@ spec = do
       ]
       (\t ->
         it ("Parses C specifiers into " ++ show t)
-          $          parseDeclSpec (ctype t)
+          $          parseDeclSpec (fst $ ctype t)
           `shouldBe` Just (TypeBasicType t)
       )
 

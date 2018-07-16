@@ -57,4 +57,4 @@ findModule ctx mod pos = do
 
 mangleName :: Maybe ModulePath -> Str -> Str
 mangleName (Just mp) s = s_join "__" (("kit" : mp) ++ [s])
-mangleName Nothing s = s
+mangleName Nothing   s = s

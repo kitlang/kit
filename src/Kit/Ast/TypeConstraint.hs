@@ -4,6 +4,8 @@ import Kit.Ast.BasicType
 import Kit.Ast.ConcreteType
 import Kit.Parser.Span
 
+type UnresolvedTypeConstraint = ConcreteType -> TypeConstraint
+
 data TypeConstraint
   = TypeEq ConcreteType ConcreteType
   | TypeClassMember InternalTypeClass ConcreteType

@@ -8,39 +8,58 @@ import Kit.Ir
 import Kit.Parser.Span
 import Kit.Str
 
+cDecl :: BasicType -> Maybe Str -> Maybe (CInitializer NodeInfo) -> CDecl
+cDecl t ident body = u
+  $ CDecl (map CTypeSpec typeSpec) [(Just cdeclr, body, Nothing)]
+ where
+  (typeSpec, derivedDeclr) = ctype t
+  cdeclr                   = u $ CDeclr
+    (case ident of
+      Just x  -> Just $ internalIdent $ s_unpack x
+      Nothing -> Nothing
+    )
+    derivedDeclr
+    Nothing
+    []
+
 u x = x undefNode
 cpos p x = x $ case (file p) of
   Just f -> mkNodeInfoOnlyPos
     $ position 0 (s_unpack f) (start_line p) (start_col p) Nothing
   Nothing -> undefNode
 
-ctype :: BasicType -> [CTypeSpec]
-ctype BasicTypeVoid       = [u CVoidType]
-ctype BasicTypeBool       = [u CBoolType]
-ctype (BasicTypeInt   8 ) = [u CSignedType, u CCharType]
-ctype (BasicTypeInt   16) = [u CSignedType, u CShortType]
-ctype (BasicTypeInt   32) = [u CSignedType, u CLongType]
-ctype (BasicTypeInt   64) = [u CSignedType, u CLongType, u CLongType]
-ctype (BasicTypeUint  8 ) = [u CUnsigType, u CCharType]
-ctype (BasicTypeUint  16) = [u CUnsigType, u CShortType]
-ctype (BasicTypeUint  32) = [u CUnsigType, u CLongType]
-ctype (BasicTypeUint  64) = [u CUnsigType, u CLongType, u CLongType]
-ctype (BasicTypeFloat 32) = [u CFloatType]
-ctype (BasicTypeFloat 64) = [u CDoubleType]
-ctype (BasicTypeAtom  _ ) = [u CUnsigType, u CLongType]
+ctype :: BasicType -> ([CTypeSpec], [CDerivedDeclr])
+ctype BasicTypeVoid       = ([u CVoidType], [])
+ctype BasicTypeBool       = ([u CBoolType], [])
+ctype (BasicTypeInt   8 ) = ([u CSignedType, u CCharType], [])
+ctype (BasicTypeInt   16) = ([u CSignedType, u CShortType], [])
+ctype (BasicTypeInt   32) = ([u CSignedType, u CLongType], [])
+ctype (BasicTypeInt   64) = ([u CSignedType, u CLongType, u CLongType], [])
+ctype (BasicTypeUint  8 ) = ([u CUnsigType, u CCharType], [])
+ctype (BasicTypeUint  16) = ([u CUnsigType, u CShortType], [])
+ctype (BasicTypeUint  32) = ([u CUnsigType, u CLongType], [])
+ctype (BasicTypeUint  64) = ([u CUnsigType, u CLongType, u CLongType], [])
+ctype (BasicTypeFloat 32) = ([u CFloatType], [])
+ctype (BasicTypeFloat 64) = ([u CDoubleType], [])
+ctype (BasicTypeAtom  _ ) = ([u CUnsigType, u CLongType], [])
 ctype (BasicTypeStruct (name, _)) =
-  [ u $ CSUType $ u $ CStruct CStructTag
-                              (Just $ internalIdent $ s_unpack name)
-                              Nothing
-                              []
-  ]
+  ( [ u $ CSUType $ u $ CStruct CStructTag
+                                (Just $ internalIdent $ s_unpack name)
+                                Nothing
+                                []
+    ]
+  , []
+  )
 ctype (BasicTypeSimpleEnum name _) =
-  [u $ CEnumType $ u $ CEnum (Just (internalIdent $ s_unpack name)) Nothing []]
+  ( [ u $ CEnumType $ u $ CEnum (Just (internalIdent $ s_unpack name))
+                                Nothing
+                                []
+    ]
+  , []
+  )
 ctype (BasicTypeComplexEnum name _) = ctype (BasicTypeStruct (name, []))
--- TODO: CArr
--- TODO: CPtr
-
-ctype' = map CTypeSpec . ctype
+ctype (CPtr x) = (fst t, (u $ CPtrDeclr []) : snd t) where t = ctype x
+-- TODO: CArray
 
 --transpile :: [Expr] -> [CStat]
 --transpile exprs
@@ -72,7 +91,7 @@ transpileExpr (IrArrayAccess e1 e2) =
 transpileExpr (IrCall e args) =
   u $ CCall (transpileExpr e) [ transpileExpr x | x <- args ]
 transpileExpr (IrCast e t) =
-  u $ CCast (u $ CDecl (ctype' t) []) (transpileExpr e)
+  u $ CCast (cDecl t Nothing Nothing) (transpileExpr e)
 --transpileExpr (Expr {expr = VectorLiteral e}) = u $ CA
 
 transpileStmt :: IrExpr -> CStat
@@ -87,15 +106,8 @@ transpileStmt (IrIf cond e1 Nothing) =
   u $ CIf (transpileExpr cond) (transpileStmt e1) (Nothing)
 transpileStmt (IrWhile cond e) =
   u $ CWhile (transpileExpr cond) (transpileStmt e) False
-transpileStmt (IrFor v id_type start end body) = u $ CFor
-  (Right $ u $ CDecl
-    (ctype' id_type)
-    [ ( Just $ var_to_cdeclr v
-      , Just $ u $ CInitExpr $ transpileExpr start
-      , Nothing
-      )
-    ]
-  )
+transpileStmt (IrFor v idType start end body) = u $ CFor
+  (Right $ cDecl idType (Just v) (Just $ u $ CInitExpr $ transpileExpr start))
   (Just $ transpileExpr (IrBinop Lt (IrIdentifier v) (end)))
   (Just $ transpileExpr (IrPreUnop Inc (IrIdentifier v)))
   (transpileStmt body)
@@ -105,11 +117,9 @@ var_to_cdeclr x =
   u $ CDeclr (Just $ internalIdent $ s_unpack x) [] (Nothing) []
 
 transpileBlockItem :: IrExpr -> CBlockItem
-transpileBlockItem (IrVarDeclaration v t varDefault) = CBlockDecl $ u $ CDecl
-  (ctype' t)
-  [(Just vn, body, Nothing)]
+transpileBlockItem (IrVarDeclaration v t varDefault) = CBlockDecl
+  $ cDecl t (Just v) body
  where
-  vn   = var_to_cdeclr $ v
   body = case varDefault of
     Just x  -> Just $ u $ CInitExpr $ transpileExpr x
     Nothing -> Nothing
@@ -164,6 +174,8 @@ transpilePreUnop Dec        = CPreDecOp
 transpilePreUnop Sub        = CMinOp
 transpilePreUnop Invert     = CNegOp
 transpilePreUnop InvertBits = CCompOp
+transpilePreUnop Ref        = CAdrOp
+transpilePreUnop Deref      = CIndOp
 
 transpilePostUnop Inc = CPostIncOp
 transpilePostUnop Dec = CPostDecOp

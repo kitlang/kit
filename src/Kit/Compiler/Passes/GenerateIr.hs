@@ -22,8 +22,8 @@ import Kit.Str
 
 generateIr :: CompileContext -> IO ()
 generateIr ctx = do
-  mods <- h_toList $ ctxModules ctx
-  forM_ (map snd mods) (generateModuleIr ctx)
+  mods <- ctxSourceModules ctx
+  forM_ mods (generateModuleIr ctx)
   return ()
 
 generateModuleIr :: CompileContext -> Module -> IO ()
@@ -50,6 +50,7 @@ generateDeclIr ctx mod t = do
           )
           args
         body' <- typedToIr ctx mod body
+        putStrLn $ show $ body
         addDecl $ IrFunction $ ((convertFunctionDefinition f) :: IrFunction)
           { functionName = name
           , functionType = (BasicTypeFunction
@@ -182,7 +183,7 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
         t1' <- findUnderlyingType ctx mod (inferredType e1)
         return $ if t1' == f then r1 else IrCast r1 f
       (TokenExpr tc) -> return $ undefined -- TODO
-      (Unsafe e1 t) ->
+      (Unsafe e1) ->
         return
           $ throw
           $ Errs

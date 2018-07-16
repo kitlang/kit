@@ -99,11 +99,8 @@ resolveType ctx tctx mod t = do
               resolveType ctx tctx mod (ConcreteType x)
             Nothing -> do
               -- search other modules
-              imports  <- mapM (getMod ctx) (map fst $ modImports mod)
-              includes <- mapM (getCMod ctx) (map fst $ modIncludes mod)
-              bound    <- resolveBinding
-                (map modTypes (mod : (imports ++ includes)))
-                s
+              importedMods <- getModImports ctx mod
+              bound        <- resolveBinding (map modTypes importedMods) s
               case bound of
                 Just t  -> follow ctx tctx mod t
                 Nothing -> do
@@ -212,7 +209,6 @@ builtinToConcreteType ctx tctx mod s p = do
       param <- resolveType ctx tctx mod x
       return $ Just $ TypeArr param Nothing
     _ -> return Nothing
-
 
 typeNameToConcreteType :: Str -> Maybe ConcreteType
 typeNameToConcreteType "CString" = Just $ TypeBasicType $ CPtr $ BasicTypeInt 8

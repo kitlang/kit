@@ -646,7 +646,7 @@ BaseExpr :: {Expr}
   | this {pe (snd $1) This}
   | Self {pe (snd $1) Self}
   | Identifier {pe (snd $1) $ Identifier (fst $1) Nothing}
-  | '(' unsafe Expr ')' TypeAnnotation {pe (fp [p $1, p $4, snd $5]) (Unsafe $3 (fst $5))}
+  | unsafe Expr {pe (p $1 <+> pos $2) (Unsafe $2)}
   | '(' Expr ')' {me (p $1 <+> p $3) $2}
 
 Identifier :: {(Identifier, Span)}

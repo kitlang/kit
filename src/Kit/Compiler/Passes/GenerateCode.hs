@@ -22,8 +22,8 @@ import Kit.Str
 
 generateCode :: CompileContext -> IO ()
 generateCode ctx = do
-  mods <- h_toList $ ctxModules ctx
-  forM_ (map snd mods) (generateModule ctx)
+  mods <- ctxSourceModules ctx
+  forM_ mods (generateModule ctx)
   return ()
 
 generateModule :: CompileContext -> Module -> IO ()

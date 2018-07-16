@@ -21,17 +21,7 @@ cdecl (BasicTypeStruct (name, fields)) =
       ]
       []
   ]
- where
-  f =
-    [ u $ CDecl
-        (ctype' t)
-        [ ( Just $ u $ CDeclr (Just $ internalIdent $ s_unpack n) [] Nothing []
-          , Nothing
-          , Nothing
-          )
-        ]
-    | (n, t) <- fields
-    ]
+  where f = [ cDecl t (Just n) Nothing | (n, t) <- fields ]
 
 {- Simple enums (no variant has any fields) will generate a C enum. -}
 cdecl (BasicTypeSimpleEnum name variantNames) =

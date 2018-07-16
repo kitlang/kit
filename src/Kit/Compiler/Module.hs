@@ -1,6 +1,7 @@
 module Kit.Compiler.Module where
 
 import Data.IORef
+import System.FilePath
 import Kit.Ast
 import Kit.Compiler.Scope
 import Kit.Compiler.TypedDecl
@@ -16,10 +17,12 @@ data Module = Module {
   modImports :: [(ModulePath, Span)],
   modIncludes :: [(FilePath, Span)],
   modTypes :: Scope ConcreteType,
+  modTypeDefinitions :: Scope (TypeDefinition Expr (Maybe TypeSpec)),
   modFunctions :: Scope (FunctionDefinition Expr (Maybe TypeSpec)),
   modContents :: IORef [Statement],
   modTypedContents :: Scope TypedDecl,
   modVars :: Scope Binding,
+  modIsCModule :: Bool,
   modIr :: IORef [IrDecl]
 }
 
@@ -28,46 +31,52 @@ instance Show Module where
 
 newMod :: ModulePath -> [Statement] -> FilePath -> IO Module
 newMod path stmts fp = do
-  contents      <- newIORef stmts
-  types         <- newScope
-  functions     <- newScope
-  vars          <- newScope
-  enums         <- newScope
-  typedContents <- newScope
-  ir            <- newIORef []
+  contents        <- newIORef stmts
+  types           <- newScope
+  typeDefinitions <- newScope
+  functions       <- newScope
+  vars            <- newScope
+  enums           <- newScope
+  typedContents   <- newScope
+  ir              <- newIORef []
   return $ Module
-    { modPath          = path
-    , modSourcePath    = fp
-    , modImports       = _findImports path stmts
-    , modIncludes      = _findIncludes stmts
-    , modTypes         = types
-    , modFunctions     = functions
-    , modVars          = vars
-    , modContents      = contents
-    , modTypedContents = typedContents
-    , modIr            = ir
+    { modPath            = path
+    , modSourcePath      = fp
+    , modImports         = _findImports path stmts
+    , modIncludes        = _findIncludes stmts
+    , modTypes           = types
+    , modTypeDefinitions = typeDefinitions
+    , modFunctions       = functions
+    , modVars            = vars
+    , modContents        = contents
+    , modTypedContents   = typedContents
+    , modIr              = ir
+    , modIsCModule       = False
     }
 
 newCMod :: FilePath -> IO Module
 newCMod fp = do
-  contents      <- newIORef []
-  types         <- newScope
-  functions     <- newScope
-  vars          <- newScope
-  enums         <- newScope
-  typedContents <- newScope
-  ir            <- newIORef []
+  contents        <- newIORef []
+  types           <- newScope
+  typeDefinitions <- newScope
+  functions       <- newScope
+  vars            <- newScope
+  enums           <- newScope
+  typedContents   <- newScope
+  ir              <- newIORef []
   return $ Module
-    { modPath          = []
-    , modSourcePath    = fp
-    , modImports       = []
-    , modIncludes      = []
-    , modTypes         = types
-    , modFunctions     = functions
-    , modVars          = vars
-    , modContents      = contents
-    , modTypedContents = typedContents
-    , modIr            = ir
+    { modPath            = includeToModulePath fp
+    , modSourcePath      = fp
+    , modImports         = []
+    , modIncludes        = []
+    , modTypes           = types
+    , modTypeDefinitions = typeDefinitions
+    , modFunctions       = functions
+    , modVars            = vars
+    , modContents        = contents
+    , modTypedContents   = typedContents
+    , modIr              = ir
+    , modIsCModule       = True
     }
 
 _findImports :: ModulePath -> [Statement] -> [(ModulePath, Span)]
@@ -89,3 +98,6 @@ _findIncludes stmts = foldr
   )
   []
   stmts
+
+includeToModulePath :: FilePath -> ModulePath
+includeToModulePath fp = "c" : (map s_pack $ splitDirectories (fp -<.> ""))

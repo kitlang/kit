@@ -27,7 +27,6 @@ data CompileContext = CompileContext {
   ctxPreludes :: HashTable ModulePath [Statement],
   ctxVerbose :: Bool,
   ctxModuleGraph :: IORef [ModuleGraphNode],
-  ctxCModules :: HashTable FilePath Module,
   ctxIncludes :: IORef [FilePath],
   ctxLastTypeVar :: IORef Int,
   ctxTypeVariables :: HashTable Int TypeVarInfo,
@@ -50,7 +49,6 @@ newCompileContext = do
   mods         <- h_new
   failed       <- h_new
   preludes     <- h_new
-  cmodules     <- h_new
   typedDecls   <- h_new
   includes     <- newIORef []
   lastTypeVar  <- newIORef 0
@@ -66,13 +64,16 @@ newCompileContext = do
     , ctxPreludes      = preludes
     , ctxVerbose       = False
     , ctxModuleGraph   = module_graph
-    , ctxCModules      = cmodules
     , ctxIncludes      = includes
     , ctxLastTypeVar   = lastTypeVar
     , ctxTypeVariables = typeVars
     , ctxTypedDecls    = typedDecls
     }
 
+ctxSourceModules :: CompileContext -> IO [Module]
+ctxSourceModules ctx = do
+  mods <- (h_toList (ctxModules ctx))
+  return $ filter (\m -> not (modIsCModule m)) (map snd mods)
 
 data ModuleGraphNode
   = ModuleGraphNode ModulePath ModulePath
@@ -89,12 +90,13 @@ getMod ctx mod = do
       ]
 
 getCMod :: CompileContext -> FilePath -> IO Module
-getCMod ctx f = do
-  m <- h_lookup (ctxCModules ctx) f
+getCMod ctx fp = do
+  let modPath = includeToModulePath fp
+  m <- h_lookup (ctxModules ctx) modPath
   case m of
     Just m' -> return m'
     Nothing ->
-      throw $ Errs [err InternalError $ "Unexpected missing C module: " ++ f]
+      throw $ Errs [err InternalError $ "Unexpected missing C module: " ++ fp]
 
 makeTypeVar :: CompileContext -> Span -> IO ConcreteType
 makeTypeVar ctx pos = do
@@ -116,3 +118,9 @@ resolveVar ctx scopes mod s = do
     Nothing -> do
       imports <- mapM (getMod ctx) (map fst $ modImports mod)
       resolveBinding (map modVars (mod : imports)) s
+
+getModImports :: CompileContext -> Module -> IO [Module]
+getModImports ctx mod = do
+  imports  <- mapM (getMod ctx) (map fst $ modImports mod)
+  includes <- mapM (getCMod ctx) (map fst $ modIncludes mod)
+  return $ mod : (imports ++ includes)

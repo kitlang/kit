@@ -21,8 +21,8 @@ import Kit.Str
 
 typeExpressions :: CompileContext -> IO ()
 typeExpressions ctx = do
-  mods <- h_toList $ ctxModules ctx
-  forM_ (map snd mods) (typeModuleExpressions ctx)
+  mods <- ctxSourceModules ctx
+  forM_ mods (typeModuleExpressions ctx)
 
 typeModuleExpressions :: CompileContext -> Module -> IO ()
 typeModuleExpressions ctx mod = do
@@ -62,7 +62,12 @@ typeFunction ctx mod f = do
           return $ newArgSpec { argName = argName arg, argType = argType }
         )
         (functionArgs f)
-      forM_ args (\arg -> bindToScope functionScope (argName arg) (newBinding (VarBinding $ argType arg) Nothing))
+      forM_
+        args
+        (\arg -> bindToScope functionScope
+                             (argName arg)
+                             (newBinding (VarBinding $ argType arg) Nothing)
+        )
       returnType <- resolveMaybeType ctx tctx mod (pos x) (functionType f)
       typedBody  <- typeExpr
         ctx
@@ -183,13 +188,19 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
 
     (PreUnop op e1) -> do
       r1 <- r e1
-      resolve pos $ TypeClassMember TypeNumeric (inferredType r1)
-      return $ makeExprTyped (PreUnop op r1) (inferredType r1) pos
+      tv <- makeTypeVar ctx pos
+      case unopTypes op (inferredType r1) tv of
+        Just constraints -> mapM_ (resolve pos) constraints
+        Nothing          -> return () -- TODO
+      return $ makeExprTyped (PreUnop op r1) tv pos
 
     (PostUnop op e1) -> do
       r1 <- r e1
-      resolve pos $ TypeClassMember TypeNumeric (inferredType r1)
-      return $ makeExprTyped (PostUnop op r1) (inferredType r1) pos
+      tv <- makeTypeVar ctx pos
+      case unopTypes op (inferredType r1) tv of
+        Just constraints -> mapM_ (resolve pos) constraints
+        Nothing          -> return () -- TODO
+      return $ makeExprTyped (PostUnop op r1) tv pos
 
     (Binop Assign e1 e2) -> do
       r1 <- r e1
@@ -214,9 +225,10 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
       r1 <- r e1
       r2 <- r e2
       tv <- makeTypeVar ctx pos
-      let (t, constraints) = opTypes op tv [inferredType r1, inferredType r2]
-      mapM_ (resolve pos) constraints
-      return $ makeExprTyped (Binop op r1 r2) t pos
+      case binopTypes op (inferredType r1) (inferredType r2) tv of
+        Just constraints -> mapM_ (resolve pos) constraints
+        Nothing          -> return () -- TODO
+      return $ makeExprTyped (Binop op r1 r2) tv pos
 
     (For (Expr { expr = Identifier v _, pos = pos1 }) e2 e3) -> do
       r2    <- r e2
@@ -314,7 +326,39 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
     (Match e1 cases (e2)) ->
       throw $ Errs [err InternalError "Not yet implemented"]
     (InlineCall e1) -> throw $ Errs [err InternalError "Not yet implemented"]
-    (Field e1 lval) -> throw $ Errs [err InternalError "Not yet implemented"]
+
+    (Field e1 (Var fieldName)) -> do
+      r1 <- r e1
+      case inferredType r1 of
+        TypeStruct (structModPath, structName) params -> do
+          structMod <- getMod ctx structModPath
+          def       <- resolveLocal (modTypeDefinitions structMod) structName
+          case def of
+            Just (TypeDefinition { typeType = Struct { struct_fields = fields } })
+              -> typeStructFieldAccess ctx tctx mod fields r1 fieldName pos
+            _ -> throw $ Errs
+              [ errp
+                  InternalError
+                  ("Unexpected error: variable was typed as a struct, but struct "
+                  ++ s_unpack structName
+                  ++ " not found in module "
+                  ++ s_unpack (showModulePath structModPath)
+                  )
+                  (Just $ tPos r1)
+              ]
+          -- TODO
+        TypePtr x ->
+          -- try to auto-dereference
+          r $ ep (Field (ep (PreUnop Deref e1) (tPos r1)) (Var fieldName)) pos
+        _ ->
+          throw $ Errs [err InternalError "Field access is not allowed on x"]
+    (Field e1 _) -> do
+      throw $ Errs
+        [ errp TypingError
+               "Malformed AST: field access requires an identifier"
+               (Just pos)
+        ]
+
     (ArrayAccess e1 e2) ->
       throw $ Errs [err InternalError "Not yet implemented"]
 
@@ -323,8 +367,8 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
       t' <- resolveMaybeType ctx tctx mod pos t
       return $ makeExprTyped (Cast r1 t') t' pos
 
-    (Unsafe e1 t) -> do
-      t' <- resolveMaybeType ctx tctx mod pos t
+    (Unsafe e1) -> do
+      t' <- makeTypeVar ctx pos
       let r1 = case expr e1 of
             Identifier i _ -> Identifier i Nothing
             _ -> throw $ Errs [err InternalError "Not yet implemented"]
@@ -407,7 +451,7 @@ typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = TypeFunction rt argT
               (Just pos)
           ]
         else return ()
-                                              -- TODO
+                                                                                  -- TODO
     forM_
       (zip argTypes args)
       (\((_, argType), argValue) -> do
@@ -427,6 +471,32 @@ typeEnumConstructorCall
 typeEnumConstructorCall ctx tctx mod e args = do
   return e
 
+typeStructFieldAccess
+  :: CompileContext
+  -> TypeContext
+  -> Module
+  -> [VarDefinition Expr (Maybe TypeSpec)]
+  -> TypedExpr
+  -> Str
+  -> Span
+  -> IO TypedExpr
+typeStructFieldAccess ctx tctx mod fields r fieldName pos = do
+  case findStructField fields fieldName of
+    Just field -> do
+      t <- resolveMaybeType ctx tctx mod pos (varType field)
+      return $ makeExprTyped (Field r (Var fieldName)) t pos
+    Nothing -> throw $ Errs
+      [ errp
+          TypingError
+          ("Struct doesn't have a field called `" ++ s_unpack fieldName ++ "`")
+          (Just $ pos)
+      ]
+
+findStructField :: [VarDefinition a b] -> Str -> Maybe (VarDefinition a b)
+findStructField (h : t) fieldName =
+  if varName h == fieldName then Just h else findStructField t fieldName
+findStructField [] _ = Nothing
+
 literalConstraints :: ValueLiteral -> ConcreteType -> [TypeConstraint]
 literalConstraints (BooIdentifier _) s = [TypeEq s (basicType $ BasicTypeBool)]
 literalConstraints (IntValue      _) s = [TypeClassMember TypeNumeric s]
@@ -442,3 +512,45 @@ opTypes op result operands =
   ( result
   , [ TypeClassMember TypeNumeric operand | operand <- (result : operands) ]
   )
+
+unopTypes :: Operator -> ConcreteType -> ConcreteType -> Maybe [TypeConstraint]
+unopTypes op l x = case op of
+  Inc        -> Just [TypeClassMember TypeNumeric l, TypeEq l x]
+  Dec        -> Just [TypeClassMember TypeNumeric l, TypeEq l x]
+  Invert     -> Just [TypeEq (TypeBasicType BasicTypeBool) l, TypeEq l x]
+  InvertBits -> Just [TypeClassMember TypeIntegral l, TypeEq l x]
+  Ref        -> Just [TypeEq (TypePtr l) x]
+  Deref      -> Just [TypeEq (TypePtr x) l]
+  _          -> Nothing
+
+binopTypes
+  :: Operator
+  -> ConcreteType
+  -> ConcreteType
+  -> ConcreteType
+  -> Maybe [TypeConstraint]
+binopTypes op l r x = case op of
+  Add        -> numericOp
+  Sub        -> numericOp
+  Mul        -> numericOp
+  Div        -> numericOp
+  Mod        -> numericOp
+  Eq         -> comparisonOp
+  Neq        -> comparisonOp
+  Gte        -> comparisonOp
+  Lte        -> comparisonOp
+  LeftShift  -> numericOp
+  RightShift -> numericOp
+  Gt         -> comparisonOp
+  Lt         -> comparisonOp
+  And        -> booleanOp
+  Or         -> booleanOp
+  BitAnd     -> bitOp
+  BitOr      -> bitOp
+  BitXor     -> bitOp
+  _          -> Nothing
+ where
+  numericOp    = Just [ TypeClassMember TypeNumeric i | i <- [l, r, x] ]
+  comparisonOp = Just [TypeEq l r, TypeEq (TypeBasicType BasicTypeBool) x]
+  booleanOp = Just [ TypeEq (TypeBasicType BasicTypeBool) i | i <- [l, r, x] ]
+  bitOp        = Just [ TypeClassMember TypeIntegral i | i <- [l, r, x] ]

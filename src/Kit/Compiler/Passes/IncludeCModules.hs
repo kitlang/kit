@@ -29,7 +29,8 @@ includeCModules ctx = do
 
 includeCHeader :: CompileContext -> FilePath -> IO Module
 includeCHeader ctx path = do
-  existing <- h_lookup (ctxCModules ctx) path
+  let modPath = includeToModulePath path
+  existing <- h_lookup (ctxModules ctx) modPath
   case existing of
     Just x -> do
       return x
@@ -38,8 +39,9 @@ includeCHeader ctx path = do
       case found of
         Just f -> do
           debugLog ctx $ "found header " ++ show path ++ " at " ++ show f
-          mod <- parseCHeader ctx f
-          h_insert (ctxCModules ctx) path mod
+          mod <- newCMod path
+          parseCHeader ctx              mod     f
+          h_insert     (ctxModules ctx) modPath mod
           return mod
         Nothing ->
           throw
@@ -58,8 +60,8 @@ includeCHeader ctx path = do
                   )
               ]
 
-parseCHeader :: CompileContext -> FilePath -> IO Module
-parseCHeader ctx path = do
+parseCHeader :: CompileContext -> Module -> FilePath -> IO ()
+parseCHeader ctx mod path = do
   parseResult <- parseCFile (newGCC "gcc")
                             Nothing
                             [ "-I" ++ dir | dir <- ctxIncludePaths ctx ]
@@ -70,9 +72,7 @@ parseCHeader ctx path = do
             ("Parsing C header " ++ show path ++ " failed: " ++ show e)
       ]
     Right (CTranslUnit decls _) -> do
-      mod <- newCMod path
       parseCDecls ctx mod decls
-      return mod
 
 parseCDecls :: CompileContext -> Module -> [CExtDecl] -> IO ()
 parseCDecls ctx mod [] = do
@@ -86,7 +86,7 @@ parseCDecls ctx mod (h : t) = do
       forM_
         declarations
         (\(name, storageSpec, typeSpec, derivedSpec) -> do
-          let t' = (typeFromSpec typeSpec derivedSpec)
+          let t' = typeFromSpec typeSpec derivedSpec
           addCDecl ctx mod name t'
           if isTypedef storageSpec
             then do
@@ -219,7 +219,8 @@ addTypeDeclaration ctx mod t = do
   let name = (typeName t)
   tctx <- newTypeContext []
   t'   <- typeDefinitionToConcreteType ctx tctx mod t
-  bindToScope (modTypes mod) name t'
+  bindToScope (modTypeDefinitions mod) name t
+  bindToScope (modTypes mod)           name t'
 
 structFieldName cdecl =
   let (name, _, _, _) = head (decomposeCDecl cdecl) in name

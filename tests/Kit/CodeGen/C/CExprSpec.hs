@@ -12,7 +12,7 @@ import Kit.Ir
 import Kit.Str
 import Kit.CodeGen.C
 
-showctype x = intercalate " " [ show $ pretty t | t <- ctype x ]
+showctype x = intercalate " " [ show $ pretty t | t <- fst $ ctype x ]
 showexpr x = renderStyle (Style {mode = LeftMode}) $ pretty $ transpileExpr x
 showstmt x = renderStyle (Style {mode = LeftMode}) $ pretty $ transpileStmt x
 showblock x =

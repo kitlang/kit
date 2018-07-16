@@ -60,7 +60,8 @@ _checkForTopLevel ctx mod s = do
         ++ (show mod)
       --bindToScope (mod_type_definitions mod) (typeName t) usage
       ct <- typeDefinitionToConcreteType ctx tctx mod t
-      bindToScope (modTypes mod) (typeName t) ct
+      bindToScope (modTypes mod)           (typeName t) ct
+      bindToScope (modTypeDefinitions mod) (typeName t) t
       case t of
         TypeDefinition { typeName = typeName, typeType = Enum { enum_variants = variants } }
           -> do
@@ -122,5 +123,7 @@ _checkForTopLevel ctx mod s = do
         (newBinding (FunctionBinding (functionType) args (functionVarargs f))
                     (Just $ modPath mod)
         )
-      bindToScope (modFunctions mod) (functionName f) (f {functionNameMangling = Just $ modPath mod})
+      bindToScope (modFunctions mod)
+                  (functionName f)
+                  (f { functionNameMangling = Just $ modPath mod })
     _ -> return ()

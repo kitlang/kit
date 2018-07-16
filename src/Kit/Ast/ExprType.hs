@@ -44,7 +44,7 @@ data ExprType a b
   | Call a [a]
   | Cast a b
   | TokenExpr [TokenClass]
-  | Unsafe a b
+  | Unsafe a
   | BlockComment Str
   | New b [a]
   | Copy a
