@@ -171,7 +171,7 @@ spec = do
             }
           }
         )
-      , ( "Parses unnamed struct typedefs"
+      , ( "Parses anonymous struct typedefs"
         , "Struct2"
         , TypeAnonStruct
           [ ("field1", TypeBasicType $ BasicTypeInt 16)
@@ -194,19 +194,31 @@ spec = do
         , Just $ (newTypeDefinition "Enum1")
           { typeNameMangling = Nothing
           , typeType         = Enum
-            { enum_variants = [ newEnumVariant { variantName = "apple" }
-                              , newEnumVariant { variantName = "banana" }
-                              , newEnumVariant { variantName = "strawberry" }
-                              ]
+            { enum_variants        = [ newEnumVariant { variantName = "apple" }
+                                     , newEnumVariant { variantName = "banana" }
+                                     , newEnumVariant { variantName = "cherry" }
+                                     ]
             , enum_underlying_type = Nothing
             }
           }
+        )
+      , ( "Parses anonymous enum typedefs"
+        , "Enum2"
+        , TypeAnonEnum ["kiwi", "lime", "mango"]
+        , Nothing
         )
       ]
       (\(label, name, ct, val) -> it label $ do
         header <- testHeader
         x      <- resolveLocal (modTypes header) name
-        x `shouldBe` Just ct
-        binding <- resolveLocal (modTypeDefinitions header) name
-        binding `shouldBe` val
+        (case x of
+            Just (TypeBinding { typeBindingConcrete = ct }) -> Just ct
+            _ -> Nothing
+          )
+          `shouldBe` Just ct
+        (case x of
+            Just (TypeBinding { typeBindingType = BindingType t }) -> Just t
+            _ -> Nothing
+          )
+          `shouldBe` val
       )

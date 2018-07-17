@@ -18,6 +18,7 @@ import Kit.Compiler.Utils
 import Kit.Error
 import Kit.HashTable
 import Kit.Ir
+import Kit.Log
 import Kit.Parser
 import Kit.Str
 
@@ -74,6 +75,15 @@ parseCHeader ctx mod path = do
     Right (CTranslUnit decls _) -> do
       parseCDecls ctx mod decls
 
+unknownTypeWarning :: CompileContext -> Module -> Str -> IO ()
+unknownTypeWarning ctx mod name = do
+  warningLog
+        $  "couldn't determine type of "
+        ++ (s_unpack name)
+        ++ " in "
+        ++ (show mod)
+        ++ "; attempts to access values of this type will fail"
+
 parseCDecls :: CompileContext -> Module -> [CExtDecl] -> IO ()
 parseCDecls ctx mod [] = do
   return ()
@@ -95,6 +105,9 @@ parseCDecls ctx mod (h : t) = do
             (initializers)
             (\(name, declr) -> do
               let t' = parseType (modPath mod) typeSpec (reverse declr)
+              case t' of
+                TypeBasicType BasicTypeUnknown -> unknownTypeWarning ctx mod name
+                _ -> return ()
               debugLog ctx $ "bind " ++ (s_unpack name) ++ ": " ++ (show t')
               addCDecl ctx mod name t'
             )
@@ -107,7 +120,10 @@ defineTypedef
 defineTypedef ctx mod typeSpec (name, declr) = do
   let t' = parseType (modPath mod) typeSpec declr
   debugLog ctx $ "typedef " ++ (s_unpack name) ++ ": " ++ (show t')
-  bindToScope (modTypes mod) name t'
+  case t' of
+    TypeBasicType BasicTypeUnknown -> unknownTypeWarning ctx mod name
+    _ -> return ()
+  bindToScope (modTypes mod) name (newTypeBinding BindingTypedef t')
 
 parseType :: ModulePath -> [CTypeSpec] -> [CDerivedDeclr] -> ConcreteType
 parseType m typeSpec declr =
@@ -167,6 +183,8 @@ _parseDeclSpec modPath (h : t) width signed float = case h of
           ]
   (CEnumType (CEnum (Just (Ident x _ _)) _ _ _) _) ->
     TypeEnum (modPath, (s_pack x)) []
+  (CEnumType (CEnum Nothing (Just variants) _ _) _) ->
+    TypeAnonEnum ([s_pack $ case fst variant of {Ident x _ _ -> x} | variant <- variants])
   _ -> _parseDeclSpec modPath t width signed float
 _parseDeclSpec modPath [] 0     _      _     = (TypeBasicType BasicTypeUnknown)
 _parseDeclSpec modPath [] width signed float = if float
@@ -219,10 +237,12 @@ defineNamedStructsAndEnums ctx mod (h : t) = do
                 }
               }
             )
-      bindToScope (modTypeDefinitions mod) (s_pack name) typeDef
-      bindToScope (modTypes mod)
-                  (s_pack name)
-                  (TypeStruct (modPath mod, s_pack name) [])
+      bindToScope
+        (modTypes mod)
+        (s_pack name)
+        (newTypeBinding (BindingType typeDef)
+                        (TypeStruct (modPath mod, s_pack name) [])
+        )
       debugLog ctx $ "define struct " ++ name
     (CEnumType (CEnum (Just (Ident name _ _)) variants _ _) _) -> do
       let variants' = case variants of
@@ -245,10 +265,10 @@ defineNamedStructsAndEnums ctx mod (h : t) = do
               }
             }
           )
-      bindToScope (modTypeDefinitions mod) (s_pack name) typeDef
+      let ct = (TypeEnum (modPath mod, s_pack name) [])
       bindToScope (modTypes mod)
                   (s_pack name)
-                  (TypeEnum (modPath mod, s_pack name) [])
+                  (newTypeBinding (BindingType typeDef) ct)
       debugLog ctx $ "define enum " ++ name
     _ -> return ()
   defineNamedStructsAndEnums ctx mod t

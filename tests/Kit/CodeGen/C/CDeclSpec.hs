@@ -17,7 +17,7 @@ showstruct x = intercalate
   [ renderStyle (Style {mode = LeftMode}) $ pretty $ xi | xi <- cdecl x ]
 showdisc name variantNames =
   renderStyle (Style {mode = LeftMode}) $ pretty $ enumDiscriminant
-    name
+    (Just name)
     variantNames
 
 spec :: Spec
@@ -37,7 +37,7 @@ spec = do
 
     it "Transpiles simple enums" $ do
       showstruct
-          (BasicTypeSimpleEnum "MyEnum"
+          (BasicTypeSimpleEnum (Just "MyEnum")
                                ["Option1", "AnotherOption", "TheThirdOption"]
           )
         `shouldBe` "enum MyEnum {\nOption1, AnotherOption, TheThirdOption\n}"

@@ -39,7 +39,7 @@ cdecl (BasicTypeSimpleEnum name variantNames) =
   Either type of enum can be cast to the discriminant's type.
 -}
 cdecl (BasicTypeComplexEnum name variants) =
-  (enumDiscriminant discriminantName (map (\(name, _) -> name) variants))
+  (enumDiscriminant (Just discriminantName) (map (\(name, _) -> name) variants))
     : (enum_struct name discriminantName variants)
     : (enumVariants name variants)
  where
@@ -108,7 +108,7 @@ cdecl (BasicTypeComplexEnum name variants) =
 
 enumDiscriminant name variantNames = u $ CDecl
   [ CTypeSpec $ u $ CEnumType $ u $ CEnum
-      (Just $ internalIdent $ s_unpack name)
+      (case name of {Just name -> Just $ internalIdent $ s_unpack name; Nothing -> Nothing})
       (Just [ (internalIdent $ s_unpack v, Nothing) | v <- variantNames ])
       []
   ]

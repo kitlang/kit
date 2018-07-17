@@ -4,44 +4,30 @@ import Control.Exception
 import Control.Monad
 import Kit.Ast
 import Kit.Compiler.Context
+import Kit.Compiler.Module
+import Kit.Compiler.TypeContext
 import Kit.Error
 import Kit.HashTable
 import Kit.Parser.Span
 import Kit.Str
 
-checkConstraint :: TypeConstraint -> TypeInformation
-checkConstraint (TypeEq a b) = unify a b
-checkConstraint (TypeClassMember cls (TypeTypeVar v)) =
-  TypeVarHasConstraint v (TypeClassMember cls)
--- TODO
-checkConstraint (TypeClassMember TypeNumeric (TypeBasicType (BasicTypeInt _)))
-  = TypeConstraintSatisfied
-checkConstraint (TypeClassMember TypeNumeric (TypeBasicType (BasicTypeUint _)))
-  = TypeConstraintSatisfied
-checkConstraint (TypeClassMember TypeNumeric (TypeBasicType (BasicTypeFloat _)))
-  = TypeConstraintSatisfied
-checkConstraint (TypeClassMember TypeIntegral (TypeBasicType (BasicTypeInt _)))
-  = TypeConstraintSatisfied
-checkConstraint (TypeClassMember TypeIntegral (TypeBasicType (BasicTypeUint _)))
-  = TypeConstraintSatisfied
-checkConstraint (TypeClassMember TypeNumericMixed (TypeBasicType (BasicTypeFloat _)))
-  = TypeConstraintSatisfied
-checkConstraint (TypeClassMember TypeString x) = TypeConstraintNotSatisfied
-checkConstraint (TypeClassMember (TypeSequence t) x) =
-  TypeConstraintNotSatisfied
-checkConstraint (TypeClassMember (TypeIterable t) x) =
-  TypeConstraintNotSatisfied
-checkConstraint (TypeClassMember _ _) = TypeConstraintNotSatisfied
-
 -- Check whether type a unifies with b; i.e., can a value of type A be
 -- assigned to a variable of type B?
-unify :: ConcreteType -> ConcreteType -> TypeInformation
-unify x                 (TypeTypeVar v)   = TypeVarIs v x
-unify (TypeTypeVar   v) x                 = TypeVarIs v x
-unify (TypeBasicType a) (TypeBasicType b) = unifyBasic a b
-unify (TypePtr       a) (TypePtr       b) = unify a b
-unify a b =
-  if a == b then TypeConstraintSatisfied else TypeConstraintNotSatisfied
+unify
+  :: CompileContext
+  -> TypeContext
+  -> Module
+  -> ConcreteType
+  -> ConcreteType
+  -> IO TypeInformation
+unify ctx tctx mod a b = do
+  case (a, b) of
+    (TypeTypeVar   v, x              ) -> return $ TypeVarIs v x
+    (x              , TypeTypeVar v  ) -> unify ctx tctx mod b a
+    (TypeBasicType a, TypeBasicType b) -> return $ unifyBasic a b
+    (TypePtr       a, TypePtr b      ) -> unify ctx tctx mod a b
+    _ -> return
+      $ if a == b then TypeConstraintSatisfied else TypeConstraintNotSatisfied
 
 unifyBasic :: BasicType -> BasicType -> TypeInformation
 unifyBasic (BasicTypeVoid)    _                  = TypeConstraintNotSatisfied
@@ -56,9 +42,10 @@ unifyBasic (BasicTypeUnknown) (_               ) = TypeConstraintNotSatisfied
 unifyBasic a b =
   if a == b then TypeConstraintSatisfied else TypeConstraintNotSatisfied
 
-resolveConstraint :: CompileContext -> Span -> TypeConstraint -> IO ()
-resolveConstraint ctx pos constraint = do
-  result <- resolveConstraintOrThrow pos constraint
+resolveConstraint
+  :: CompileContext -> TypeContext -> Module -> Span -> TypeConstraint -> IO ()
+resolveConstraint ctx tctx mod pos constraint = do
+  result <- resolveConstraintOrThrow ctx tctx mod pos constraint
   case result of
     TypeVarIs (TypeVar id) x -> do
       info <- getTypeVar ctx id
@@ -67,20 +54,21 @@ resolveConstraint ctx pos constraint = do
     TypeVarIs (TypeParamVar s) x -> do
       -- TODO
       return ()
-    TypeVarHasConstraint (TypeVar id) x -> do
-      info <- getTypeVar ctx id
-      h_insert (ctxTypeVariables ctx) id (addTypeVarConstraint info x)
     _ -> return ()
 
-resolveConstraintOrThrow :: Span -> TypeConstraint -> IO TypeInformation
-resolveConstraintOrThrow pos t = do
-  case checkConstraint t of
+resolveConstraintOrThrow
+  :: CompileContext
+  -> TypeContext
+  -> Module
+  -> Span
+  -> TypeConstraint
+  -> IO TypeInformation
+resolveConstraintOrThrow ctx tctx mod pos t = do
+  result <- case t of
+    TypeEq a b -> unify ctx tctx mod a b
+  case result of
     TypeConstraintNotSatisfied -> constraintError t pos
     x                          -> return $ x
-
-resolveConstraints :: CompileContext -> Span -> [TypeConstraint] -> IO ()
-resolveConstraints ctx pos constraints =
-  forM_ constraints (resolveConstraint ctx pos)
 
 constraintError (TypeEq a b) pos = do
   throw $ Errs

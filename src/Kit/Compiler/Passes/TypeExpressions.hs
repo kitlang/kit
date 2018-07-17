@@ -79,10 +79,10 @@ typeFunction ctx mod f = do
         x
       resolvedReturnType <- knownType ctx tctx mod returnType
       -- Try to unify with void; if unification doesn't fail, we didn't encounter a return statement, so the function is void.
-      let finalReturnType =
-            case unify (resolvedReturnType) (TypeBasicType BasicTypeVoid) of
-              TypeConstraintNotSatisfied -> resolvedReturnType
-              _                          -> TypeBasicType BasicTypeVoid
+      unification <- unify ctx tctx mod (resolvedReturnType) (TypeBasicType BasicTypeVoid)
+      let finalReturnType = case unification of
+            TypeConstraintNotSatisfied -> resolvedReturnType
+            _                          -> TypeBasicType BasicTypeVoid
       let
         typedFunction = ((convertFunctionDefinition f) :: TypedFunction)
           { functionName         = functionName f
@@ -115,7 +115,7 @@ typeFunction ctx mod f = do
 typeExpr :: CompileContext -> TypeContext -> Module -> Expr -> IO TypedExpr
 typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
   let r = typeExpr ctx tctx mod
-  let resolve pos constraint = resolveConstraint ctx pos constraint
+  let resolve pos constraint = resolveConstraint ctx tctx mod pos constraint
   result <- case et of
     (Block children) -> do
       typedChildren <- mapM r children
@@ -242,7 +242,7 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
         mod
         e3
       tv <- makeTypeVar ctx pos
-      resolve (tPos r2) $ TypeClassMember (TypeIterable tv) (inferredType r2)
+      resolve (tPos r2) $ TypeEq (typeClassIterable tv) (inferredType r2)
       return $ makeExprTyped
         (For (makeExprTyped (Identifier v Nothing) (TypeIdentifier tv) pos1)
              r2
@@ -332,9 +332,9 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
       case inferredType r1 of
         TypeStruct (structModPath, structName) params -> do
           structMod <- getMod ctx structModPath
-          def       <- resolveLocal (modTypeDefinitions structMod) structName
+          def       <- resolveLocal (modTypes structMod) structName
           case def of
-            Just (TypeDefinition { typeType = Struct { struct_fields = fields } })
+            Just (TypeBinding {typeBindingType = BindingType (TypeDefinition { typeType = Struct { struct_fields = fields } })})
               -> typeStructFieldAccess ctx tctx mod fields r1 fieldName pos
             _ -> throw $ Errs
               [ errp
@@ -384,8 +384,8 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
     (RangeLiteral e1 e2) -> do
       r1 <- r e1
       r2 <- r e2
-      resolve (tPos r1) $ TypeClassMember TypeIntegral (inferredType r1)
-      resolve (tPos r2) $ TypeClassMember TypeIntegral (inferredType r2)
+      resolve (tPos r1) $ TypeEq typeClassIntegral (inferredType r1)
+      resolve (tPos r2) $ TypeEq typeClassIntegral (inferredType r2)
       return $ makeExprTyped (RangeLiteral r1 r2) TypeRange pos
 
     (VectorLiteral items) ->
@@ -450,14 +450,13 @@ typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = TypeFunction rt argT
               )
               (Just pos)
           ]
-        else return ()
-                                                                                  -- TODO
+        else return () -- TODO
     forM_
       (zip argTypes args)
       (\((_, argType), argValue) -> do
         t1 <- follow ctx tctx mod argType
         t2 <- knownType ctx tctx mod (inferredType argValue)
-        resolveConstraint ctx (tPos argValue) (TypeEq t1 t2)
+        resolveConstraint ctx tctx mod (tPos argValue) (TypeEq t1 t2)
       )
     return $ makeExprTyped (Call e args) rt pos
 
@@ -499,9 +498,9 @@ findStructField [] _ = Nothing
 
 literalConstraints :: ValueLiteral -> ConcreteType -> [TypeConstraint]
 literalConstraints (BooIdentifier _) s = [TypeEq s (basicType $ BasicTypeBool)]
-literalConstraints (IntValue      _) s = [TypeClassMember TypeNumeric s]
-literalConstraints (FloatValue    _) s = [TypeClassMember TypeNumeric s]
-literalConstraints (StringValue   _) s = [TypeClassMember TypeString s]
+literalConstraints (IntValue      _) s = [TypeEq typeClassNumeric s]
+literalConstraints (FloatValue    _) s = [TypeEq typeClassNumericMixed s]
+literalConstraints (StringValue   _) s = [TypeEq typeClassStringy s]
 
 opTypes
   :: Operator
@@ -509,16 +508,14 @@ opTypes
   -> [ConcreteType]
   -> (ConcreteType, [TypeConstraint])
 opTypes op result operands =
-  ( result
-  , [ TypeClassMember TypeNumeric operand | operand <- (result : operands) ]
-  )
+  (result, [ TypeEq typeClassNumeric operand | operand <- (result : operands) ])
 
 unopTypes :: Operator -> ConcreteType -> ConcreteType -> Maybe [TypeConstraint]
 unopTypes op l x = case op of
-  Inc        -> Just [TypeClassMember TypeNumeric l, TypeEq l x]
-  Dec        -> Just [TypeClassMember TypeNumeric l, TypeEq l x]
+  Inc        -> Just [TypeEq typeClassNumeric l, TypeEq l x]
+  Dec        -> Just [TypeEq typeClassNumeric l, TypeEq l x]
   Invert     -> Just [TypeEq (TypeBasicType BasicTypeBool) l, TypeEq l x]
-  InvertBits -> Just [TypeClassMember TypeIntegral l, TypeEq l x]
+  InvertBits -> Just [TypeEq typeClassIntegral l, TypeEq l x]
   Ref        -> Just [TypeEq (TypePtr l) x]
   Deref      -> Just [TypeEq (TypePtr x) l]
   _          -> Nothing
@@ -550,7 +547,7 @@ binopTypes op l r x = case op of
   BitXor     -> bitOp
   _          -> Nothing
  where
-  numericOp    = Just [ TypeClassMember TypeNumeric i | i <- [l, r, x] ]
+  numericOp    = Just [ TypeEq typeClassNumeric i | i <- [l, r, x] ]
   comparisonOp = Just [TypeEq l r, TypeEq (TypeBasicType BasicTypeBool) x]
   booleanOp = Just [ TypeEq (TypeBasicType BasicTypeBool) i | i <- [l, r, x] ]
-  bitOp        = Just [ TypeClassMember TypeIntegral i | i <- [l, r, x] ]
+  bitOp        = Just [ TypeEq typeClassIntegral i | i <- [l, r, x] ]

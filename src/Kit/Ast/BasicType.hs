@@ -16,7 +16,7 @@ data BasicType
   | BasicTypeUint Int
   | BasicTypeFloat Int
   | BasicTypeStruct (Maybe Str) BasicArgs
-  | BasicTypeSimpleEnum Str [Str]
+  | BasicTypeSimpleEnum (Maybe Str) [Str]
   | BasicTypeComplexEnum Str [(Str, BasicArgs)]
   | BasicTypeAtom Str
   | BasicTypeFunction BasicType BasicArgs Bool
@@ -30,12 +30,19 @@ instance Show BasicType where
   show (CPtr t) = "Ptr[" ++ show t ++ "]"
   show (BasicTypeVoid) = "Void"
   show (BasicTypeBool) = "Bool"
+  show (BasicTypeInt 16) = "Short"
+  show (BasicTypeInt 32) = "Int"
+  show (BasicTypeInt 64) = "Long"
   show (BasicTypeInt w) = "Int" ++ show w
+  show (BasicTypeUint 8) = "Byte"
   show (BasicTypeUint w) = "Uint" ++ show w
+  show (BasicTypeFloat 32) = "Float"
+  show (BasicTypeFloat 64) = "Double"
   show (BasicTypeFloat w) = "Float" ++ show w
   show (BasicTypeStruct (Just name) _) = "struct " ++ s_unpack name
   show (BasicTypeStruct Nothing _) = "(anon struct)"
-  show (BasicTypeSimpleEnum name _) = "enum " ++ s_unpack name
+  show (BasicTypeSimpleEnum (Just name) _) = "enum " ++ s_unpack name
+  show (BasicTypeSimpleEnum Nothing _) = "(anon enum)"
   show (BasicTypeComplexEnum name _) = "enum " ++ s_unpack name
   show (BasicTypeAtom s) = "atom " ++ s_unpack s
   show (BasicTypeFunction t args varargs) = "function (" ++ (intercalate ", " [s_unpack name ++ ": " ++ show argType | (name, argType) <- args]) ++ (if varargs then ", ..." else "") ++ "): " ++ show t

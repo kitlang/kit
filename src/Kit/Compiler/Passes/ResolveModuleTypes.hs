@@ -52,6 +52,15 @@ _checkForTopLevel :: CompileContext -> Module -> Statement -> IO ()
 _checkForTopLevel ctx mod s = do
   tctx <- newTypeContext []
   case stmt s of
+    {-TraitDeclaration t -> do
+      h_insert (modTraits mod) (traitName t) t
+    Implement t -> do
+      -- TODO
+      implTrait <-
+      h_insert (modImpls mod) (traitName t) t-}
+    Specialize trait inst -> do
+      -- TODO
+      return ()
     TypeDeclaration t -> do
       debugLog ctx
         $  "found type "
@@ -60,8 +69,7 @@ _checkForTopLevel ctx mod s = do
         ++ (show mod)
       --bindToScope (mod_type_definitions mod) (typeName t) usage
       ct <- typeDefinitionToConcreteType ctx tctx mod t
-      bindToScope (modTypes mod)           (typeName t) ct
-      bindToScope (modTypeDefinitions mod) (typeName t) t
+      bindToScope (modTypes mod) (typeName t) (newTypeBinding (BindingType t) ct)
       case t of
         TypeDefinition { typeName = typeName, typeType = Enum { enum_variants = variants } }
           -> do
@@ -93,7 +101,7 @@ _checkForTopLevel ctx mod s = do
         ++ " in "
         ++ (show mod)
       b' <- resolveType ctx tctx mod b
-      bindToScope (modTypes mod) a b'
+      bindToScope (modTypes mod) a (newTypeBinding (BindingTypedef) (b'))
     ModuleVarDeclaration v -> do
       debugLog ctx
         $  "found variable "

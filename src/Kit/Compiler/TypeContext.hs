@@ -80,6 +80,20 @@ follow ctx tctx mod t = do
         $ TypeSpec tp [ ConcreteType p | p <- params ] null_span
     _ -> return t
 
+resolveModuleBinding
+  :: CompileContext
+  -> TypeContext
+  -> Module
+  -> TypePath
+  -> (Module -> Scope a)
+  -> IO (Maybe a)
+resolveModuleBinding ctx tctx mod (m, name) accessor = do
+  importedMods <- getModImports ctx mod
+  let searchMods = case m of
+        [] -> importedMods
+        m  -> (filter (\mod' -> modPath mod' == m) importedMods)
+  resolveBinding (map accessor searchMods) name
+
 {-
   Attempt to resolve a TypeSpec into a ConcreteType; fail if it isn't a known
   type.
@@ -87,6 +101,7 @@ follow ctx tctx mod t = do
 resolveType
   :: CompileContext -> TypeContext -> Module -> TypeSpec -> IO ConcreteType
 resolveType ctx tctx mod t = do
+  importedMods <- getModImports ctx mod
   case t of
     ConcreteType ct            -> follow ctx tctx mod ct
     TypeSpec (m, s) params pos -> do
@@ -99,10 +114,10 @@ resolveType ctx tctx mod t = do
               resolveType ctx tctx mod (ConcreteType x)
             Nothing -> do
               -- search other modules
-              importedMods <- getModImports ctx mod
-              bound        <- resolveBinding (map modTypes importedMods) s
+              bound <- resolveBinding (map modTypes importedMods) s
               case bound of
-                Just t  -> follow ctx tctx mod t
+                Just (TypeBinding { typeBindingConcrete = t }) ->
+                  follow ctx tctx mod t
                 Nothing -> do
                   builtin <- builtinToConcreteType ctx tctx mod s params
                   case builtin of
@@ -110,10 +125,10 @@ resolveType ctx tctx mod t = do
                     Nothing -> unknownType s pos
         m -> do
           -- search only a specific module for this type
-          importedMods <- getModImports ctx mod
           result <- resolveBinding (map modTypes importedMods) s
           case result of
-            Just t  -> follow ctx tctx mod t
+            Just (TypeBinding { typeBindingConcrete = t }) ->
+              follow ctx tctx mod t
             Nothing -> unknownType s pos
 
     TypeFunctionSpec rt params args isVariadic -> do

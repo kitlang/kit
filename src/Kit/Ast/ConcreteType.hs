@@ -20,6 +20,7 @@ data ConcreteType
   | TypeStruct TypePath [ConcreteType]
   | TypeAnonStruct [(Str, ConcreteType)]
   | TypeEnum TypePath [ConcreteType]
+  | TypeAnonEnum [Str]
   | TypeAbstract TypePath [ConcreteType]
   | TypeTypedef TypePath [ConcreteType]
   | TypeFunction ConcreteType ConcreteArgs Bool
@@ -29,7 +30,7 @@ data ConcreteType
   | TypeEnumConstructor TypePath ConcreteArgs
   | TypeIdentifier ConcreteType
   | TypeRange
-  | TypeTraits [TypePath]
+  | TypeConstrained [(TypePath, [ConcreteType])]
   | TypeTypeVar TypeVar
   deriving (Eq)
 
@@ -40,6 +41,7 @@ instance Show ConcreteType where
   show (TypeAnonStruct f) = "(anon struct)"
   show (TypeEnum tp []) = "enum " ++ (s_unpack $ showTypePath tp)
   show (TypeEnum tp params) = "enum " ++ (s_unpack $ showTypePath tp) ++ "[" ++ (intercalate ", " [show x | x <- params])
+  show (TypeAnonEnum variants) = "(anon enum {" ++ (intercalate ", " (map s_unpack variants)) ++ "})"
   show (TypeAbstract tp []) = "abstract " ++ (s_unpack $ showTypePath tp)
   show (TypeAbstract tp params) = "abstract " ++ (s_unpack $ showTypePath tp) ++ "[" ++ (intercalate ", " [show x | x <- params])
   show (TypeTypedef tp []) = (s_unpack $ showTypePath tp)
@@ -52,8 +54,7 @@ instance Show ConcreteType where
   show (TypeEnumConstructor tp _) = "enum " ++ (show tp) ++ " constructor"
   show (TypeIdentifier t) = "Identifier of " ++ (show t)
   show (TypeRange) = "range"
-  show (TypeTraits [tp]) = "trait " ++ (s_unpack $ showTypePath tp)
-  show (TypeTraits ts) = "traits (" ++ (intercalate " + " [s_unpack $ showTypePath tp | tp <- ts]) ++ ")"
+  show (TypeConstrained ts) = "traits (" ++ (intercalate " + " [(s_unpack $ showTypePath tp) ++ if null params then "" else ("[" ++ intercalate ", " (map show params) ++ "]") | (tp, params) <- ts]) ++ ")"
   show (TypeTypeVar i) = show i
 
 data TypeVar

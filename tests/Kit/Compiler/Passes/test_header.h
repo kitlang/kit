@@ -15,8 +15,14 @@ typedef struct Struct3 Struct3;
 enum Enum1 {
   apple,
   banana,
-  strawberry,
+  cherry
 };
+
+typedef enum {
+  kiwi,
+  lime,
+  mango
+} Enum2;
 
 // variables
 

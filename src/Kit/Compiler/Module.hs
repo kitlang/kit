@@ -16,68 +16,63 @@ data Module = Module {
   modSourcePath :: FilePath,
   modImports :: [(ModulePath, Span)],
   modIncludes :: [(FilePath, Span)],
-  modTypes :: Scope ConcreteType,
-  modTypeDefinitions :: Scope (TypeDefinition Expr (Maybe TypeSpec)),
+  modInterface :: Scope (),
+  modTypes :: Scope TypeBinding,
   modFunctions :: Scope (FunctionDefinition Expr (Maybe TypeSpec)),
   modContents :: IORef [Statement],
   modTypedContents :: Scope TypedDecl,
   modVars :: Scope Binding,
   modIsCModule :: Bool,
-  modIr :: IORef [IrDecl]
+  modIr :: IORef [IrDecl],
+  modTraits :: Scope (TraitDefinition Expr (Maybe TypeSpec)),
+  modImpls :: Scope (HashTable TypePath (TraitImplementation Expr (Maybe TypeSpec)))
 }
 
 instance Show Module where
   show m = "<module " ++ (s_unpack $ showModulePath $ modPath m) ++ " (" ++ (modSourcePath m) ++ ")>"
 
+emptyMod :: IO Module
+emptyMod = do
+  contents      <- newIORef []
+  types         <- newScope
+  functions     <- newScope
+  traits        <- newScope
+  vars          <- newScope
+  enums         <- newScope
+  typedContents <- newScope
+  ir            <- newIORef []
+  return $ Module
+    { modPath          = undefined
+    , modSourcePath    = undefined
+    , modImports       = []
+    , modIncludes      = []
+    , modTypes         = types
+    , modFunctions     = functions
+    , modVars          = vars
+    , modContents      = contents
+    , modTypedContents = typedContents
+    , modIr            = ir
+    , modIsCModule     = False
+    , modTraits        = traits
+    }
+
 newMod :: ModulePath -> [Statement] -> FilePath -> IO Module
 newMod path stmts fp = do
-  contents        <- newIORef stmts
-  types           <- newScope
-  typeDefinitions <- newScope
-  functions       <- newScope
-  vars            <- newScope
-  enums           <- newScope
-  typedContents   <- newScope
-  ir              <- newIORef []
-  return $ Module
-    { modPath            = path
-    , modSourcePath      = fp
-    , modImports         = _findImports path stmts
-    , modIncludes        = _findIncludes stmts
-    , modTypes           = types
-    , modTypeDefinitions = typeDefinitions
-    , modFunctions       = functions
-    , modVars            = vars
-    , modContents        = contents
-    , modTypedContents   = typedContents
-    , modIr              = ir
-    , modIsCModule       = False
-    }
+  mod <- emptyMod
+  writeIORef (modContents mod) (stmts)
+  return $ mod { modPath       = path
+               , modSourcePath = fp
+               , modImports    = _findImports path stmts
+               , modIncludes   = _findIncludes stmts
+               }
 
 newCMod :: FilePath -> IO Module
 newCMod fp = do
-  contents        <- newIORef []
-  types           <- newScope
-  typeDefinitions <- newScope
-  functions       <- newScope
-  vars            <- newScope
-  enums           <- newScope
-  typedContents   <- newScope
-  ir              <- newIORef []
-  return $ Module
-    { modPath            = includeToModulePath fp
-    , modSourcePath      = fp
-    , modImports         = []
-    , modIncludes        = []
-    , modTypes           = types
-    , modTypeDefinitions = typeDefinitions
-    , modFunctions       = functions
-    , modVars            = vars
-    , modContents        = contents
-    , modTypedContents   = typedContents
-    , modIr              = ir
-    , modIsCModule       = True
-    }
+  mod <- emptyMod
+  return $ mod { modPath       = includeToModulePath fp
+               , modSourcePath = fp
+               , modIsCModule  = True
+               }
 
 _findImports :: ModulePath -> [Statement] -> [(ModulePath, Span)]
 _findImports mod stmts = foldr

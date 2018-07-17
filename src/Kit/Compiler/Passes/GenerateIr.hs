@@ -79,8 +79,8 @@ findUnderlyingType ctx mod t = do
       return $ BasicTypeStruct Nothing fields'
     TypeStruct (modPath, name) fieldTypes -> do
       definitionMod <- getMod ctx modPath
-      typeDef       <- resolveLocal (modTypeDefinitions definitionMod) name
-
+      typeDef       <- resolveLocal (modTypes definitionMod) name
+      -- TODO
       return $ BasicTypeStruct (Just name) []
     -- TypeEnum TypePath [ConcreteType]
     -- TypeAbstract TypePath [ConcreteType]

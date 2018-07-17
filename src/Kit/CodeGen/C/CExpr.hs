@@ -45,25 +45,33 @@ ctype (BasicTypeFloat 32) = ([u CFloatType], [])
 ctype (BasicTypeFloat 64) = ([u CDoubleType], [])
 ctype (BasicTypeAtom  _ ) = ([u CUnsigType, u CLongType], [])
 ctype (BasicTypeStruct name _) =
-  ( [ u $ CSUType $ u $ CStruct CStructTag
-                                (case name of {Just name -> Just $ internalIdent $ s_unpack name; Nothing -> Nothing})
-                                Nothing
-                                []
+  ( [ u $ CSUType $ u $ CStruct
+        CStructTag
+        (case name of
+          Just name -> Just $ internalIdent $ s_unpack name
+          Nothing   -> Nothing
+        )
+        Nothing
+        []
     ]
   , []
   )
 ctype (BasicTypeSimpleEnum name _) =
-  ( [ u $ CEnumType $ u $ CEnum (Just (internalIdent $ s_unpack name))
-                                Nothing
-                                []
+  ( [ u $ CEnumType $ u $ CEnum
+        (case name of
+          Just name -> Just (internalIdent $ s_unpack name)
+          Nothing   -> Nothing
+        )
+        Nothing
+        []
     ]
   , []
   )
 ctype (BasicTypeComplexEnum name _) = ctype (BasicTypeStruct (Just name) [])
 ctype (CPtr x) = (fst t, (u $ CPtrDeclr []) : snd t) where t = ctype x
-ctype (BasicTypeFunction _ _ _) = undefined
-ctype (CArray _ _) = undefined
-ctype (BasicTypeUnknown) = undefined
+ctype (BasicTypeFunction _ _ _    ) = undefined
+ctype (CArray _ _                 ) = undefined
+ctype (BasicTypeUnknown           ) = undefined
 -- TODO: CArray
 
 --transpile :: [Expr] -> [CStat]
@@ -162,7 +170,7 @@ transpileBinop Or         = CLorOp
 transpileBinop BitAnd     = CAndOp
 transpileBinop BitOr      = COrOp
 transpileBinop BitXor     = CXorOp
-transpileBinop _ = undefined
+transpileBinop _          = undefined
 
 transpileAssignop Add        = CAddAssOp
 transpileAssignop Sub        = CSubAssOp
@@ -174,7 +182,7 @@ transpileAssignop BitOr      = COrAssOp
 transpileAssignop BitXor     = CXorAssOp
 transpileAssignop LeftShift  = CShlAssOp
 transpileAssignop RightShift = CShrAssOp
-transpileAssignop _ = undefined
+transpileAssignop _          = undefined
 
 transpilePreUnop Inc        = CPreIncOp
 transpilePreUnop Dec        = CPreDecOp
@@ -183,8 +191,8 @@ transpilePreUnop Invert     = CNegOp
 transpilePreUnop InvertBits = CCompOp
 transpilePreUnop Ref        = CAdrOp
 transpilePreUnop Deref      = CIndOp
-transpilePreUnop _ = undefined
+transpilePreUnop _          = undefined
 
 transpilePostUnop Inc = CPostIncOp
 transpilePostUnop Dec = CPostDecOp
-transpilePostUnop _ = undefined
+transpilePostUnop _   = undefined

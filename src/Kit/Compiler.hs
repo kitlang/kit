@@ -1,10 +1,11 @@
 module Kit.Compiler (
-tryCompile,
-module Kit.Compiler.Context,
-module Kit.Compiler.Module,
-module Kit.Compiler.Passes,
-module Kit.Compiler.Scope,
-module Kit.Compiler.Unify
+  tryCompile,
+  module Kit.Compiler.Context,
+  module Kit.Compiler.Module,
+  module Kit.Compiler.Passes,
+  module Kit.Compiler.Scope,
+  module Kit.Compiler.TypeContext,
+  module Kit.Compiler.Unify
 ) where
 
 import Control.Exception
@@ -18,6 +19,7 @@ import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.Passes
 import Kit.Compiler.Scope
+import Kit.Compiler.TypeContext
 import Kit.Compiler.Unify
 import Kit.Compiler.Utils
 import Kit.Error
