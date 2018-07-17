@@ -23,7 +23,7 @@ enum Enum1 {
 extern int var1;
 char var2 = 1;
 unsigned long var3;
-struct Struct2 struct_var1;
+struct Struct1 struct_var1;
 enum Enum1 enum_var1;
 int *pointer_var1;
 int **pointer_var2;

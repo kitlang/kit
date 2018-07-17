@@ -110,9 +110,8 @@ resolveType ctx tctx mod t = do
                     Nothing -> unknownType s pos
         m -> do
           -- search only a specific module for this type
-          imports <- mapM (getMod ctx)
-                          [ mod' | (mod', _) <- modImports mod, mod' == m ]
-          result <- resolveBinding (map modTypes imports) s
+          importedMods <- getModImports ctx mod
+          result <- resolveBinding (map modTypes importedMods) s
           case result of
             Just t  -> follow ctx tctx mod t
             Nothing -> unknownType s pos

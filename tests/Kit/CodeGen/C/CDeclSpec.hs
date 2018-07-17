@@ -26,7 +26,7 @@ spec = do
     it "Transpiles structs" $ do
       showstruct
           (BasicTypeStruct
-            ("MyStruct", [("a", BasicTypeInt 8), ("b", BasicTypeUint 8)])
+            (Just "MyStruct") [("a", BasicTypeInt 8), ("b", BasicTypeUint 8)]
           )
         `shouldBe` "struct MyStruct {\nsigned char a; unsigned char b;\n}"
 

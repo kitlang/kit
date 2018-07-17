@@ -50,7 +50,6 @@ generateDeclIr ctx mod t = do
           )
           args
         body' <- typedToIr ctx mod body
-        putStrLn $ show $ body
         addDecl $ IrFunction $ ((convertFunctionDefinition f) :: IrFunction)
           { functionName = name
           , functionType = (BasicTypeFunction
@@ -68,11 +67,21 @@ generateDeclIr ctx mod t = do
 findUnderlyingType :: CompileContext -> Module -> ConcreteType -> IO BasicType
 findUnderlyingType ctx mod t = do
   case t of
-    TypeBasicType b          -> return b
-    TypeAtom      s          -> return $ BasicTypeAtom s
-    TypeStruct tp fieldTypes -> do
-      -- TODO
-      return $ BasicTypeUnknown
+    TypeBasicType  b      -> return b
+    TypeAtom       s      -> return $ BasicTypeAtom s
+    TypeAnonStruct fields -> do
+      fields' <- forM
+        fields
+        (\(name, t) -> do
+          t' <- findUnderlyingType ctx mod t
+          return (name, t')
+        )
+      return $ BasicTypeStruct Nothing fields'
+    TypeStruct (modPath, name) fieldTypes -> do
+      definitionMod <- getMod ctx modPath
+      typeDef       <- resolveLocal (modTypeDefinitions definitionMod) name
+
+      return $ BasicTypeStruct (Just name) []
     -- TypeEnum TypePath [ConcreteType]
     -- TypeAbstract TypePath [ConcreteType]
     -- TypeTypedef TypePath [ConcreteType]

@@ -16,7 +16,7 @@ testHeader = do
   --   ctxIncludePaths = ["tests/Kit/Compiler/Passes"]
   -- }
   let testHeader = "tests/Kit/Compiler/Passes/test_header.h"
-  mod <- newCMod testHeader
+  mod <- newCMod ""
   parseCHeader ctx mod testHeader
   return mod
 
@@ -42,8 +42,8 @@ spec = do
       ]
       (\t ->
         it ("Parses C specifiers into " ++ show t)
-          $          parseDeclSpec (fst $ ctype t)
-          `shouldBe` Just (TypeBasicType t)
+          $          parseType [] (fst $ ctype t) []
+          `shouldBe` TypeBasicType t
       )
 
     {-it "Resolves specifiers for structs into struct types" $ do
@@ -73,11 +73,11 @@ spec = do
         )
       , ( "Parses struct vars"
         , "struct_var1"
-        , VarBinding (TypeStruct ([], "Struct2") [])
+        , VarBinding (TypeStruct (["c"], "Struct1") [])
         )
       , ( "Parses enum vars"
         , "enum_var1"
-        , VarBinding (TypeEnum ([], "Enum1") [])
+        , VarBinding (TypeEnum (["c"], "Enum1") [])
         )
       , ( "Parses pointer vars"
         , "pointer_var1"
@@ -116,8 +116,8 @@ spec = do
         )
       , ( "Parses functions with struct return value/arguments"
         , "struct_func"
-        , FunctionBinding (TypeStruct ([], "Struct1") [])
-                          [("a", TypeStruct ([], "Struct2") [])]
+        , FunctionBinding (TypeStruct (["c"], "Struct1") [])
+                          [("a", TypeStruct (["c"], "Struct2") [])]
                           False
         )
       , ( "Parses functions with pointer return value/arguments"
@@ -144,25 +144,25 @@ spec = do
         binding `shouldBe` Just (newBinding val Nothing)
       )
 
-    {-forM_
+    forM_
       [ ( "Parses struct declarations"
         , "Struct1"
-        , TypeStruct ([], "Struct1") []
-        , (newTypeDefinition "Struct1")
-          { typeNameMangling = False
-          , typeType        = Struct
+        , TypeStruct (["c"], "Struct1") []
+        , Just $ (newTypeDefinition "Struct1")
+          { typeNameMangling = Nothing
+          , typeType         = Struct
             { struct_fields = [ newVarDefinition
-                                { varName        = "field1"
-                                , varNameMangling = False
-                                , varType        = Just
+                                { varName         = "field1"
+                                , varNameMangling = Nothing
+                                , varType         = Just
                                   $ ConcreteType
                                   $ TypeBasicType
                                   $ BasicTypeInt 8
                                 }
                               , newVarDefinition
-                                { varName        = "field2"
-                                , varNameMangling = False
-                                , varType        = Just
+                                { varName         = "field2"
+                                , varNameMangling = Nothing
+                                , varType         = Just
                                   $ ConcreteType
                                   $ TypeBasicType
                                   $ BasicTypeUint 16
@@ -173,45 +173,27 @@ spec = do
         )
       , ( "Parses unnamed struct typedefs"
         , "Struct2"
-        , TypeBasicType BasicTypeUnknown
-        , (newTypeDefinition "Struct2")
-          { typeNameMangling = False
-          , typeType        = Struct
-            { struct_fields = [ newVarDefinition
-                                { varName        = "field1"
-                                , varNameMangling = False
-                                , varType        = Just
-                                  $ ConcreteType
-                                  $ TypeBasicType
-                                  $ BasicTypeInt 16
-                                }
-                              , newVarDefinition
-                                { varName        = "field2"
-                                , varNameMangling = False
-                                , varType        = Just
-                                  $ ConcreteType
-                                  $ TypeBasicType
-                                  $ BasicTypeFloat 64
-                                }
-                              ]
-            }
-          }
+        , TypeAnonStruct
+          [ ("field1", TypeBasicType $ BasicTypeInt 16)
+          , ("field2", TypeBasicType $ BasicTypeFloat 64)
+          ]
+        , Nothing
         )
       , ( "Parses empty struct typedefs"
         , "Struct3"
-        , TypeStruct ([], "Struct3") []
-        , (newTypeDefinition "Struct3") { typeNameMangling = False
-                                        , typeType        = Struct
-                                          { struct_fields = []
-                                          }
-                                        }
+        , TypeStruct (["c"], "Struct3") []
+        , Just $ (newTypeDefinition "Struct3") { typeNameMangling = Nothing
+                                               , typeType         = Struct
+                                                 { struct_fields = []
+                                                 }
+                                               }
         )
       , ( "Parses enum definitions"
         , "Enum1"
-        , TypeEnum ([], "Enum1") []
-        , (newTypeDefinition "Enum1")
-          { typeNameMangling = False
-          , typeType        = Enum
+        , TypeEnum (["c"], "Enum1") []
+        , Just $ (newTypeDefinition "Enum1")
+          { typeNameMangling = Nothing
+          , typeType         = Enum
             { enum_variants = [ newEnumVariant { variantName = "apple" }
                               , newEnumVariant { variantName = "banana" }
                               , newEnumVariant { variantName = "strawberry" }
@@ -222,12 +204,9 @@ spec = do
         )
       ]
       (\(label, name, ct, val) -> it label $ do
-        header  <- testHeader
-        binding <- resolveLocal (mod_type_definitions header) name
-        let binding' = case binding of
-              Just (TypeUsage { type_definition = t }) -> Just t
-              Nothing -> Nothing
-        binding' `shouldBe` Just val
-        x <- resolveLocal (modTypes header) name
+        header <- testHeader
+        x      <- resolveLocal (modTypes header) name
         x `shouldBe` Just ct
-      )-}
+        binding <- resolveLocal (modTypeDefinitions header) name
+        binding `shouldBe` val
+      )

@@ -80,34 +80,100 @@ parseCDecls ctx mod [] = do
 parseCDecls ctx mod (h : t) = do
   case h of
     CDeclExt cdecl -> do
-      let declarations        = decomposeCDecl cdecl
-      let (_, _, typeSpec, _) = head declarations
-      forM_ (parseNonInitSpec typeSpec) (\t -> addTypeDeclaration ctx mod t)
-      forM_
-        declarations
-        (\(name, storageSpec, typeSpec, derivedSpec) -> do
-          let t' = typeFromSpec typeSpec derivedSpec
-          addCDecl ctx mod name t'
-          if isTypedef storageSpec
-            then do
-              forM_ (parseTypedefSpec typeSpec name)
-                    (\t -> addTypeDeclaration ctx mod t)
-              bindToScope (modTypes mod) name t'
-              debugLog ctx
-                $  "typedef "
-                ++ (s_unpack name)
-                ++ " = "
-                ++ (show t')
-                ++ ""
-              return ()
-            else return ()
-          return ()
-        )
-      return ()
-
+      let (storageSpec, typeSpec, initializers) = decomposeCDecl cdecl
+      if isTypedef storageSpec
+        then do
+          -- this is a typedef
+          forM_ initializers (defineTypedef ctx mod typeSpec)
+          -- if there's a named struct/enum, even in a typedef, define t here
+          defineNamedStructsAndEnums ctx mod typeSpec
+        else if null initializers
+          then -- this is a non-typedef struct, enum or union declaration
+               defineNamedStructsAndEnums ctx mod typeSpec
+          else -- this is one or more variable/function declarations
+               forM_
+            (initializers)
+            (\(name, declr) -> do
+              let t' = parseType (modPath mod) typeSpec (reverse declr)
+              debugLog ctx $ "bind " ++ (s_unpack name) ++ ": " ++ (show t')
+              addCDecl ctx mod name t'
+            )
     _ -> do
       return ()
   parseCDecls ctx mod t
+
+defineTypedef
+  :: CompileContext -> Module -> [CTypeSpec] -> (Str, [CDerivedDeclr]) -> IO ()
+defineTypedef ctx mod typeSpec (name, declr) = do
+  let t' = parseType (modPath mod) typeSpec declr
+  debugLog ctx $ "typedef " ++ (s_unpack name) ++ ": " ++ (show t')
+  bindToScope (modTypes mod) name t'
+
+parseType :: ModulePath -> [CTypeSpec] -> [CDerivedDeclr] -> ConcreteType
+parseType m typeSpec declr =
+  parseDerivedType m declr (parseDeclSpec m typeSpec)
+parseDerivedType m (h' : t') ct =
+  let p = parseDerivedType m t'
+  in
+    case h' of
+      (CPtrDeclr _ _) -> p (TypePtr ct)
+      (CArrDeclr _                         (CNoArrSize _) _) -> p (TypeArr ct Nothing)
+      (CArrDeclr _                         (CArrSize _ _) _) -> p (TypeArr ct Nothing) -- FIXME
+      (CFunDeclr (Right (params, varargs)) _              _) -> p
+        (TypeFunction
+          ct
+          (filter
+            (\(_, t) -> t /= (TypeBasicType BasicTypeVoid))
+            [ let (_, typeSpec', init) = decomposeCDecl p
+              in  let (name, derivedSpec') =
+                        if null init then ("_", []) else (head init)
+                  in  (name, parseType m typeSpec' derivedSpec')
+            | p <- params
+            ]
+          )
+          varargs
+        )
+      _ -> p ct
+parseDerivedType m [] ct = ct
+
+-- Parse CTypeSpecs to find the type of a function/variable declaration
+parseDeclSpec :: ModulePath -> [CTypeSpec] -> ConcreteType
+parseDeclSpec modPath x = _parseDeclSpec modPath x 0 True False
+_parseDeclSpec modPath (h : t) width signed float = case h of
+  -- simple types; narrow the definition with each specifier
+  (CVoidType   _           ) -> TypeBasicType BasicTypeVoid
+  (CBoolType   _           ) -> TypeBasicType BasicTypeBool
+  (CSignedType _           ) -> _parseDeclSpec modPath t width True float
+  (CUnsigType  _           ) -> _parseDeclSpec modPath t width False float
+  (CFloatType  _           ) -> _parseDeclSpec modPath t 32 signed True
+  (CDoubleType _           ) -> _parseDeclSpec modPath t 64 signed True
+  (CCharType   _           ) -> _parseDeclSpec modPath t 8 signed False
+  (CShortType  _           ) -> _parseDeclSpec modPath t 16 signed False
+  (CIntType    _           ) -> _parseDeclSpec modPath t 16 signed False
+  (CLongType _) -> _parseDeclSpec modPath t (width + 32) signed False
+  (CTypeDef (Ident x _ _) _) -> TypeTypedef (modPath, (s_pack x)) []
+  -- anonymous structs/enums; TODO: need to generate a stub declaration for these
+  (CSUType (CStruct CStructTag (Just (Ident x _ _)) _ _ _) _) ->
+    TypeStruct (modPath, (s_pack x)) []
+  (CSUType (CStruct CStructTag Nothing fields _ _) _) ->
+    let fields' = case fields of
+          Just f  -> f
+          Nothing -> []
+    in  TypeAnonStruct
+          [ (name, parseType modPath typeSpec declr)
+          | f <- fields'
+          , let (_, typeSpec, init) = decomposeCDecl f
+          , (name, declr) <- init
+          ]
+  (CEnumType (CEnum (Just (Ident x _ _)) _ _ _) _) ->
+    TypeEnum (modPath, (s_pack x)) []
+  _ -> _parseDeclSpec modPath t width signed float
+_parseDeclSpec modPath [] 0     _      _     = (TypeBasicType BasicTypeUnknown)
+_parseDeclSpec modPath [] width signed float = if float
+  then TypeBasicType $ BasicTypeFloat width
+  else if signed
+    then TypeBasicType $ BasicTypeInt width
+    else TypeBasicType $ BasicTypeUint width
 
 addCDecl :: CompileContext -> Module -> Str -> ConcreteType -> IO ()
 addCDecl ctx mod name t = do
@@ -118,165 +184,103 @@ addCDecl ctx mod name t = do
           isVariadic
         _ -> VarBinding $ t
   bindToScope (modVars mod) name (newBinding bindingData Nothing)
-  debugLog ctx $ "binding " ++ (s_unpack name) ++ ": " ++ (show t) ++ ""
   return ()
-
--- Parse CDeclSpecs to find the type of a function/variable declaration
-parseDeclSpec :: [CTypeSpec] -> Maybe ConcreteType
-parseDeclSpec x = _parseDeclSpec x 0 True False
-_parseDeclSpec (h : t) width signed float = case h of
-  -- simple types; narrow the definition with each specifier
-  (CVoidType   _           ) -> Just $ TypeBasicType BasicTypeVoid
-  (CBoolType   _           ) -> Just $ TypeBasicType BasicTypeBool
-  (CSignedType _           ) -> _parseDeclSpec t width True float
-  (CUnsigType  _           ) -> _parseDeclSpec t width False float
-  (CFloatType  _           ) -> _parseDeclSpec t 32 signed True
-  (CDoubleType _           ) -> _parseDeclSpec t 64 signed True
-  (CCharType   _           ) -> _parseDeclSpec t 8 signed False
-  (CShortType  _           ) -> _parseDeclSpec t 16 signed False
-  (CIntType    _           ) -> _parseDeclSpec t 16 signed False
-  (CLongType   _           ) -> _parseDeclSpec t (width + 32) signed False
-  (CTypeDef (Ident x _ _) _) -> Just $ TypeTypedef ([], (s_pack x)) []
-  -- anonymous structs/enums; TODO: need to generate a stub declaration for these
-  (CSUType (CStruct CStructTag (Just (Ident x _ _)) _ _ _) _) ->
-    Just $ TypeStruct ([], (s_pack x)) []
-  (CEnumType (CEnum (Just (Ident x _ _)) _ _ _) _) ->
-    Just $ TypeEnum ([], (s_pack x)) []
-  _ -> _parseDeclSpec t width signed float
-_parseDeclSpec [] 0     _      _     = Nothing
-_parseDeclSpec [] width signed float = Just $ if float
-  then TypeBasicType $ BasicTypeFloat width
-  else if signed
-    then TypeBasicType $ BasicTypeInt width
-    else TypeBasicType $ BasicTypeUint width
 
 isTypedef :: [CStorageSpec] -> Bool
 isTypedef ((CTypedef _) : _) = True
 isTypedef (h            : t) = isTypedef t
 isTypedef []                 = False
 
-parseTypedefSpec :: [CTypeSpec] -> Str -> [TypeDefinition Expr (Maybe TypeSpec)]
-parseTypedefSpec ((CTypeDef (Ident name _ _) _) : _) _ = [] -- TODO
-parseTypedefSpec ((CSUType (CStruct CStructTag _ fields _ _) _) : _) name =
-  let fields' = case fields of
-        Just f  -> f
-        Nothing -> []
-  in
-    [ (newTypeDefinition name)
-        { typeNameMangling = Nothing
-        , typeType         = Struct
-          { struct_fields = [ newVarDefinition
-                                { varName         = structFieldName field
-                                , varType         = Just
-                                  $ ConcreteType
-                                  $ structFieldType field
-                                , varNameMangling = Nothing
-                                }
-                            | field <- fields'
-                            ]
-          }
-        }
-    ]
-parseTypedefSpec (h : t) name = parseTypedefSpec t name
-parseTypedefSpec []      _    = []
+defineNamedStructsAndEnums :: CompileContext -> Module -> [CTypeSpec] -> IO ()
+defineNamedStructsAndEnums ctx mod [] = do
+  return ()
+defineNamedStructsAndEnums ctx mod (h : t) = do
+  case h of
+    (CSUType (CStruct CStructTag (Just (Ident name _ _)) fields _ _) _) -> do
+      let fields' = case fields of
+            Just f  -> f
+            Nothing -> []
+      let
+        typeDef
+          = ((newTypeDefinition (s_pack name))
+              { typeNameMangling = Nothing
+              , typeType         = Struct
+                { struct_fields = [ (newVarDefinition)
+                                      { varName         = fieldName
+                                      , varType         = Just
+                                        $ ConcreteType
+                                        $ fieldType
+                                      , varNameMangling = Nothing
+                                      }
+                                  | field                  <- fields'
+                                  , (fieldName, fieldType) <-
+                                    decomposeStructField (modPath mod) field
+                                  ]
+                }
+              }
+            )
+      bindToScope (modTypeDefinitions mod) (s_pack name) typeDef
+      bindToScope (modTypes mod)
+                  (s_pack name)
+                  (TypeStruct (modPath mod, s_pack name) [])
+      debugLog ctx $ "define struct " ++ name
+    (CEnumType (CEnum (Just (Ident name _ _)) variants _ _) _) -> do
+      let variants' = case variants of
+            Just v  -> v
+            Nothing -> []
+      let
+        typeDef =
+          (((newTypeDefinition (s_pack name)) :: TypeDefinition
+               Expr
+               (Maybe TypeSpec)
+           )
+            { typeNameMangling = Nothing
+            , typeType         = Enum
+              { enum_underlying_type = Nothing
+              , enum_variants        = [ newEnumVariant
+                                           { variantName = s_pack variantName
+                                           }
+                                       | (Ident variantName _ _, _) <- variants'
+                                       ]
+              }
+            }
+          )
+      bindToScope (modTypeDefinitions mod) (s_pack name) typeDef
+      bindToScope (modTypes mod)
+                  (s_pack name)
+                  (TypeEnum (modPath mod, s_pack name) [])
+      debugLog ctx $ "define enum " ++ name
+    _ -> return ()
+  defineNamedStructsAndEnums ctx mod t
 
-parseNonInitSpec ((CSUType (CStruct CStructTag (Just (Ident name _ _)) fields _ _) _) : _)
-  = case fields of
-    Just fields
-      -> [ (newTypeDefinition (s_pack name))
-             { typeNameMangling = Nothing
-             , typeType         = Struct
-               { struct_fields = [ newVarDefinition
-                                     { varNameMangling = Nothing
-                                     , varName         = structFieldName field
-                                     , varType         = Just
-                                       $ ConcreteType
-                                       $ structFieldType field
-                                     }
-                                 | field <- fields
-                                 ]
-               }
-             }
-         ]
-    Nothing -> []
-parseNonInitSpec ((CEnumType (CEnum (Just (Ident name _ _)) (Just variants) _ _) _) : _)
-  = [ (newTypeDefinition (s_pack name))
-        { typeNameMangling = Nothing
-        , typeType         = Enum
-          { enum_variants = [ newEnumVariant { variantName = s_pack variantName
-                                             }
-                            | (Ident variantName _ _, _) <- variants
-                            ]
-          , enum_underlying_type = Nothing
-          }
-        }
-    ]
-parseNonInitSpec _ = []
-
-addTypeDeclaration
-  :: CompileContext -> Module -> TypeDefinition Expr (Maybe TypeSpec) -> IO ()
-addTypeDeclaration ctx mod t = do
-  let name = (typeName t)
-  tctx <- newTypeContext []
-  t'   <- typeDefinitionToConcreteType ctx tctx mod t
-  bindToScope (modTypeDefinitions mod) name t
-  bindToScope (modTypes mod)           name t'
-
-structFieldName cdecl =
-  let (name, _, _, _) = head (decomposeCDecl cdecl) in name
-structFieldType cdecl =
-  let (_, _, typeSpec, derivedSpec) = head (decomposeCDecl cdecl)
-  in  typeFromSpec typeSpec derivedSpec
-
-parseDerivedTypeSpec :: ConcreteType -> [CDerivedDeclr] -> ConcreteType
-parseDerivedTypeSpec ct ((CPtrDeclr _ _) : t) =
-  parseDerivedTypeSpec (TypePtr ct) t
-parseDerivedTypeSpec ct ((CFunDeclr (Right (params, isVariadic)) _ _) : t) =
-  parseDerivedTypeSpec
-    (TypeFunction
-      ct
-      [ (name, typeFromSpec typeSpec derivedSpec)
-      | p <- params
-      , (name, _, typeSpec, derivedSpec) <- decomposeCDecl p
-      , (typeFromSpec typeSpec derivedSpec) /= TypeBasicType BasicTypeVoid
-      ]
-      isVariadic
-    )
-    t
-parseDerivedTypeSpec ct (h : t) = parseDerivedTypeSpec ct t
-parseDerivedTypeSpec ct []      = ct
+decomposeStructField modPath cdecl =
+  let (_, typeSpec, init) = decomposeCDecl cdecl
+  in  [ (name, parseType modPath typeSpec declr) | (name, declr) <- init ]
 
 cDeclrName :: CDeclr -> Str
 cDeclrName (CDeclr (Just (Ident x _ _)) _ _ _ _) = s_pack x
 cDeclrName (CDeclr Nothing              _ _ _ _) = "_"
 
-cDeclrDerived :: CDeclr -> [CDerivedDeclarator NodeInfo]
+cDeclrDerived :: CDeclr -> [CDerivedDeclr]
 cDeclrDerived (CDeclr _ derived _ _ _) = derived
 
-typeFromSpec :: [CTypeSpec] -> [CDerivedDeclr] -> ConcreteType
-typeFromSpec typeSpec derivedSpec = parseDerivedTypeSpec
-  (case parseDeclSpec typeSpec of
-    Just t  -> t
-    Nothing -> TypeBasicType BasicTypeUnknown
-  )
-  (reverse derivedSpec)
+type DecomposedCDecl = ([CStorageSpec], [CTypeSpec], [(Str, [CDerivedDeclr])])
 
-type DecomposedCDecl = (Str, [CStorageSpec], [CTypeSpec], [CDerivedDeclr])
-
-decomposeCDecl :: CDecl -> [DecomposedCDecl]
+decomposeCDecl :: CDecl -> DecomposedCDecl
 decomposeCDecl (CDecl spec [] _) =
   let (storageSpec, _, _, typeSpec, _, _) = partitionDeclSpecs spec
-  in  [("_", storageSpec, typeSpec, [])]
+  in  (storageSpec, typeSpec, [])
 decomposeCDecl (CDecl spec xs _) =
   let (storageSpec, _, _, typeSpec, _, _) = partitionDeclSpecs spec
-  in  [ ( case declr of
-          Just d  -> cDeclrName d
-          Nothing -> "_"
-        , storageSpec
-        , typeSpec
-        , case declr of
-          Just d  -> cDeclrDerived d
-          Nothing -> []
-        )
-      | (declr, _, _) <- xs
-      ]
+  in  ( storageSpec
+      , typeSpec
+      , [ ( case declr of
+            Just d  -> cDeclrName d
+            Nothing -> "_"
+          , case declr of
+            Just d  -> cDeclrDerived d
+            Nothing -> []
+          )
+        | (declr, _, _) <- xs
+        ]
+      )

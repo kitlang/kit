@@ -18,6 +18,7 @@ type ConcreteArgs = [(Str, ConcreteType)]
 data ConcreteType
   = TypeAtom Str
   | TypeStruct TypePath [ConcreteType]
+  | TypeAnonStruct [(Str, ConcreteType)]
   | TypeEnum TypePath [ConcreteType]
   | TypeAbstract TypePath [ConcreteType]
   | TypeTypedef TypePath [ConcreteType]
@@ -36,6 +37,7 @@ instance Show ConcreteType where
   show (TypeAtom s) = "atom " ++ (s_unpack s)
   show (TypeStruct tp []) = "struct " ++ (s_unpack $ showTypePath tp)
   show (TypeStruct tp params) = "struct " ++ (s_unpack $ showTypePath tp) ++ "[" ++ (intercalate ", " [show x | x <- params])
+  show (TypeAnonStruct f) = "(anon struct)"
   show (TypeEnum tp []) = "enum " ++ (s_unpack $ showTypePath tp)
   show (TypeEnum tp params) = "enum " ++ (s_unpack $ showTypePath tp) ++ "[" ++ (intercalate ", " [show x | x <- params])
   show (TypeAbstract tp []) = "abstract " ++ (s_unpack $ showTypePath tp)

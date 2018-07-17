@@ -15,9 +15,9 @@ data BasicType
   | BasicTypeInt Int
   | BasicTypeUint Int
   | BasicTypeFloat Int
-  | BasicTypeStruct BasicStruct
+  | BasicTypeStruct (Maybe Str) BasicArgs
   | BasicTypeSimpleEnum Str [Str]
-  | BasicTypeComplexEnum Str [BasicStruct]
+  | BasicTypeComplexEnum Str [(Str, BasicArgs)]
   | BasicTypeAtom Str
   | BasicTypeFunction BasicType BasicArgs Bool
   -- If for some reason we can't parse type specifiers into a meaningful
@@ -33,7 +33,8 @@ instance Show BasicType where
   show (BasicTypeInt w) = "Int" ++ show w
   show (BasicTypeUint w) = "Uint" ++ show w
   show (BasicTypeFloat w) = "Float" ++ show w
-  show (BasicTypeStruct (name, _)) = "struct " ++ s_unpack name
+  show (BasicTypeStruct (Just name) _) = "struct " ++ s_unpack name
+  show (BasicTypeStruct Nothing _) = "(anon struct)"
   show (BasicTypeSimpleEnum name _) = "enum " ++ s_unpack name
   show (BasicTypeComplexEnum name _) = "enum " ++ s_unpack name
   show (BasicTypeAtom s) = "atom " ++ s_unpack s
@@ -41,6 +42,3 @@ instance Show BasicType where
   show (BasicTypeUnknown) = "???"
 
 type BasicArgs = [(Str, BasicType)]
-
--- (Name, [(Field Name, Field Type)])
-type BasicStruct = (Str, BasicArgs)

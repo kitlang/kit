@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
+
 module Kit.CodeGen.C.CExpr where
 
 import Numeric
@@ -42,9 +44,9 @@ ctype (BasicTypeUint  64) = ([u CUnsigType, u CLongType, u CLongType], [])
 ctype (BasicTypeFloat 32) = ([u CFloatType], [])
 ctype (BasicTypeFloat 64) = ([u CDoubleType], [])
 ctype (BasicTypeAtom  _ ) = ([u CUnsigType, u CLongType], [])
-ctype (BasicTypeStruct (name, _)) =
+ctype (BasicTypeStruct name _) =
   ( [ u $ CSUType $ u $ CStruct CStructTag
-                                (Just $ internalIdent $ s_unpack name)
+                                (case name of {Just name -> Just $ internalIdent $ s_unpack name; Nothing -> Nothing})
                                 Nothing
                                 []
     ]
@@ -57,8 +59,11 @@ ctype (BasicTypeSimpleEnum name _) =
     ]
   , []
   )
-ctype (BasicTypeComplexEnum name _) = ctype (BasicTypeStruct (name, []))
+ctype (BasicTypeComplexEnum name _) = ctype (BasicTypeStruct (Just name) [])
 ctype (CPtr x) = (fst t, (u $ CPtrDeclr []) : snd t) where t = ctype x
+ctype (BasicTypeFunction _ _ _) = undefined
+ctype (CArray _ _) = undefined
+ctype (BasicTypeUnknown) = undefined
 -- TODO: CArray
 
 --transpile :: [Expr] -> [CStat]
@@ -157,6 +162,7 @@ transpileBinop Or         = CLorOp
 transpileBinop BitAnd     = CAndOp
 transpileBinop BitOr      = COrOp
 transpileBinop BitXor     = CXorOp
+transpileBinop _ = undefined
 
 transpileAssignop Add        = CAddAssOp
 transpileAssignop Sub        = CSubAssOp
@@ -168,6 +174,7 @@ transpileAssignop BitOr      = COrAssOp
 transpileAssignop BitXor     = CXorAssOp
 transpileAssignop LeftShift  = CShlAssOp
 transpileAssignop RightShift = CShrAssOp
+transpileAssignop _ = undefined
 
 transpilePreUnop Inc        = CPreIncOp
 transpilePreUnop Dec        = CPreDecOp
@@ -176,6 +183,8 @@ transpilePreUnop Invert     = CNegOp
 transpilePreUnop InvertBits = CCompOp
 transpilePreUnop Ref        = CAdrOp
 transpilePreUnop Deref      = CIndOp
+transpilePreUnop _ = undefined
 
 transpilePostUnop Inc = CPostIncOp
 transpilePostUnop Dec = CPostDecOp
+transpilePostUnop _ = undefined

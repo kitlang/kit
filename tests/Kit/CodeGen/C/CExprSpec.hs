@@ -45,7 +45,7 @@ spec = do
     it "transpiles complex enum types" $ do
       showctype (BasicTypeComplexEnum "MyEnum2" []) `shouldBe` "struct MyEnum2"
     it "transpiles struct types" $ do
-      showctype (BasicTypeStruct ("abc", [])) `shouldBe` "struct abc"
+      showctype (BasicTypeStruct (Just "abc") []) `shouldBe` "struct abc"
 
   describe "Transpile statements" $ do
     it "transpiles return statements" $ do

@@ -11,11 +11,11 @@ typeNameDecl name = CTypeSpec $ u $ CTypeDef $ internalIdent $ s_unpack name
 
 cdecl :: BasicType -> [CDecl]
 {- Kit struct = C struct -}
-cdecl (BasicTypeStruct (name, fields)) =
+cdecl (BasicTypeStruct name fields) =
   [ u $ CDecl
       [ CTypeSpec $ u $ CSUType $ u $ CStruct
           CStructTag
-          (Just $ internalIdent $ s_unpack name)
+          (case name of {Just name -> Just $ internalIdent $ s_unpack name; Nothing -> Nothing})
           (Just f)
           []
       ]
@@ -99,7 +99,7 @@ cdecl (BasicTypeComplexEnum name variants) =
   enumVariants name variants = map
     (\(variantName, variant_fields) ->
       (cdecl
-          (BasicTypeStruct (enumVariantName name variantName, variant_fields))
+          (BasicTypeStruct (Just $ enumVariantName name variantName) (variant_fields))
         )
         !! 0
     )
