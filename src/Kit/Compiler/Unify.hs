@@ -11,6 +11,12 @@ import Kit.HashTable
 import Kit.Parser.Span
 import Kit.Str
 
+data UnificationError = UnificationError TypeConstraint deriving (Eq, Show)
+instance Errable UnificationError where
+  logError e@(UnificationError (TypeEq a b reason pos)) =
+    logErrorBasic e $ "Couldn't unify type constraints:\n\n  - `" ++ show a ++ "`\n  - `" ++ show b ++ "`\n\n" ++ reason
+  errPos (UnificationError (TypeEq _ _ _ pos)) = Just pos
+
 -- Check whether type a unifies with b; i.e., can a value of type A be
 -- assigned to a variable of type B?
 unify
@@ -22,7 +28,7 @@ unify
   -> IO TypeInformation
 unify ctx tctx mod a b = do
   case (a, b) of
-    (TypeTypeVar   v, x              ) -> return $ TypeVarIs v x
+    (TypeTypeVar v  , x              ) -> return $ TypeVarIs v x
     (x              , TypeTypeVar v  ) -> unify ctx tctx mod b a
     (TypeBasicType a, TypeBasicType b) -> return $ unifyBasic a b
     (TypePtr       a, TypePtr b      ) -> unify ctx tctx mod a b
@@ -43,9 +49,9 @@ unifyBasic a b =
   if a == b then TypeConstraintSatisfied else TypeConstraintNotSatisfied
 
 resolveConstraint
-  :: CompileContext -> TypeContext -> Module -> Span -> TypeConstraint -> IO ()
-resolveConstraint ctx tctx mod pos constraint = do
-  result <- resolveConstraintOrThrow ctx tctx mod pos constraint
+  :: CompileContext -> TypeContext -> Module -> TypeConstraint -> IO ()
+resolveConstraint ctx tctx mod constraint = do
+  result <- resolveConstraintOrThrow ctx tctx mod constraint
   case result of
     TypeVarIs (TypeVar id) x -> do
       info <- getTypeVar ctx id
@@ -60,26 +66,10 @@ resolveConstraintOrThrow
   :: CompileContext
   -> TypeContext
   -> Module
-  -> Span
   -> TypeConstraint
   -> IO TypeInformation
-resolveConstraintOrThrow ctx tctx mod pos t = do
-  result <- case t of
-    TypeEq a b -> unify ctx tctx mod a b
+resolveConstraintOrThrow ctx tctx mod t@(TypeEq a b reason pos) = do
+  result <- unify ctx tctx mod a b
   case result of
-    TypeConstraintNotSatisfied -> constraintError t pos
+    TypeConstraintNotSatisfied -> throw $ KitError $ UnificationError t
     x                          -> return $ x
-
-constraintError (TypeEq a b) pos = do
-  throw $ Errs
-    [ errp
-        UnificationError
-        ("Couldn't unify type constraints: " ++ (show a) ++ " and " ++ (show b))
-        (Just pos)
-    ]
-constraintError t pos = do
-  throw $ Errs
-    [ errp UnificationError
-           ("Couldn't satisfy type constraint: " ++ show t)
-           (Just pos)
-    ]

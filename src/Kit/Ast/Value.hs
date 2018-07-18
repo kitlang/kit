@@ -3,7 +3,7 @@ module Kit.Ast.Value where
 import Kit.Str
 
 data ValueLiteral
-  = BooIdentifier Bool
+  = BoolValue Bool
   | IntValue Str
   | FloatValue Str
   | StringValue Str

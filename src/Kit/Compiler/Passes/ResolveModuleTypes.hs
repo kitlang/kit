@@ -31,11 +31,11 @@ validateMain ctx = do
   main <- resolveLocal (modVars mod) "main"
   case main of
     Just (Binding { bindingType = FunctionBinding _ _ _ }) -> return ()
-    _ -> throw $ Errs
-      [ err ValidationError
-        $ (show mod)
-        ++ " doesn't have a function called 'main'; main module requires a main function"
-      ]
+    _ -> throw $ KitError $ BasicError
+      (show mod
+      ++ " doesn't have a function called 'main'; main module requires a main function"
+      )
+      (Nothing)
 
 findTopLevels :: CompileContext -> Module -> IO ()
 findTopLevels ctx mod = do
@@ -69,7 +69,9 @@ _checkForTopLevel ctx mod s = do
         ++ (show mod)
       --bindToScope (mod_type_definitions mod) (typeName t) usage
       ct <- typeDefinitionToConcreteType ctx tctx mod t
-      bindToScope (modTypes mod) (typeName t) (newTypeBinding (BindingType t) ct)
+      bindToScope (modTypes mod)
+                  (typeName t)
+                  (newTypeBinding (BindingType t) ct)
       case t of
         TypeDefinition { typeName = typeName, typeType = Enum { enum_variants = variants } }
           -> do

@@ -49,7 +49,7 @@ spec = parallel $ do
 
     it "parses ternary" $ do
       testParseExpr "if true then 1 else 2"
-        `shouldBe` (e $ If (e $ Literal $ BooIdentifier True)
+        `shouldBe` (e $ If (e $ Literal $ BoolValue True)
                            (e $ Literal $ IntValue "1")
                            (Just $ e $ Literal $ IntValue "2")
                    )
@@ -59,8 +59,8 @@ spec = parallel $ do
         `shouldBe` (e $ VectorLiteral
                      [ e This
                      , e Self
-                     , e $ Literal $ BooIdentifier True
-                     , e $ Literal $ BooIdentifier False
+                     , e $ Literal $ BoolValue True
+                     , e $ Literal $ BoolValue False
                      ]
                    )
 

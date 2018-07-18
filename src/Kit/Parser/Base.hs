@@ -1,8 +1,15 @@
 module Kit.Parser.Base where
 
 import Kit.Error
+import Kit.Parser.Span
+import Kit.Str
 
-data Parser a = ParseResult a | Err Error
+data Parser a = ParseResult a | Err KitError
+
+data ParseError = ParseError String (Maybe Span) deriving (Eq, Show)
+instance Errable ParseError where
+  logError err@(ParseError msg _) = logErrorBasic (KitError err) msg
+  errPos (ParseError _ pos) = pos
 
 instance Functor Parser where
   fmap f (ParseResult x) = ParseResult (f x)

@@ -102,13 +102,10 @@ findUnderlyingType ctx mod t = do
         TypeTypeVar (tv'@(TypeVar id)) -> if tv == tv'
           then do
             info <- getTypeVar ctx id
-            throw $ Errs
-              [ errp
-                  ValidationError
-                  ("Couldn't determine the type of this expression. Do you need a type annotation?"
-                  )
-                  (Just $ head $ typeVarPositions info)
-              ]
+            throwk $ BasicError
+              ("Couldn't determine the type of this expression. Do you need a type annotation?"
+              )
+              (Just $ head $ typeVarPositions info)
           else findUnderlyingType ctx mod known
         _ -> findUnderlyingType ctx mod known
     _ -> do
@@ -132,20 +129,17 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
       (Meta m e1) -> r e1
       (Literal l) -> return $ IrLiteral l -- TODO: ??
       (This     ) -> return $ IrIdentifier "__this"
-      (Self     ) -> return $ throw $ Errs
-        [errp ValidationError ("unexpected Self in typed AST") (Just pos)]
+      (Self     ) -> throw $ KitError $ BasicError
+        ("unexpected Self in typed AST")
+        (Just pos)
       (Identifier (Var v) mangle) ->
         return $ IrIdentifier (mangleName mangle v)
-      (Identifier (MacroVar v _) _) -> return $ throw $ Errs
-        [ errp ValidationError
-               ("unexpected macro var (" ++ (s_unpack v) ++ ") in typed AST")
-               (Just pos)
-        ]
-      (TypeAnnotation e1 t) -> return $ throw $ Errs
-        [ errp ValidationError
-               ("unexpected type annotation in typed AST")
-               (Just pos)
-        ]
+      (Identifier (MacroVar v _) _) -> throw $ KitError $ BasicError
+        ("unexpected macro var (" ++ (s_unpack v) ++ ") in typed AST")
+        (Just pos)
+      (TypeAnnotation e1 t) -> throw $ KitError $ BasicError
+        ("unexpected type annotation in typed AST")
+        (Just pos)
       (PreUnop op e1) -> do
         r1 <- r e1
         return $ IrPreUnop op r1
@@ -177,11 +171,9 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
       (Field e1 (Var v)   ) -> do
         r1 <- r e1
         return $ IrField r1 v
-      (Field e1 (MacroVar v _)) -> return $ throw $ Errs
-        [ errp ValidationError
-               ("unexpected macro var (" ++ (s_unpack v) ++ ") in typed AST")
-               (Just pos)
-        ]
+      (Field e1 (MacroVar v _)) -> throwk $ InternalError
+        ("unexpected macro var (" ++ (s_unpack v) ++ ") in typed AST")
+        (Just pos)
       (ArrayAccess e1 e2  ) -> return $ undefined -- TODO
       (Call        e1 args) -> do
         r1    <- r e1
@@ -192,35 +184,26 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
         t1' <- findUnderlyingType ctx mod (inferredType e1)
         return $ if t1' == f then r1 else IrCast r1 f
       (TokenExpr tc) -> return $ undefined -- TODO
-      (Unsafe e1) ->
-        return
-          $ throw
-          $ Errs
-              [ errp ValidationError
-                     ("unexpected `unsafe` in typed AST")
-                     (Just pos)
-              ]
+      (Unsafe    e1) -> return $ throwk $ BasicError
+        ("unexpected `unsafe` in typed AST")
+        (Just pos)
       (BlockComment s) -> return $ IrBlock []
       (New t args    ) -> return $ undefined -- TODO
       (Copy   e1     ) -> return $ undefined -- TODO
       (Delete e1     ) -> return $ undefined -- TODO
       (Move   e1     ) -> return $ undefined -- TODO
-      (LexMacro s t  ) -> return $ throw $ Errs
-        [ errp ValidationError
-               ("unexpected lexical macro invocation in typed AST")
-               (Just pos)
-        ]
+      (LexMacro s t  ) -> return $ throwk $ BasicError
+        ("unexpected lexical macro invocation in typed AST")
+        (Just pos)
       (RangeLiteral e1 e2) ->
-        return
-          $ throw
-          $ Errs
-              [ errp ValidationError
-                     ("unexpected range literal in typed AST")
-                     (Just pos)
-              ]
+        throwk $ BasicError ("unexpected range literal in typed AST") (Just pos)
       (VectorLiteral items) -> do
         items' <- mapM r items
         return $ IrCArrLiteral items'
       (VarDeclaration (Var name) ts def) -> do
         def <- maybeR def
         return $ IrVarDeclaration name f def
+      (VarDeclaration (MacroVar v _) _ _) -> do
+        throwk $ BasicError
+          ("unexpected macro var (" ++ (s_unpack v) ++ ") in typed AST")
+          (Just pos)

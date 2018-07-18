@@ -15,6 +15,18 @@ import Kit.Log
 import Kit.Parser
 import Kit.Str
 
+data ImportError = ImportError ModulePath [FilePath] (Maybe Span) deriving (Eq, Show)
+instance Errable ImportError where
+  logError e@(ImportError mod searchPaths _) =
+    logErrorBasic e $ "Couldn't find module <"
+                                ++ s_unpack (showModulePath mod)
+                                ++ ">; tried searching the following locations: \n\n"
+                                ++ (intercalate
+                                    "\n"
+                                    [ "  - " ++ s | s <- searchPaths]
+                                  )
+  errPos (ImportError _ _ pos) = pos
+
 findSourceFile :: FilePath -> [FilePath] -> IO (Maybe FilePath)
 findSourceFile f [] = do
   return Nothing
@@ -40,20 +52,10 @@ findModule ctx mod pos = do
         ++ f
       return f
     Nothing -> do
-      throw
-        $ Errs
-        $ [ errp
-              ImportError
-              (  "Couldn't find module <"
-              ++ s_unpack (showModulePath mod)
-              ++ ">; tried searching the following locations: \n\n"
-              ++ (intercalate
-                   "\n"
-                   [ "  - " ++ (dir </> modPath) | dir <- ctxSourcePaths ctx ]
-                 )
-              )
-              pos
-          ]
+      throw $ KitError $ ImportError
+        mod
+        [ (dir </> modPath) | dir <- ctxSourcePaths ctx ]
+        pos
 
 mangleName :: Maybe ModulePath -> Str -> Str
 mangleName (Just mp) s = s_join "__" (("kit" : mp) ++ [s])

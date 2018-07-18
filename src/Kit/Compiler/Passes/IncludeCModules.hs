@@ -22,6 +22,18 @@ import Kit.Log
 import Kit.Parser
 import Kit.Str
 
+data IncludeError = IncludeError FilePath [FilePath] deriving (Eq, Show)
+instance Errable IncludeError where
+  logError e@(IncludeError fp searchPaths) =
+    logErrorBasic e $ (  "Couldn't find C header <"
+                                ++ fp
+                                ++ ">; tried searching the following locations: \n\n"
+                                ++ (intercalate
+                                    "\n"
+                                    [ "  - " ++ s | s <- searchPaths]
+                                  )
+                                )
+
 includeCModules :: CompileContext -> IO ()
 includeCModules ctx = do
   includes <- readIORef (ctxIncludes ctx)
@@ -44,22 +56,8 @@ includeCHeader ctx path = do
           parseCHeader ctx              mod     f
           h_insert     (ctxModules ctx) modPath mod
           return mod
-        Nothing ->
-          throw
-            $ Errs
-            $ [ err
-                  IncludeError
-                  (  "Couldn't find header "
-                  ++ show path
-                  ++ "; tried searching the following locations: \n\n"
-                  ++ (intercalate
-                       "\n"
-                       [ "  - " ++ (dir </> path)
-                       | dir <- ctxIncludePaths ctx
-                       ]
-                     )
-                  )
-              ]
+        Nothing -> throwk
+          $ IncludeError path [ (dir </> path) | dir <- ctxIncludePaths ctx ]
 
 parseCHeader :: CompileContext -> Module -> FilePath -> IO ()
 parseCHeader ctx mod path = do
@@ -68,21 +66,20 @@ parseCHeader ctx mod path = do
                             [ "-I" ++ dir | dir <- ctxIncludePaths ctx ]
                             path
   case parseResult of
-    Left e -> throw $ Errs
-      [ err IncludeError
-            ("Parsing C header " ++ show path ++ " failed: " ++ show e)
-      ]
+    Left e -> throwk $ BasicError
+      ("Parsing C header " ++ show path ++ " failed: " ++ show e)
+      Nothing
     Right (CTranslUnit decls _) -> do
       parseCDecls ctx mod decls
 
 unknownTypeWarning :: CompileContext -> Module -> Str -> IO ()
 unknownTypeWarning ctx mod name = do
   warningLog
-        $  "couldn't determine type of "
-        ++ (s_unpack name)
-        ++ " in "
-        ++ (show mod)
-        ++ "; attempts to access values of this type will fail"
+    $  "couldn't determine type of "
+    ++ (s_unpack name)
+    ++ " in "
+    ++ (show mod)
+    ++ "; attempts to access values of this type will fail"
 
 parseCDecls :: CompileContext -> Module -> [CExtDecl] -> IO ()
 parseCDecls ctx mod [] = do
@@ -106,7 +103,8 @@ parseCDecls ctx mod (h : t) = do
             (\(name, declr) -> do
               let t' = parseType (modPath mod) typeSpec (reverse declr)
               case t' of
-                TypeBasicType BasicTypeUnknown -> unknownTypeWarning ctx mod name
+                TypeBasicType BasicTypeUnknown ->
+                  unknownTypeWarning ctx mod name
                 _ -> return ()
               debugLog ctx $ "bind " ++ (s_unpack name) ++ ": " ++ (show t')
               addCDecl ctx mod name t'
@@ -122,7 +120,7 @@ defineTypedef ctx mod typeSpec (name, declr) = do
   debugLog ctx $ "typedef " ++ (s_unpack name) ++ ": " ++ (show t')
   case t' of
     TypeBasicType BasicTypeUnknown -> unknownTypeWarning ctx mod name
-    _ -> return ()
+    _                              -> return ()
   bindToScope (modTypes mod) name (newTypeBinding BindingTypedef t')
 
 parseType :: ModulePath -> [CTypeSpec] -> [CDerivedDeclr] -> ConcreteType
@@ -183,8 +181,12 @@ _parseDeclSpec modPath (h : t) width signed float = case h of
           ]
   (CEnumType (CEnum (Just (Ident x _ _)) _ _ _) _) ->
     TypeEnum (modPath, (s_pack x)) []
-  (CEnumType (CEnum Nothing (Just variants) _ _) _) ->
-    TypeAnonEnum ([s_pack $ case fst variant of {Ident x _ _ -> x} | variant <- variants])
+  (CEnumType (CEnum Nothing (Just variants) _ _) _) -> TypeAnonEnum
+    ([ s_pack $ case fst variant of
+         Ident x _ _ -> x
+     | variant <- variants
+     ]
+    )
   _ -> _parseDeclSpec modPath t width signed float
 _parseDeclSpec modPath [] 0     _      _     = (TypeBasicType BasicTypeUnknown)
 _parseDeclSpec modPath [] width signed float = if float

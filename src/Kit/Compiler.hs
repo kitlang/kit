@@ -28,7 +28,7 @@ import Kit.Log
 import Kit.Parser
 import Kit.Str
 
-tryCompile :: CompileContext -> IO (Either Errors ())
+tryCompile :: CompileContext -> IO (Either KitError ())
 tryCompile context = try $ compile context
 
 {-

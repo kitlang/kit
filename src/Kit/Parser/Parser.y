@@ -775,8 +775,8 @@ LexMacroToken :: {Token}
 thenP = (>>=)
 returnP = return
 
-parseError [] = Err $ err ParseError ("Unexpected end of input")
-parseError t = Err $ errp ParseError ("Unexpected " ++ (show $ fst et)) (Just $ snd et) where et = t !! 0
+parseError [] = Err $ KitError $ ParseError ("Unexpected end of input") (Nothing)
+parseError t = Err $ KitError $ ParseError ("Unexpected " ++ (show $ fst et)) (Just $ snd et) where et = t !! 0
 
 -- projections
 extract_identifier (LowerIdentifier x,_) = x

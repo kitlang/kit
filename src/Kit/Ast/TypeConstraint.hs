@@ -7,7 +7,7 @@ import Kit.Parser.Span
 type UnresolvedTypeConstraint = ConcreteType -> TypeConstraint
 
 data TypeConstraint
-  = TypeEq ConcreteType ConcreteType
+  = TypeEq ConcreteType ConcreteType String Span
   deriving (Eq, Show)
 
 data TypeInformation

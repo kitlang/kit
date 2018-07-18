@@ -1,7 +1,8 @@
-{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE ExistentialQuantification #-}
 
 module Kit.Error where
 
+import Control.Applicative
 import Control.Exception
 import Control.Monad
 import System.Console.ANSI
@@ -9,37 +10,78 @@ import System.IO
 import Kit.Parser.Span
 import Kit.Str
 
-data ErrorType
-  = ParseError
-  | ImportError
-  | IncludeError
-  | ValidationError
-  | TypingError
-  | UnificationError
-  | InternalError
-  | Unknown
-  deriving (Eq, Show)
+ePutStr = hPutStr stderr
+ePutStrLn = hPutStrLn stderr
 
-data Error = Error {
-  err_msg :: String,
-  err_pos :: Maybe Span,
-  err_type :: ErrorType
-  } deriving (Eq, Show, Exception)
+throwk e = do throw $ KitError e
 
-newtype Errors = Errs [Error] deriving (Eq, Show, Exception)
+class (Eq a, Show a) => Errable a where
+  logError :: a -> IO ()
+  errPos :: a -> Maybe Span
+  errPos _ = Nothing
 
-err :: ErrorType -> String -> Error
-err t msg = Error {err_msg = msg, err_pos = Nothing, err_type = t}
-errp :: ErrorType -> String -> Maybe Span -> Error
-errp t msg p = Error {err_msg = msg, err_pos = p, err_type = t}
+data KitError = forall a . (Show a, Eq a, Errable a) => KitError a
+instance Errable KitError where
+  logError (KitError e) = logError e
+  errPos (KitError e) = errPos e
+instance Show KitError where
+  show (KitError e) = show e
+instance Eq KitError where
+  (==) (KitError x) (KitError y) = (show x) == (show y)
 
-logError :: Error -> IO ()
-logError e = do
+instance Exception KitError
+
+{-
+  Used to throw multiple errors simultaneously.
+-}
+data Errors = KitErrors [KitError] deriving (Eq, Show)
+instance Errable Errors where
+  logError (KitErrors e) = forM_ e logError
+  errPos (KitErrors e) = msum (map errPos e)
+
+{-
+  Reperesents a compiler assertion failure; should always be reported.
+-}
+data InternalError = InternalError String (Maybe Span) deriving (Eq, Show)
+instance Errable InternalError where
+  logError e@(InternalError s _) = logErrorBasic (KitError e) s
+  errPos (InternalError _ pos) = pos
+
+{-
+  A simple error type with message and optional position.
+-}
+data BasicError = BasicError String (Maybe Span) deriving (Eq, Show)
+instance Errable BasicError where
+  logError e@(BasicError s _) = logErrorBasic (KitError e) s
+  errPos (BasicError _ pos) = pos
+
+-- data Error
+--   = ParseError Str Span
+--   | ImportError ModulePath [FilePath] Span
+--   | CIncludeError FilePath [FilePath]
+--   | CParseError FilePath Str
+--   | ValidationError Str
+--   | CodeGenError Str Span
+--   | TypingError Str Span
+--   | UnificationError TypeConstraint Span
+--   | InternalError Str
+--   | Errors [Error]
+--   deriving (Eq, Show)
+
+-- errPos (ParseError _ pos) = Just pos
+-- errPos (ImportError _ _ pos) = Just pos
+-- errPos (CodeGenError _ pos) = Just pos
+-- errPos (TypingError _ pos) = Just pos
+-- errPos (UnificationError _ pos) = Just pos
+-- errPos _ = Nothing
+
+logErrorTitle :: (Errable e) => e -> IO ()
+logErrorTitle err = do
   hSetSGR
     stderr
     [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
   hPutStrLn stderr $ take 40 (repeat '-')
-  case err_pos e of
+  case errPos err of
     Just pos@Span { file = Just f, start_line = start } -> do
       hSetSGR
         stderr
@@ -49,21 +91,23 @@ logError e = do
         stderr
         [SetColor Foreground Vivid White, SetConsoleIntensity BoldIntensity]
       hPutStr stderr $ (s_unpack f) ++ ":" ++ (show start) ++ ": "
-      hSetSGR
-        stderr
-        [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
-      hPutStrLn stderr $ err_msg e
-      displayFileSnippet (s_unpack f) pos
     _ -> do
       hSetSGR
         stderr
         [SetColor Foreground Vivid Red, SetConsoleIntensity BoldIntensity]
       hPutStr stderr $ "Error: "
-      hSetSGR
-        stderr
-        [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
-      hPutStrLn stderr $ err_msg e
+  hSetSGR
+    stderr
+    [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
+
+logErrorBasic :: (Errable e) => e -> String -> IO ()
+logErrorBasic err msg = do
+  logErrorTitle err
   hSetSGR stderr [Reset]
+  hPutStrLn stderr msg
+  case errPos err of
+    Just pos@Span { file = Just f } -> displayFileSnippet (s_unpack f) pos
+    _                               -> return ()
 
 lpad :: String -> Int -> String
 lpad s n = (take (n - length s) (repeat ' ')) ++ s

@@ -12,6 +12,11 @@ import Kit.HashTable
 import Kit.Parser
 import Kit.Str
 
+data TypingError = TypingError String Span deriving (Eq, Show)
+instance Errable TypingError where
+  logError e@(TypingError s _) = logErrorBasic (KitError e) s
+  errPos (TypingError _ pos) = Just pos
+
 data TypeContext = TypeContext {
   tctxScopes :: [Scope Binding],
   tctxTypeParamScopes :: [Scope ConcreteType],
@@ -37,7 +42,7 @@ newTypeContext scopes = do
 
 -- TODO: position information
 unknownType t pos = do
-  throw $ Errs [errp TypingError ("Unknown type: " ++ (show t)) (Just pos)]
+  throw $ KitError $ TypingError ("Unknown type: " ++ (show t)) pos
 
 follow
   :: CompileContext -> TypeContext -> Module -> ConcreteType -> IO ConcreteType

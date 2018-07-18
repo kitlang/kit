@@ -11,12 +11,18 @@ import Kit.Ir
 import Kit.Parser.Span
 import Kit.Str
 
+data ModuleInterfaceType
+  = ModuleType
+  | ModuleVar
+  | ModuleFunction
+  | ModuleTrait
+
 data Module = Module {
   modPath :: ModulePath,
   modSourcePath :: FilePath,
   modImports :: [(ModulePath, Span)],
   modIncludes :: [(FilePath, Span)],
-  modInterface :: Scope (),
+  modInterface :: Scope ModuleInterfaceType,
   modTypes :: Scope TypeBinding,
   modFunctions :: Scope (FunctionDefinition Expr (Maybe TypeSpec)),
   modContents :: IORef [Statement],
@@ -40,12 +46,14 @@ emptyMod = do
   vars          <- newScope
   enums         <- newScope
   typedContents <- newScope
+  interface     <- newScope
   ir            <- newIORef []
   return $ Module
     { modPath          = undefined
     , modSourcePath    = undefined
     , modImports       = []
     , modIncludes      = []
+    , modInterface     = interface
     , modTypes         = types
     , modFunctions     = functions
     , modVars          = vars

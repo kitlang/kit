@@ -84,10 +84,9 @@ getMod ctx mod = do
   m <- h_lookup (ctxModules ctx) mod
   case m of
     Just m' -> return m'
-    Nothing -> throw $ Errs
-      [ err InternalError $ "Unexpected missing module: " ++ s_unpack
-          (showModulePath mod)
-      ]
+    Nothing -> throw $ KitError $ InternalError
+      ("Unexpected missing module: " ++ s_unpack (showModulePath mod))
+      Nothing
 
 getCMod :: CompileContext -> FilePath -> IO Module
 getCMod ctx fp = do
@@ -95,10 +94,9 @@ getCMod ctx fp = do
   m <- h_lookup (ctxModules ctx) modPath
   case m of
     Just m' -> return m'
-    Nothing ->
-      throw $ Errs [err InternalError $ "Unexpected missing C module: " ++ fp]
-
-makeTypeVar :: CompileContext -> Span -> IO ConcreteType
+    Nothing -> throw $ KitError $ InternalError
+      ("Unexpected missing C module: " ++ fp)
+      Nothing
 makeTypeVar ctx pos = do
   last <- readIORef (ctxLastTypeVar ctx)
   let next = last + 1

@@ -54,7 +54,8 @@ instance Show ConcreteType where
   show (TypeEnumConstructor tp _) = "enum " ++ (show tp) ++ " constructor"
   show (TypeIdentifier t) = "Identifier of " ++ (show t)
   show (TypeRange) = "range"
-  show (TypeConstrained ts) = "traits (" ++ (intercalate " + " [(s_unpack $ showTypePath tp) ++ if null params then "" else ("[" ++ intercalate ", " (map show params) ++ "]") | (tp, params) <- ts]) ++ ")"
+  show (TypeConstrained [(t, params)]) = "trait " ++ (s_unpack $ showTypePath t) ++ if null params then "" else ("[" ++ intercalate ", " (map show params) ++ "]")
+  show (TypeConstrained ts) = "traits (" ++ (intercalate ", " [(s_unpack $ showTypePath tp) ++ if null params then "" else ("[" ++ intercalate ", " (map show params) ++ "]") | (tp, params) <- ts]) ++ ")"
   show (TypeTypeVar i) = show i
 
 data TypeVar

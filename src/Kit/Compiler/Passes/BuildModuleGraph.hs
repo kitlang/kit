@@ -41,7 +41,7 @@ loadModule ctx mod pos = do
             $  "skipping known broken module <"
             ++ s_unpack (showModulePath mod)
             ++ ">"
-          throw $ Errs []
+          throwk $ KitErrors []
         Nothing -> do
           m <- _loadModule ctx mod pos
           h_insert (ctxModules ctx) mod m
@@ -69,7 +69,9 @@ loadModule ctx mod pos = do
               modifyIORef (ctxIncludes ctx) (\current -> mod' : current)
             )
           errs <- foldM (_loadImportedModule ctx) [] (modImports m)
-          if errs == [] then return m else throw $ Errs $ nub errs
+          if null errs
+            then return m
+            else throwk $ KitErrors $ nub $ reverse errs
 
 {-
   Find all relevant prelude modules for a package, and return a list of
@@ -112,7 +114,7 @@ _loadPrelude ctx mod = do
         else do
           found <-
             try $ findModule ctx preludePath Nothing :: IO
-              (Either Errors FilePath)
+              (Either KitError FilePath)
           case found of
             Left _ -> do
               return []
@@ -131,12 +133,12 @@ _loadModule ctx mod pos = do
   return m
 
 _loadImportedModule
-  :: CompileContext -> [Error] -> (ModulePath, Span) -> IO [Error]
+  :: CompileContext -> [KitError] -> (ModulePath, Span) -> IO [KitError]
 _loadImportedModule ctx acc (mod, pos) = do
   result <- try $ loadModule ctx mod (Just pos)
   return $ case result of
-    Left  (Errs errs) -> acc ++ errs
-    Right m           -> acc
+    Left  e -> e : acc
+    Right m -> acc
 
 parseModuleExprs
   :: CompileContext
@@ -154,4 +156,4 @@ parseModuleExprs ctx mod fp pos = do
     ParseResult r -> return (path, r)
     Err         e -> do
       h_insert (ctxFailedModules ctx) mod ()
-      throw $ Errs [e { err_msg = "Parse error: " ++ (err_msg e) }]
+      throwk e
