@@ -23,6 +23,9 @@ bindToScope scope s binding = h_insert (scopeBindings scope) s binding
 resolveLocal :: Scope a -> Str -> IO (Maybe a)
 resolveLocal scope s = h_lookup (scopeBindings scope) s
 
+scopeHas :: Scope a -> Str -> IO Bool
+scopeHas scope s = h_exists (scopeBindings scope) s
+
 {-
   Look up a binding in a set of scopes. Prefers scopes earlier in the list.
 -}

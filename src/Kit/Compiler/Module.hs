@@ -22,7 +22,7 @@ data Module = Module {
   modSourcePath :: FilePath,
   modImports :: [(ModulePath, Span)],
   modIncludes :: [(FilePath, Span)],
-  modInterface :: Scope ModuleInterfaceType,
+  modInterface :: Scope (ModuleInterfaceType, Span),
   modTypes :: Scope TypeBinding,
   modFunctions :: Scope (FunctionDefinition Expr (Maybe TypeSpec)),
   modContents :: IORef [Statement],

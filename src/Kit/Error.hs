@@ -163,5 +163,6 @@ displayFileSnippet fp span = do
           else
             do
               return ()
+  hSetSGR stderr [Reset]
   hPutStrLn stderr ""
   return ()

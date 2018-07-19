@@ -18,6 +18,18 @@ import Kit.Log
 import Kit.Parser
 import Kit.Str
 
+data DuplicateDeclarationError = DuplicateDeclarationError ModulePath Str Span Span deriving (Eq, Show)
+instance Errable DuplicateDeclarationError where
+  logError e@(DuplicateDeclarationError mod name pos1 pos2) = do
+    logErrorBasic e $ "Duplicate declaration for `" ++ s_unpack name ++ "` in " ++ s_unpack (showModulePath mod) ++ "; \n\nFirst declaration:"
+    ePutStrLn "\nSecond declaration:"
+    case file pos2 of
+      Just fp -> displayFileSnippet (s_unpack fp) pos2
+      _ -> return ()
+  errPos (DuplicateDeclarationError _ _ pos _) = Just pos
+
+
+
 buildModuleGraph :: CompileContext -> IO ()
 buildModuleGraph ctx = do
   loadModule ctx (ctxMainModule ctx) Nothing
@@ -130,6 +142,7 @@ _loadModule ctx mod pos = do
     then return []
     else _loadPreludes ctx (take (length mod - 1) mod)
   m <- newMod mod (prelude ++ exprs) fp
+  buildModuleInterface m
   return m
 
 _loadImportedModule
@@ -157,3 +170,30 @@ parseModuleExprs ctx mod fp pos = do
     Err         e -> do
       h_insert (ctxFailedModules ctx) mod ()
       throwk e
+
+buildModuleInterface :: Module -> IO ()
+buildModuleInterface mod = do
+  contents <- readIORef (modContents mod)
+  forM_ contents (addStmtToModuleInterface mod)
+
+addStmtToModuleInterface :: Module -> Statement -> IO ()
+addStmtToModuleInterface mod s = do
+  case stmt s of
+    TypeDeclaration (TypeDefinition { typeName = name }) ->
+      addToInterface name ModuleType
+    TraitDeclaration (TraitDefinition { traitName = name }) ->
+      addToInterface name ModuleTrait
+    ModuleVarDeclaration (VarDefinition { varName = name }) ->
+      addToInterface name ModuleVar
+    FunctionDeclaration (FunctionDefinition { functionName = name }) ->
+      addToInterface name ModuleFunction
+    _ -> return ()
+ where
+  addToInterface x y =
+    (do
+      existing <- resolveLocal (modInterface mod) x
+      case existing of
+        Just (_, pos) ->
+          throwk $ DuplicateDeclarationError (modPath mod) x pos (stmtPos s)
+        Nothing -> bindToScope (modInterface mod) x (y, stmtPos s)
+    )
