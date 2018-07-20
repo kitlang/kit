@@ -6,6 +6,7 @@ import Control.Exception
 import Control.Monad
 import Data.IORef
 import Data.List
+import Data.Maybe
 import Kit.Ast
 import Kit.Compiler.Context
 import Kit.Compiler.Module
@@ -13,6 +14,7 @@ import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
 import Kit.Compiler.TypedDecl
 import Kit.Compiler.TypedExpr
+import Kit.Compiler.Unify
 import Kit.Compiler.Utils
 import Kit.Error
 import Kit.HashTable
@@ -67,8 +69,8 @@ generateDeclIr ctx mod t = do
 findUnderlyingType :: CompileContext -> Module -> ConcreteType -> IO BasicType
 findUnderlyingType ctx mod t = do
   case t of
-    TypeBasicType  b      -> return b
-    TypeAtom       s      -> return $ BasicTypeAtom s
+    TypeBasicType b       -> return b
+    TypeAtom              -> return $ BasicTypeAtom
     TypeAnonStruct fields -> do
       fields' <- forM
         fields
@@ -79,7 +81,7 @@ findUnderlyingType ctx mod t = do
       return $ BasicTypeStruct Nothing fields'
     TypeStruct (modPath, name) fieldTypes -> do
       definitionMod <- getMod ctx modPath
-      typeDef       <- resolveLocal (modTypes definitionMod) name
+      typeDef       <- resolveLocal (modDefinitions definitionMod) name
       -- TODO
       return $ BasicTypeStruct (Just name) []
     -- TypeEnum TypePath [ConcreteType]
@@ -100,17 +102,71 @@ findUnderlyingType ctx mod t = do
       known <- knownType ctx tctx mod t
       case known of
         TypeTypeVar (tv'@(TypeVar id)) -> if tv == tv'
-          then do
-            info <- getTypeVar ctx id
-            throwk $ BasicError
-              ("Couldn't determine the type of this expression. Do you need a type annotation?"
-              )
-              (Just $ head $ typeVarPositions info)
+          then findDefaultType ctx mod id
           else findUnderlyingType ctx mod known
         _ -> findUnderlyingType ctx mod known
     _ -> do
       -- TODO: REMOVE
       return $ BasicTypeUnknown
+
+findDefaultType :: CompileContext -> Module -> Int -> IO (BasicType)
+findDefaultType ctx mod id = do
+  info <- getTypeVar ctx id
+  if null (typeVarConstraints info)
+    then throwk $ BasicError
+      ("Couldn't determine the type of this expression. Do you need a type annotation?"
+      )
+      (Just $ head $ typeVarPositions info)
+    else do
+      tctx <- newTypeContext []
+      let constraints = typeVarConstraints info
+      defaults <- mapM (h_lookup (ctxTraitSpecializations ctx))
+                       (map (fst . fst) constraints)
+      let specializations = catMaybes defaults
+      specialization <- foldM
+        (\acc (tp, _) -> do
+          spec <- resolveType ctx tctx mod tp
+          case acc of
+            Just _  -> return acc
+            Nothing -> do
+              meetConstraints <- foldM
+                (\acc' c -> case acc' of
+                  Just _ -> do
+                    -- FIXME: params
+                    result <- unify ctx
+                                    tctx
+                                    mod
+                                    spec
+                                    (TypeTraitConstraint (c, []))
+                    return $ case result of
+                      TypeConstraintSatisfied -> acc'
+                      _                       -> Nothing
+                  Nothing -> do
+                    return acc'
+                )
+                (Just spec)
+                (map (fst . fst) constraints)
+              case meetConstraints of
+                Just _  -> return meetConstraints
+                Nothing -> return Nothing
+        )
+        Nothing
+        specializations
+      case specialization of
+        Just t -> do
+          tctx <- newTypeContext []
+          findUnderlyingType ctx mod t
+        _ -> throwk $ BasicError
+          ("This expression has constraints: \n\n"
+          ++ (intercalate
+               "\n"
+               [ "  - " ++ s_unpack (showTypePath c) ++ " (" ++ reason ++ ")"
+               | ((c, _), (reason, _)) <- constraints
+               ]
+             )
+          ++ "\n\nbut no specialization for these traits satisfies all of the constraints, so no concrete type can be determined.\n\nTry adding a type annotation."
+          )
+          (Just $ head $ typeVarPositions info)
 
 typedToIr :: CompileContext -> Module -> TypedExpr -> IO IrExpr
 typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
@@ -126,10 +182,17 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
       (Block children) -> do
         children' <- mapM r children
         return $ IrBlock children'
-      (Meta m e1) -> r e1
-      (Literal l) -> return $ IrLiteral l -- TODO: ??
-      (This     ) -> return $ IrIdentifier "__this"
-      (Self     ) -> throw $ KitError $ BasicError
+      (Meta m e1               ) -> r e1
+      (Literal (l@(IntValue _))) -> do
+        return $ IrCast (IrLiteral l) f
+      (Literal (l@(FloatValue v))) -> case f of
+        BasicTypeFloat 32 ->
+          return (IrLiteral (FloatValue (s_concat [v, "f"])))
+        _ -> return (IrLiteral l)
+      (Literal l) -> do
+        return $ IrLiteral l
+      (This) -> return $ IrIdentifier "__this"
+      (Self) -> throw $ KitError $ BasicError
         ("unexpected Self in typed AST")
         (Just pos)
       (Identifier (Var v) mangle) ->

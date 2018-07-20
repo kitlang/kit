@@ -4,6 +4,7 @@ import Control.Exception
 import Control.Monad
 import Data.IORef
 import Data.List
+import Data.Maybe
 import System.FilePath
 import Kit.Ast
 import Kit.Compiler.Context
@@ -26,8 +27,14 @@ typeExpressions ctx = do
 
 typeModuleExpressions :: CompileContext -> Module -> IO ()
 typeModuleExpressions ctx mod = do
-  bindings <- bindingList (modFunctions mod)
-  forM_ bindings (typeFunction ctx mod)
+  defs <- bindingList (modDefinitions mod)
+  let funcs = catMaybes $ map
+        (\d -> case d of
+          DefinitionFunction f -> Just f
+          _                    -> Nothing
+        )
+        defs
+  forM_ funcs (typeFunction ctx mod)
 
 basicType = TypeBasicType
 voidType = TypeBasicType BasicTypeVoid
@@ -51,9 +58,9 @@ typeFunction ctx mod f = do
       includes      <- mapM (\(mp, _) -> getCMod ctx mp) (modIncludes mod)
       functionScope <- newScope
       tctx          <- newTypeContext
-        ( (modVars mod)
-        : (  [ modVars imp | imp <- imports ]
-          ++ [ modVars inc | inc <- includes ]
+        ( (modScope mod)
+        : (  [ modScope imp | imp <- imports ]
+          ++ [ modScope inc | inc <- includes ]
           )
         )
       args <- mapM
@@ -64,12 +71,29 @@ typeFunction ctx mod f = do
         (functionArgs f)
       forM_
         args
-        (\arg -> bindToScope functionScope
-                             (argName arg)
-                             (newBinding (VarBinding $ argType arg) Nothing)
+        (\arg -> bindToScope
+          functionScope
+          (argName arg)
+                             -- FIXME: arg position
+          (newBinding VarBinding (argType arg) Nothing (pos x))
         )
       returnType <- resolveMaybeType ctx tctx mod (pos x) (functionType f)
-      typedBody  <- typeExpr
+      ct         <- scopeGet (modScope mod) (functionName f)
+      let concreteRt = case (bindingConcrete ct) of
+            TypeFunction rt _ _ -> rt
+            _                   -> throwk $ InternalError
+              "Function type was unexpectedly missing from module scope"
+              (Just $ pos x)
+      resolveConstraint
+        ctx
+        tctx
+        mod
+        (TypeEq concreteRt
+                returnType
+                "Function return type and type annotation must match"
+                (pos x)
+        )
+      typedBody <- typeExpr
         ctx
         (tctx { tctxScopes     = functionScope : (tctxScopes tctx)
               , tctxReturnType = Just returnType
@@ -78,13 +102,13 @@ typeFunction ctx mod f = do
         mod
         x
       resolvedReturnType <- knownType ctx tctx mod returnType
-      -- Try to unify with void; if unification doesn't fail, we didn't encounter a return statement, so the function is void.
+      {--- Try to unify with void; if unification doesn't fail, we didn't encounter a return statement, so the function is void.
       unification        <- unify ctx
                                   tctx
                                   mod
                                   (resolvedReturnType)
-                                  (TypeBasicType BasicTypeVoid)
-      let finalReturnType = case unification of
+                                  (TypeBasicType BasicTypeVoid)-}
+      let finalReturnType = case TypeConstraintNotSatisfied of
             TypeConstraintNotSatisfied -> resolvedReturnType
             _                          -> TypeBasicType BasicTypeVoid
       let
@@ -154,20 +178,21 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
         Var vname -> do
           binding <- resolveVar ctx (tctxScopes tctx) mod vname
           case binding of
-            Just (Binding { bindingType = VarBinding t, bindingNameMangling = mangle })
+            Just (Binding { bindingType = VarBinding, bindingConcrete = t, bindingNameMangling = mangle })
               -> return $ makeExprTyped (Identifier v mangle) t pos
-            Just (Binding { bindingType = FunctionBinding f args variadic, bindingNameMangling = mangle })
+            Just (Binding { bindingType = FunctionBinding, bindingConcrete = TypeFunction f args variadic, bindingNameMangling = mangle })
               -> return $ makeExprTyped (Identifier v mangle)
                                         (TypeFunction f args variadic)
                                         pos
-            Just (Binding { bindingType = EnumConstructor t args }) ->
+            Just (Binding { bindingType = EnumConstructor, bindingConcrete = TypeEnumConstructor t args })
+              ->
               -- TODO: handle type params
-              return $ makeExprTyped (Identifier v Nothing) t' pos
+                 return $ makeExprTyped (Identifier v Nothing) t' pos
              where
               t' = if args == []
                 then (TypeEnum t [])
                 else (TypeEnumConstructor t args)
-            Nothing -> throwk
+            _ -> throwk
               $ TypingError ("Unknown identifier: " ++ (s_unpack vname)) pos
         MacroVar vname _ -> throwk $ TypingError
           (  "Macro variable $"
@@ -179,7 +204,11 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
     (TypeAnnotation e1 t) -> do
       r1 <- r e1
       t  <- resolveMaybeType ctx tctx mod pos t
-      resolve $ TypeEq (inferredType r1) t "Annotated expressions must match their type annotation" (tPos r1)
+      resolve $ TypeEq
+        (inferredType r1)
+        t
+        "Annotated expressions must match their type annotation"
+        (tPos r1)
       return r1
 
     (PreUnop op e1) -> do
@@ -201,12 +230,18 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
     (Binop Assign e1 e2) -> do
       r1 <- r e1
       r2 <- r e2
-      resolve $ TypeEq (inferredType r1) (inferredType r2) "Both sides of an assignment must unify" pos
+      resolve $ TypeEq (inferredType r1)
+                       (inferredType r2)
+                       "Both sides of an assignment must unify"
+                       pos
       return $ makeExprTyped (Binop Assign r1 r2) (inferredType r1) pos
     (Binop (AssignOp op) e1 e2) | (op == And) || (op == Or) -> do
       r1 <- r e1
       r2 <- r e2
-      resolve $ TypeEq (inferredType r1) (inferredType r2) "Both sides of an assignment must unify" pos
+      resolve $ TypeEq (inferredType r1)
+                       (inferredType r2)
+                       "Both sides of an assignment must unify"
+                       pos
       return $ makeExprTyped
         (Binop Assign r1 (makeExprTyped (Binop op r1 r2) (inferredType r1) pos))
         (inferredType r1)
@@ -215,15 +250,28 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
       r1 <- r e1
       r2 <- r e2
       -- FIXME: this isn't right
-      resolve $ TypeEq (inferredType r1) (inferredType r2) "FIXME: this isn't right" pos
+      resolve $ TypeEq (inferredType r1)
+                       (inferredType r2)
+                       "FIXME: this isn't right"
+                       pos
       return $ makeExprTyped (Binop (AssignOp x) r1 r2) (inferredType r1) pos
     (Binop op e1 e2) -> do
-      r1 <- r e1
-      r2 <- r e2
-      tv <- makeTypeVar ctx pos
-      case binopTypes op (inferredType r1) (inferredType r2) tv pos of
-        Just constraints -> mapM_ resolve constraints
-        Nothing          -> return () -- TODO
+      r1     <- r e1
+      r2     <- r e2
+      lMixed <- unify ctx tctx mod (inferredType r1) (typeClassNumericMixed)
+      rMixed <- unify ctx tctx mod (inferredType r2) (typeClassNumericMixed)
+      tv     <- makeTypeVar ctx pos
+      case
+          binopTypes op
+                     (inferredType r1)
+                     (inferredType r2)
+                     tv
+                     (lMixed == TypeConstraintSatisfied)
+                     (rMixed == TypeConstraintSatisfied)
+                     pos
+        of
+          Just constraints -> mapM_ resolve constraints
+          Nothing          -> return () -- TODO
       return $ makeExprTyped (Binop op r1 r2) tv pos
 
     (For (Expr { expr = Identifier v _, pos = pos1 }) e2 e3) -> do
@@ -238,7 +286,10 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
         mod
         e3
       tv <- makeTypeVar ctx pos
-      resolve $ TypeEq (typeClassIterable tv) (inferredType r2) "For statements must iterate over an Iterable type" (tPos r2)
+      resolve $ TypeEq (typeClassIterable tv)
+                       (inferredType r2)
+                       "For statements must iterate over an Iterable type"
+                       (tPos r2)
       return $ makeExprTyped
         (For (makeExprTyped (Identifier v Nothing) (TypeIdentifier tv) pos1)
              r2
@@ -258,7 +309,10 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
         )
         mod
         e2
-      resolve $ TypeEq (inferredType r1) (basicType BasicTypeBool) "A while condition must be a Bool" (tPos r1)
+      resolve $ TypeEq (inferredType r1)
+                       (basicType BasicTypeBool)
+                       "A while condition must be a Bool"
+                       (tPos r1)
       return $ makeExprTyped (While r1 r2) voidType pos
 
     (If e1 e2 (Just e3)) -> do
@@ -274,9 +328,19 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
                          mod
                          e3
       tv <- makeTypeVar ctx pos
-      resolve $ TypeEq (inferredType r1) (basicType BasicTypeBool) "An if condition must be a Bool" (tPos r1)
-      resolve $ TypeEq (inferredType r2) (inferredType r3) "In an if expression with an else clause, both clauses must have the same type" pos
-      resolve $ TypeEq (inferredType r2) (tv) "The type of an if expression must match its clauses" (tPos r2)
+      resolve $ TypeEq (inferredType r1)
+                       (basicType BasicTypeBool)
+                       "An if condition must be a Bool"
+                       (tPos r1)
+      resolve $ TypeEq
+        (inferredType r2)
+        (inferredType r3)
+        "In an if expression with an else clause, both clauses must have the same type"
+        pos
+      resolve $ TypeEq (inferredType r2)
+                       (tv)
+                       "The type of an if expression must match its clauses"
+                       (tPos r2)
       return $ makeExprTyped (If r1 r2 (Just r3)) (tv) pos
     (If e1 e2 Nothing) -> do
       r1    <- r e1
@@ -285,7 +349,10 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
                         (tctx { tctxScopes = scope : (tctxScopes tctx) })
                         mod
                         e2
-      resolve $ TypeEq (inferredType r1) (basicType BasicTypeBool) "An if condition must be a Bool" (tPos r1)
+      resolve $ TypeEq (inferredType r1)
+                       (basicType BasicTypeBool)
+                       "An if condition must be a Bool"
+                       (tPos r1)
       return $ makeExprTyped (If r1 r2 Nothing) voidType pos
 
     (Continue) -> do
@@ -324,22 +391,21 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
           typeEnumConstructorCall ctx tctx mod r1 typedArgs
 
     (Throw e1) -> do
-      throw $ KitError $ InternalError "Not yet implemented" (Just pos)
+      throwk $ InternalError "Not yet implemented" (Just pos)
     (Match e1 cases (e2)) ->
-      throw $ KitError $ InternalError "Not yet implemented" (Just pos)
-    (InlineCall e1) ->
-      throw $ KitError $ InternalError "Not yet implemented" (Just pos)
+      throwk $ InternalError "Not yet implemented" (Just pos)
+    (InlineCall e1) -> throwk $ InternalError "Not yet implemented" (Just pos)
 
     (Field e1 (Var fieldName)) -> do
       r1 <- r e1
       case inferredType r1 of
         TypeStruct (structModPath, structName) params -> do
           structMod <- getMod ctx structModPath
-          def       <- resolveLocal (modTypes structMod) structName
+          def       <- resolveLocal (modDefinitions structMod) structName
           case def of
-            Just (TypeBinding { typeBindingType = BindingType (TypeDefinition { typeType = Struct { struct_fields = fields } }) })
+            Just (DefinitionType (TypeDefinition { typeType = Struct { struct_fields = fields } }))
               -> typeStructFieldAccess ctx tctx mod fields r1 fieldName pos
-            _ -> throw $ KitError $ InternalError
+            _ -> throwk $ InternalError
               (  "Unexpected error: variable was typed as a struct, but struct "
               ++ s_unpack structName
               ++ " not found in module "
@@ -350,16 +416,16 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
         TypePtr x ->
           -- try to auto-dereference
           r $ ep (Field (ep (PreUnop Deref e1) (tPos r1)) (Var fieldName)) pos
-        _ -> throw $ KitError $ InternalError
-          "Field access is not allowed on x"
+        x -> throwk $ InternalError
+          ("Field access is not allowed on " ++ show x)
           Nothing
     (Field e1 _) -> do
-      throw $ KitError $ InternalError
+      throwk $ InternalError
         "Malformed AST: field access requires an identifier"
         (Just pos)
 
     (ArrayAccess e1 e2) ->
-      throw $ KitError $ InternalError "Not yet implemented" (Just pos)
+      throwk $ InternalError "Not yet implemented" (Just pos)
 
     (Cast e1 t) -> do
       r1 <- r e1
@@ -368,24 +434,17 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
 
     (Unsafe e1) -> do
       t' <- makeTypeVar ctx pos
-      let
-        r1 = case expr e1 of
-          Identifier i _ -> Identifier i Nothing
-          _ ->
-            throw $ KitError $ InternalError "Not yet implemented" (Just pos)
+      let r1 = case expr e1 of
+            Identifier i _ -> Identifier i Nothing
+            _ -> throwk $ InternalError "Not yet implemented" (Just pos)
       return $ makeExprTyped r1 t' pos
     (BlockComment s) -> do
       return $ makeExprTyped (BlockComment s) voidType pos
-    (New t args) ->
-      throw $ KitError $ InternalError "Not yet implemented" (Just pos)
-    (Copy e1) ->
-      throw $ KitError $ InternalError "Not yet implemented" (Just pos)
-    (Delete e1) ->
-      throw $ KitError $ InternalError "Not yet implemented" (Just pos)
-    (Move e1) ->
-      throw $ KitError $ InternalError "Not yet implemented" (Just pos)
-    (LexMacro s t) ->
-      throw $ KitError $ InternalError "Not yet implemented" (Just pos)
+    (New t args) -> throwk $ InternalError "Not yet implemented" (Just pos)
+    (Copy e1) -> throwk $ InternalError "Not yet implemented" (Just pos)
+    (Delete e1) -> throwk $ InternalError "Not yet implemented" (Just pos)
+    (Move e1) -> throwk $ InternalError "Not yet implemented" (Just pos)
+    (LexMacro s t) -> throwk $ InternalError "Not yet implemented" (Just pos)
 
     (RangeLiteral e1 e2) -> do
       r1 <- r e1
@@ -401,14 +460,14 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
       return $ makeExprTyped (RangeLiteral r1 r2) TypeRange pos
 
     (VectorLiteral items) ->
-      throw $ KitError $ InternalError "Not yet implemented" (Just pos)
+      throwk $ InternalError "Not yet implemented" (Just pos)
 
     (VarDeclaration (Var vname) t (Just e1)) -> do
       varType <- resolveMaybeType ctx tctx mod pos t
       r1      <- r e1
       bindToScope (head $ tctxScopes tctx)
                   vname
-                  ((newBinding (VarBinding varType) Nothing))
+                  (newBinding VarBinding varType Nothing pos)
       resolve $ TypeEq
         (varType)
         (inferredType r1)
@@ -422,7 +481,7 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
       varType <- resolveMaybeType ctx tctx mod pos t
       bindToScope (head $ tctxScopes tctx)
                   vname
-                  ((newBinding (VarBinding varType) Nothing))
+                  (newBinding VarBinding varType Nothing pos)
       return $ makeExprTyped (VarDeclaration (Var vname) varType Nothing)
                              varType
                              pos
@@ -512,29 +571,78 @@ findStructField (h : t) fieldName =
 findStructField [] _ = Nothing
 
 literalConstraints :: ValueLiteral -> ConcreteType -> Span -> [TypeConstraint]
-literalConstraints (BoolValue   _) s pos = [TypeEq (basicType $ BasicTypeBool) s "Bool literal must be a Bool type" pos]
-literalConstraints (IntValue    _) s pos = [TypeEq typeClassNumeric s "Int literals must be a Numeric type" pos]
-literalConstraints (FloatValue  _) s pos = [TypeEq typeClassNumericMixed s "Float literals must be a NumericMixed type" pos]
-literalConstraints (StringValue _) s pos = [TypeEq typeClassStringy s "String literals must be a Stringy type" pos]
+literalConstraints (BoolValue _) s pos =
+  [TypeEq (basicType $ BasicTypeBool) s "Bool literal must be a Bool type" pos]
+literalConstraints (IntValue _) s pos =
+  [TypeEq typeClassNumeric s "Int literals must be a Numeric type" pos]
+literalConstraints (FloatValue _) s pos =
+  [ TypeEq typeClassNumericMixed
+           s
+           "Float literals must be a NumericMixed type"
+           pos
+  ]
+literalConstraints (StringValue _) s pos =
+  [TypeEq typeClassStringy s "String literals must be a Stringy type" pos]
 
-unopTypes :: Operator -> ConcreteType -> ConcreteType -> Span -> Maybe [TypeConstraint]
+unopTypes
+  :: Operator -> ConcreteType -> ConcreteType -> Span -> Maybe [TypeConstraint]
 unopTypes op l x pos = case op of
-  Inc        -> Just [TypeEq typeClassNumeric l "Increment operator can only be used on Numeric types" pos, TypeEq l x "An increment operation's type must match its operand" pos]
-  Dec        -> Just [TypeEq typeClassNumeric l "Decrement operator can only be used on Numeric types" pos, TypeEq l x "A decrement operation's type must match its operand" pos]
-  Invert     -> Just [TypeEq (TypeBasicType BasicTypeBool) l "Logical invert can only be used on Bool expressions" pos, TypeEq (basicType BasicTypeBool) x "A logical invert must yield a Bool" pos]
-  InvertBits -> Just [TypeEq typeClassIntegral l "Bit invert can only be used on Integral types" pos, TypeEq l x "Bit invert must yield the same type as its operand" pos]
-  Ref        -> Just [TypeEq (TypePtr l) x "Reference operator must yield a pointer to its operand's type" pos]
-  Deref      -> Just [TypeEq (TypePtr x) l "Dereference operator must operate on a pointer, yielding the pointed to type" pos]
-  _          -> Nothing
+  Inc -> Just
+    [ TypeEq typeClassNumeric
+             l
+             "Increment operator can only be used on Numeric types"
+             pos
+    , TypeEq l x "An increment operation's type must match its operand" pos
+    ]
+  Dec -> Just
+    [ TypeEq typeClassNumeric
+             l
+             "Decrement operator can only be used on Numeric types"
+             pos
+    , TypeEq l x "A decrement operation's type must match its operand" pos
+    ]
+  Invert -> Just
+    [ TypeEq (TypeBasicType BasicTypeBool)
+             l
+             "Logical invert can only be used on Bool expressions"
+             pos
+    , TypeEq (basicType BasicTypeBool)
+             x
+             "A logical invert must yield a Bool"
+             pos
+    ]
+  InvertBits -> Just
+    [ TypeEq typeClassIntegral
+             l
+             "Bit invert can only be used on Integral types"
+             pos
+    , TypeEq l x "Bit invert must yield the same type as its operand" pos
+    ]
+  Ref -> Just
+    [ TypeEq (TypePtr l)
+             x
+             "Reference operator must yield a pointer to its operand's type"
+             pos
+    ]
+  Deref -> Just
+    [ TypeEq
+        (TypePtr x)
+        l
+        "Dereference operator must operate on a pointer, yielding the pointed to type"
+        pos
+    ]
+  _ -> Nothing
 
 binopTypes
   :: Operator
   -> ConcreteType
   -> ConcreteType
   -> ConcreteType
+  -> Bool
+  -> Bool
   -> Span
   -> Maybe [TypeConstraint]
-binopTypes op l r x pos = case op of
+binopTypes op l r x lMixed rMixed pos = case op of
   Add        -> numericOp
   Sub        -> numericOp
   Mul        -> numericOp
@@ -555,7 +663,75 @@ binopTypes op l r x pos = case op of
   BitXor     -> bitOp
   _          -> Nothing
  where
-  numericOp    = Just [ TypeEq typeClassNumeric i ("Binary operator `" ++ show op ++ "` requires Numeric operands and result") pos | i <- [l, r, x] ]
-  comparisonOp = Just [TypeEq l r ("Comparison operator `" ++ show op ++ "` requires operands of similar type") pos, TypeEq (TypeBasicType BasicTypeBool) x "Comparison operators must yield Bool values" pos]
-  booleanOp = Just [ TypeEq (TypeBasicType BasicTypeBool) i ("Binary operator `" ++ show op ++ "` requires Bool operands and result") pos | i <- [l, r, x] ]
-  bitOp        = Just [ TypeEq typeClassIntegral i ("Bitwise binary operator `" ++ show op ++ "` requires Integral operands and result") pos | i <- [l, r, x] ]
+  numericOp =
+    Just
+      $  (if lMixed
+           then
+             [ TypeEq
+                 l
+                 x
+                 ("Binary operator `"
+                 ++ show op
+                 ++ "` requires a NumericMixed result if either operand is NumericMixed"
+                 )
+                 pos
+             ]
+           else []
+         )
+      ++ (if rMixed
+           then
+             [ TypeEq
+                 r
+                 x
+                 ("Binary operator `"
+                 ++ show op
+                 ++ "` requires a NumericMixed result if either operand is NumericMixed"
+                 )
+                 pos
+             ]
+           else []
+         )
+      ++ [ TypeEq
+             typeClassNumeric
+             i
+             (  "Binary operator `"
+             ++ show op
+             ++ "` requires Numeric operands and result"
+             )
+             pos
+         | i <- [l, r, x]
+         ]
+  comparisonOp = Just
+    [ TypeEq
+      l
+      r
+      (  "Comparison operator `"
+      ++ show op
+      ++ "` requires operands of similar type"
+      )
+      pos
+    , TypeEq (TypeBasicType BasicTypeBool)
+             x
+             "Comparison operators must yield Bool values"
+             pos
+    ]
+  booleanOp = Just
+    [ TypeEq
+        (TypeBasicType BasicTypeBool)
+        i
+        ("Binary operator `" ++ show op ++ "` requires Bool operands and result"
+        )
+        pos
+    | i <- [l, r, x]
+    ]
+  bitOp = Just
+    [ TypeEq
+        typeClassIntegral
+        i
+        (  "Bitwise binary operator `"
+        ++ show op
+        ++ "` requires Integral operands and result"
+        )
+        pos
+    | i <- [l, r, x]
+    ]

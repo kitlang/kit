@@ -26,9 +26,8 @@ instance Errable DuplicateDeclarationError where
     case file pos2 of
       Just fp -> displayFileSnippet (s_unpack fp) pos2
       _ -> return ()
+    ePutStrLn "\nFunction, variable, type and trait names must be unique within a module."
   errPos (DuplicateDeclarationError _ _ pos _) = Just pos
-
-
 
 buildModuleGraph :: CompileContext -> IO ()
 buildModuleGraph ctx = do
@@ -141,9 +140,12 @@ _loadModule ctx mod pos = do
   prelude     <- if last mod == "prelude"
     then return []
     else _loadPreludes ctx (take (length mod - 1) mod)
-  m <- newMod mod (prelude ++ exprs) fp
-  buildModuleInterface m
-  return m
+  let stmts = prelude ++ exprs
+  m <- newMod mod fp
+  forM_ stmts (addStmtToModuleInterface ctx m)
+  let imports  = findImports mod stmts
+  let includes = findIncludes stmts
+  return m { modImports = imports, modIncludes = includes }
 
 _loadImportedModule
   :: CompileContext -> [KitError] -> (ModulePath, Span) -> IO [KitError]
@@ -171,29 +173,80 @@ parseModuleExprs ctx mod fp pos = do
       h_insert (ctxFailedModules ctx) mod ()
       throwk e
 
-buildModuleInterface :: Module -> IO ()
-buildModuleInterface mod = do
-  contents <- readIORef (modContents mod)
-  forM_ contents (addStmtToModuleInterface mod)
-
-addStmtToModuleInterface :: Module -> Statement -> IO ()
-addStmtToModuleInterface mod s = do
+addStmtToModuleInterface :: CompileContext -> Module -> Statement -> IO ()
+addStmtToModuleInterface ctx mod s = do
   case stmt s of
-    TypeDeclaration (TypeDefinition { typeName = name }) ->
-      addToInterface name ModuleType
-    TraitDeclaration (TraitDefinition { traitName = name }) ->
-      addToInterface name ModuleTrait
-    ModuleVarDeclaration (VarDefinition { varName = name }) ->
-      addToInterface name ModuleVar
-    FunctionDeclaration (FunctionDefinition { functionName = name }) ->
-      addToInterface name ModuleFunction
+    TypeDeclaration d@(TypeDefinition { typeName = name, typeType = subtype })
+      -> do
+        let ct = case subtype of
+              Atom       -> TypeAtom
+              Struct{}   -> TypeStruct (modPath mod, name) []
+              Enum{}     -> TypeEnum (modPath mod, name) []
+              Abstract{} -> TypeAbstract (modPath mod, name) []
+        addToInterface name (TypeBinding) ct
+        addDefinition
+          name
+          (DefinitionType $ d { typeNameMangling = Just $ modPath mod })
+    TraitDeclaration d@(TraitDefinition { traitName = name }) -> do
+      addToInterface name
+                     (TraitBinding)
+                     (TypeTraitConstraint ((modPath mod, name), []))
+      addDefinition name (DefinitionTrait d)
+    ModuleVarDeclaration d@(VarDefinition { varName = name }) -> do
+      tv <- makeTypeVar ctx (stmtPos s)
+      addToInterface name (VarBinding) tv
+      addDefinition
+        name
+        (DefinitionVar $ d { varNameMangling = Just $ modPath mod })
+    FunctionDeclaration d@(FunctionDefinition { functionName = name, functionArgs = args, functionVarargs = varargs })
+      -> do
+        rt    <- makeTypeVar ctx (stmtPos s)
+        args' <- forM
+          args
+          (\arg -> do
+            -- FIXME: arg position
+            argType <- makeTypeVar ctx (stmtPos s)
+            return (argName arg, argType)
+          )
+        addToInterface name (FunctionBinding) (TypeFunction rt args' varargs)
+        addDefinition
+          name
+          (DefinitionFunction $ d { functionNameMangling = Just $ modPath mod })
+    Specialize a b -> do
+      modifyIORef (modSpecializations mod) (\l -> ((a, b), stmtPos s) : l)
+    Implement t -> do
+      modifyIORef (modImpls mod) (\l -> t : l)
     _ -> return ()
  where
-  addToInterface x y =
+  addToInterface name b ct =
     (do
-      existing <- resolveLocal (modInterface mod) x
+      existing <- resolveLocal (modScope mod) name
       case existing of
-        Just (_, pos) ->
-          throwk $ DuplicateDeclarationError (modPath mod) x pos (stmtPos s)
-        Nothing -> bindToScope (modInterface mod) x (y, stmtPos s)
+        Just (Binding { bindingPos = pos }) ->
+          throwk $ DuplicateDeclarationError (modPath mod) name pos (stmtPos s)
+        Nothing -> bindToScope
+          (modScope mod)
+          name
+          (newBinding b ct (Just (modPath mod)) (stmtPos s))
     )
+  addDefinition name d = bindToScope (modDefinitions mod) name d
+
+findImports :: ModulePath -> [Statement] -> [(ModulePath, Span)]
+findImports mod stmts = foldr
+  (\e acc -> case e of
+    Statement { stmt = Import mp, stmtPos = p } ->
+      -- eliminate self imports (e.g. from prelude)
+      if mod == mp then acc else (mp, p) : acc
+    _ -> acc
+  )
+  []
+  stmts
+
+findIncludes :: [Statement] -> [(FilePath, Span)]
+findIncludes stmts = foldr
+  (\e acc -> case e of
+    Statement { stmt = Include ip, stmtPos = p } -> (ip, p) : acc
+    _ -> acc
+  )
+  []
+  stmts

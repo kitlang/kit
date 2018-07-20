@@ -86,18 +86,13 @@ follow ctx tctx mod t = do
     _ -> return t
 
 resolveModuleBinding
-  :: CompileContext
-  -> TypeContext
-  -> Module
-  -> TypePath
-  -> (Module -> Scope a)
-  -> IO (Maybe a)
-resolveModuleBinding ctx tctx mod (m, name) accessor = do
+  :: CompileContext -> TypeContext -> Module -> TypePath -> IO (Maybe Binding)
+resolveModuleBinding ctx tctx mod (m, name) = do
   importedMods <- getModImports ctx mod
-  let searchMods = case m of
-        [] -> importedMods
-        m  -> (filter (\mod' -> modPath mod' == m) importedMods)
-  resolveBinding (map accessor searchMods) name
+  let searchMods = if null m
+        then importedMods
+        else (filter (\mod' -> modPath mod' == m) importedMods)
+  resolveBinding (map modScope searchMods) name
 
 {-
   Attempt to resolve a TypeSpec into a ConcreteType; fail if it isn't a known
@@ -119,26 +114,26 @@ resolveType ctx tctx mod t = do
               resolveType ctx tctx mod (ConcreteType x)
             Nothing -> do
               -- search other modules
-              bound <- resolveBinding (map modTypes importedMods) s
+              bound <- resolveBinding (map modScope importedMods) s
               case bound of
-                Just (TypeBinding { typeBindingConcrete = t }) ->
-                  follow ctx tctx mod t
-                Nothing -> do
+                Just (Binding { bindingType = TypeBinding, bindingConcrete = t })
+                  -> follow ctx tctx mod t
+                _ -> do
                   builtin <- builtinToConcreteType ctx tctx mod s params
                   case builtin of
                     Just t  -> follow ctx tctx mod t
                     Nothing -> unknownType s pos
         m -> do
           -- search only a specific module for this type
-          result <- resolveBinding (map modTypes importedMods) s
+          result <- resolveBinding (map modScope importedMods) s
           case result of
-            Just (TypeBinding { typeBindingConcrete = t }) ->
-              follow ctx tctx mod t
-            Nothing -> unknownType s pos
+            Just (Binding { bindingType = TypeBinding, bindingConcrete = t })
+              -> follow ctx tctx mod t
+            _ -> unknownType s pos
 
     TypeFunctionSpec rt params args isVariadic -> do
       -- TODO
-      unknownType "???" null_span
+      unknownType "TODO" null_span
 
 resolveMaybeType
   :: CompileContext
@@ -170,24 +165,6 @@ knownType ctx tctx mod t = do
         _      -> follow ctx tctx mod t
     t -> follow ctx tctx mod t
 
-
-typeDefinitionToConcreteType
-  :: CompileContext
-  -> TypeContext
-  -> Module
-  -> TypeDefinition Expr (Maybe TypeSpec)
-  -> IO ConcreteType
-typeDefinitionToConcreteType ctx tctx mod (TypeDefinition { typeName = name, typeParams = params, typeType = t })
-  = do
-    resolvedParams <- mapM (resolveType ctx tctx mod)
-                           (map typeParamToSpec params)
-    case t of
-      Atom       -> return $ TypeAtom name
-      Struct{}   -> return $ TypeStruct tp resolvedParams
-      Enum{}     -> return $ TypeEnum tp resolvedParams
-      Abstract{} -> return $ TypeAbstract tp resolvedParams
-  where tp = (modPath mod, name)
-
 builtinToConcreteType
   :: CompileContext
   -> TypeContext
@@ -198,7 +175,7 @@ builtinToConcreteType
 builtinToConcreteType ctx tctx mod s p = do
   case (s, p) of
     -- basics
-    ("CString", [] ) -> return $ Just $ TypeBasicType $ CPtr $ BasicTypeInt 8
+    ("CString", [] ) -> return $ Just $ TypePtr $ TypeBasicType $ BasicTypeInt 8
     ("Bool"   , [] ) -> return $ Just $ TypeBasicType $ BasicTypeBool
     ("Int8"   , [] ) -> return $ Just $ TypeBasicType $ BasicTypeInt 8
     ("Int16"  , [] ) -> return $ Just $ TypeBasicType $ BasicTypeInt 16
@@ -228,8 +205,3 @@ builtinToConcreteType ctx tctx mod s p = do
       param <- resolveType ctx tctx mod x
       return $ Just $ TypeArr param Nothing
     _ -> return Nothing
-
-typeNameToConcreteType :: Str -> Maybe ConcreteType
-typeNameToConcreteType "CString" = Just $ TypeBasicType $ CPtr $ BasicTypeInt 8
-
-typeNameToConcreteType _         = Nothing

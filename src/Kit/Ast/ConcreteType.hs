@@ -8,6 +8,7 @@ import Kit.Parser.Span
 import Kit.Str
 
 type ConcreteArgs = [(Str, ConcreteType)]
+type TraitConstraint = (TypePath, [ConcreteType])
 
 {-
   A ConcreteType is either a specific compile-time type, or something like a
@@ -16,7 +17,7 @@ type ConcreteArgs = [(Str, ConcreteType)]
   underlying BasicType will be the expression's runtime type.
 -}
 data ConcreteType
-  = TypeAtom Str
+  = TypeAtom
   | TypeStruct TypePath [ConcreteType]
   | TypeAnonStruct [(Str, ConcreteType)]
   | TypeEnum TypePath [ConcreteType]
@@ -30,12 +31,12 @@ data ConcreteType
   | TypeEnumConstructor TypePath ConcreteArgs
   | TypeIdentifier ConcreteType
   | TypeRange
-  | TypeConstrained [(TypePath, [ConcreteType])]
+  | TypeTraitConstraint TraitConstraint
   | TypeTypeVar TypeVar
   deriving (Eq)
 
 instance Show ConcreteType where
-  show (TypeAtom s) = "atom " ++ (s_unpack s)
+  show (TypeAtom) = "atom"
   show (TypeStruct tp []) = "struct " ++ (s_unpack $ showTypePath tp)
   show (TypeStruct tp params) = "struct " ++ (s_unpack $ showTypePath tp) ++ "[" ++ (intercalate ", " [show x | x <- params])
   show (TypeAnonStruct f) = "(anon struct)"
@@ -48,14 +49,14 @@ instance Show ConcreteType where
   show (TypeTypedef tp params) = (s_unpack $ showTypePath tp) ++ "[" ++ (intercalate ", " [show x | x <- params])
   show (TypeFunction rt args var) = "function (" ++ (intercalate ", " [s_unpack name ++ ": " ++ (show t) | (name, t) <- args]) ++ (if var then ", ..." else "") ++ "): (" ++ (show rt) ++ ")"
   show (TypeBasicType t) = show t
+  show (TypePtr (TypeBasicType (BasicTypeInt 8))) = "CString"
   show (TypePtr t) = "Ptr[" ++ (show t) ++ "]"
   show (TypeArr t (Just i)) = "Arr[" ++ (show t) ++ "] of length " ++ (show i)
   show (TypeArr t Nothing) = "Arr[" ++ (show t) ++ "]"
   show (TypeEnumConstructor tp _) = "enum " ++ (show tp) ++ " constructor"
   show (TypeIdentifier t) = "Identifier of " ++ (show t)
   show (TypeRange) = "range"
-  show (TypeConstrained [(t, params)]) = "trait " ++ (s_unpack $ showTypePath t) ++ if null params then "" else ("[" ++ intercalate ", " (map show params) ++ "]")
-  show (TypeConstrained ts) = "traits (" ++ (intercalate ", " [(s_unpack $ showTypePath tp) ++ if null params then "" else ("[" ++ intercalate ", " (map show params) ++ "]") | (tp, params) <- ts]) ++ ")"
+  show (TypeTraitConstraint (tp, params)) = "trait " ++ s_unpack (showTypePath tp)
   show (TypeTypeVar i) = show i
 
 data TypeVar

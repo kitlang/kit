@@ -18,7 +18,7 @@ data BasicType
   | BasicTypeStruct (Maybe Str) BasicArgs
   | BasicTypeSimpleEnum (Maybe Str) [Str]
   | BasicTypeComplexEnum Str [(Str, BasicArgs)]
-  | BasicTypeAtom Str
+  | BasicTypeAtom
   | BasicTypeFunction BasicType BasicArgs Bool
   -- If for some reason we can't parse type specifiers into a meaningful
   -- BasicType, the value isn't usable from Kit without casting.
@@ -27,6 +27,7 @@ data BasicType
 
 instance Show BasicType where
   show (CArray t (Just i)) = show t ++ "[" ++ show i ++ "]"
+  show (CPtr (BasicTypeInt 8)) = "CString"
   show (CPtr t) = "Ptr[" ++ show t ++ "]"
   show (BasicTypeVoid) = "Void"
   show (BasicTypeBool) = "Bool"
@@ -44,7 +45,7 @@ instance Show BasicType where
   show (BasicTypeSimpleEnum (Just name) _) = "enum " ++ s_unpack name
   show (BasicTypeSimpleEnum Nothing _) = "(anon enum)"
   show (BasicTypeComplexEnum name _) = "enum " ++ s_unpack name
-  show (BasicTypeAtom s) = "atom " ++ s_unpack s
+  show (BasicTypeAtom) = "atom"
   show (BasicTypeFunction t args varargs) = "function (" ++ (intercalate ", " [s_unpack name ++ ": " ++ show argType | (name, argType) <- args]) ++ (if varargs then ", ..." else "") ++ "): " ++ show t
   show (BasicTypeUnknown) = "???"
 

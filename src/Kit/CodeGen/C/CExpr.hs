@@ -43,7 +43,7 @@ ctype (BasicTypeUint  32) = ([u CUnsigType, u CLongType], [])
 ctype (BasicTypeUint  64) = ([u CUnsigType, u CLongType, u CLongType], [])
 ctype (BasicTypeFloat 32) = ([u CFloatType], [])
 ctype (BasicTypeFloat 64) = ([u CDoubleType], [])
-ctype (BasicTypeAtom  _ ) = ([u CUnsigType, u CLongType], [])
+ctype (BasicTypeAtom    ) = ([u CUnsigType, u CLongType], [])
 ctype (BasicTypeStruct name _) =
   ( [ u $ CSUType $ u $ CStruct
         CStructTag

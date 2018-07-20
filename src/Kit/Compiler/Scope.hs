@@ -26,6 +26,9 @@ resolveLocal scope s = h_lookup (scopeBindings scope) s
 scopeHas :: Scope a -> Str -> IO Bool
 scopeHas scope s = h_exists (scopeBindings scope) s
 
+scopeGet :: Scope a -> Str -> IO a
+scopeGet scope s = h_get (scopeBindings scope) s
+
 {-
   Look up a binding in a set of scopes. Prefers scopes earlier in the list.
 -}
@@ -36,6 +39,15 @@ resolveBinding (scope : scopes) s = do
     Just _  -> return x
     Nothing -> resolveBinding scopes s
 resolveBinding [] s = do
+  return Nothing
+
+resolveBindingScope :: [(b, Scope a)] -> Str -> IO (Maybe b)
+resolveBindingScope ((b, scope) : scopes) s = do
+  x <- resolveLocal scope s
+  case x of
+    Just _  -> return (Just b)
+    Nothing -> resolveBindingScope scopes s
+resolveBindingScope [] s = do
   return Nothing
 
 -- Returns the list of bindings this scope contains.

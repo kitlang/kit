@@ -5,6 +5,7 @@ module Kit.Error where
 import Control.Applicative
 import Control.Exception
 import Control.Monad
+import Data.List
 import System.Console.ANSI
 import System.IO
 import Kit.Parser.Span
@@ -19,11 +20,14 @@ class (Eq a, Show a) => Errable a where
   logError :: a -> IO ()
   errPos :: a -> Maybe Span
   errPos _ = Nothing
+  flattenErrors :: a -> [KitError]
+  flattenErrors e = [KitError e]
 
 data KitError = forall a . (Show a, Eq a, Errable a) => KitError a
 instance Errable KitError where
   logError (KitError e) = logError e
   errPos (KitError e) = errPos e
+  flattenErrors (KitError e) = flattenErrors e
 instance Show KitError where
   show (KitError e) = show e
 instance Eq KitError where
@@ -38,6 +42,7 @@ data Errors = KitErrors [KitError] deriving (Eq, Show)
 instance Errable Errors where
   logError (KitErrors e) = forM_ e logError
   errPos (KitErrors e) = msum (map errPos e)
+  flattenErrors (KitErrors e) = nub $ foldr (++) [] (map flattenErrors e)
 
 {-
   Reperesents a compiler assertion failure; should always be reported.

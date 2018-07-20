@@ -12,7 +12,7 @@ import Kit.HashTable
 import Kit.Parser
 import Kit.Str
 
-newVar s = newBinding (VarBinding $ TypeBasicType BasicTypeVoid) Nothing
+newVar s = newBinding VarBinding (TypeBasicType BasicTypeVoid) Nothing null_span
 
 spec :: Spec
 spec = do
@@ -27,12 +27,12 @@ spec = do
 
   describe "Variable resolution" $ do
     it "resolves variables to scopes, falling back to modules" $ do
-      m <- newMod ["abc"] [] ""
+      m <- newMod ["abc"] ""
       -- if we look for a binding in brokenMod, the test will fail
       let brokenMod = undefined--Module {}
-      bindToScope (modVars m) "a" (newVar "a1")
-      bindToScope (modVars m) "b" (newVar "b1")
-      bindToScope (modVars m) "c" (newVar "c1")
+      bindToScope (modScope m) "a" (newVar "a1")
+      bindToScope (modScope m) "b" (newVar "b1")
+      bindToScope (modScope m) "c" (newVar "c1")
       s1 <- newScope
       bindToScope s1 "a" (newVar "a2")
       bindToScope s1 "b" (newVar "b2")

@@ -1,4 +1,4 @@
-module Kit.Compiler.ModuleSpec where
+module Kit.Compiler.Passes.BuildModuleGraphSpec where
 
 import Test.Hspec
 import Test.QuickCheck
@@ -10,15 +10,6 @@ import Kit.HashTable
 import Kit.Parser
 import Kit.Str
 
-newVar s = VarBinding $ TypeBasicType BasicTypeVoid
-
-expectFail :: CompileContext -> IO Bool
-expectFail ctx = do
-  result <- tryCompile $ ctx
-  case result of
-    Left  errs -> return True
-    Right ()   -> return False
-
 spec :: Spec
 spec = do
   describe "tryCompile" $ do
@@ -29,5 +20,6 @@ spec = do
               of
                 ParseResult e -> e
                 Err         _ -> []
-      m <- newMod [] exprs ""
-      map fst (modImports m) `shouldBe` [["a"], ["b", "c"], ["d"]]
+      m <- newMod [] ""
+      let imports = findImports [] exprs
+      map fst imports `shouldBe` [["a"], ["b", "c"], ["d"]]

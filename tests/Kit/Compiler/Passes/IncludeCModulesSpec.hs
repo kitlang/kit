@@ -61,36 +61,43 @@ spec = do
     forM_
       [ ( "Parses var declarations"
         , "var1"
-        , VarBinding (TypeBasicType $ BasicTypeInt 16)
+        , VarBinding
+        , (TypeBasicType $ BasicTypeInt 16)
         )
       , ( "Parses var definitions"
         , "var2"
-        , VarBinding (TypeBasicType $ BasicTypeInt 8)
+        , VarBinding
+        , (TypeBasicType $ BasicTypeInt 8)
         )
       , ( "Parses var definitions with multiple type specifiers"
         , "var3"
-        , VarBinding (TypeBasicType $ BasicTypeUint 32)
+        , VarBinding
+        , (TypeBasicType $ BasicTypeUint 32)
         )
       , ( "Parses struct vars"
         , "struct_var1"
-        , VarBinding (TypeStruct (["c"], "Struct1") [])
+        , VarBinding
+        , (TypeStruct (["c"], "Struct1") [])
         )
       , ( "Parses enum vars"
         , "enum_var1"
-        , VarBinding (TypeEnum (["c"], "Enum1") [])
+        , VarBinding
+        , (TypeEnum (["c"], "Enum1") [])
         )
       , ( "Parses pointer vars"
         , "pointer_var1"
-        , VarBinding (TypePtr (TypeBasicType $ BasicTypeInt 16))
+        , VarBinding
+        , (TypePtr (TypeBasicType $ BasicTypeInt 16))
         )
       , ( "Parses pointers to pointer vars"
         , "pointer_var2"
-        , VarBinding (TypePtr (TypePtr (TypeBasicType $ BasicTypeInt 16)))
+        , VarBinding
+        , (TypePtr (TypePtr (TypeBasicType $ BasicTypeInt 16)))
         )
       , ( "Parses function pointer vars"
         , "pointer_var3"
         , VarBinding
-          (TypePtr
+        , (TypePtr
             (TypeFunction (TypeBasicType $ BasicTypeInt 16)
                           [("arg1", TypeBasicType $ BasicTypeInt 16)]
                           False
@@ -99,15 +106,18 @@ spec = do
         )
       , ( "Parses void functions"
         , "void_func1"
-        , FunctionBinding (TypeBasicType $ BasicTypeVoid) [] False
+        , FunctionBinding
+        , TypeFunction (TypeBasicType $ BasicTypeVoid) [] False
         )
       , ( "Parses functions with non-void types"
         , "int_func1"
-        , FunctionBinding (TypeBasicType $ BasicTypeInt 16) [] False
+        , FunctionBinding
+        , TypeFunction (TypeBasicType $ BasicTypeInt 16) [] False
         )
       , ( "Parses functions with arguments"
         , "func_with_args"
         , FunctionBinding
+        , TypeFunction
           (TypeBasicType $ BasicTypeFloat 32)
           [ ("arg1", TypeBasicType $ BasicTypeInt 16)
           , ("arg2", TypeBasicType $ BasicTypeUint 64)
@@ -116,39 +126,51 @@ spec = do
         )
       , ( "Parses functions with struct return value/arguments"
         , "struct_func"
-        , FunctionBinding (TypeStruct (["c"], "Struct1") [])
-                          [("a", TypeStruct (["c"], "Struct2") [])]
-                          False
+        , FunctionBinding
+        , TypeFunction (TypeStruct (["c"], "Struct1") [])
+                       [("a", TypeStruct (["c"], "Struct2") [])]
+                       False
         )
       , ( "Parses functions with pointer return value/arguments"
         , "pointer_func"
         , FunctionBinding
-          (TypePtr $ TypeBasicType $ BasicTypeFloat 32)
-          [("arg1", TypePtr $ TypeBasicType $ BasicTypeInt 16)]
-          False
+        , TypeFunction (TypePtr $ TypeBasicType $ BasicTypeFloat 32)
+                       [("arg1", TypePtr $ TypeBasicType $ BasicTypeInt 16)]
+                       False
         )
       , ( "Parses variadic functions"
         , "varargs_func"
-        , FunctionBinding (TypeBasicType $ BasicTypeVoid)
-                          [("a", TypeBasicType $ BasicTypeInt 16)]
-                          True
+        , FunctionBinding
+        , TypeFunction (TypeBasicType $ BasicTypeVoid)
+                       [("a", TypeBasicType $ BasicTypeInt 16)]
+                       True
         )
       , ( "Parses void arg functions"
         , "void_func"
-        , FunctionBinding (TypeBasicType $ BasicTypeInt 32) [] False
+        , FunctionBinding
+        , TypeFunction (TypeBasicType $ BasicTypeInt 32) [] False
         )
       ]
-      (\(label, name, val) -> it label $ do
+      (\(label, name, b, ct) -> it label $ do
         header  <- testHeader
-        binding <- resolveLocal (modVars header) name
-        binding `shouldBe` Just (newBinding val Nothing)
+        binding <- resolveLocal (modScope header) name
+        (case binding of
+            Just x  -> Just $ bindingType x
+            Nothing -> Nothing
+          )
+          `shouldBe` Just b
+        (case binding of
+            Just x  -> Just $ bindingConcrete x
+            Nothing -> Nothing
+          )
+          `shouldBe` Just ct
       )
 
     forM_
       [ ( "Parses struct declarations"
         , "Struct1"
         , TypeStruct (["c"], "Struct1") []
-        , Just $ (newTypeDefinition "Struct1")
+        , Just $ DefinitionType $ (newTypeDefinition "Struct1")
           { typeNameMangling = Nothing
           , typeType         = Struct
             { struct_fields = [ newVarDefinition
@@ -182,16 +204,15 @@ spec = do
       , ( "Parses empty struct typedefs"
         , "Struct3"
         , TypeStruct (["c"], "Struct3") []
-        , Just $ (newTypeDefinition "Struct3") { typeNameMangling = Nothing
-                                               , typeType         = Struct
-                                                 { struct_fields = []
-                                                 }
-                                               }
+        , Just $ DefinitionType $ (newTypeDefinition "Struct3")
+          { typeNameMangling = Nothing
+          , typeType         = Struct {struct_fields = []}
+          }
         )
       , ( "Parses enum definitions"
         , "Enum1"
         , TypeEnum (["c"], "Enum1") []
-        , Just $ (newTypeDefinition "Enum1")
+        , Just $ DefinitionType $ (newTypeDefinition "Enum1")
           { typeNameMangling = Nothing
           , typeType         = Enum
             { enum_variants        = [ newEnumVariant { variantName = "apple" }
@@ -208,17 +229,15 @@ spec = do
         , Nothing
         )
       ]
-      (\(label, name, ct, val) -> it label $ do
+      (\(label, name, ct, def) -> it label $ do
         header <- testHeader
-        x      <- resolveLocal (modTypes header) name
+        x      <- resolveLocal (modScope header) name
         (case x of
-            Just (TypeBinding { typeBindingConcrete = ct }) -> Just ct
+            Just (Binding { bindingType = TypeBinding, bindingConcrete = ct' })
+              -> Just ct'
             _ -> Nothing
           )
           `shouldBe` Just ct
-        (case x of
-            Just (TypeBinding { typeBindingType = BindingType t }) -> Just t
-            _ -> Nothing
-          )
-          `shouldBe` val
+        def' <- resolveLocal (modDefinitions header) name
+        def' `shouldBe` def
       )

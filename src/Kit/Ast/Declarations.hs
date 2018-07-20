@@ -6,6 +6,13 @@ import Kit.Ast.ModulePath
 import Kit.Ast.TypeSpec
 import Kit.Str
 
+data Definition a b
+  = DefinitionVar (VarDefinition a b)
+  | DefinitionFunction (FunctionDefinition a b)
+  | DefinitionTrait (TraitDefinition a b)
+  | DefinitionType (TypeDefinition a b)
+  deriving (Eq, Show)
+
 data VarDefinition a b = VarDefinition {
   varName :: Str,
   varDoc :: Maybe Str,

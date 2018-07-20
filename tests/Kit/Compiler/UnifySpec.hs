@@ -4,12 +4,12 @@ import Test.Hspec
 import Test.QuickCheck
 import Kit.Ast
 import Kit.Compiler
+import Kit.Parser
 import Kit.Str
 
-testUnify a b c = do
-  ctx <- newCompileContext
+testUnify ctx a b c = do
   tctx <- newTypeContext []
-  mod <- newMod [] [] ""
+  mod <- newMod [] ""
   unification <- unify ctx tctx mod a b
   unification `shouldBe` c
 
@@ -17,17 +17,20 @@ spec :: Spec
 spec = do
   describe "TypeSpec unification" $ do
     it "unifies type variables" $ do
-      testUnify
-        (TypeTypeVar $ TypeVar 1)
-        (TypeTypeVar $ TypeVar 2)
-        (TypeVarIs (TypeVar 1) (TypeTypeVar $ TypeVar 2))
-      testUnify
-        (TypeTypeVar $ TypeVar 1)
+      ctx <- newCompileContext
+      a <- makeTypeVar ctx null_span
+      b <- makeTypeVar ctx null_span
+      testUnify ctx
+        a
+        b
+        (TypeVarIs (TypeVar 1) b)
+      testUnify ctx
+        a
         (TypeStruct (["a", "b"], "mytype") [])
         (TypeVarIs (TypeVar 1) (TypeStruct (["a", "b"], "mytype") []))
-      testUnify
+      testUnify ctx
         (TypeStruct (["a", "b"], "mytype") [])
-        (TypeTypeVar $ TypeVar 1)
+        a
         (TypeVarIs (TypeVar 1) (TypeStruct (["a", "b"], "mytype") []))
   describe "Basic type unifiation" $ do
     it "unifies numeric types" $ do

@@ -30,7 +30,9 @@ data CompileContext = CompileContext {
   ctxIncludes :: IORef [FilePath],
   ctxLastTypeVar :: IORef Int,
   ctxTypeVariables :: HashTable Int TypeVarInfo,
-  ctxTypedDecls :: HashTable TypePath TypedDecl
+  ctxTypedDecls :: HashTable TypePath TypedDecl,
+  ctxTraitSpecializations :: HashTable TypePath (TypeSpec, Span),
+  ctxImpls :: HashTable TypePath [(ConcreteType, TraitImplementation Expr (Maybe TypeSpec))]
 }
 
 instance Show CompileContext where
@@ -53,21 +55,25 @@ newCompileContext = do
   includes     <- newIORef []
   lastTypeVar  <- newIORef 0
   typeVars     <- h_new
+  specs        <- h_new
+  impls        <- h_new
   return $ CompileContext
-    { ctxMainModule    = ["main"]
-    , ctxSourcePaths   = ["src"]
-    , ctxIncludePaths  = ["/usr/include"]
-    , ctxOutputDir     = "build"
-    , ctxDefines       = []
-    , ctxModules       = mods
-    , ctxFailedModules = failed
-    , ctxPreludes      = preludes
-    , ctxVerbose       = False
-    , ctxModuleGraph   = module_graph
-    , ctxIncludes      = includes
-    , ctxLastTypeVar   = lastTypeVar
-    , ctxTypeVariables = typeVars
-    , ctxTypedDecls    = typedDecls
+    { ctxMainModule           = ["main"]
+    , ctxSourcePaths          = ["src"]
+    , ctxIncludePaths         = ["/usr/include"]
+    , ctxOutputDir            = "build"
+    , ctxDefines              = []
+    , ctxModules              = mods
+    , ctxFailedModules        = failed
+    , ctxPreludes             = preludes
+    , ctxVerbose              = False
+    , ctxModuleGraph          = module_graph
+    , ctxIncludes             = includes
+    , ctxLastTypeVar          = lastTypeVar
+    , ctxTypeVariables        = typeVars
+    , ctxTypedDecls           = typedDecls
+    , ctxTraitSpecializations = specs
+    , ctxImpls                = impls
     }
 
 ctxSourceModules :: CompileContext -> IO [Module]
@@ -115,10 +121,26 @@ resolveVar ctx scopes mod s = do
     Just _  -> return local
     Nothing -> do
       imports <- mapM (getMod ctx) (map fst $ modImports mod)
-      resolveBinding (map modVars (mod : imports)) s
+      resolveBinding (map modScope (mod : imports)) s
 
 getModImports :: CompileContext -> Module -> IO [Module]
 getModImports ctx mod = do
   imports  <- mapM (getMod ctx) (map fst $ modImports mod)
   includes <- mapM (getCMod ctx) (map fst $ modIncludes mod)
   return $ mod : (imports ++ includes)
+
+getTraitImpl
+  :: CompileContext
+  -> TypePath
+  -> ConcreteType
+  -> IO (Maybe (TraitImplementation Expr (Maybe TypeSpec)))
+getTraitImpl ctx trait impl = do
+  traitImpls <- h_lookup (ctxImpls ctx) trait
+  case traitImpls of
+    Just x  -> return $ findTraitImpl x impl
+    Nothing -> return Nothing
+
+findTraitImpl :: [(ConcreteType, a)] -> ConcreteType -> Maybe a
+findTraitImpl [] _ = Nothing
+findTraitImpl (((t, impl)) : t') s =
+  if t == s then Just impl else findTraitImpl t' s

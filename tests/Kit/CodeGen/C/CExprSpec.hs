@@ -39,7 +39,7 @@ spec = do
     it "transpiles void types" $ do
       showctype BasicTypeVoid `shouldBe` "void"
     it "transpiles atom types" $ do
-      showctype (BasicTypeAtom "MyAtom") `shouldBe` "unsigned long"
+      showctype BasicTypeAtom `shouldBe` "unsigned long"
     it "transpiles basic enum types" $ do
       showctype (BasicTypeSimpleEnum (Just "MyEnum") []) `shouldBe` "enum MyEnum"
     it "transpiles complex enum types" $ do

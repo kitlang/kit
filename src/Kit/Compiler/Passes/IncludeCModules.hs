@@ -121,7 +121,7 @@ defineTypedef ctx mod typeSpec (name, declr) = do
   case t' of
     TypeBasicType BasicTypeUnknown -> unknownTypeWarning ctx mod name
     _                              -> return ()
-  bindToScope (modTypes mod) name (newTypeBinding BindingTypedef t')
+  bindToScope (modScope mod) name (newBinding TypeBinding t' Nothing null_span)
 
 parseType :: ModulePath -> [CTypeSpec] -> [CDerivedDeclr] -> ConcreteType
 parseType m typeSpec declr =
@@ -199,11 +199,8 @@ addCDecl :: CompileContext -> Module -> Str -> ConcreteType -> IO ()
 addCDecl ctx mod name t = do
   let bindingData = case t of
         TypeFunction t argTypes isVariadic -> FunctionBinding
-          t
-          [ (name, argType) | (name, argType) <- argTypes ]
-          isVariadic
-        _ -> VarBinding $ t
-  bindToScope (modVars mod) name (newBinding bindingData Nothing)
+        _ -> VarBinding
+  bindToScope (modScope mod) name (newBinding bindingData t Nothing null_span)
   return ()
 
 isTypedef :: [CStorageSpec] -> Bool
@@ -240,11 +237,14 @@ defineNamedStructsAndEnums ctx mod (h : t) = do
               }
             )
       bindToScope
-        (modTypes mod)
+        (modScope mod)
         (s_pack name)
-        (newTypeBinding (BindingType typeDef)
-                        (TypeStruct (modPath mod, s_pack name) [])
+        (newBinding TypeBinding
+                    (TypeStruct (modPath mod, s_pack name) [])
+                    Nothing
+                    null_span
         )
+      bindToScope (modDefinitions mod) (s_pack name) (DefinitionType typeDef)
       debugLog ctx $ "define struct " ++ name
     (CEnumType (CEnum (Just (Ident name _ _)) variants _ _) _) -> do
       let variants' = case variants of
@@ -268,9 +268,10 @@ defineNamedStructsAndEnums ctx mod (h : t) = do
             }
           )
       let ct = (TypeEnum (modPath mod, s_pack name) [])
-      bindToScope (modTypes mod)
+      bindToScope (modScope mod)
                   (s_pack name)
-                  (newTypeBinding (BindingType typeDef) ct)
+                  (newBinding TypeBinding ct Nothing null_span)
+      bindToScope (modDefinitions mod) (s_pack name) (DefinitionType typeDef)
       debugLog ctx $ "define enum " ++ name
     _ -> return ()
   defineNamedStructsAndEnums ctx mod t

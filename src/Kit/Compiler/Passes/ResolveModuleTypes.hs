@@ -18,30 +18,85 @@ import Kit.Log
 import Kit.Parser
 import Kit.Str
 
+data DuplicateSpecializationError = DuplicateSpecializationError ModulePath TypePath Span Span deriving (Eq, Show)
+instance Errable DuplicateSpecializationError where
+  logError e@(DuplicateSpecializationError mod tp pos1 pos2) = do
+    logErrorBasic e $ "Duplicate specialization for `" ++ s_unpack (showTypePath tp) ++ "` in " ++ s_unpack (showModulePath mod) ++ "; \n\nFirst specialization:"
+    ePutStrLn "\nSecond specialization:"
+    case file pos2 of
+      Just fp -> displayFileSnippet (s_unpack fp) pos2
+      _ -> return ()
+    ePutStrLn "\nTraits cannot have overlapping specializations."
+  errPos (DuplicateSpecializationError _ _ pos _) = Just pos
+
 resolveModuleTypes :: CompileContext -> IO ()
 resolveModuleTypes ctx = do
   mods <- h_toList $ ctxModules ctx
-  forM_ (map snd mods) (findTopLevels ctx)
+  forM_ (map snd mods) (resolveTypesForMod ctx)
   validateMain ctx
   return ()
 
 validateMain :: CompileContext -> IO ()
 validateMain ctx = do
   mod  <- getMod ctx (ctxMainModule ctx)
-  main <- resolveLocal (modVars mod) "main"
+  main <- resolveLocal (modScope mod) "main"
   case main of
-    Just (Binding { bindingType = FunctionBinding _ _ _ }) -> return ()
-    _ -> throw $ KitError $ BasicError
+    Just (Binding { bindingType = FunctionBinding }) -> return ()
+    _ -> throwk $ BasicError
       (show mod
       ++ " doesn't have a function called 'main'; main module requires a main function"
       )
       (Nothing)
 
-findTopLevels :: CompileContext -> Module -> IO ()
-findTopLevels ctx mod = do
-  contents <- readIORef $ modContents mod
-  forM_ contents (_checkForTopLevel ctx mod)
+resolveTypesForMod :: CompileContext -> Module -> IO ()
+resolveTypesForMod ctx mod = do
+  specs <- readIORef (modSpecializations mod)
+  forM_ specs (addSpecialization ctx mod)
+  impls <- readIORef (modImpls mod)
+  forM_ impls (addImplementation ctx mod)
+  -- contents <- readIORef $ modContents mod
+  -- forM_ contents (_checkForTopLevel ctx mod)
   return ()
+
+addSpecialization
+  :: CompileContext -> Module -> ((TypeSpec, TypeSpec), Span) -> IO ()
+addSpecialization ctx mod (((TypeSpec tp params _), b), pos) = do
+  tctx  <- newTypeContext []
+  found <- resolveModuleBinding ctx tctx mod tp
+  case found of
+    Just (Binding { bindingType = TraitBinding, bindingConcrete = TypeTraitConstraint (tp, params') })
+      -> do
+      -- TODO: params
+        existing <- h_lookup (ctxTraitSpecializations ctx) tp
+        case existing of
+          Just (_, pos') ->
+            -- if this specialization comes from a prelude, it could show up
+            -- multiple times, so just ignore it
+                            if pos' == pos
+            then return ()
+            else throwk $ DuplicateSpecializationError (modPath mod) tp pos' pos
+          _ -> h_insert (ctxTraitSpecializations ctx) tp (b, pos)
+    _ -> throwk $ BasicError ("Couldn't resolve trait: " ++ show tp) (Just pos)
+
+addImplementation
+  :: CompileContext
+  -> Module
+  -> TraitImplementation Expr (Maybe TypeSpec)
+  -> IO ()
+addImplementation ctx mod impl@(TraitImplementation { implTrait = Just (TypeSpec tpTrait paramsTrait posTrait), implFor = Just implFor })
+  = do
+    tctx       <- newTypeContext []
+    foundTrait <- resolveModuleBinding ctx tctx mod (tpTrait)
+    case foundTrait of
+      Just (Binding { bindingType = TraitBinding, bindingConcrete = TypeTraitConstraint (tpTrait, tpParams) }) -> do
+        ct       <- resolveType ctx tctx mod implFor
+        existing <- h_lookup (ctxImpls ctx) tpTrait
+        let existingImpls = case existing of
+              Just x  -> x
+              Nothing -> []
+        h_insert (ctxImpls ctx) tpTrait ((ct, impl) : existingImpls)
+      _ -> throwk $ BasicError ("Couldn't resolve trait: " ++ show tpTrait)
+                               (Just posTrait)
 
 {-
   Parse module toplevel statements, which can be type, function, or variable
@@ -51,7 +106,8 @@ findTopLevels ctx mod = do
 _checkForTopLevel :: CompileContext -> Module -> Statement -> IO ()
 _checkForTopLevel ctx mod s = do
   tctx <- newTypeContext []
-  case stmt s of
+  return ()
+  {-case stmt s of
     {-TraitDeclaration t -> do
       h_insert (modTraits mod) (traitName t) t
     Implement t -> do
@@ -136,4 +192,4 @@ _checkForTopLevel ctx mod s = do
       bindToScope (modFunctions mod)
                   (functionName f)
                   (f { functionNameMangling = Just $ modPath mod })
-    _ -> return ()
+    _ -> return ()-}

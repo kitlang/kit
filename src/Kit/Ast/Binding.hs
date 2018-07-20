@@ -5,29 +5,24 @@ import Kit.Ast.Declarations
 import Kit.Ast.Expr
 import Kit.Ast.ModulePath
 import Kit.Ast.TypeSpec
+import Kit.Parser.Span
 import Kit.Str
-
-data BindingType
-  = VarBinding ConcreteType
-  | FunctionBinding ConcreteType [(Str, ConcreteType)] Bool
-  | EnumConstructor TypePath [(Str, ConcreteType)]
-  deriving (Eq, Show)
 
 data Binding = Binding {
   bindingType :: BindingType,
-  bindingNameMangling :: Maybe ModulePath
+  bindingConcrete :: ConcreteType,
+  bindingNameMangling :: Maybe ModulePath,
+  bindingPos :: Span
 } deriving (Eq, Show)
 
-newBinding b mangle = Binding {bindingType = b, bindingNameMangling = mangle}
+data BindingType
+  = VarBinding
+  | FunctionBinding
+  | TypeBinding
+  | TraitBinding
+  | TypedefBinding
+  | EnumConstructor
+  deriving (Show, Eq)
 
-data TypeBindingType a b
-  = BindingType (TypeDefinition a b)
-  | BindingTypedef
-  | BindingTrait (TraitDefinition a b)
-
-data TypeBinding = TypeBinding
-  { typeBindingType :: TypeBindingType Expr (Maybe TypeSpec)
-  , typeBindingConcrete :: ConcreteType
-  }
-
-newTypeBinding t c = TypeBinding {typeBindingType = t, typeBindingConcrete = c}
+newBinding b ct mangle pos =
+  Binding {bindingType = b, bindingConcrete = ct, bindingNameMangling = mangle, bindingPos = pos}
