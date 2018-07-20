@@ -123,17 +123,8 @@ main = do
       result  <- tryCompile ctx
       endTime <- getCurrentTime
       status  <- case result of
-        Left (Errs []) -> do
-          logError
-            (err
-              Unknown
-              (  "An unknown error has occurred. Please report this!\n\n"
-              ++ show ctx
-              )
-            )
-          return 1
-        Left (Errs errs) -> do
-          forM errs logError
+        Left e -> do
+          mapM_ logError $ flattenErrors e
           return 1
         Right () -> return 0
       printLog
