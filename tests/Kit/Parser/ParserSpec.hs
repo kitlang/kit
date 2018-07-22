@@ -64,8 +64,8 @@ spec = parallel $ do
                      ]
                    )
 
-    it "parses tokens" $ do
-      testParseExpr "token |" `shouldBe` (e $ TokenExpr [Op BitOr])
+    -- it "parses tokens" $ do
+    --   testParseExpr "token |" `shouldBe` (e $ TokenExpr [Op BitOr])
 
     it "parses casts" $ do
       testParseExpr "this as A[B]"
@@ -75,6 +75,14 @@ spec = parallel $ do
                                       [typeParamToSpec $ makeTypeParam "B"]
                                       null_span
                      )
+                   )
+
+    it "parses inline structs" $ do
+      testParseExpr "struct Abc {a: 1, b: true}"
+        `shouldBe` (e $ StructInit (TypeSpec ([], "Abc") [] (sp 1 8 1 10))
+                     [ ("a", e $ Literal $ IntValue "1")
+                     , ("b", e $ Literal $ BoolValue True)
+                     ]
                    )
 
   describe "Parse statements" $ do
@@ -98,19 +106,19 @@ spec = parallel $ do
       testParseTopLevel "delete a;"
         `shouldBe` (pe (sp 1 1 1 9) $ Delete (e $ Identifier (Var "a") Nothing))
 
-    it "parses token blocks" $ do
-      testParseTopLevel "tokens { }" `shouldBe` (e $ TokenExpr [])
-      testParseTopLevel "tokens { a }"
-        `shouldBe` (e $ TokenExpr [LowerIdentifier "a"])
-      testParseTopLevel "tokens { a {} this, }"
-        `shouldBe` (e $ TokenExpr
-                     [ LowerIdentifier "a"
-                     , CurlyBraceOpen
-                     , CurlyBraceClose
-                     , KeywordThis
-                     , Comma
-                     ]
-                   )
+    -- it "parses token blocks" $ do
+    --   testParseTopLevel "tokens { }" `shouldBe` (e $ TokenExpr [])
+    --   testParseTopLevel "tokens { a }"
+    --     `shouldBe` (e $ TokenExpr [LowerIdentifier "a"])
+    --   testParseTopLevel "tokens { a {} this, }"
+    --     `shouldBe` (e $ TokenExpr
+    --                  [ LowerIdentifier "a"
+    --                  , CurlyBraceOpen
+    --                  , CurlyBraceClose
+    --                  , KeywordThis
+    --                  , Comma
+    --                  ]
+    --                )
 
     it "parses functions" $ do
       testParse
@@ -261,8 +269,8 @@ spec = parallel $ do
                        , typeRules     = []
                        , typeParams    = []
                        , typeType      = Enum
-                         { enum_underlying_type = Just (makeTypeSpec "Float")
-                         , enum_variants        = [ EnumVariant
+                         { enumUnderlyingType = Just (makeTypeSpec "Float")
+                         , enumVariants        = [ EnumVariant
                                                     { variantName      = "Apple"
                                                     , variantDoc       = Nothing
                                                     , variantArgs      = []
@@ -314,7 +322,7 @@ spec = parallel $ do
                        , typeRules     = []
                        , typeParams    = []
                        , typeType      = Struct
-                         { struct_fields = [ (newVarDefinition :: VarDefinition
+                         { structFields = [ (newVarDefinition :: VarDefinition
                                                  Expr
                                                  (Maybe TypeSpec)
                                              )

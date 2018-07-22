@@ -1,1 +1,54 @@
-abstract File: File {}
+include "stdio.h";
+
+enum SeekFrom {
+    Beginning = SEEK_SET;
+    Current = SEEK_CUR;
+    End = SEEK_END;
+}
+
+abstract File: FILE {
+    public static function read(path: CString): File {
+        return fopen(path, "r");
+    }
+
+    public static function write(path: CString): File {
+        return fopen(path, "w");
+    }
+
+    public static function append(path: CString): File {
+        return fopen(path, "a");
+    }
+
+    public static function update(path: CString): File {
+        return fopen(path, "r+");
+    }
+
+    public function read(): Int {
+        var result = new CString(100);
+        return fread(this);
+    }
+
+    public function write(s: CString) {
+        fwrite(this, s);
+    }
+
+    public function seek(offset: Int, from: SeekFrom) {
+        fseek(this, offset, from);
+    }
+
+    public function close() {
+        fclose(this);
+    }
+}
+
+implement Reader[CString] for File {
+    public function read(): CString {
+        return this.read();
+    }
+}
+
+implement Writer[CString] for File {
+    public function write(value: CString) {
+        this.write(value);
+    }
+}

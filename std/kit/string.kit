@@ -7,11 +7,29 @@ abstract String: Vector[Uint8] {
         (this as Vector[Uint8]);
         // TODO
         ((cs: CString) as String);
+        (this as CString);
     }
 }
 
+/**
+ * Builtin trait that allows construction of a type from a string literal.
+ */
+trait Stringy;
+
+implement Stringy for CString;
+implement Stringy for String;
+
+specialize Stringy as CString;
+
+/**
+ * Allows coercing values of the implementing type into a string.
+ */
 trait ToString {
     public function toString(): String;
+
+    public rules {
+        (this as String) => (this.toString());
+    }
 }
 
 implement ToString for String {

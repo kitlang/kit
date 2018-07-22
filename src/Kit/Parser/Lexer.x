@@ -65,6 +65,7 @@ tokens :-
   match { tok KeywordMatch }
   move { tok KeywordMove }
   new { tok KeywordNew }
+  null { tok KeywordNull }
   op { tok KeywordOp }
   override { tok KeywordOverride }
   private { tok KeywordPrivate }
@@ -96,7 +97,7 @@ tokens :-
   "'" (\\.|[^\'])* "'" { tok' (\s -> LiteralString $ processStringLiteral $ s_take (s_length s - 2) $ s_drop 1 s) }
   [\"]{3} ([^\"]|\"[^\"]|\"\"[^\"]|\n)* [\"]{3} { tok' (\s -> LiteralString $ processStringLiteral $ s_take (s_length s - 6) $ s_drop 3 s) }
   \-?[0-9]+ "." [0-9]* { tok' (\s -> LiteralFloat s) }
-  "0x" [0-9a-f]+ { tok' (\s -> LiteralInt s) }
+  "0x" [0-9a-fA-F]+ { tok' (\s -> LiteralInt s) }
   "0b" [01]+ { tok' (\s -> LiteralInt s) }
   "0o" [0-7]+ { tok' (\s -> LiteralInt s) }
   \-?(0|[1-9][0-9]*) { tok' (\s -> LiteralInt s) }

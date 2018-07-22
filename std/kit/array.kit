@@ -87,7 +87,7 @@ struct Array[T] {
         (this[pos: Int] = (val: T)) => this.a[pos] = val;
 
         // optimize Array iteration at compile time when the type is known
-        (for $ident in this {$e}) => {
+        (for $ident in this {$e;}) => {
             var __id = 0;
             var __length = this.length;
             while __i++ < __length {

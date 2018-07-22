@@ -173,7 +173,7 @@ spec = do
         , Just $ DefinitionType $ (newTypeDefinition "Struct1")
           { typeNameMangling = Nothing
           , typeType         = Struct
-            { struct_fields = [ newVarDefinition
+            { structFields = [ newVarDefinition
                                 { varName         = "field1"
                                 , varNameMangling = Nothing
                                 , varType         = Just
@@ -206,7 +206,7 @@ spec = do
         , TypeStruct (["c"], "Struct3") []
         , Just $ DefinitionType $ (newTypeDefinition "Struct3")
           { typeNameMangling = Nothing
-          , typeType         = Struct {struct_fields = []}
+          , typeType         = Struct {structFields = []}
           }
         )
       , ( "Parses enum definitions"
@@ -215,11 +215,11 @@ spec = do
         , Just $ DefinitionType $ (newTypeDefinition "Enum1")
           { typeNameMangling = Nothing
           , typeType         = Enum
-            { enum_variants        = [ newEnumVariant { variantName = "apple" }
+            { enumVariants        = [ newEnumVariant { variantName = "apple" }
                                      , newEnumVariant { variantName = "banana" }
                                      , newEnumVariant { variantName = "cherry" }
                                      ]
-            , enum_underlying_type = Nothing
+            , enumUnderlyingType = Nothing
             }
           }
         )

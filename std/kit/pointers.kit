@@ -1,15 +1,51 @@
 /**
  * An automatically dereferencing C pointer to type T.
  */
-abstract Raw[T]: CPtr[T] {
+abstract Raw[T]: Ptr[T] {
     public rules {
-        (this as CPtr[T]);
-        ((_: CPtr[T]) as Self);
+        (this as Ptr[T]);
+        ((_: Ptr[T]) as Self);
         (this as T) => (*this);
         (this.$x) => (*this).$x;
         ((x: T) as Raw[T]) => (&x);
     }
 }
+
+/**
+ * A typesafe nullable pointer.
+ */
+abstract Null[T]: Raw[T] {
+    public rules {
+        (this as Raw[T]);
+        ((x: T) as Null[T]) => (&x);
+
+        (this.isNull()) => (this as CPtr[T]) == 0;
+        (null : Null[T]) => 0;
+
+        (*this): T => if this.isNull() {
+            throw NulIdentifierError;
+        } else {
+            *(this as Raw[T]);
+        }
+
+        (this ?? (other: Raw[T])): Null[T] => if this.isNull() {
+            other;
+        } else {
+            this;
+        }
+
+        (this ?. $id) => if this.isNull() {
+            null;
+        } else {
+            (*this).$id;
+        }
+    }
+}
+
+/**
+ * Thrown when attempting to use a null value.
+ */
+atom NulIdentifierError;
 
 /**
  * A smart pointer to type T. When this pointer goes out of scope, the
@@ -49,6 +85,8 @@ struct Shared[T] {
 
         // assignment of this value to a pointer generates a weak reference
         ((x: Raw[T]) = this) => x = this.weak();
+
+        (*this) => (*this.value);
     }
 
     public function new(value: T) {

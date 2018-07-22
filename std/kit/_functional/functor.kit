@@ -1,0 +1,12 @@
+trait Functor: T[A] {
+    function fmap[B](f: (A) -> T[B], v: T[A]): T[B];
+}
+
+implement Functor for Option {
+    function fmap[B](f: (A) -> Option[B], v: Option[A]): Option[B] {
+        match v {
+            Some(x): f(x);
+            None: None;
+        }
+    }
+}

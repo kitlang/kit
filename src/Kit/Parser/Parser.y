@@ -60,6 +60,7 @@ import Kit.Parser.Token
   match {(KeywordMatch,_)}
   move {(KeywordMove,_)}
   new {(KeywordNew,_)}
+  null {(KeywordNull,_)}
   op {(KeywordOp,_)}
   override {(KeywordOverride,_)}
   private {(KeywordPrivate,_)}
@@ -150,8 +151,8 @@ Statement :: {Statement}
       typeRules = reverse (snd $7),
       typeParams = fst $4,
       typeType = Enum {
-        enum_variants = reverse (fst $7),
-        enum_underlying_type = fst $5
+        enumVariants = reverse (fst $7),
+        enumUnderlyingType = fst $5
       }
     }
   }
@@ -163,7 +164,7 @@ Statement :: {Statement}
       typeRules = reverse $ snd $ fst $5,
       typeParams = fst $4,
       typeType = Struct {
-        struct_fields = reverse $ fst $ fst $5
+        structFields = reverse $ fst $ fst $5
       }
     }
   }
@@ -175,7 +176,7 @@ Statement :: {Statement}
       typeRules = reverse $ fst $6,
       typeParams = fst $4,
       typeType = Abstract {
-        abstract_underlying_type = fst $5
+        abstractUnderlyingType = fst $5
       }
     }
   }
@@ -214,8 +215,7 @@ TopLevelExpr :: {Expr}
   | throw TopLevelExpr {pe (p $1 <+> pos $2) $ Throw $2}
   | continue ';' {pe (p $1 <+> p $2) $ Continue}
   | break ';' {pe (p $1 <+> p $2) $ Break}
-  | tokens LexMacroTokenBlock {pe (snd $1 <+> snd $2) $ TokenExpr $ tc (fst $2)}
-  | macro_identifier {pe (p $1) (Identifier (MacroVar (extract_macro_identifier $1) Nothing) Nothing)}
+  -- | tokens LexMacroTokenBlock {pe (snd $1 <+> snd $2) $ TokenExpr $ tc (fst $2)}
 
 StandaloneExpr :: {Expr}
   : ExprBlock {$1}
@@ -546,11 +546,11 @@ BinopTermAssign :: {Expr}
   | BinopTermAssign '=' BinopTermCons {pe (pos $1 <+> pos $3) $ Binop Assign $1 $3}
   | BinopTermAssign assign_op BinopTermCons {pe (pos $1 <+> pos $3) $ Binop (AssignOp (extract_assign_op $2)) $1 $3}
 BinopTermCons :: {Expr}
-  : TokenExpr {$1}
-  | TokenExpr "::" BinopTermCons {pe (pos $1 <+> pos $3) $ Binop Cons $1 $3}
-TokenExpr :: {Expr}
-  : token LexMacroTokenAny {pe (snd $1 <+> snd $2) $ TokenExpr $ tc [$2]}
-  | BinopTermTernary {$1}
+  : BinopTermTernary {$1}
+  | BinopTermTernary "::" BinopTermCons {pe (pos $1 <+> pos $3) $ Binop Cons $1 $3}
+-- TokenExpr :: {Expr}
+--   : token LexMacroTokenAny {pe (snd $1 <+> snd $2) $ TokenExpr $ tc [$2]}
+  -- | BinopTermTernary {$1}
 BinopTermTernary :: {Expr}
   : if BinopTermOr then BinopTermOr else BinopTermOr {pe (p $1 <+> pos $6) $ If $2 $4 (Just $6)}
   | BinopTermOr {$1}
@@ -591,6 +591,7 @@ BinopTermMul :: {Expr}
   : BinopTermCustom {$1}
   | BinopTermMul '*' BinopTermCustom {pe (pos $1 <+> pos $3) $ Binop Mul $1 $3}
   | BinopTermMul '/' BinopTermCustom {pe (pos $1 <+> pos $3) $ Binop Div $1 $3}
+  | BinopTermMul '%' BinopTermCustom {pe (pos $1 <+> pos $3) $ Binop Mod $1 $3}
 BinopTermCustom :: {Expr}
   : Unop {$1}
   | BinopTermCustom custom_op Unop {pe (pos $1 <+> pos $3) $ Binop (Custom $ extract_custom_op $2) $1 $3}
@@ -639,6 +640,10 @@ FieldExpr :: {Expr}
 
 TypeAnnotatedExpr :: {Expr}
   : TypeAnnotatedExpr ':' TypeSpec {pe (pos $1 <+> snd $3) $ TypeAnnotation $1 (Just $ fst $3)}
+  | InlineStructExpr {$1}
+
+InlineStructExpr :: {Expr}
+  : struct TypeSpec '{' StructInitFields '}' {pe (p $1 <+> p $5) $ StructInit (Just $ fst $2) $4}
   | BaseExpr {$1}
 
 BaseExpr :: {Expr}
@@ -648,128 +653,144 @@ BaseExpr :: {Expr}
   | Identifier {pe (snd $1) $ Identifier (fst $1) Nothing}
   | unsafe Expr {pe (p $1 <+> pos $2) (Unsafe $2)}
   | '(' Expr ')' {me (p $1 <+> p $3) $2}
+  | null {pe (snd $1) $ Unsafe $ pe (snd $1) $ Identifier (Var "NULL") (Nothing)}
+
+StructInitFields :: {[(B.ByteString, Expr)]}
+  : {[]}
+  | OneOrMoreStructInitFields ',' {reverse $1}
+  | OneOrMoreStructInitFields {reverse $1}
+
+OneOrMoreStructInitFields :: {[(B.ByteString, Expr)]}
+  : StructInitField {[$1]}
+  | OneOrMoreStructInitFields ',' StructInitField {$3 : $1}
+
+StructInitField :: {(B.ByteString, Expr)}
+  : UpperOrLowerIdentifier ':' Expr {(fst $1, $3)}
 
 Identifier :: {(Identifier, Span)}
   : UpperOrLowerIdentifier {(Var $ fst $1, snd $1)}
-  | macro_identifier {(MacroVar (extract_macro_identifier $1) Nothing, snd $1)}
+  | MacroIdentifier {$1}
+
+MacroIdentifier :: {(Identifier, Span)}
+  : macro_identifier {(MacroVar (extract_macro_identifier $1) Nothing, snd $1)}
   | '$' '{' UpperOrLowerIdentifier TypeAnnotation '}' {(MacroVar (fst $3) (fst $4), (p $1 <+> p $5))}
 
 Term :: {(ValueLiteral, Span)}
-  : bool {(BooIdentifier $ extract_bool $ fst $1, snd $1)}
+  : bool {(BoolValue $ extract_bool $ fst $1, snd $1)}
   | str {(StringValue $ extract_lit $ fst $1, snd $1)}
   | int {(IntValue $ extract_lit $ fst $1, snd $1)}
   | float {(FloatValue $ extract_lit $ fst $1, snd $1)}
 
-LexMacroTokenBlock :: {([Token], Span)}
-  : '{' LexMacroTokensInsideBlock '}' {(reverse $2, snd $1 <+> snd $3)}
+-- LexMacroTokenBlock :: {([Token], Span)}
+--   : '{' LexMacroTokensInsideBlock '}' {(reverse $2, snd $1 <+> snd $3)}
 
-LexMacroTokensInsideBlock :: {[Token]}
-  : {[]}
-  | LexMacroTokensInsideBlock LexMacroToken {$2 : $1}
-  | LexMacroTokensInsideBlock LexMacroTokenBlock {((CurlyBraceClose, null_span) : (reverse $ fst $2)) ++ ((CurlyBraceOpen, null_span) : $1)}
+-- LexMacroTokensInsideBlock :: {[Token]}
+--   : {[]}
+--   | LexMacroTokensInsideBlock LexMacroToken {$2 : $1}
+--   | LexMacroTokensInsideBlock LexMacroTokenBlock {((CurlyBraceClose, null_span) : (reverse $ fst $2)) ++ ((CurlyBraceOpen, null_span) : $1)}
 
-LexMacroTokenAny :: {Token}
-  : '{' {$1}
-  | '}' {$1}
-  | LexMacroToken {$1}
+-- LexMacroTokenAny :: {Token}
+--   : '{' {$1}
+--   | '}' {$1}
+--   | LexMacroToken {$1}
 
-LexMacroToken :: {Token}
-  : '[' {$1}
-  | ']' {$1}
-  | '(' {$1}
-  | ')' {$1}
-  | ':' {$1}
-  | "#[" {$1}
-  | "..." {$1}
-  | '.' {$1}
-  | '#' {$1}
-  | '$' {$1}
-  | "=>" {$1}
-  | '?' {$1}
-  | ',' {$1}
-  | ';' {$1}
-  | abstract {$1}
-  | as {$1}
-  | atom {$1}
-  | break {$1}
-  | case {$1}
-  | code {$1}
-  | const {$1}
-  | continue {$1}
-  | copy {$1}
-  | default {$1}
-  | delete {$1}
-  | do {$1}
-  | else {$1}
-  | enum {$1}
-  | for {$1}
-  | function {$1}
-  | if {$1}
-  | implement {$1}
-  | import {$1}
-  | include {$1}
-  | inline {$1}
-  | in {$1}
-  | macro {$1}
-  | match {$1}
-  | move {$1}
-  | new {$1}
-  | op {$1}
-  | override {$1}
-  | private {$1}
-  | public {$1}
-  | return {$1}
-  | rule {$1}
-  | rules {$1}
-  | Self {$1}
-  | static {$1}
-  | struct {$1}
-  | super {$1}
-  | switch {$1}
-  | then {$1}
-  | this {$1}
-  | throw {$1}
-  | token {$1}
-  | tokens {$1}
-  | trait {$1}
-  | typedef {$1}
-  | unsafe {$1}
-  | var {$1}
-  | while {$1}
-  | doc_comment {$1}
-  | identifier {$1}
-  | macro_identifier {$1}
-  | upper_identifier {$1}
-  | "++" {$1}
-  | "--" {$1}
-  | '+' {$1}
-  | '-' {$1}
-  | '*' {$1}
-  | '/' {$1}
-  | '%' {$1}
-  | "==" {$1}
-  | "!=" {$1}
-  | ">=" {$1}
-  | "<=" {$1}
-  | "<<" {$1}
-  | ">>" {$1}
-  | '>' {$1}
-  | '<' {$1}
-  | "&&" {$1}
-  | "||" {$1}
-  | '&' {$1}
-  | '|' {$1}
-  | '^' {$1}
-  | '=' {$1}
-  | assign_op {$1}
-  | '!' {$1}
-  | '~' {$1}
-  | "::" {$1}
-  | custom_op {$1}
-  | bool {$1}
-  | str {$1}
-  | float {$1}
-  | int {$1}
+-- LexMacroToken :: {Token}
+--   : '[' {$1}
+--   | ']' {$1}
+--   | '(' {$1}
+--   | ')' {$1}
+--   | ':' {$1}
+--   | "#[" {$1}
+--   | "..." {$1}
+--   | '.' {$1}
+--   | '#' {$1}
+--   | '$' {$1}
+--   | "=>" {$1}
+--   | '?' {$1}
+--   | ',' {$1}
+--   | ';' {$1}
+--   | abstract {$1}
+--   | as {$1}
+--   | atom {$1}
+--   | break {$1}
+--   | case {$1}
+--   | code {$1}
+--   | const {$1}
+--   | continue {$1}
+--   | copy {$1}
+--   | default {$1}
+--   | delete {$1}
+--   | do {$1}
+--   | else {$1}
+--   | enum {$1}
+--   | for {$1}
+--   | function {$1}
+--   | if {$1}
+--   | implement {$1}
+--   | import {$1}
+--   | include {$1}
+--   | inline {$1}
+--   | in {$1}
+--   | macro {$1}
+--   | match {$1}
+--   | move {$1}
+--   | new {$1}
+--   | op {$1}
+--   | override {$1}
+--   | private {$1}
+--   | public {$1}
+--   | return {$1}
+--   | rule {$1}
+--   | rules {$1}
+--   | Self {$1}
+--   | static {$1}
+--   | struct {$1}
+--   | super {$1}
+--   | switch {$1}
+--   | then {$1}
+--   | this {$1}
+--   | throw {$1}
+--   | token {$1}
+--   | tokens {$1}
+--   | trait {$1}
+--   | typedef {$1}
+--   | unsafe {$1}
+--   | var {$1}
+--   | while {$1}
+--   | doc_comment {$1}
+--   | identifier {$1}
+--   | macro_identifier {$1}
+--   | upper_identifier {$1}
+--   | "++" {$1}
+--   | "--" {$1}
+--   | '+' {$1}
+--   | '-' {$1}
+--   | '*' {$1}
+--   | '/' {$1}
+--   | '%' {$1}
+--   | "==" {$1}
+--   | "!=" {$1}
+--   | ">=" {$1}
+--   | "<=" {$1}
+--   | "<<" {$1}
+--   | ">>" {$1}
+--   | '>' {$1}
+--   | '<' {$1}
+--   | "&&" {$1}
+--   | "||" {$1}
+--   | '&' {$1}
+--   | '|' {$1}
+--   | '^' {$1}
+--   | '=' {$1}
+--   | assign_op {$1}
+--   | '!' {$1}
+--   | '~' {$1}
+--   | "::" {$1}
+--   | custom_op {$1}
+--   | bool {$1}
+--   | str {$1}
+--   | float {$1}
+--   | int {$1}
 {
 
 thenP = (>>=)

@@ -1,5 +1,9 @@
 import kit.io;
 
-public inline function trace[S: ToString](s: S) {
-    print(s.toString());
+public function println(s: CString) {
+    printf("%s\n", s);
+}
+
+public inline function print[S: ToString](s: S) {
+    println(s.toString());
 }

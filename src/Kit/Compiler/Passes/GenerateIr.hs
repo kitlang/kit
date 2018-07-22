@@ -109,12 +109,13 @@ findUnderlyingType ctx mod t = do
       -- TODO: REMOVE
       return $ BasicTypeUnknown
 
+-- TODO: finding specializations should be done as a separate step
 findDefaultType :: CompileContext -> Module -> Int -> IO (BasicType)
 findDefaultType ctx mod id = do
   info <- getTypeVar ctx id
   if null (typeVarConstraints info)
     then throwk $ BasicError
-      ("Couldn't determine the type of this expression. Do you need a type annotation?"
+      ("Couldn't determine the type of this expression. Try adding a type annotation: `(myExpression: Type)`"
       )
       (Just $ head $ typeVarPositions info)
     else do
@@ -197,10 +198,8 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
         (Just pos)
       (Identifier (Var v) mangle) ->
         return $ IrIdentifier (mangleName mangle v)
-      (Identifier (MacroVar v _) _) -> throw $ KitError $ BasicError
-        ("unexpected macro var (" ++ (s_unpack v) ++ ") in typed AST")
-        (Just pos)
-      (TypeAnnotation e1 t) -> throw $ KitError $ BasicError
+      (Identifier     (MacroVar v _) _) -> return $ IrIdentifier v
+      (TypeAnnotation e1             t) -> throw $ KitError $ BasicError
         ("unexpected type annotation in typed AST")
         (Just pos)
       (PreUnop op e1) -> do
@@ -209,6 +208,28 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
       (PostUnop op e1) -> do
         r1 <- r e1
         return $ IrPostUnop op r1
+      (Binop Mod e1 e2) -> do
+        -- FIXME: this special handling is C-specific and should be in
+        -- GenerateCode, not GenerateIr
+        r1 <- r e1
+        r2 <- r e2
+        t1 <- findUnderlyingType ctx mod (inferredType e1)
+        t2 <- findUnderlyingType ctx mod (inferredType e2)
+        let maxFloat = foldr
+              (\t acc -> case t of
+                BasicTypeFloat f -> max f acc
+                _                -> acc
+              )
+              0
+              [t1, t2]
+        case maxFloat of
+          64 -> do
+            addHeader mod "math.h" pos
+            return $ IrCall (IrIdentifier "fmod") [r1, r2]
+          32 -> do
+            addHeader mod "math.h" pos
+            return $ IrCall (IrIdentifier "fmodf") [r1, r2]
+          _ -> return $ IrBinop Mod r1 r2
       (Binop op e1 e2) -> do
         r1 <- r e1
         r2 <- r e2
@@ -270,3 +291,13 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
         throwk $ BasicError
           ("unexpected macro var (" ++ (s_unpack v) ++ ") in typed AST")
           (Just pos)
+      (StructInit t fields) -> do
+        resolvedFields <- forM fields (\(name, e1) -> do r1 <- r e1; return (name, r1))
+        return $ IrStructInit f resolvedFields
+
+addHeader :: Module -> FilePath -> Span -> IO ()
+addHeader mod fp pos = do
+  includes <- readIORef (modIncludes mod)
+  if elem fp (map fst includes)
+    then return ()
+    else modifyIORef (modIncludes mod) (\x -> (fp, pos) : x)

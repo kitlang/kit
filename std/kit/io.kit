@@ -1,5 +1,9 @@
 include "stdio.h";
 
-public function print(s: String) {
-    fwrite(s.buffer, 1, s.length, stdout);
+trait Reader[T] {
+    public function read(): T;
+}
+
+trait Writer[T] {
+    public function write(value: T): Void;
 }

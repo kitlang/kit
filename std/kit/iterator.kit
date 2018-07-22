@@ -2,6 +2,11 @@
  * An Iterable is something, generally a collection, which can be iterated
  * over, e.g. using a for loop. `Iterable`s produce an `Iterator` which
  * contains the state for a single iteration.
+ *
+ * A numeric range `(n ... m)` is an intrinsic which compiles to a fast numeric
+ * for loop; rewrite rules can be used to optimize iteration over specific
+ * collections into iteration over numeric indices to avoid creating
+ * unnecessary `Iterator` instances.
  */
 trait Iterable[T] {
     public function iterator(): Iterator[T];
@@ -14,3 +19,5 @@ trait Iterable[T] {
 trait Iterator[T] {
     public function next(): Null[T];
 }
+
+specialize Iterator[T] as CArray[T];

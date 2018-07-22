@@ -1,7 +1,11 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Kit.Ast.ConcreteType where
 
+import Data.Hashable
 import Data.IORef
 import Data.List
+import GHC.Generics
 import Kit.Ast.BasicType
 import Kit.Ast.ModulePath
 import Kit.Parser.Span
@@ -33,7 +37,9 @@ data ConcreteType
   | TypeRange
   | TypeTraitConstraint TraitConstraint
   | TypeTypeVar TypeVar
-  deriving (Eq)
+  deriving (Eq, Generic)
+
+instance Hashable ConcreteType
 
 instance Show ConcreteType where
   show (TypeAtom) = "atom"
@@ -62,8 +68,10 @@ instance Show ConcreteType where
 data TypeVar
   = TypeVar Int
   | TypeParamVar Str
-  deriving (Eq)
+  deriving (Eq, Generic)
 
 instance Show TypeVar where
   show (TypeVar i) = "type var #" ++ (show i)
   show (TypeParamVar s) = "type param " ++ (s_unpack s)
+
+instance Hashable TypeVar

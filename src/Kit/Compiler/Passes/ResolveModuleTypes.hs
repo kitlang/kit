@@ -91,10 +91,12 @@ addImplementation ctx mod impl@(TraitImplementation { implTrait = Just (TypeSpec
       Just (Binding { bindingType = TraitBinding, bindingConcrete = TypeTraitConstraint (tpTrait, tpParams) }) -> do
         ct       <- resolveType ctx tctx mod implFor
         existing <- h_lookup (ctxImpls ctx) tpTrait
-        let existingImpls = case existing of
-              Just x  -> x
-              Nothing -> []
-        h_insert (ctxImpls ctx) tpTrait ((ct, impl) : existingImpls)
+        case existing of
+          Just ht -> h_insert ht ct impl
+          Nothing -> do
+            impls <- h_new
+            h_insert impls ct impl
+            h_insert (ctxImpls ctx) tpTrait impls
       _ -> throwk $ BasicError ("Couldn't resolve trait: " ++ show tpTrait)
                                (Just posTrait)
 
@@ -129,7 +131,7 @@ _checkForTopLevel ctx mod s = do
                   (typeName t)
                   (newTypeBinding (BindingType t) ct)
       case t of
-        TypeDefinition { typeName = typeName, typeType = Enum { enum_variants = variants } }
+        TypeDefinition { typeName = typeName, typeType = Enum { enumVariants = variants } }
           -> do
             forM_
               (variants)

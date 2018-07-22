@@ -222,7 +222,7 @@ defineNamedStructsAndEnums ctx mod (h : t) = do
           = ((newTypeDefinition (s_pack name))
               { typeNameMangling = Nothing
               , typeType         = Struct
-                { struct_fields = [ (newVarDefinition)
+                { structFields = [ (newVarDefinition)
                                       { varName         = fieldName
                                       , varType         = Just
                                         $ ConcreteType
@@ -258,8 +258,8 @@ defineNamedStructsAndEnums ctx mod (h : t) = do
            )
             { typeNameMangling = Nothing
             , typeType         = Enum
-              { enum_underlying_type = Nothing
-              , enum_variants        = [ newEnumVariant
+              { enumUnderlyingType = Nothing
+              , enumVariants        = [ newEnumVariant
                                            { variantName = s_pack variantName
                                            }
                                        | (Ident variantName _ _, _) <- variants'

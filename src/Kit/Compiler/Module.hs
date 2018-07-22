@@ -21,7 +21,7 @@ data Module = Module {
   modPath :: ModulePath,
   modSourcePath :: FilePath,
   modImports :: [(ModulePath, Span)],
-  modIncludes :: [(FilePath, Span)],
+  modIncludes :: IORef [(FilePath, Span)],
   modScope :: Scope Binding,
   modDefinitions :: Scope (Definition Expr (Maybe TypeSpec)),
   modImpls :: IORef [TraitImplementation Expr (Maybe TypeSpec)],
@@ -43,11 +43,12 @@ emptyMod = do
   specs         <- newIORef []
   typedContents <- newScope
   ir            <- newIORef []
+  includes      <- newIORef []
   return $ Module
     { modPath            = undefined
     , modSourcePath      = undefined
     , modImports         = []
-    , modIncludes        = []
+    , modIncludes        = includes
     , modScope           = scope
     , modDefinitions     = defs
     , modImpls           = impls

@@ -13,7 +13,7 @@ struct Vector[T] {
         (this[(i: Uint)] = (val: T)) => T;
 
         // optimize Vector iteration at compile time when the type is known
-        (for $ident in this {$e}) => {
+        (for $ident in this {$e;}) => {
             var $ident = 0;
             var __length = this.length;
             while __i++ < __length {

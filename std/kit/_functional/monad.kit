@@ -1,0 +1,4 @@
+trait Monad: T[A] {
+    function bind(a: T[A], f: (A) -> T[B]): T[B];
+    function sequence(a: T[A], b: T[B]): T[B];
+}

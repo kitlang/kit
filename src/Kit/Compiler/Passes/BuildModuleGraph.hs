@@ -18,17 +18,6 @@ import Kit.Log
 import Kit.Parser
 import Kit.Str
 
-data DuplicateDeclarationError = DuplicateDeclarationError ModulePath Str Span Span deriving (Eq, Show)
-instance Errable DuplicateDeclarationError where
-  logError e@(DuplicateDeclarationError mod name pos1 pos2) = do
-    logErrorBasic e $ "Duplicate declaration for `" ++ s_unpack name ++ "` in " ++ s_unpack (showModulePath mod) ++ "; \n\nFirst declaration:"
-    ePutStrLn "\nSecond declaration:"
-    case file pos2 of
-      Just fp -> displayFileSnippet (s_unpack fp) pos2
-      _ -> return ()
-    ePutStrLn "\nFunction, variable, type and trait names must be unique within a module."
-  errPos (DuplicateDeclarationError _ _ pos _) = Just pos
-
 buildModuleGraph :: CompileContext -> IO ()
 buildModuleGraph ctx = do
   loadModule ctx (ctxMainModule ctx) Nothing
@@ -74,8 +63,9 @@ loadModule ctx mod pos = do
               (ctxModuleGraph ctx)
               (\current -> ModuleGraphNode mod mod' : current)
             )
+          includes <- readIORef (modIncludes m)
           forM_
-            (modIncludes m)
+            includes
             (\(mod', _) ->
               modifyIORef (ctxIncludes ctx) (\current -> mod' : current)
             )
@@ -145,7 +135,9 @@ _loadModule ctx mod pos = do
   forM_ stmts (addStmtToModuleInterface ctx m)
   let imports  = findImports mod stmts
   let includes = findIncludes stmts
-  return m { modImports = imports, modIncludes = includes }
+  let createdMod = m { modImports = imports }
+  writeIORef (modIncludes createdMod) includes
+  return createdMod
 
 _loadImportedModule
   :: CompileContext -> [KitError] -> (ModulePath, Span) -> IO [KitError]

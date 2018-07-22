@@ -20,6 +20,7 @@ type SyntacticExprType = ExprType Expr (Maybe TypeSpec)
 type RewriteRule = RewriteRuleType Expr (Maybe TypeSpec)
 
 data Expr = Expr {expr :: SyntacticExprType, pos :: Span} deriving (Show)
+ePos = pos
 instance Eq Expr where
   (==) a b = (expr a) == (expr b) && (pos a == pos b || pos a == null_span || pos b == null_span)
 

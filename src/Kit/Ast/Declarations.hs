@@ -128,9 +128,9 @@ data TypeDefinition a b = TypeDefinition {
 
 data TypeDefinitionType a b
   = Atom
-  | Struct {struct_fields :: [VarDefinition a b]}
-  | Enum {enum_variants :: [EnumVariant a b], enum_underlying_type :: b}
-  | Abstract {abstract_underlying_type :: b}
+  | Struct {structFields :: [VarDefinition a b]}
+  | Enum {enumVariants :: [EnumVariant a b], enumUnderlyingType :: b}
+  | Abstract {abstractUnderlyingType :: b}
   deriving (Eq, Show)
 
 newTypeDefinition x = TypeDefinition

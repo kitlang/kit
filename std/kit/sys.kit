@@ -1,1 +1,48 @@
+include "dirent.h";
+include "math.h";
+include "unistd.h";
 include "stdio.h";
+include "sys/time.h";
+
+/**
+ * Sleep for the specified amount of time, in seconds.
+ */
+function sleep(t: Double) {
+    usleep(floor(t * 1000000));
+}
+
+/**
+ * Returns the current time, in seconds since epoch, using gettimeofday.
+ */
+function time() {
+    var tv: timeval;
+    gettimeofday(&tv, null);
+    return tv.tv_sec + (tv.tv_usec / 1000000.0);
+}
+
+struct DirectoryReader {
+    var path: CString;
+    var dirEntry: Ptr[dirent];
+    var dir: Ptr[DIR];
+
+    public rule (new Self(path: CString)) => {
+        this = struct Self {
+            path: path,
+            dirEntry: null,
+            dir: null,
+        };
+        this.dir = opendir(path);
+        // TODO: check if this.dir == null
+    }
+}
+
+implement Iterator for DirectoryReader {
+    public function next(): CString {
+        this.dirEntry = readdir(this.dir);
+        if (this.dirEntry != null) {
+            return this.dirEntry;
+        } else {
+            return null;
+        }
+    }
+}

@@ -1,6 +1,10 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Kit.Ast.BasicType where
 
+import Data.Hashable
 import Data.List
+import GHC.Generics
 import Kit.Str
 
 {-
@@ -23,7 +27,9 @@ data BasicType
   -- If for some reason we can't parse type specifiers into a meaningful
   -- BasicType, the value isn't usable from Kit without casting.
   | BasicTypeUnknown
-  deriving (Eq)
+  deriving (Eq, Generic)
+
+instance Hashable BasicType
 
 instance Show BasicType where
   show (CArray t (Just i)) = show t ++ "[" ++ show i ++ "]"

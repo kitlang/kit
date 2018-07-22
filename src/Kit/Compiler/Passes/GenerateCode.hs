@@ -42,8 +42,9 @@ generateHeader ctx mod = do
   handle <- openFile headerFilePath WriteMode
   hPutStrLn handle $ "#ifndef " ++ (modDef $ modPath mod)
   hPutStrLn handle $ "#define " ++ (modDef $ modPath mod)
+  includes <- readIORef (modIncludes mod)
   forM_
-    (modIncludes mod)
+    includes
     (\(filepath, _) -> hPutStrLn handle $ "#include \"" ++ filepath ++ "\"")
   forM_
     (map fst (modImports mod))
@@ -97,4 +98,4 @@ generateDecl ctx mod codeFile decl = do
     IrFunction (FunctionDefinition { functionName = name, functionType = t, functionBody = Just body, functionNameMangling = mangle })
       -> do
         let name' = mangleName mangle name
-        hPutStrLn codeFile (render $ pretty $ cfunDef name' t body)
+        hPutStrLn codeFile ("\n" ++ (render $ pretty $ cfunDef name' t body))

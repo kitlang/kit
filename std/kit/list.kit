@@ -107,7 +107,7 @@ enum List[T] {
         ((head: T)::(tail: Self[T])) => Cons(head, tail);
 
         // optimize List iteration at compile time when the type is known
-        (for $ident in this {$e}) => {
+        (for $ident in this {$e;}) => {
             var __rest = this;
             while !__rest.empty {
                 var $ident = __rest.head;

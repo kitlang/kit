@@ -1,0 +1,50 @@
+/**
+ * A type which represents only integer values.
+ */
+#[protected] trait Integral;
+
+/**
+ * A type which represents numbers with integral and fractional components.
+ *
+ * Numeric literals with decimal points and no type annotation are constrained
+ * to types implementing this trait; if none is specified, Float will be used.
+ */
+#[protected] trait NumericMixed;
+
+/**
+ * Any numeric type.
+ *
+ * Numeric literals without a decimal point or type annotation are constrained
+ * to types implementing this trait; if none is specified, Int will be used.
+ */
+#[protected] trait Numeric;
+
+implement Integral for Uint8;
+implement Integral for Uint16;
+implement Integral for Uint32;
+implement Integral for Uint64;
+implement Integral for Int8;
+implement Integral for Int16;
+implement Integral for Int32;
+implement Integral for Int64;
+
+implement NumericMixed for Float;
+implement NumericMixed for Double;
+
+// implement Numeric for Integral;
+// implement Numeric for NumericMixed;
+
+specialize Integral as Int;
+specialize Numeric as Int;
+specialize NumericMixed as Double;
+
+implement Numeric for Uint8;
+implement Numeric for Uint16;
+implement Numeric for Uint32;
+implement Numeric for Uint64;
+implement Numeric for Int8;
+implement Numeric for Int16;
+implement Numeric for Int32;
+implement Numeric for Int64;
+implement Numeric for Float;
+implement Numeric for Double;

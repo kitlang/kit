@@ -1,10 +1,10 @@
-struct Map[K, V] {
-    public function exists(key: K): Bool;
-    public function get(key: K): Null[V];
-    public function set(key: K, value: V): V;
+trait Map[K, V] {
+    function exists(key: K): Bool;
+    function get(key: K): Null[V];
+    function set(key: K, value: V): V;
 
-    public rules {
-        inline (this[key: K]) => this.get(key);
-        inline (this[key: K] = (value: V)) => this.set(key, value);
+    rules {
+        (this[${key: K}]) => this.get($key);
+        (this[${key: K}] = (value: V)) => this.set($key, value);
     }
 }

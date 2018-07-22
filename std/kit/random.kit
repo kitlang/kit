@@ -1,0 +1,22 @@
+include "stdlib.h";
+
+/**
+ * Seed the random number generator used by `random` and `randomRange`.
+ */
+public function seed(seed: Uint16) {
+  srand(seed);
+}
+
+/**
+ * Generates a random number between 0 and 1.
+ */
+public function random(): Double {
+    return rand() as Double / ${RAND_MAX: Uint16};
+}
+
+/**
+ * Generates a random integer between min and max, inclusive.
+ */
+public function randomRange(min, max) {
+    return min + (1 + max - min) * random();
+}

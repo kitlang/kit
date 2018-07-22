@@ -32,7 +32,7 @@ data CompileContext = CompileContext {
   ctxTypeVariables :: HashTable Int TypeVarInfo,
   ctxTypedDecls :: HashTable TypePath TypedDecl,
   ctxTraitSpecializations :: HashTable TypePath (TypeSpec, Span),
-  ctxImpls :: HashTable TypePath [(ConcreteType, TraitImplementation Expr (Maybe TypeSpec))]
+  ctxImpls :: HashTable TypePath (HashTable ConcreteType (TraitImplementation Expr (Maybe TypeSpec)))
 }
 
 instance Show CompileContext where
@@ -126,7 +126,8 @@ resolveVar ctx scopes mod s = do
 getModImports :: CompileContext -> Module -> IO [Module]
 getModImports ctx mod = do
   imports  <- mapM (getMod ctx) (map fst $ modImports mod)
-  includes <- mapM (getCMod ctx) (map fst $ modIncludes mod)
+  includes' <- readIORef (modIncludes mod)
+  includes <- mapM (getCMod ctx) (map fst $ includes')
   return $ mod : (imports ++ includes)
 
 getTraitImpl
@@ -137,10 +138,9 @@ getTraitImpl
 getTraitImpl ctx trait impl = do
   traitImpls <- h_lookup (ctxImpls ctx) trait
   case traitImpls of
-    Just x  -> return $ findTraitImpl x impl
+    Just x  -> do
+      lookup <- h_lookup x impl
+      case lookup of
+        Just y -> return $ Just y
+        _ -> return Nothing
     Nothing -> return Nothing
-
-findTraitImpl :: [(ConcreteType, a)] -> ConcreteType -> Maybe a
-findTraitImpl [] _ = Nothing
-findTraitImpl (((t, impl)) : t') s =
-  if t == s then Just impl else findTraitImpl t' s

@@ -35,7 +35,21 @@ unify ctx tctx mod a' b' = do
       return $ if elem t (map fst $ typeVarConstraints info)
         then TypeConstraintSatisfied
         else TypeVarConstraint v t
-    (TypeTypeVar v        , x                    ) -> return $ TypeVarIs v x
+    (TypeTypeVar v@(TypeVar i), x) -> do
+      info <- getTypeVar ctx i
+      let constraints = typeVarConstraints info
+      meetsConstraints <- foldM
+        (\acc ((tp, params), (reason, pos)) -> do
+          case acc of
+            TypeConstraintSatisfied ->
+              unify ctx tctx mod (TypeTraitConstraint (tp, params)) x
+            _ -> return acc
+        )
+        TypeConstraintSatisfied
+        constraints
+      return $ case meetsConstraints of
+        TypeConstraintSatisfied -> TypeVarIs v x
+        _                       -> meetsConstraints
     (_                    , TypeTypeVar v        ) -> unify ctx tctx mod b a
     (TypeTraitConstraint t, x                    ) -> resolveTraitConstraint ctx tctx mod t x
     (_                    , TypeTraitConstraint v) -> unify ctx tctx mod b a
@@ -74,8 +88,8 @@ resolveConstraint ctx tctx mod constraint@(TypeEq a b reason pos) = do
           mod
           (TypeEq x (TypeTraitConstraint constraint) reason' pos')
         )
+      info <- getTypeVar ctx id
       h_insert (ctxTypeVariables ctx) id (info { typeVarValue = Just x })
-      return ()
     TypeVarConstraint (TypeVar id) constraint -> do
       info <- getTypeVar ctx id
       h_insert (ctxTypeVariables ctx)
@@ -92,7 +106,9 @@ resolveConstraintOrThrow
   -> Module
   -> TypeConstraint
   -> IO TypeInformation
-resolveConstraintOrThrow ctx tctx mod t@(TypeEq a b reason pos) = do
+resolveConstraintOrThrow ctx tctx mod t@(TypeEq a' b' reason pos) = do
+  a      <- knownType ctx tctx mod a'
+  b      <- knownType ctx tctx mod b'
   result <- unify ctx tctx mod a b
   case result of
     TypeConstraintNotSatisfied -> throw $ KitError $ UnificationError t

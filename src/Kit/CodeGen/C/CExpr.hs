@@ -106,6 +106,8 @@ transpileExpr (IrCall e args) =
 transpileExpr (IrCast e t) =
   u $ CCast (cDecl t Nothing Nothing) (transpileExpr e)
 --transpileExpr (Expr {expr = VectorLiteral e}) = u $ CA
+transpileExpr (IrStructInit t fields) =
+  u $ CCompoundLit (cDecl t Nothing Nothing) [([u $ CMemberDesig (internalIdent $ s_unpack name)], u $ CInitExpr (transpileExpr e)) | (name, e) <- fields]
 
 transpileStmt :: IrExpr -> CStat
 transpileStmt IrBreak             = u CBreak
@@ -150,7 +152,7 @@ transpileInt ('0' : 'b' : s) = cInteger $ r1 $ readInt 2 isBin readBin s
 transpileInt ('0' : 'o' : s) = cInteger $ r1 $ readOct ('0' : s)
 transpileInt s               = cInteger $ r1 $ readDec s
 
-transpileFloat s = cFloat $ r1 $ readFloat s
+transpileFloat s = CFloat s
 
 transpileBinop Add        = CAddOp
 transpileBinop Sub        = CSubOp

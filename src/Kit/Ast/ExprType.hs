@@ -14,6 +14,12 @@ import Kit.Str
 
 data MatchCase a = MatchCase {match_pattern :: a, match_body :: a} deriving (Eq, Show)
 
+{-
+  All AST structures use the convention of two type parameters, a and b.
+
+  a = recursive expression data type (Expr, TypedExpr)
+  b = type specifier data type (Maybe TypeSpec, ConcreteType)
+-}
 data ExprType a b
   = Block [a]
   | Meta (Metadata) a
@@ -40,6 +46,7 @@ data ExprType a b
   | Match a [MatchCase a] (Maybe a)
   | InlineCall a
   | Field a Identifier
+  | StructInit b [(Str, a)]
   | ArrayAccess a a
   | Call a [a]
   | Cast a b

@@ -52,6 +52,7 @@ data TokenClass
   | KeywordMatch
   | KeywordMove
   | KeywordNew
+  | KeywordNull
   | KeywordOp
   | KeywordOverride
   | KeywordPrivate
@@ -131,6 +132,7 @@ instance Show TokenClass where
     KeywordMatch -> "match"
     KeywordMove -> "move"
     KeywordNew -> "new"
+    KeywordNull -> "null"
     KeywordOp -> "op"
     KeywordOverride -> "override"
     KeywordPrivate -> "private"
