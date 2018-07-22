@@ -51,7 +51,11 @@ convertTypeDefinition exprConverter typeConverter t = do
     Struct { structFields = f } -> do
       fields <- forM f (convertVarDefinition exprConverter typeConverter)
       return $ Struct {structFields = fields}
-    Enum{}     -> return Atom -- TODO
+    Enum { enumVariants = variants, enumUnderlyingType = t } -> do
+      variants <- forM variants (convertEnumVariant exprConverter typeConverter)
+      underlyingType <- typeConverter t
+      return
+        $ Enum {enumVariants = variants, enumUnderlyingType = underlyingType}
     Abstract{} -> return Atom -- TODO
   return $ (newTypeDefinition (typeName t)) { typeDoc          = typeDoc t
                                             , typeMeta         = typeMeta t

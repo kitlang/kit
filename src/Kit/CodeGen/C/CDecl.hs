@@ -15,7 +15,10 @@ cdecl (BasicTypeStruct name fields) =
   [ u $ CDecl
       [ CTypeSpec $ u $ CSUType $ u $ CStruct
           CStructTag
-          (case name of {Just name -> Just $ internalIdent $ s_unpack name; Nothing -> Nothing})
+          (case name of
+            Just name -> Just $ internalIdent $ s_unpack name
+            Nothing   -> Nothing
+          )
           (Just f)
           []
       ]
@@ -39,9 +42,12 @@ cdecl (BasicTypeSimpleEnum name variantNames) =
   Either type of enum can be cast to the discriminant's type.
 -}
 cdecl (BasicTypeComplexEnum name variants) =
-  (enumDiscriminant (Just discriminantName) (map (\(name, _) -> name) variants))
-    : (enum_struct name discriminantName variants)
-    : (enumVariants name variants)
+  (enumVariants name variants)
+    ++ [ (enumDiscriminant (Just discriminantName)
+                           (map (\(name, _) -> name) variants)
+         )
+       , (enum_struct name discriminantName variants)
+       ]
  where
   discriminantName = (s_concat [name, "_Discriminant"])
   enum_struct name discriminantName variants = u $ CDecl
@@ -82,7 +88,14 @@ cdecl (BasicTypeComplexEnum name variants) =
       ]
     variant_fields =
       [ u $ CDecl
-          [typeNameDecl $ enumVariantName name variantName]
+          [ CTypeSpec $ u $ CSUType $ u $ CStruct
+              CStructTag
+              (Just $ internalIdent $ s_unpack $ enumVariantName name
+                                                                 variantName
+              )
+              Nothing
+              []
+          ]
           [ ( Just $ u $ CDeclr
               (Just $ internalIdent $ s_unpack $ s_concat
                 ["variant_", variantName]
@@ -99,7 +112,9 @@ cdecl (BasicTypeComplexEnum name variants) =
   enumVariants name variants = map
     (\(variantName, variant_fields) ->
       (cdecl
-          (BasicTypeStruct (Just $ enumVariantName name variantName) (variant_fields))
+          (BasicTypeStruct (Just $ enumVariantName name variantName)
+                           (variant_fields)
+          )
         )
         !! 0
     )
@@ -108,7 +123,10 @@ cdecl (BasicTypeComplexEnum name variants) =
 
 enumDiscriminant name variantNames = u $ CDecl
   [ CTypeSpec $ u $ CEnumType $ u $ CEnum
-      (case name of {Just name -> Just $ internalIdent $ s_unpack name; Nothing -> Nothing})
+      (case name of
+        Just name -> Just $ internalIdent $ s_unpack name
+        Nothing   -> Nothing
+      )
       (Just [ (internalIdent $ s_unpack v, Nothing) | v <- variantNames ])
       []
   ]

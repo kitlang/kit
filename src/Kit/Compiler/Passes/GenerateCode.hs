@@ -67,7 +67,7 @@ generateLib ctx mod = do
     ++ (relativeLibPath (modPath mod) -<.> "h")
     ++ "\""
   ir <- readIORef (modIr mod)
-  forM_ ir (generateDecl ctx mod handle)
+  forM_ ir (generateDef ctx mod handle)
   hClose handle
 
 relativeLibPath :: ModulePath -> FilePath
@@ -87,8 +87,13 @@ libPath ctx mod =
 generateHeaderDecl :: CompileContext -> Module -> Handle -> IrDecl -> IO ()
 generateHeaderDecl ctx mod headerFile decl = do
   case decl of
-    -- IrType (TypeDefinition {typeName = name, typeType = t})
-    --   -> case
+    IrType def@(TypeDefinition { typeType = Atom }) -> return ()
+
+    IrType def@(TypeDefinition{}                  ) -> do
+      let decls = cdecl (typeBasicType def)
+      mapM_
+        (\d -> hPutStrLn headerFile ("\n" ++ (render $ pretty $ CDeclExt $ d)))
+        decls
 
     IrFunction def@(FunctionDefinition { functionName = name, functionType = t, functionArgs = args, functionVarargs = varargs, functionNameMangling = mangle })
       -> do
@@ -100,8 +105,8 @@ generateHeaderDecl ctx mod headerFile decl = do
     _ -> do
       return ()
 
-generateDecl :: CompileContext -> Module -> Handle -> IrDecl -> IO ()
-generateDecl ctx mod codeFile decl = do
+generateDef :: CompileContext -> Module -> Handle -> IrDecl -> IO ()
+generateDef ctx mod codeFile decl = do
   case decl of
     IrFunction def@(FunctionDefinition { functionName = name, functionType = t, functionBody = Just body, functionNameMangling = mangle })
       -> do
@@ -111,7 +116,7 @@ generateDecl ctx mod codeFile decl = do
           (  "\n"
           ++ (render $ pretty $ cfunDef name' (functionBasicType def) body)
           )
-    -- TODO: remove
+
     _ -> do
       return ()
 
@@ -119,3 +124,16 @@ functionBasicType :: FunctionDefinition IrExpr BasicType -> BasicType
 functionBasicType (FunctionDefinition { functionType = t, functionArgs = args, functionVarargs = varargs })
   = (BasicTypeFunction t (map (\arg -> (argName arg, argType arg)) args) varargs
     )
+
+typeBasicType :: TypeDefinition IrExpr BasicType -> BasicType
+typeBasicType def@(TypeDefinition { typeName = name }) = case typeType def of
+  Struct { structFields = fields } -> BasicTypeStruct
+    (Just name)
+    [ (varName field, varType field) | field <- fields ]
+  Enum { enumVariants = variants } -> if all variantIsSimple variants
+    then BasicTypeSimpleEnum (Just name) [ variantName v | v <- variants ]
+    else BasicTypeComplexEnum
+      name
+      [ (variantName v, [ (argName a, argType a) | a <- variantArgs v ])
+      | v <- variants
+      ]

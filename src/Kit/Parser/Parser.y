@@ -152,7 +152,7 @@ Statement :: {Statement}
       typeParams = fst $4,
       typeType = Enum {
         enumVariants = reverse (fst $7),
-        enumUnderlyingType = fst $5
+        enumUnderlyingType = case fst $5 of {Just x -> Just x; Nothing -> Just (TypeSpec ([], "Int") [] null_span)}
       }
     }
   }

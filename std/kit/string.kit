@@ -1,5 +1,8 @@
 /**
  * A String is a collection (Vector) of bytes.
+ *
+ * As Vectors, Strings are length-prefixed; they are also null-terminated for
+ * easy conversion into CStrings.
  */
 abstract String: Vector[Uint8] {
     public rules {

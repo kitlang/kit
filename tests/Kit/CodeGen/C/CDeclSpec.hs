@@ -54,6 +54,6 @@ spec = do
             ]
           )
         )
-        "enum MyEnum_Discriminant {\nVariant1, Variant2\n}\n\
-        \struct MyEnum {\nenum MyEnum_Discriminant __discriminant;\nunion {\nMyEnum_Variant_Variant2 variant_Variant2;\n} __variant;\n}\n\
-        \struct MyEnum_Variant_Variant2 {\nsigned char field1; unsigned char field2;\n}"
+        "struct MyEnum_Variant_Variant2 {\nsigned char field1; unsigned char field2;\n}\n\
+        \enum MyEnum_Discriminant {\nVariant1, Variant2\n}\n\
+        \struct MyEnum {\nenum MyEnum_Discriminant __discriminant;\nunion {\nstruct MyEnum_Variant_Variant2 variant_Variant2;\n} __variant;\n}"

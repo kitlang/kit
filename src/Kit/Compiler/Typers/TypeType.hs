@@ -12,6 +12,7 @@ import Kit.Compiler.TypedExpr
 import Kit.Compiler.Typers.Base
 import Kit.Compiler.Typers.TypeExpression
 import Kit.Compiler.Unify
+import Kit.Compiler.Utils
 import Kit.Error
 import Kit.Parser
 import Kit.Str
@@ -19,6 +20,8 @@ import Kit.Str
 typeTypeDefinition
   :: CompileContext -> Module -> TypeDefinition Expr (Maybe TypeSpec) -> IO ()
 typeTypeDefinition ctx mod def@(TypeDefinition { typeName = name }) = do
+  debugLog ctx $ "typing " ++ s_unpack name ++ " in " ++ show mod
+
   -- TODO: handle params here
   tctx      <- newTypeContext []
   converted <- convertTypeDefinition (typeExpr ctx tctx mod)

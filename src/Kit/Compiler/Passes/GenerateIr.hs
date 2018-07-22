@@ -42,10 +42,14 @@ generateDeclIr ctx mod t = do
   let typeConverter = (findUnderlyingType ctx mod)
   case t of
     TypedTypeDecl def@(TypeDefinition { typeName = name }) -> do
+      debugLog ctx $ "generating IR for " ++ s_unpack name ++ " in " ++ show mod
+      print def
       converted <- convertTypeDefinition exprConverter typeConverter def
       addDecl $ IrType $ converted
     TypedFunctionDecl f@(FunctionDefinition { functionArgs = args, functionType = t })
       -> do
+        debugLog ctx $ "generating IR for function " ++ s_unpack (functionName f) ++ " in " ++ show mod
+
         args       <- forM args (convertArgSpec exprConverter typeConverter)
         returnType <- typeConverter t
         converted  <- convertFunctionDefinition exprConverter
