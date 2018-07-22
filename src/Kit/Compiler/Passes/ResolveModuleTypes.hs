@@ -54,8 +54,6 @@ resolveTypesForMod ctx mod = do
   forM_ specs (addSpecialization ctx mod)
   impls <- readIORef (modImpls mod)
   forM_ impls (addImplementation ctx mod)
-  -- contents <- readIORef $ modContents mod
-  -- forM_ contents (_checkForTopLevel ctx mod)
   return ()
 
 addSpecialization

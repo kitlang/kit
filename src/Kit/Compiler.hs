@@ -45,8 +45,8 @@ compile ctx = do
   includeCModules ctx
   printLog "resolving module types"
   resolveModuleTypes ctx
-  printLog "typing expressions"
-  typeExpressions ctx
+  printLog "typing module content"
+  typeContent ctx
   printLog "generating internal representation"
   generateIr ctx
   printLog "generating code"

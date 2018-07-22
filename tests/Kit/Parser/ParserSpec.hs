@@ -79,7 +79,7 @@ spec = parallel $ do
 
     it "parses inline structs" $ do
       testParseExpr "struct Abc {a: 1, b: true}"
-        `shouldBe` (e $ StructInit (TypeSpec ([], "Abc") [] (sp 1 8 1 10))
+        `shouldBe` (e $ StructInit (Just $ TypeSpec ([], "Abc") [] (sp 1 8 1 10))
                      [ ("a", e $ Literal $ IntValue "1")
                      , ("b", e $ Literal $ BoolValue True)
                      ]
