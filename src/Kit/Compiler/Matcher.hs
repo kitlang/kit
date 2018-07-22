@@ -1,6 +1,6 @@
 module Kit.Compiler.Matcher where
 
-import Kit.Ast.Declarations
+import Kit.Ast.Definitions
 import Kit.Ast.Expr
 import Kit.Ast.Identifier
 import Kit.Ast.Statement

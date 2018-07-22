@@ -9,7 +9,7 @@ type TypedFunction = FunctionDefinition TypedExpr ConcreteType
 type TypedType = TypeDefinition TypedExpr ConcreteType
 
 data TypedDecl
-  = TypedVar TypedVar
-  | TypedFunction TypedFunction
-  | TypedType TypedType
+  = TypedVarDecl TypedVar
+  | TypedFunctionDecl TypedFunction
+  | TypedTypeDecl TypedType
   deriving (Eq, Show)

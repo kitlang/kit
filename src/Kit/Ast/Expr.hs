@@ -4,7 +4,7 @@
 module Kit.Ast.Expr where
 
 import Kit.Ast.ConcreteType
-import Kit.Ast.Declarations
+import Kit.Ast.Definitions
 import Kit.Ast.ExprType
 import Kit.Ast.Identifier
 import Kit.Ast.Metadata

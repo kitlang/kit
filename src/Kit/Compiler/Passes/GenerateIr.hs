@@ -38,29 +38,22 @@ generateModuleIr ctx mod = do
 generateDeclIr :: CompileContext -> Module -> TypedDecl -> IO ()
 generateDeclIr ctx mod t = do
   let addDecl d = modifyIORef (modIr mod) (\x -> d : x)
+  let exprConverter = (typedToIr ctx mod)
+  let typeConverter = (findUnderlyingType ctx mod)
   case t of
-    TypedFunction f@(FunctionDefinition { functionName = name, functionType = rt, functionBody = Just body, functionArgs = args, functionVarargs = varargs })
+    TypedTypeDecl def@(TypeDefinition { typeName = name }) -> do
+      converted <- convertTypeDefinition exprConverter typeConverter def
+      addDecl $ IrType $ converted
+    TypedFunctionDecl f@(FunctionDefinition { functionArgs = args, functionType = t })
       -> do
-        rt        <- findUnderlyingType ctx mod rt
-        typedArgs <- mapM
-          (\arg -> do
-            t <- findUnderlyingType ctx mod (argType arg)
-            return $ newArgSpec { argName    = argName arg
-                                , argType    = t
-                                , argDefault = argDefault arg
-                                }
-          )
-          args
-        body' <- typedToIr ctx mod body
-        addDecl $ IrFunction $ ((convertFunctionDefinition f) :: IrFunction)
-          { functionName = name
-          , functionType = (BasicTypeFunction
-                             rt
-                             [ (argName arg, argType arg) | arg <- typedArgs ]
-                             varargs
-                           )
-          , functionBody = Just body'
-          }
+        args       <- forM args (convertArgSpec exprConverter typeConverter)
+        returnType <- typeConverter t
+        converted  <- convertFunctionDefinition exprConverter
+                                                typeConverter
+                                                args
+                                                returnType
+                                                f
+        addDecl $ IrFunction $ converted
     _ -> undefined -- TODO
 
 {-
@@ -168,6 +161,12 @@ findDefaultType ctx mod id = do
           ++ "\n\nbut no specialization for these traits satisfies all of the constraints, so no concrete type can be determined.\n\nTry adding a type annotation."
           )
           (Just $ head $ typeVarPositions info)
+
+maybeTypedToIr ctx mod e = case e of
+  Just ex -> do
+    t <- typedToIr ctx mod ex
+    return $ Just t
+  Nothing -> return Nothing
 
 typedToIr :: CompileContext -> Module -> TypedExpr -> IO IrExpr
 typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
@@ -292,7 +291,12 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
           ("unexpected macro var (" ++ (s_unpack v) ++ ") in typed AST")
           (Just pos)
       (StructInit t fields) -> do
-        resolvedFields <- forM fields (\(name, e1) -> do r1 <- r e1; return (name, r1))
+        resolvedFields <- forM
+          fields
+          (\(name, e1) -> do
+            r1 <- r e1
+            return (name, r1)
+          )
         return $ IrStructInit f resolvedFields
 
 addHeader :: Module -> FilePath -> Span -> IO ()

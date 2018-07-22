@@ -87,15 +87,35 @@ libPath ctx mod =
 generateHeaderDecl :: CompileContext -> Module -> Handle -> IrDecl -> IO ()
 generateHeaderDecl ctx mod headerFile decl = do
   case decl of
-    IrFunction (FunctionDefinition { functionName = name, functionType = t, functionBody = Just body, functionNameMangling = mangle })
+    -- IrType (TypeDefinition {typeName = name, typeType = t})
+    --   -> case
+
+    IrFunction def@(FunctionDefinition { functionName = name, functionType = t, functionArgs = args, functionVarargs = varargs, functionNameMangling = mangle })
       -> do
         let name' = mangleName mangle name
-        hPutStrLn headerFile (render $ pretty $ CDeclExt $ cfunDecl name' t)
+        hPutStrLn
+          headerFile
+          (render $ pretty $ CDeclExt $ cfunDecl name' (functionBasicType def))
+    -- TODO: remove
+    _ -> do
+      return ()
 
 generateDecl :: CompileContext -> Module -> Handle -> IrDecl -> IO ()
 generateDecl ctx mod codeFile decl = do
   case decl of
-    IrFunction (FunctionDefinition { functionName = name, functionType = t, functionBody = Just body, functionNameMangling = mangle })
+    IrFunction def@(FunctionDefinition { functionName = name, functionType = t, functionBody = Just body, functionNameMangling = mangle })
       -> do
         let name' = mangleName mangle name
-        hPutStrLn codeFile ("\n" ++ (render $ pretty $ cfunDef name' t body))
+        hPutStrLn
+          codeFile
+          (  "\n"
+          ++ (render $ pretty $ cfunDef name' (functionBasicType def) body)
+          )
+    -- TODO: remove
+    _ -> do
+      return ()
+
+functionBasicType :: FunctionDefinition IrExpr BasicType -> BasicType
+functionBasicType (FunctionDefinition { functionType = t, functionArgs = args, functionVarargs = varargs })
+  = (BasicTypeFunction t (map (\arg -> (argName arg, argType arg)) args) varargs
+    )

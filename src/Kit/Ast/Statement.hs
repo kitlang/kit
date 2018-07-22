@@ -2,7 +2,7 @@ module Kit.Ast.Statement where
 
 import Data.Traversable
 import Kit.Ast.ConcreteType
-import Kit.Ast.Declarations
+import Kit.Ast.Definitions
 import Kit.Ast.Expr
 import Kit.Ast.ExprType
 import Kit.Ast.Metadata

@@ -1,7 +1,7 @@
 module Kit.Ast.Binding where
 
 import Kit.Ast.ConcreteType
-import Kit.Ast.Declarations
+import Kit.Ast.Definitions
 import Kit.Ast.Expr
 import Kit.Ast.ModulePath
 import Kit.Ast.TypeSpec

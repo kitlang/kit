@@ -14,6 +14,18 @@ import Kit.Error
 import Kit.Parser
 import Kit.Str
 
+typeMaybeExpr
+  :: CompileContext
+  -> TypeContext
+  -> Module
+  -> Maybe Expr
+  -> IO (Maybe TypedExpr)
+typeMaybeExpr ctx tctx mod e = case e of
+  Just ex -> do
+    result <- typeExpr ctx tctx mod ex
+    return $ Just result
+  Nothing -> return Nothing
+
 {-
   Converts a tree of untyped AST to Typed AST.
 

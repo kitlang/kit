@@ -1,0 +1,79 @@
+module Kit.Ast.Definitions.FunctionDefinition where
+
+import Control.Monad
+import Kit.Ast.Definitions.Base
+import Kit.Ast.Metadata
+import Kit.Ast.Modifier
+import Kit.Ast.ModulePath
+import Kit.Ast.TypeSpec
+import Kit.Str
+
+data FunctionDefinition a b = FunctionDefinition {
+  functionName :: Str,
+  functionDoc :: Maybe Str,
+  functionMeta :: [Metadata],
+  functionModifiers :: [Modifier],
+  functionParams :: [TypeParam],
+  functionArgs :: [ArgSpec a b],
+  functionType :: b,
+  functionBody :: Maybe a,
+  functionVarargs :: Bool,
+  functionNameMangling :: Maybe ModulePath
+} deriving (Eq, Show)
+
+newFunctionDefinition :: FunctionDefinition a b
+newFunctionDefinition = FunctionDefinition
+  { functionName         = undefined
+  , functionDoc          = Nothing
+  , functionMeta         = []
+  , functionModifiers    = [Public]
+  , functionParams       = []
+  , functionArgs         = []
+  , functionType         = undefined
+  , functionBody         = Nothing
+  , functionVarargs      = False
+  , functionNameMangling = Nothing
+  }
+
+convertFunctionDefinition
+  :: (Monad m)
+  => (a -> m c)
+  -> (b -> m d)
+  -> [ArgSpec c d]
+  -> d
+  -> FunctionDefinition a b
+  -> m (FunctionDefinition c d)
+convertFunctionDefinition exprConverter typeConverter newArgs newType f = do
+  newBody <- maybeConvert exprConverter (functionBody f)
+  return $ (newFunctionDefinition)
+    { functionName         = functionName f
+    , functionDoc          = functionDoc f
+    , functionMeta         = functionMeta f
+    , functionModifiers    = functionModifiers f
+    , functionParams       = functionParams f
+    , functionArgs         = newArgs
+    , functionType         = newType
+    , functionBody         = newBody
+    , functionVarargs      = functionVarargs f
+    , functionNameMangling = functionNameMangling f
+    }
+
+
+data ArgSpec a b = ArgSpec {
+  argName :: Str,
+  argType :: b,
+  argDefault :: Maybe a
+} deriving (Eq, Show)
+
+newArgSpec =
+  ArgSpec {argName = undefined, argType = Nothing, argDefault = Nothing}
+
+convertArgSpec
+  :: (Monad m) => (a -> m c) -> (b -> m d) -> ArgSpec a b -> m (ArgSpec c d)
+convertArgSpec exprConverter typeConverter a = do
+  newType    <- typeConverter (argType a)
+  newDefault <- maybeConvert exprConverter (argDefault a)
+  return $ newArgSpec { argName    = argName a
+                      , argType    = newType
+                      , argDefault = newDefault
+                      }

@@ -2,7 +2,7 @@ module Kit.Ast (
   module Kit.Ast.BasicType,
   module Kit.Ast.Binding,
   module Kit.Ast.ConcreteType,
-  module Kit.Ast.Declarations,
+  module Kit.Ast.Definitions,
   module Kit.Ast.Expr,
   module Kit.Ast.ExprType,
   module Kit.Ast.Identifier,
@@ -19,7 +19,7 @@ module Kit.Ast (
 import Kit.Ast.BasicType
 import Kit.Ast.Binding
 import Kit.Ast.ConcreteType
-import Kit.Ast.Declarations
+import Kit.Ast.Definitions
 import Kit.Ast.Expr
 import Kit.Ast.ExprType
 import Kit.Ast.Identifier
