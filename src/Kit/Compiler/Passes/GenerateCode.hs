@@ -52,6 +52,9 @@ generateHeader ctx mod = do
       hPutStrLn handle $ "#include \"" ++ (relativeLibPath imp -<.> "h") ++ "\""
     )
   ir <- readIORef (modIr mod)
+  hPutStrLn handle "\n/* forward declarations */\n"
+  forM_     ir     (generateHeaderForwardDecl ctx mod handle)
+  hPutStrLn handle "\n/* type and function declarations */\n"
   forM_     ir     (generateHeaderDecl ctx mod handle)
   hPutStrLn handle "#endif"
   hClose handle
@@ -84,6 +87,18 @@ libPath :: CompileContext -> ModulePath -> FilePath
 libPath ctx mod =
   ((ctxOutputDir ctx) </> "lib" </> (moduleFilePath mod -<.> ".c"))
 
+generateHeaderForwardDecl :: CompileContext -> Module -> Handle -> IrDecl -> IO ()
+generateHeaderForwardDecl ctx mod headerFile decl = do
+  case decl of
+    IrType def@(TypeDefinition { typeType = Atom }) -> return ()
+
+    IrType def@(TypeDefinition {typeName = name}                  ) -> do
+      let decl = cDecl (typeBasicType def) (Just name) (Nothing)
+      hPutStrLn headerFile (render $ pretty $ CDeclExt $ decl)
+
+    _ -> do
+      return ()
+
 generateHeaderDecl :: CompileContext -> Module -> Handle -> IrDecl -> IO ()
 generateHeaderDecl ctx mod headerFile decl = do
   case decl of
@@ -92,7 +107,7 @@ generateHeaderDecl ctx mod headerFile decl = do
     IrType def@(TypeDefinition{}                  ) -> do
       let decls = cdecl (typeBasicType def)
       mapM_
-        (\d -> hPutStrLn headerFile ("\n" ++ (render $ pretty $ CDeclExt $ d)))
+        (\d -> hPutStrLn headerFile (render $ pretty $ CDeclExt $ d))
         decls
 
     IrFunction def@(FunctionDefinition { functionName = name, functionType = t, functionArgs = args, functionVarargs = varargs, functionNameMangling = mangle })
