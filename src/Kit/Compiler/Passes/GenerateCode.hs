@@ -20,6 +20,10 @@ import Kit.Ir
 import Kit.Parser
 import Kit.Str
 
+{-
+  Generates C code and header files from the populated modIr fields of all
+  modules.
+-}
 generateCode :: CompileContext -> IO ()
 generateCode ctx = do
   mods <- ctxSourceModules ctx

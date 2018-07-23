@@ -29,6 +29,13 @@ instance Errable DuplicateSpecializationError where
     ePutStrLn "\nTraits cannot have overlapping specializations."
   errPos (DuplicateSpecializationError _ _ pos _) = Just pos
 
+{-
+  This step is responsible for actions that depend on the interfaces created
+  during BuildModuleGraph, including:
+
+  - Discovering trait implementations and specializations
+  - Resolving type annotations to specific types
+-}
 resolveModuleTypes :: CompileContext -> IO ()
 resolveModuleTypes ctx = do
   mods <- h_toList $ ctxModules ctx

@@ -18,6 +18,15 @@ import Kit.Log
 import Kit.Parser
 import Kit.Str
 
+{-
+  Starting from the compilation entry point ("main" module), recursively trace
+  all imports and includes to discover the full set of modules and C modules
+  that must be built. Circular imports are OK and will be processed only once.
+
+  This step also scans modules for declarations and creates a high level
+  interface which can be used in ResolveModuleTypes; we'll know e.g. that type
+  X exists and is a struct, but not its fields or types, etc.
+-}
 buildModuleGraph :: CompileContext -> IO ()
 buildModuleGraph ctx = do
   loadModule ctx (ctxMainModule ctx) Nothing

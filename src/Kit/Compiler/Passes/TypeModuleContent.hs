@@ -21,6 +21,12 @@ import Kit.HashTable
 import Kit.Parser
 import Kit.Str
 
+{-
+  Performs type resolution and type checking; converts Expr into TypedExpr and
+  (Maybe TypeSpec) annotations into ConcreteTypes.
+
+  See Kit.Compiler.Typers.* for specific typing implementations.
+-}
 typeContent :: CompileContext -> IO ()
 typeContent ctx = do
   mods <- ctxSourceModules ctx

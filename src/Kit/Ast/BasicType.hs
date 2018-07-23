@@ -19,8 +19,15 @@ data BasicType
   | BasicTypeInt Int
   | BasicTypeUint Int
   | BasicTypeFloat Int
+  -- Anonymous structs from headers are supported, but can't be defined in Kit.
   | BasicTypeStruct (Maybe Str) BasicArgs
+  -- "Simple" enums have no additional data and can be represented as C enums.
+  -- Simple enums can be anonymous if they were defined in a header.
   | BasicTypeSimpleEnum (Maybe Str) [Str]
+  -- "Complex" enums require defining an additional struct for each variant
+  -- which contains data. The actual value type will be a struct of
+  -- (discriminant, union of variant structs.)
+  -- Complex enums can't be anonymous, since they can only come from Kit.
   | BasicTypeComplexEnum Str [(Str, BasicArgs)]
   | BasicTypeAtom
   | BasicTypeFunction BasicType BasicArgs Bool

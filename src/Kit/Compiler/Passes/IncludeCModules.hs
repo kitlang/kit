@@ -34,6 +34,10 @@ instance Errable IncludeError where
                                   )
                                 )
 
+{-
+  For each C header discovered during the BuildModuleGraph pass, parse the
+  header to discover all declarations, and make these available from Kit.
+-}
 includeCModules :: CompileContext -> IO ()
 includeCModules ctx = do
   includes <- readIORef (ctxIncludes ctx)

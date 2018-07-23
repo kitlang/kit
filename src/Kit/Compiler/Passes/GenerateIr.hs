@@ -22,6 +22,9 @@ import Kit.Ir
 import Kit.Parser
 import Kit.Str
 
+{-
+  Generates declarations in interediate representation for each typed module.
+-}
 generateIr :: CompileContext -> IO ()
 generateIr ctx = do
   mods <- ctxSourceModules ctx

@@ -19,6 +19,17 @@ data MatchCase a = MatchCase {match_pattern :: a, match_body :: a} deriving (Eq,
 
   a = recursive expression data type (Expr, TypedExpr)
   b = type specifier data type (Maybe TypeSpec, ConcreteType)
+
+  This allows reuse across passes of compilation:
+
+  - Initially, we use `ExprType (Expr) (Maybe TypeSpec)` for expressions with
+    only position info and optional annotations
+  - Typing converts this to `ExprType (TypedExpr) (ConcreteType)`, where each
+    expression has a type and all types are resolved to a single compile-time
+    type
+  - Finally, we generate an IR of `ExprType (IrExpr) (BasicType)` where the
+    allowed AST nodes are much more restricted, compile-time-only features are
+    erased, and all types are reduced to their actual storage type.
 -}
 data ExprType a b
   = Block [a]
