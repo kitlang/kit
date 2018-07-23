@@ -27,4 +27,4 @@ typeTypeDefinition ctx mod def@(TypeDefinition { typeName = name }) = do
   converted <- convertTypeDefinition (typeExpr ctx tctx mod)
                                      (resolveMaybeType ctx tctx mod null_span) -- FIXME: position
                                      def
-  bindToScope (modTypedContents mod) name (TypedTypeDecl converted)
+  bindToScope (modTypedContents mod) name (DeclType converted)

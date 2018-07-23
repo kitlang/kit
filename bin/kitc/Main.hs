@@ -53,7 +53,7 @@ options =
           <> showDefault
           <> value "main"
           <> metavar "MODULE"
-          <> help "module path containing main() function"
+          <> help "module containing the main() function (for binaries) or compilation entry point for libraries"
           )
     <*> strOption
           (  long "output"

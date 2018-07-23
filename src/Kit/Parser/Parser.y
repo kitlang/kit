@@ -435,7 +435,13 @@ Args :: {[ArgSpec Expr (Maybe TypeSpec)]}
   | Args ',' ArgSpec {$3 : $1}
 
 ArgSpec  :: {ArgSpec Expr (Maybe TypeSpec)}
-  : identifier TypeAnnotation OptionalDefault {ArgSpec {argName = extract_identifier $1, argType = fst $2, argDefault = $3}}
+  : identifier TypeAnnotation OptionalDefault {ArgSpec {
+    argName = extract_identifier $1,
+     argType = fst $2,
+     argDefault = $3,
+     argPos = p $1 <+> p $2 <+> (case $3 of { Just x -> pos x; Nothing -> null_span })
+    }
+  }
 
 RewriteRulesOrFields :: {([VarDefinition Expr (Maybe TypeSpec)], [RewriteRule])}
   : {([], [])}

@@ -79,7 +79,8 @@ spec = parallel $ do
 
     it "parses inline structs" $ do
       testParseExpr "struct Abc {a: 1, b: true}"
-        `shouldBe` (e $ StructInit (Just $ TypeSpec ([], "Abc") [] (sp 1 8 1 10))
+        `shouldBe` (e $ StructInit
+                     (Just $ TypeSpec ([], "Abc") [] (sp 1 8 1 10))
                      [ ("a", e $ Literal $ IntValue "1")
                      , ("b", e $ Literal $ BoolValue True)
                      ]
@@ -151,13 +152,12 @@ spec = parallel $ do
                                                                  ]
                                                  }
                                                ]
-                         , functionArgs      = [ ArgSpec
-                                                 { argName    = "a"
-                                                 , argType    = Just
+                         , functionArgs      = [ newArgSpec
+                                                 { argName = "a"
+                                                 , argType = Just
                                                    $ makeTypeSpec "A"
-                                                 , argDefault = Nothing
                                                  }
-                                               , ArgSpec
+                                               , newArgSpec
                                                  { argName    = "b"
                                                  , argType    = Just
                                                    $ makeTypeSpec "B"
@@ -166,11 +166,10 @@ spec = parallel $ do
                                                    $ Literal
                                                    $ IntValue "2"
                                                  }
-                                               , ArgSpec
-                                                 { argName    = "c"
-                                                 , argType    = Just
+                                               , newArgSpec
+                                                 { argName = "c"
+                                                 , argType = Just
                                                    $ makeTypeSpec "C"
-                                                 , argDefault = Nothing
                                                  }
                                                ]
                          , functionType      = Just $ makeTypeSpec "Something"
@@ -270,40 +269,39 @@ spec = parallel $ do
                        , typeParams    = []
                        , typeType      = Enum
                          { enumUnderlyingType = Just (makeTypeSpec "Float")
-                         , enumVariants        = [ EnumVariant
-                                                    { variantName      = "Apple"
-                                                    , variantDoc       = Nothing
-                                                    , variantArgs      = []
-                                                    , variantMeta      = []
-                                                    , variantModifiers = []
-                                                    , variantValue     = Nothing
-                                                    }
-                                                  , EnumVariant
-                                                    { variantName = "Banana"
-                                                    , variantDoc = Nothing
-                                                    , variantArgs = [ ArgSpec
-                                                                        { argName = "i"
-                                                                        , argType = Just
-                                                                          (makeTypeSpec
-                                                                            "Int"
-                                                                          )
-                                                                        , argDefault = Nothing
-                                                                        }
-                                                                    ]
-                                                    , variantMeta = []
-                                                    , variantModifiers = []
-                                                    , variantValue = Nothing
-                                                    }
-                                                  , EnumVariant
-                                                    { variantName = "Strawberry"
-                                                    , variantDoc = Just "Abc"
-                                                    , variantArgs = []
-                                                    , variantMeta = []
-                                                    , variantModifiers = []
-                                                    , variantValue = Just
-                                                      (e $ Literal $ IntValue "1")
-                                                    }
-                                                  ]
+                         , enumVariants       = [ EnumVariant
+                                                  { variantName      = "Apple"
+                                                  , variantDoc       = Nothing
+                                                  , variantArgs      = []
+                                                  , variantMeta      = []
+                                                  , variantModifiers = []
+                                                  , variantValue     = Nothing
+                                                  }
+                                                , EnumVariant
+                                                  { variantName      = "Banana"
+                                                  , variantDoc       = Nothing
+                                                  , variantArgs      = [ newArgSpec
+                                                                           { argName = "i"
+                                                                           , argType = Just
+                                                                             (makeTypeSpec
+                                                                               "Int"
+                                                                             )
+                                                                           }
+                                                                       ]
+                                                  , variantMeta      = []
+                                                  , variantModifiers = []
+                                                  , variantValue     = Nothing
+                                                  }
+                                                , EnumVariant
+                                                  { variantName = "Strawberry"
+                                                  , variantDoc = Just "Abc"
+                                                  , variantArgs = []
+                                                  , variantMeta = []
+                                                  , variantModifiers = []
+                                                  , variantValue = Just
+                                                    (e $ Literal $ IntValue "1")
+                                                  }
+                                                ]
                          }
                        }
                    ]
@@ -323,47 +321,47 @@ spec = parallel $ do
                        , typeParams    = []
                        , typeType      = Struct
                          { structFields = [ (newVarDefinition :: VarDefinition
-                                                 Expr
-                                                 (Maybe TypeSpec)
-                                             )
-                                             { varName      = "abc"
-                                             , varDoc       = Nothing
-                                             , varMeta      = []
-                                             , varModifiers = []
-                                             , varType      = Nothing
-                                             , varDefault   = Nothing
-                                             }
-                                           , (newVarDefinition :: VarDefinition
-                                                 Expr
-                                                 (Maybe TypeSpec)
-                                             )
-                                             { varName      = "def"
-                                             , varDoc       = Nothing
-                                             , varMeta      = []
-                                             , varModifiers = [Public]
-                                             , varType      = Nothing
-                                             , varDefault   = Nothing
-                                             }
-                                           , (newVarDefinition :: VarDefinition
-                                                 Expr
-                                                 (Maybe TypeSpec)
-                                             )
-                                             { varName      = "ghi"
-                                             , varDoc       = Just "test "
-                                             , varMeta      = [ Metadata
-                                                                  { metaName = "meta"
-                                                                  , metaArgs = []
-                                                                  }
-                                                              ]
-                                             , varModifiers = []
-                                             , varType      = Just
-                                               (makeTypeSpec "Int")
-                                             , varDefault   = Just
-                                               $ e
-                                               $ Literal
-                                               $ IntValue "1"
-                                             }
-                                           ]
+                                                Expr
+                                                (Maybe TypeSpec)
+                                            )
+                                            { varName      = "abc"
+                                            , varDoc       = Nothing
+                                            , varMeta      = []
+                                            , varModifiers = []
+                                            , varType      = Nothing
+                                            , varDefault   = Nothing
+                                            }
+                                          , (newVarDefinition :: VarDefinition
+                                                Expr
+                                                (Maybe TypeSpec)
+                                            )
+                                            { varName      = "def"
+                                            , varDoc       = Nothing
+                                            , varMeta      = []
+                                            , varModifiers = [Public]
+                                            , varType      = Nothing
+                                            , varDefault   = Nothing
+                                            }
+                                          , (newVarDefinition :: VarDefinition
+                                                Expr
+                                                (Maybe TypeSpec)
+                                            )
+                                            { varName      = "ghi"
+                                            , varDoc       = Just "test "
+                                            , varMeta      = [ Metadata
+                                                                 { metaName = "meta"
+                                                                 , metaArgs = []
+                                                                 }
+                                                             ]
+                                            , varModifiers = []
+                                            , varType      = Just
+                                              (makeTypeSpec "Int")
+                                            , varDefault   = Just
+                                              $ e
+                                              $ Literal
+                                              $ IntValue "1"
+                                            }
+                                          ]
                          }
                        }
                    ]

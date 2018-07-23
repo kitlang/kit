@@ -137,8 +137,7 @@ _checkForTopLevel ctx mod s = do
               (\variant -> do
                 args <- mapM
                   (\arg -> do
-                    -- FIXME: this is the statement's position, not the arg's position
-                    t <- resolveMaybeType ctx tctx mod (stmtPos s) (argType arg)
+                    t <- resolveMaybeType ctx tctx mod (argPos arg) (argType arg)
                     return (argName arg, t)
                   )
                   (variantArgs variant)

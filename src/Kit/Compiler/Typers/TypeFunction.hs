@@ -28,32 +28,35 @@ typeFunction ctx mod f = do
     ++ " in "
     ++ show mod
 
+  -- FIXME: position
   let fPos = case functionBody f of
         Just x  -> pos x
         Nothing -> null_span
 
-  let isMain = (functionName f == "main") && (ctxMainModule ctx == modPath mod) && not (ctxIsLibrary ctx)
+  let isMain =
+        (functionName f == "main") && (ctxMainModule ctx == modPath mod) && not
+          (ctxIsLibrary ctx)
   imports       <- getModImports ctx mod
   functionScope <- newScope
   tctx          <- newTypeContext (map modScope imports)
   args          <- forM
     (functionArgs f)
     (\arg -> do
-      -- FIXME: position
-      argType    <- resolveMaybeType ctx tctx mod fPos (argType arg)
+      argType    <- resolveMaybeType ctx tctx mod (argPos arg) (argType arg)
       argDefault <- maybeConvert (typeExpr ctx tctx mod) (argDefault arg)
       return $ newArgSpec { argName    = argName arg
                           , argType    = argType
                           , argDefault = argDefault
+                          , argPos     = argPos arg
                           }
     )
 
   forM_
     args
-    (\arg -> bindToScope functionScope
-                         (argName arg)
-                          -- FIXME: arg position
-                         (newBinding VarBinding (argType arg) Nothing fPos)
+    (\arg -> bindToScope
+      functionScope
+      (argName arg)
+      (newBinding VarBinding (argType arg) Nothing (argPos arg))
     )
   returnType <- resolveMaybeType ctx tctx mod fPos (functionType f)
   ct         <- scopeGet (modScope mod) (functionName f)
@@ -107,4 +110,4 @@ typeFunction ctx mod f = do
         }
   bindToScope (modTypedContents mod)
               (functionName f)
-              (TypedFunctionDecl typedFunction)
+              (DeclFunction typedFunction)

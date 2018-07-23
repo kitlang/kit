@@ -201,8 +201,7 @@ addStmtToModuleInterface ctx mod s = do
         args' <- forM
           args
           (\arg -> do
-            -- FIXME: arg position
-            argType <- makeTypeVar ctx (stmtPos s)
+            argType <- makeTypeVar ctx (argPos arg)
             return (argName arg, argType)
           )
         let extern = hasMeta "extern" (functionMeta d)

@@ -90,9 +90,9 @@ libPath ctx mod =
 generateHeaderForwardDecl :: CompileContext -> Module -> Handle -> IrDecl -> IO ()
 generateHeaderForwardDecl ctx mod headerFile decl = do
   case decl of
-    IrType def@(TypeDefinition { typeType = Atom }) -> return ()
+    DeclType def@(TypeDefinition { typeType = Atom }) -> return ()
 
-    IrType def@(TypeDefinition {typeName = name}                  ) -> do
+    DeclType def@(TypeDefinition {typeName = name}                  ) -> do
       let decl = cDecl (typeBasicType def) Nothing Nothing
       hPutStrLn headerFile (render $ pretty $ CDeclExt $ decl)
 
@@ -102,15 +102,15 @@ generateHeaderForwardDecl ctx mod headerFile decl = do
 generateHeaderDecl :: CompileContext -> Module -> Handle -> IrDecl -> IO ()
 generateHeaderDecl ctx mod headerFile decl = do
   case decl of
-    IrType def@(TypeDefinition { typeType = Atom }) -> return ()
+    DeclType def@(TypeDefinition { typeType = Atom }) -> return ()
 
-    IrType def@(TypeDefinition{}                  ) -> do
+    DeclType def@(TypeDefinition{}                  ) -> do
       let decls = cdecl (typeBasicType def)
       mapM_
         (\d -> hPutStrLn headerFile (render $ pretty $ CDeclExt $ d))
         decls
 
-    IrFunction def@(FunctionDefinition { functionName = name, functionType = t, functionArgs = args, functionVarargs = varargs, functionNameMangling = mangle })
+    DeclFunction def@(FunctionDefinition { functionName = name, functionType = t, functionArgs = args, functionVarargs = varargs, functionNameMangling = mangle })
       -> do
         let name' = mangleName mangle name
         hPutStrLn
@@ -123,7 +123,7 @@ generateHeaderDecl ctx mod headerFile decl = do
 generateDef :: CompileContext -> Module -> Handle -> IrDecl -> IO ()
 generateDef ctx mod codeFile decl = do
   case decl of
-    IrFunction def@(FunctionDefinition { functionName = name, functionType = t, functionBody = Just body, functionNameMangling = mangle })
+    DeclFunction def@(FunctionDefinition { functionName = name, functionType = t, functionBody = Just body, functionNameMangling = mangle })
       -> do
         let name' = mangleName mangle name
         hPutStrLn

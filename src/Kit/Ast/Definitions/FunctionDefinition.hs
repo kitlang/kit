@@ -6,6 +6,7 @@ import Kit.Ast.Metadata
 import Kit.Ast.Modifier
 import Kit.Ast.ModulePath
 import Kit.Ast.TypeSpec
+import Kit.Parser.Span
 import Kit.Str
 
 data FunctionDefinition a b = FunctionDefinition {
@@ -58,15 +59,22 @@ convertFunctionDefinition exprConverter typeConverter newArgs newType f = do
     , functionNameMangling = functionNameMangling f
     }
 
-
 data ArgSpec a b = ArgSpec {
   argName :: Str,
   argType :: b,
-  argDefault :: Maybe a
-} deriving (Eq, Show)
+  argDefault :: Maybe a,
+  argPos :: Span
+} deriving (Show)
 
-newArgSpec =
-  ArgSpec {argName = undefined, argType = Nothing, argDefault = Nothing}
+instance (Eq a, Eq b) => Eq (ArgSpec a b) where
+  (==) a b = (argName a == argName b) && (argType a == argType b) && (argDefault a == argDefault b)
+
+newArgSpec = ArgSpec
+  { argName    = undefined
+  , argType    = Nothing
+  , argDefault = Nothing
+  , argPos     = null_span
+  }
 
 convertArgSpec
   :: (Monad m) => (a -> m c) -> (b -> m d) -> ArgSpec a b -> m (ArgSpec c d)
@@ -76,4 +84,5 @@ convertArgSpec exprConverter typeConverter a = do
   return $ newArgSpec { argName    = argName a
                       , argType    = newType
                       , argDefault = newDefault
+                      , argPos     = argPos a
                       }
