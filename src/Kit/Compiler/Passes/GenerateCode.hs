@@ -93,7 +93,7 @@ generateHeaderForwardDecl ctx mod headerFile decl = do
     IrType def@(TypeDefinition { typeType = Atom }) -> return ()
 
     IrType def@(TypeDefinition {typeName = name}                  ) -> do
-      let decl = cDecl (typeBasicType def) (Just name) (Nothing)
+      let decl = cDecl (typeBasicType def) Nothing Nothing
       hPutStrLn headerFile (render $ pretty $ CDeclExt $ decl)
 
     _ -> do

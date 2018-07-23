@@ -175,21 +175,26 @@ addStmtToModuleInterface ctx mod s = do
               Struct{}   -> TypeStruct (modPath mod, name) []
               Enum{}     -> TypeEnum (modPath mod, name) []
               Abstract{} -> TypeAbstract (modPath mod, name) []
-        addToInterface name (TypeBinding) ct
+        let extern = hasMeta "extern" (typeMeta d)
+        if extern then recordGlobalName name else return ()
+        addToInterface name (TypeBinding) (not extern) ct
         addDefinition
           name
-          (DefinitionType $ d { typeNameMangling = Just $ modPath mod })
+          (DefinitionType $ d { typeNameMangling = if extern then Nothing else Just $ modPath mod })
     TraitDeclaration d@(TraitDefinition { traitName = name }) -> do
       addToInterface name
                      (TraitBinding)
+                     (False)
                      (TypeTraitConstraint ((modPath mod, name), []))
       addDefinition name (DefinitionTrait d)
     ModuleVarDeclaration d@(VarDefinition { varName = name }) -> do
       tv <- makeTypeVar ctx (stmtPos s)
-      addToInterface name (VarBinding) tv
+      let extern = hasMeta "extern" (varMeta d)
+      if extern then recordGlobalName name else return ()
+      addToInterface name (VarBinding) (not extern) tv
       addDefinition
         name
-        (DefinitionVar $ d { varNameMangling = Just $ modPath mod })
+        (DefinitionVar $ d { varNameMangling = if extern then Nothing else Just $ modPath mod })
     FunctionDeclaration d@(FunctionDefinition { functionName = name, functionArgs = args, functionVarargs = varargs })
       -> do
         rt    <- makeTypeVar ctx (stmtPos s)
@@ -200,17 +205,21 @@ addStmtToModuleInterface ctx mod s = do
             argType <- makeTypeVar ctx (stmtPos s)
             return (argName arg, argType)
           )
-        addToInterface name (FunctionBinding) (TypeFunction rt args' varargs)
+        let extern = hasMeta "extern" (functionMeta d)
+        if extern then recordGlobalName name else return ()
+        addToInterface name (FunctionBinding) (not extern) (TypeFunction rt args' varargs)
         addDefinition
           name
-          (DefinitionFunction $ d { functionNameMangling = Just $ modPath mod })
+          (DefinitionFunction $ d { functionNameMangling = if extern then Nothing else Just $ modPath mod })
     Specialize a b -> do
       modifyIORef (modSpecializations mod) (\l -> ((a, b), stmtPos s) : l)
     Implement t -> do
       modifyIORef (modImpls mod) (\l -> t : l)
     _ -> return ()
  where
-  addToInterface name b ct =
+  pos = stmtPos s
+  recordGlobalName = addGlobalName ctx mod pos
+  addToInterface name b mangle ct =
     (do
       existing <- resolveLocal (modScope mod) name
       case existing of
@@ -219,7 +228,7 @@ addStmtToModuleInterface ctx mod s = do
         Nothing -> bindToScope
           (modScope mod)
           name
-          (newBinding b ct (Just (modPath mod)) (stmtPos s))
+          (newBinding b ct (if mangle then Just (modPath mod) else Nothing) (stmtPos s))
     )
   addDefinition name d = bindToScope (modDefinitions mod) name d
 

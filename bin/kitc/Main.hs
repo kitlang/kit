@@ -20,14 +20,15 @@ import Kit.Log
 import Kit.Str
 
 data Options = Options {
-  opt_show_version :: Bool,
-  opt_verbose :: Bool,
-  opt_target :: String,
-  opt_main_module :: String,
-  opt_output_dir :: FilePath,
-  opt_source_paths :: [FilePath],
-  opt_include_paths :: [FilePath],
-  opt_defines :: [String]
+  optShowVersion :: Bool,
+  optVerbose :: Bool,
+  optTarget :: String,
+  optMainModule :: String,
+  optOutputDir :: FilePath,
+  optSourcePaths :: [FilePath],
+  optIncludePaths :: [FilePath],
+  optDefines :: [String],
+  optIsLibrary :: Bool
 } deriving (Eq, Show)
 
 options :: Parser Options
@@ -65,6 +66,7 @@ options =
     <*> many sourceDirParser
     <*> many includeDirParser
     <*> many definesParser
+    <*> switch (long "lib" <> help "build a library, without linking")
 
 sourceDirParser = strOption
   (long "src" <> short 's' <> metavar "DIR" <> help "add a source directory")
@@ -99,7 +101,7 @@ main = do
     )
     args
 
-  if opt_show_version opts
+  if optShowVersion opts
     then putStrLn $ "kitc v" ++ version
     else do
       modules <- h_new
@@ -109,15 +111,16 @@ main = do
             Nothing -> "std"
       base_context <- newCompileContext
       let ctx = base_context
-            { ctxMainModule   = parseModulePath $ s_pack $ opt_main_module opts
-            , ctxOutputDir    = opt_output_dir opts
-            , ctxIncludePaths = opt_include_paths opts ++ ["/usr/include"]
-            , ctxSourcePaths  = opt_source_paths opts ++ [std_path]
+            { ctxMainModule   = parseModulePath $ s_pack $ optMainModule opts
+            , ctxIsLibrary    = optIsLibrary opts
+            , ctxOutputDir    = optOutputDir opts
+            , ctxIncludePaths = optIncludePaths opts ++ ["/usr/include"]
+            , ctxSourcePaths  = optSourcePaths opts ++ [std_path]
             , ctxDefines      = map
               (\s -> (takeWhile (/= '=') s, drop 1 $ dropWhile (/= '=') s))
-              (opt_defines opts)
+              (optDefines opts)
             , ctxModules      = modules
-            , ctxVerbose      = opt_verbose opts
+            , ctxVerbose      = optVerbose opts
             }
 
       result  <- tryCompile ctx

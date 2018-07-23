@@ -32,7 +32,7 @@ typeFunction ctx mod f = do
         Just x  -> pos x
         Nothing -> null_span
 
-  let isMain = (functionName f == "main") && (modPath mod == ctxMainModule ctx)
+  let isMain = (functionName f == "main") && (ctxMainModule ctx == modPath mod) && not (ctxIsLibrary ctx)
   imports       <- getModImports ctx mod
   functionScope <- newScope
   tctx          <- newTypeContext (map modScope imports)

@@ -55,6 +55,8 @@ includeCHeader ctx path = do
           mod <- newCMod path
           parseCHeader ctx              mod     f
           h_insert     (ctxModules ctx) modPath mod
+          names <- bindingNames (modScope mod)
+          forM_ names (addGlobalName ctx mod null_span)
           return mod
         Nothing -> throwk
           $ IncludeError path [ (dir </> path) | dir <- ctxIncludePaths ctx ]

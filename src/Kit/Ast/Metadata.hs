@@ -13,3 +13,7 @@ data MetaArg
 
 meta s = Metadata {metaName = s, metaArgs = []}
 metaExtern = meta "extern"
+
+hasMeta :: Str -> [Metadata] -> Bool
+hasMeta s [] = False
+hasMeta s (h:t) = if metaName h == s then True else hasMeta s t

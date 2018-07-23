@@ -16,8 +16,22 @@ import Kit.Ir
 import Kit.Parser.Span
 import Kit.Str
 
+
+data DuplicateGlobalNameError = DuplicateGlobalNameError ModulePath Str Span Span deriving (Eq, Show)
+instance Errable DuplicateGlobalNameError where
+  logError e@(DuplicateGlobalNameError mod name pos1 pos2) = do
+    logErrorBasic e $ "Duplicate declaration for global name `" ++ s_unpack name ++ "` in " ++ s_unpack (showModulePath mod) ++ "; \n\nFirst declaration:"
+    ePutStrLn "\nSecond declaration:"
+    case file pos2 of
+      Just fp -> displayFileSnippet (s_unpack fp) pos2
+      _ -> return ()
+    ePutStrLn "\n#[extern] declarations and declarations from included C headers must have globally unique names."
+  errPos (DuplicateGlobalNameError _ _ pos _) = Just pos
+
+
 data CompileContext = CompileContext {
   ctxMainModule :: ModulePath,
+  ctxIsLibrary :: Bool,
   ctxSourcePaths :: [FilePath],
   ctxIncludePaths :: [FilePath],
   ctxOutputDir :: FilePath,
@@ -32,12 +46,14 @@ data CompileContext = CompileContext {
   ctxTypeVariables :: HashTable Int TypeVarInfo,
   ctxTypedDecls :: HashTable TypePath TypedDecl,
   ctxTraitSpecializations :: HashTable TypePath (TypeSpec, Span),
-  ctxImpls :: HashTable TypePath (HashTable ConcreteType (TraitImplementation Expr (Maybe TypeSpec)))
+  ctxImpls :: HashTable TypePath (HashTable ConcreteType (TraitImplementation Expr (Maybe TypeSpec))),
+  ctxGlobalNames :: HashTable Str Span
 }
 
 instance Show CompileContext where
   show ctx = s_unpack $ encode $ object [
       "main" .= (s_unpack $ showModulePath $ ctxMainModule ctx),
+      "lib" .= ctxIsLibrary ctx,
       "src" .= ctxSourcePaths ctx,
       "include" .= ctxIncludePaths ctx,
       "out" .= ctxOutputDir ctx,
@@ -57,8 +73,10 @@ newCompileContext = do
   typeVars     <- h_new
   specs        <- h_new
   impls        <- h_new
+  globals      <- h_new
   return $ CompileContext
     { ctxMainModule           = ["main"]
+    , ctxIsLibrary            = False
     , ctxSourcePaths          = ["src"]
     , ctxIncludePaths         = ["/usr/include"]
     , ctxOutputDir            = "build"
@@ -74,6 +92,7 @@ newCompileContext = do
     , ctxTypedDecls           = typedDecls
     , ctxTraitSpecializations = specs
     , ctxImpls                = impls
+    , ctxGlobalNames          = globals
     }
 
 ctxSourceModules :: CompileContext -> IO [Module]
@@ -125,9 +144,9 @@ resolveVar ctx scopes mod s = do
 
 getModImports :: CompileContext -> Module -> IO [Module]
 getModImports ctx mod = do
-  imports  <- mapM (getMod ctx) (map fst $ modImports mod)
+  imports   <- mapM (getMod ctx) (map fst $ modImports mod)
   includes' <- readIORef (modIncludes mod)
-  includes <- mapM (getCMod ctx) (map fst $ includes')
+  includes  <- mapM (getCMod ctx) (map fst $ includes')
   return $ mod : (imports ++ includes)
 
 getTraitImpl
@@ -138,9 +157,18 @@ getTraitImpl
 getTraitImpl ctx trait impl = do
   traitImpls <- h_lookup (ctxImpls ctx) trait
   case traitImpls of
-    Just x  -> do
+    Just x -> do
       lookup <- h_lookup x impl
       case lookup of
         Just y -> return $ Just y
-        _ -> return Nothing
+        _      -> return Nothing
     Nothing -> return Nothing
+
+addGlobalName :: CompileContext -> Module -> Span -> Str -> IO ()
+addGlobalName ctx mod pos name = do
+  existing <- h_lookup (ctxGlobalNames ctx) name
+  case existing of
+    Just x  -> throwk $ DuplicateGlobalNameError (modPath mod) name pos x
+    -- If this is a C module, check for collision, but don't store to avoid
+    -- collisions within the same header
+    Nothing -> if modIsCModule mod then return () else h_insert (ctxGlobalNames ctx) name pos

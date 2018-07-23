@@ -55,3 +55,10 @@ bindingList :: Scope a -> IO [a]
 bindingList s = do
   bindings <- h_toList $ scopeBindings s
   return $ map snd bindings
+
+
+-- Returns the list of bindings this scope contains.
+bindingNames :: Scope a -> IO [Str]
+bindingNames s = do
+  bindings <- h_toList $ scopeBindings s
+  return $ map fst bindings

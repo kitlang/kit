@@ -33,7 +33,7 @@ resolveModuleTypes :: CompileContext -> IO ()
 resolveModuleTypes ctx = do
   mods <- h_toList $ ctxModules ctx
   forM_ (map snd mods) (resolveTypesForMod ctx)
-  validateMain ctx
+  if (ctxIsLibrary ctx) then return () else validateMain ctx
   return ()
 
 validateMain :: CompileContext -> IO ()
@@ -86,15 +86,16 @@ addImplementation ctx mod impl@(TraitImplementation { implTrait = Just (TypeSpec
     tctx       <- newTypeContext []
     foundTrait <- resolveModuleBinding ctx tctx mod (tpTrait)
     case foundTrait of
-      Just (Binding { bindingType = TraitBinding, bindingConcrete = TypeTraitConstraint (tpTrait, tpParams) }) -> do
-        ct       <- resolveType ctx tctx mod implFor
-        existing <- h_lookup (ctxImpls ctx) tpTrait
-        case existing of
-          Just ht -> h_insert ht ct impl
-          Nothing -> do
-            impls <- h_new
-            h_insert impls ct impl
-            h_insert (ctxImpls ctx) tpTrait impls
+      Just (Binding { bindingType = TraitBinding, bindingConcrete = TypeTraitConstraint (tpTrait, tpParams) })
+        -> do
+          ct       <- resolveType ctx tctx mod implFor
+          existing <- h_lookup (ctxImpls ctx) tpTrait
+          case existing of
+            Just ht -> h_insert ht ct impl
+            Nothing -> do
+              impls <- h_new
+              h_insert impls          ct      impl
+              h_insert (ctxImpls ctx) tpTrait impls
       _ -> throwk $ BasicError ("Couldn't resolve trait: " ++ show tpTrait)
                                (Just posTrait)
 
