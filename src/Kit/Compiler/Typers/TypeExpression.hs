@@ -44,7 +44,9 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
   let resolve constraint = resolveConstraint ctx tctx mod constraint
   result <- case et of
     (Block children) -> do
-      typedChildren <- mapM r children
+      blockScope <- newScope
+      let tctx' = tctx {tctxScopes = blockScope : tctxScopes tctx}
+      typedChildren <- mapM (typeExpr ctx tctx' mod) children
       return $ makeExprTyped
         (Block typedChildren)
         (if children == [] then voidType else inferredType $ last typedChildren)
