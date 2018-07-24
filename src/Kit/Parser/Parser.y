@@ -42,9 +42,8 @@ import Kit.Parser.Token
   code {(KeywordCode,_)}
   const {(KeywordConst,_)}
   continue {(KeywordContinue,_)}
-  copy {(KeywordCopy,_)}
   default {(KeywordDefault,_)}
-  delete {(KeywordDelete,_)}
+  defer {(KeywordDefault,_)}
   do {(KeywordDo,_)}
   else {(KeywordElse,_)}
   enum {(KeywordEnum,_)}
@@ -58,8 +57,6 @@ import Kit.Parser.Token
   in {(KeywordIn,_)}
   macro {(KeywordMacro,_)}
   match {(KeywordMatch,_)}
-  move {(KeywordMove,_)}
-  new {(KeywordNew,_)}
   null {(KeywordNull,_)}
   op {(KeywordOp,_)}
   override {(KeywordOverride,_)}
@@ -207,11 +204,9 @@ Statement :: {Statement}
 TopLevelExpr :: {Expr}
   : StandaloneExpr {$1}
   | var Identifier TypeAnnotation OptionalDefault ';' {pe (p $1 <+> p $5) $ VarDeclaration (fst $2) (fst $3) $4}
-  | copy Expr ';' {pe (p $1 <+> p $3) $ Copy $2}
-  | delete Expr ';' {pe (p $1 <+> p $3) $ Delete $2}
-  | move Expr ';' {pe (p $1 <+> p $3) $ Move $2}
   | return TopLevelExpr {pe (p $1 <+> pos $2) $ Return $ Just $2}
   | return ';' {pe (p $1 <+> p $2) $ Return $ Nothing}
+  | defer TopLevelExpr {pe (p $1 <+> pos $2) $ Defer $ $2}
   | throw TopLevelExpr {pe (p $1 <+> pos $2) $ Throw $2}
   | continue ';' {pe (p $1 <+> p $2) $ Continue}
   | break ';' {pe (p $1 <+> p $2) $ Break}
@@ -226,15 +221,10 @@ StandaloneExpr :: {Expr}
   | match Expr '{' MatchCases DefaultMatchCase '}' {pe (p $1 <+> p $6) $ Match $2 (reverse $4) $5}
   | Expr ';' {me (pos $1 <+> p $2) $1}
 
-FunctionName :: {(B.ByteString, Span)}
-  : identifier {(extract_identifier $1, snd $1)}
-  | new {(B.pack "new", snd $1)}
-  | delete {(B.pack "delete", snd $1)}
-
 FunctionDecl :: {Statement}
-  : DocMetaMods function FunctionName TypeParams '(' VarArgs ')' TypeAnnotation OptionalBody {
+  : DocMetaMods function identifier TypeParams '(' VarArgs ')' TypeAnnotation OptionalBody {
     ps (fp [p $2 <+> p $3]) $ FunctionDeclaration $ (newFunctionDefinition :: FunctionDefinition Expr (Maybe TypeSpec)) {
-      functionName = fst $3,
+      functionName = extract_identifier $3,
       functionDoc = doc $1,
       functionMeta = reverse $ metas $1,
       functionModifiers = reverse $ mods $1,
@@ -626,10 +616,6 @@ ArrayElems :: {[Expr]}
 
 CastExpr :: {Expr}
   : CastExpr as TypeSpec {pe (pos $1 <+> snd $3) $ Cast $1 (Just $ fst $3)}
-  | NewExpr {$1}
-
-NewExpr :: {Expr}
-  : new TypeSpec '(' CallArgs ')' {pe (p $1 <+> p $5) $ New (Just $ fst $2) (reverse $4)}
   | ArrayAccessExpr {$1}
 
 ArrayAccessExpr :: {Expr}
@@ -672,6 +658,7 @@ OneOrMoreStructInitFields :: {[(B.ByteString, Expr)]}
 
 StructInitField :: {(B.ByteString, Expr)}
   : UpperOrLowerIdentifier ':' Expr {(fst $1, $3)}
+  | UpperOrLowerIdentifier {(fst $1, pe (snd $1) $ Identifier (Var $ fst $1) Nothing)}
 
 Identifier :: {(Identifier, Span)}
   : UpperOrLowerIdentifier {(Var $ fst $1, snd $1)}
@@ -723,9 +710,7 @@ Term :: {(ValueLiteral, Span)}
 --   | code {$1}
 --   | const {$1}
 --   | continue {$1}
---   | copy {$1}
 --   | default {$1}
---   | delete {$1}
 --   | do {$1}
 --   | else {$1}
 --   | enum {$1}
@@ -739,8 +724,6 @@ Term :: {(ValueLiteral, Span)}
 --   | in {$1}
 --   | macro {$1}
 --   | match {$1}
---   | move {$1}
---   | new {$1}
 --   | op {$1}
 --   | override {$1}
 --   | private {$1}

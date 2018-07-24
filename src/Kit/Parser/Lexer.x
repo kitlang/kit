@@ -47,9 +47,8 @@ tokens :-
   code { tok KeywordCode }
   const { tok KeywordConst }
   continue { tok KeywordContinue }
-  copy { tok KeywordCopy }
   default { tok KeywordDefault }
-  delete { tok KeywordDelete }
+  defer { tok KeywordDefer }
   do { tok KeywordDo }
   else { tok KeywordElse }
   enum { tok KeywordEnum }
@@ -63,8 +62,6 @@ tokens :-
   in { tok KeywordIn }
   macro { tok KeywordMacro }
   match { tok KeywordMatch }
-  move { tok KeywordMove }
-  new { tok KeywordNew }
   null { tok KeywordNull }
   op { tok KeywordOp }
   override { tok KeywordOverride }

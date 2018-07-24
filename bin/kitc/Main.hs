@@ -28,7 +28,8 @@ data Options = Options {
   optSourcePaths :: [FilePath],
   optIncludePaths :: [FilePath],
   optDefines :: [String],
-  optIsLibrary :: Bool
+  optIsLibrary :: Bool,
+  optNoCompile :: Bool
 } deriving (Eq, Show)
 
 options :: Parser Options
@@ -53,7 +54,8 @@ options =
           <> showDefault
           <> value "main"
           <> metavar "MODULE"
-          <> help "module containing the main() function (for binaries) or compilation entry point for libraries"
+          <> help
+               "module containing the main() function (for binaries) or compilation entry point for libraries"
           )
     <*> strOption
           (  long "output"
@@ -67,6 +69,11 @@ options =
     <*> many includeDirParser
     <*> many definesParser
     <*> switch (long "lib" <> help "build a library, without linking")
+    <*> switch
+          (  long "no-compile"
+          <> help
+               "generates C files and headers but does not compile a library/binary"
+          )
 
 sourceDirParser = strOption
   (long "src" <> short 's' <> metavar "DIR" <> help "add a source directory")
@@ -121,6 +128,7 @@ main = do
               (optDefines opts)
             , ctxModules      = modules
             , ctxVerbose      = optVerbose opts
+            , ctxNoCompile    = optNoCompile opts
             }
 
       result  <- tryCompile ctx

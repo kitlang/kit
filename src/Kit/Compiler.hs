@@ -51,4 +51,9 @@ compile ctx = do
   generateIr ctx
   printLog "generating code"
   generateCode ctx
+  if ctxNoCompile ctx
+    then printLog "skipping compile"
+    else do
+      printLog "compiling"
+      compileCode ctx
   printLog "finished"

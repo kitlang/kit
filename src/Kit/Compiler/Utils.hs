@@ -37,7 +37,7 @@ findSourceFile f (h : t) = do
 
 debugLog :: CompileContext -> String -> IO ()
 debugLog ctx msg = do
-  if ctxVerbose ctx then logMsg Debug msg else return ()
+  if ctxVerbose ctx then logMsg (Just Debug) msg else return ()
 
 findModule :: CompileContext -> ModulePath -> Maybe Span -> IO FilePath
 findModule ctx mod pos = do

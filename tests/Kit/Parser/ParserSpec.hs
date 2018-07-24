@@ -103,10 +103,6 @@ spec = parallel $ do
     it "parses break" $ do
       testParseTopLevel "break;" `shouldBe` (pe (sp 1 1 1 6) $ Break)
 
-    it "parses delete statements" $ do
-      testParseTopLevel "delete a;"
-        `shouldBe` (pe (sp 1 1 1 9) $ Delete (e $ Identifier (Var "a") Nothing))
-
     -- it "parses token blocks" $ do
     --   testParseTopLevel "tokens { }" `shouldBe` (e $ TokenExpr [])
     --   testParseTopLevel "tokens { a }"

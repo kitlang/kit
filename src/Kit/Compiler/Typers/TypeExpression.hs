@@ -351,10 +351,6 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
       return $ makeExprTyped r1 t' pos
     (BlockComment s) -> do
       return $ makeExprTyped (BlockComment s) voidType pos
-    (New t args) -> throwk $ InternalError "Not yet implemented" (Just pos)
-    (Copy e1) -> throwk $ InternalError "Not yet implemented" (Just pos)
-    (Delete e1) -> throwk $ InternalError "Not yet implemented" (Just pos)
-    (Move e1) -> throwk $ InternalError "Not yet implemented" (Just pos)
     (LexMacro s t) -> throwk $ InternalError "Not yet implemented" (Just pos)
 
     (RangeLiteral e1 e2) -> do
@@ -395,6 +391,9 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
       return $ makeExprTyped (VarDeclaration (Var vname) (varType) init')
                              varType
                              pos
+
+    (Defer e1) -> do
+      throwk $ InternalError "Not yet implemented" (Just pos)
 
     (StructInit (Just t) fields) -> do
       structType <- resolveType ctx tctx mod t

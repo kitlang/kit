@@ -277,10 +277,6 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
         ("unexpected `unsafe` in typed AST")
         (Just pos)
       (BlockComment s) -> return $ IrBlock []
-      (New t args    ) -> return $ undefined -- TODO
-      (Copy   e1     ) -> return $ undefined -- TODO
-      (Delete e1     ) -> return $ undefined -- TODO
-      (Move   e1     ) -> return $ undefined -- TODO
       (LexMacro s t  ) -> return $ throwk $ BasicError
         ("unexpected lexical macro invocation in typed AST")
         (Just pos)
@@ -296,6 +292,8 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
         throwk $ BasicError
           ("unexpected macro var (" ++ (s_unpack v) ++ ") in typed AST")
           (Just pos)
+      (Defer x) -> do
+        throwk $ InternalError "Not yet implemented" (Just pos)
       (StructInit t fields) -> do
         resolvedFields <- forM
           fields

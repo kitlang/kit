@@ -83,14 +83,6 @@ relativeLibPath mod = moduleFilePath mod -<.> ""
 modDef :: ModulePath -> String
 modDef m = "KIT_INCLUDE__" ++ (intercalate "__" (map s_unpack m))
 
-includePath :: CompileContext -> ModulePath -> FilePath
-includePath ctx mod =
-  ((ctxOutputDir ctx) </> "include" </> (moduleFilePath mod -<.> ".h"))
-
-libPath :: CompileContext -> ModulePath -> FilePath
-libPath ctx mod =
-  ((ctxOutputDir ctx) </> "lib" </> (moduleFilePath mod -<.> ".c"))
-
 generateHeaderForwardDecl :: CompileContext -> Module -> Handle -> IrDecl -> IO ()
 generateHeaderForwardDecl ctx mod headerFile decl = do
   case decl of

@@ -34,9 +34,8 @@ data TokenClass
   | KeywordCode
   | KeywordConst
   | KeywordContinue
-  | KeywordCopy
   | KeywordDefault
-  | KeywordDelete
+  | KeywordDefer
   | KeywordDo
   | KeywordElse
   | KeywordEnum
@@ -50,8 +49,6 @@ data TokenClass
   | KeywordIn
   | KeywordMacro
   | KeywordMatch
-  | KeywordMove
-  | KeywordNew
   | KeywordNull
   | KeywordOp
   | KeywordOverride
@@ -114,9 +111,8 @@ instance Show TokenClass where
     KeywordCode -> "code"
     KeywordConst -> "const"
     KeywordContinue -> "continue"
-    KeywordCopy -> "copy"
     KeywordDefault -> "default"
-    KeywordDelete -> "delete"
+    KeywordDefer -> "defer"
     KeywordDo -> "do"
     KeywordElse -> "else"
     KeywordEnum -> "enum"
@@ -130,8 +126,6 @@ instance Show TokenClass where
     KeywordIn -> "in"
     KeywordMacro -> "macro"
     KeywordMatch -> "match"
-    KeywordMove -> "move"
-    KeywordNew -> "new"
     KeywordNull -> "null"
     KeywordOp -> "op"
     KeywordOverride -> "override"

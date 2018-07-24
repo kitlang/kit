@@ -34,7 +34,7 @@ logPrefix lv = do
     Warning -> hPutStr stderr "WRN: "
     Error   -> hPutStr stderr "ERR: "
 
-logMsg :: LogLevel -> String -> IO ()
+logMsg :: Maybe LogLevel -> String -> IO ()
 logMsg lv msg = do
   hSetSGR stderr [color Yellow, normal]
   hPutStr stderr "["
@@ -43,14 +43,19 @@ logMsg lv msg = do
   hPutStr stderr $ formatTime defaultTimeLocale "%F %T.%6q" t
   hSetSGR stderr [color Yellow, normal]
   hPutStr stderr "] "
-  logPrefix lv
+  case lv of
+    Just lv -> logPrefix lv
+    Nothing -> return ()
   let intensity = case lv of
-        Notice -> bold
-        _      -> normal
-  hSetSGR   stderr [color (logColor lv), intensity]
+        Just Notice -> bold
+        _           -> normal
+  case lv of
+    Just lv -> hSetSGR stderr [color (logColor lv), intensity]
+    Nothing -> hSetSGR stderr [Reset]
   hPutStrLn stderr msg
   hSetSGR   stderr [Reset]
 
-printLog = logMsg Notice
-warningLog = logMsg Warning
-errorLog = logMsg Error
+traceLog = logMsg Nothing
+printLog = logMsg (Just Notice)
+warningLog = logMsg (Just Warning)
+errorLog = logMsg (Just Error)

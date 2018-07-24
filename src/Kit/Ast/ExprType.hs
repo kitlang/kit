@@ -64,14 +64,11 @@ data ExprType a b
   | TokenExpr [TokenClass]
   | Unsafe a
   | BlockComment Str
-  | New b [a]
-  | Copy a
-  | Delete a
-  | Move a
   | LexMacro Str [TokenClass]
   -- e1 ... e2
   | RangeLiteral a a
   | VectorLiteral [a]
   -- var id[: type] [= default];
   | VarDeclaration Identifier b (Maybe a)
+  | Defer a
   deriving (Eq, Show)

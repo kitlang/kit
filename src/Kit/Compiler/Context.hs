@@ -6,6 +6,8 @@ import Control.Monad
 import Data.Aeson
 import Data.IORef
 import qualified Data.Text as T
+import System.Directory
+import System.FilePath
 import Kit.Ast
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
@@ -15,7 +17,6 @@ import Kit.HashTable
 import Kit.Ir
 import Kit.Parser.Span
 import Kit.Str
-
 
 data DuplicateGlobalNameError = DuplicateGlobalNameError ModulePath Str Span Span deriving (Eq, Show)
 instance Errable DuplicateGlobalNameError where
@@ -27,7 +28,6 @@ instance Errable DuplicateGlobalNameError where
       _ -> return ()
     ePutStrLn "\n#[extern] declarations and declarations from included C headers must have globally unique names."
   errPos (DuplicateGlobalNameError _ _ pos _) = Just pos
-
 
 data CompileContext = CompileContext {
   ctxMainModule :: ModulePath,
@@ -47,7 +47,8 @@ data CompileContext = CompileContext {
   ctxTypedDecls :: HashTable TypePath TypedDecl,
   ctxTraitSpecializations :: HashTable TypePath (TypeSpec, Span),
   ctxImpls :: HashTable TypePath (HashTable ConcreteType (TraitImplementation Expr (Maybe TypeSpec))),
-  ctxGlobalNames :: HashTable Str Span
+  ctxGlobalNames :: HashTable Str Span,
+  ctxNoCompile :: Bool
 }
 
 instance Show CompileContext where
@@ -58,7 +59,8 @@ instance Show CompileContext where
       "include" .= ctxIncludePaths ctx,
       "out" .= ctxOutputDir ctx,
       "defines" .= object [T.pack key .= value | (key, value) <- ctxDefines ctx],
-      "verbose" .= ctxVerbose ctx
+      "verbose" .= ctxVerbose ctx,
+      "no-compile" .= ctxNoCompile ctx
     ]
 
 newCompileContext :: IO CompileContext
@@ -93,6 +95,7 @@ newCompileContext = do
     , ctxTraitSpecializations = specs
     , ctxImpls                = impls
     , ctxGlobalNames          = globals
+    , ctxNoCompile            = False
     }
 
 ctxSourceModules :: CompileContext -> IO [Module]
@@ -171,4 +174,24 @@ addGlobalName ctx mod pos name = do
     Just x  -> throwk $ DuplicateGlobalNameError (modPath mod) name pos x
     -- If this is a C module, check for collision, but don't store to avoid
     -- collisions within the same header
-    Nothing -> if modIsCModule mod then return () else h_insert (ctxGlobalNames ctx) name pos
+    Nothing -> if modIsCModule mod
+      then return ()
+      else h_insert (ctxGlobalNames ctx) name pos
+
+includeDir :: CompileContext -> FilePath
+includeDir ctx = (ctxOutputDir ctx) </> "include"
+
+includePath :: CompileContext -> ModulePath -> FilePath
+includePath ctx mod = ((includeDir ctx) </> (moduleFilePath mod -<.> ".h"))
+
+libDir :: CompileContext -> FilePath
+libDir ctx = (ctxOutputDir ctx) </> "lib"
+
+libPath :: CompileContext -> ModulePath -> FilePath
+libPath ctx mod = (libDir ctx) </> (moduleFilePath mod -<.> ".c")
+
+objDir :: CompileContext -> FilePath
+objDir ctx = (ctxOutputDir ctx) </> "obj"
+
+objPath :: CompileContext -> ModulePath -> FilePath
+objPath ctx mod = (objDir ctx) </> (moduleFilePath mod -<.> ".o")
