@@ -170,7 +170,7 @@ spec = do
       [ ( "Parses struct declarations"
         , "Struct1"
         , TypeStruct (["c"], "Struct1") []
-        , Just $ DefinitionType $ (newTypeDefinition "Struct1")
+        , Just $ DeclType $ (newTypeDefinition "Struct1")
           { typeNameMangling = Nothing
           , typeType         = Struct
             { structFields = [ newVarDefinition
@@ -204,7 +204,7 @@ spec = do
       , ( "Parses empty struct typedefs"
         , "Struct3"
         , TypeStruct (["c"], "Struct3") []
-        , Just $ DefinitionType $ (newTypeDefinition "Struct3")
+        , Just $ DeclType $ (newTypeDefinition "Struct3")
           { typeNameMangling = Nothing
           , typeType         = Struct {structFields = []}
           }
@@ -212,7 +212,7 @@ spec = do
       , ( "Parses enum definitions"
         , "Enum1"
         , TypeEnum (["c"], "Enum1") []
-        , Just $ DefinitionType $ (newTypeDefinition "Enum1")
+        , Just $ DeclType $ (newTypeDefinition "Enum1")
           { typeNameMangling = Nothing
           , typeType         = Enum
             { enumVariants        = [ newEnumVariant { variantName = "apple" }
@@ -238,6 +238,6 @@ spec = do
             _ -> Nothing
           )
           `shouldBe` Just ct
-        def' <- resolveLocal (modDefinitions header) name
+        def' <- resolveLocal (modContents header) name
         def' `shouldBe` def
       )

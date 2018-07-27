@@ -48,7 +48,8 @@ data CompileContext = CompileContext {
   ctxTraitSpecializations :: HashTable TypePath (TypeSpec, Span),
   ctxImpls :: HashTable TypePath (HashTable ConcreteType (TraitImplementation Expr (Maybe TypeSpec))),
   ctxGlobalNames :: HashTable Str Span,
-  ctxNoCompile :: Bool
+  ctxNoCompile :: Bool,
+  ctxNoLink :: Bool
 }
 
 instance Show CompileContext where
@@ -60,7 +61,8 @@ instance Show CompileContext where
       "out" .= ctxOutputDir ctx,
       "defines" .= object [T.pack key .= value | (key, value) <- ctxDefines ctx],
       "verbose" .= ctxVerbose ctx,
-      "no-compile" .= ctxNoCompile ctx
+      "no-compile" .= ctxNoCompile ctx,
+      "no-link" .= ctxNoLink ctx
     ]
 
 newCompileContext :: IO CompileContext
@@ -96,6 +98,7 @@ newCompileContext = do
     , ctxImpls                = impls
     , ctxGlobalNames          = globals
     , ctxNoCompile            = False
+    , ctxNoLink               = False
     }
 
 ctxSourceModules :: CompileContext -> IO [Module]
@@ -130,10 +133,14 @@ makeTypeVar ctx pos = do
   let next = last + 1
   writeIORef (ctxLastTypeVar ctx) next
   h_insert (ctxTypeVariables ctx) next (newTypeVarInfo pos)
-  return $ TypeTypeVar (TypeVar next)
+  return $ TypeTypeVar next
 
 getTypeVar :: CompileContext -> Int -> IO TypeVarInfo
-getTypeVar ctx tv = h_get (ctxTypeVariables ctx) tv
+getTypeVar ctx tv = do
+  info <- h_get (ctxTypeVariables ctx) tv
+  case typeVarValue info of
+    Just (TypeTypeVar tv') -> getTypeVar ctx tv'
+    _ -> return info
 
 resolveVar
   :: CompileContext -> [Scope Binding] -> Module -> Str -> IO (Maybe Binding)

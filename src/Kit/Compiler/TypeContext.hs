@@ -83,14 +83,14 @@ follow ctx tctx mod t = do
     TypeArr t len -> do
       resolved <- follow ctx tctx mod t
       return $ TypeArr resolved len
-    TypeEnumConstructor tp args -> do
+    TypeEnumConstructor tp d args -> do
       resolvedArgs <- forM
         args
         (\(name, t) -> do
           resolvedArg <- follow ctx tctx mod t
           return (name, resolvedArg)
         )
-      return $ TypeEnumConstructor tp resolvedArgs
+      return $ TypeEnumConstructor tp d resolvedArgs
     TypeTypedef tp params -> do
       resolveType ctx tctx mod
         $ TypeSpec tp [ ConcreteType p | p <- params ] null_span
@@ -162,18 +162,13 @@ knownType
   :: CompileContext -> TypeContext -> Module -> ConcreteType -> IO ConcreteType
 knownType ctx tctx mod t = do
   case t of
-    TypeTypeVar (TypeVar x) -> do
+    TypeTypeVar x -> do
       info <- h_get (ctxTypeVariables ctx) (x)
       case typeVarValue info of
         -- Specific known type
         Just t  -> knownType ctx tctx mod t
         -- No specific type; return type var
         Nothing -> follow ctx tctx mod t
-    TypeTypeVar (TypeParamVar s) -> do
-      result <- resolveBinding (tctxTypeParamScopes tctx) s
-      case result of
-        Just t -> follow ctx tctx mod t
-        _      -> follow ctx tctx mod t
     t -> follow ctx tctx mod t
 
 builtinToConcreteType

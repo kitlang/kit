@@ -6,13 +6,21 @@ struct Array[T] {
     var a: Vector[T];
     var _length: Int;
 
+    public static function new(capacity: Int = 16) {
+        var a = Vector.new(capacity);
+        return struct Self {
+            a,
+            _length: 0
+        };
+    }
+
     /**
      * Create a new Array with a reserved capacity. If you know the size you
      * need initially, this is more efficient than allowing the Array to
      * dynamically expand.
      */
     public static function withCapacity(n: Int): Array[T] {
-        return new Array(n);
+        return new(n);
     }
 
     public function pop(): Null[T] {
@@ -29,7 +37,7 @@ struct Array[T] {
     }
 
     public function concat(other: Array[T]): Array[T] {
-        var n = new Array(length + other.length);
+        var n = Array.new(length + other.length);
         for i in 0 ... length {
             n.push(this[i]);
         }
@@ -45,20 +53,15 @@ struct Array[T] {
             while l < n {
                 l *= 1.5;
             }
-            var newVec = new Vector(l);
+            var newVec = Vector.new(l);
             a.blit(newVec, 0, _length);
             a = newVec;
         }
     }
 
-    public function new(capacity: Int = 16) {
-        a = new Vector(capacity);
-        _length = 0;
-    }
-
     public rules {
         // FIXME
-        ((v: Vector[T]) as Self) => new Array(v);
+        ((v: Vector[T]) as Self) => Array.new(v);
         // FIXME
         (Self as Vector[T]) => this.a;
         (this :: (other: Self)) => (concat(other));
@@ -100,7 +103,7 @@ struct Array[T] {
 
 implement Iterable[T] for Array[T] {
     public function iterator() {
-        return new ArrayIterator(this);
+        return ArrayIterator.new(this);
     }
 }
 
@@ -108,9 +111,11 @@ struct ArrayIterator[T] {
     public var index: Uint;
     public var array: Ref[Array[T]];
 
-    public function new(array: Ref[Array[T]]) {
-        this.array = array;
-        this.index = 0;
+    public static function new(array: Ref[Array[T]]) {
+        return struct Self {
+            array,
+            index: 0
+        };
     }
 }
 

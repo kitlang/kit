@@ -120,15 +120,15 @@ enum List[T] {
 
 implement Iterable[T] for List[T] {
     public function iterator() {
-        return new ListIterator(this);
+        return ListIterator.new(this);
     }
 }
 
 struct ListIterator[T] {
     public var current: List[T];
 
-    public function new(list: Ref[List[T]]) {
-        this.current = list;
+    public static function new(list: Ref[List[T]]) {
+        return struct Self {current: list};
     }
 }
 

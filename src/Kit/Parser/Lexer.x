@@ -83,6 +83,7 @@ tokens :-
   tokens { tok KeywordTokens }
   trait { tok KeywordTrait }
   typedef { tok KeywordTypedef }
+  union { tok KeywordUnion }
   unsafe { tok KeywordUnsafe }
   var { tok KeywordVar }
   while { tok KeywordWhile }

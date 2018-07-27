@@ -9,6 +9,8 @@ import Kit.Str
 
 typeNameDecl name = CTypeSpec $ u $ CTypeDef $ internalIdent $ s_unpack name
 
+makeSUFields fields = [ cDecl t (Just n) Nothing | (n, t) <- fields ]
+
 cdecl :: BasicType -> [CDecl]
 {- Kit struct = C struct -}
 cdecl (BasicTypeStruct name fields) =
@@ -19,12 +21,26 @@ cdecl (BasicTypeStruct name fields) =
             Just name -> Just $ internalIdent $ s_unpack name
             Nothing   -> Nothing
           )
-          (Just f)
+          (Just $ makeSUFields fields)
           []
       ]
       []
   ]
-  where f = [ cDecl t (Just n) Nothing | (n, t) <- fields ]
+
+cdecl (BasicTypeUnion name fields) =
+  [ u $ CDecl
+      [ CTypeSpec $ u $ CSUType $ u $ CStruct
+          CUnionTag
+          (case name of
+            Just name -> Just $ internalIdent $ s_unpack name
+            Nothing   -> Nothing
+          )
+          (Just $ makeSUFields fields)
+          []
+      ]
+      []
+  ]
+
 
 {- Simple enums (no variant has any fields) will generate a C enum. -}
 cdecl (BasicTypeSimpleEnum name variantNames) =

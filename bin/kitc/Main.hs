@@ -29,7 +29,8 @@ data Options = Options {
   optIncludePaths :: [FilePath],
   optDefines :: [String],
   optIsLibrary :: Bool,
-  optNoCompile :: Bool
+  optNoCompile :: Bool,
+  optNoLink :: Bool
 } deriving (Eq, Show)
 
 options :: Parser Options
@@ -73,6 +74,10 @@ options =
           (  long "no-compile"
           <> help
                "generates C files and headers but does not compile a library/binary"
+          )
+    <*> switch
+          (long "no-link" <> help
+            "compile C files but skip linking into a library or binary"
           )
 
 sourceDirParser = strOption
@@ -129,6 +134,7 @@ main = do
             , ctxModules      = modules
             , ctxVerbose      = optVerbose opts
             , ctxNoCompile    = optNoCompile opts
+            , ctxNoLink       = optNoLink opts
             }
 
       result  <- tryCompile ctx

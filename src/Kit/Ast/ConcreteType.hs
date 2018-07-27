@@ -26,13 +26,15 @@ data ConcreteType
   | TypeAnonStruct [(Str, ConcreteType)]
   | TypeEnum TypePath [ConcreteType]
   | TypeAnonEnum [Str]
+  | TypeUnion TypePath [ConcreteType]
+  | TypeAnonUnion [(Str, ConcreteType)]
   | TypeAbstract TypePath [ConcreteType]
   | TypeTypedef TypePath [ConcreteType]
   | TypeFunction ConcreteType ConcreteArgs Bool
   | TypeBasicType BasicType
   | TypePtr ConcreteType
   | TypeArr ConcreteType (Maybe Int)
-  | TypeEnumConstructor TypePath ConcreteArgs
+  | TypeEnumConstructor TypePath Str ConcreteArgs
   | TypeIdentifier ConcreteType
   | TypeRange
   | TypeTraitConstraint TraitConstraint
@@ -49,6 +51,9 @@ instance Show ConcreteType where
   show (TypeEnum tp []) = "enum " ++ (s_unpack $ showTypePath tp)
   show (TypeEnum tp params) = "enum " ++ (s_unpack $ showTypePath tp) ++ "[" ++ (intercalate ", " [show x | x <- params])
   show (TypeAnonEnum variants) = "(anon enum {" ++ (intercalate ", " (map s_unpack variants)) ++ "})"
+  show (TypeUnion tp []) = "union " ++ (s_unpack $ showTypePath tp)
+  show (TypeUnion tp params) = "union " ++ (s_unpack $ showTypePath tp) ++ "[" ++ (intercalate ", " [show x | x <- params])
+  show (TypeAnonUnion f) = "(anon union)"
   show (TypeAbstract tp []) = "abstract " ++ (s_unpack $ showTypePath tp)
   show (TypeAbstract tp params) = "abstract " ++ (s_unpack $ showTypePath tp) ++ "[" ++ (intercalate ", " [show x | x <- params])
   show (TypeTypedef tp []) = (s_unpack $ showTypePath tp)
@@ -59,19 +64,10 @@ instance Show ConcreteType where
   show (TypePtr t) = "Ptr[" ++ (show t) ++ "]"
   show (TypeArr t (Just i)) = "Arr[" ++ (show t) ++ "] of length " ++ (show i)
   show (TypeArr t Nothing) = "Arr[" ++ (show t) ++ "]"
-  show (TypeEnumConstructor tp _) = "enum " ++ (show tp) ++ " constructor"
+  show (TypeEnumConstructor tp d _) = "enum " ++ (show tp) ++ " constructor " ++ (s_unpack d)
   show (TypeIdentifier t) = "Identifier of " ++ (show t)
   show (TypeRange) = "range"
   show (TypeTraitConstraint (tp, params)) = "trait " ++ s_unpack (showTypePath tp)
-  show (TypeTypeVar i) = show i
+  show (TypeTypeVar i) = "type var #" ++ show i
 
-data TypeVar
-  = TypeVar Int
-  | TypeParamVar Str
-  deriving (Eq, Generic)
-
-instance Show TypeVar where
-  show (TypeVar i) = "type var #" ++ (show i)
-  show (TypeParamVar s) = "type param " ++ (s_unpack s)
-
-instance Hashable TypeVar
+type TypeVar = Int

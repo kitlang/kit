@@ -23,9 +23,9 @@ data Module = Module {
   modImports :: [(ModulePath, Span)],
   modIncludes :: IORef [(FilePath, Span)],
   modScope :: Scope Binding,
-  modDefinitions :: Scope (Definition Expr (Maybe TypeSpec)),
   modImpls :: IORef [TraitImplementation Expr (Maybe TypeSpec)],
   modSpecializations :: IORef [((TypeSpec, TypeSpec), Span)],
+  modContents :: Scope (Declaration Expr (Maybe TypeSpec)),
   modTypedContents :: Scope TypedDecl,
   modIr :: IORef [IrDecl],
   modIsCModule :: Bool
@@ -50,7 +50,7 @@ emptyMod = do
     , modImports         = []
     , modIncludes        = includes
     , modScope           = scope
-    , modDefinitions     = defs
+    , modContents     = defs
     , modImpls           = impls
     , modSpecializations = specs
     , modTypedContents   = typedContents

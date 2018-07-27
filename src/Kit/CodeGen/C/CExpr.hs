@@ -2,6 +2,7 @@
 
 module Kit.CodeGen.C.CExpr where
 
+import Data.List
 import Numeric
 import Language.C
 import Language.C.Data.Position
@@ -68,6 +69,18 @@ ctype (BasicTypeSimpleEnum name _) =
   , []
   )
 ctype (BasicTypeComplexEnum name _) = ctype (BasicTypeStruct (Just name) [])
+ctype (BasicTypeUnion name _) =
+  ( [ u $ CSUType $ u $ CStruct
+        CUnionTag
+        (case name of
+          Just name -> Just $ internalIdent $ s_unpack name
+          Nothing   -> Nothing
+        )
+        Nothing
+        []
+    ]
+  , []
+  )
 ctype (CPtr x) = (fst t, (u $ CPtrDeclr []) : snd t) where t = ctype x
 ctype (BasicTypeFunction _ _ _    ) = undefined
 ctype (CArray _ _                 ) = undefined
@@ -106,8 +119,47 @@ transpileExpr (IrCall e args) =
 transpileExpr (IrCast e t) =
   u $ CCast (cDecl t Nothing Nothing) (transpileExpr e)
 --transpileExpr (Expr {expr = VectorLiteral e}) = u $ CA
-transpileExpr (IrStructInit t fields) =
-  u $ CCompoundLit (cDecl t Nothing Nothing) [([u $ CMemberDesig (internalIdent $ s_unpack name)], u $ CInitExpr (transpileExpr e)) | (name, e) <- fields]
+transpileExpr (IrStructInit t fields) = u $ CCompoundLit
+  (cDecl t Nothing Nothing)
+  [ ( [u $ CMemberDesig (internalIdent $ s_unpack name)]
+    , u $ CInitExpr (transpileExpr e)
+    )
+  | (name, e) <- fields
+  ]
+transpileExpr (IrEnumInit (BasicTypeSimpleEnum _ _) discriminant []) =
+  transpileExpr (IrIdentifier discriminant)
+transpileExpr (IrEnumInit t discriminant []) = u $ CCompoundLit
+  (cDecl t Nothing Nothing)
+  [ ( [u $ CMemberDesig (internalIdent "__discriminant")]
+    , u $ CInitExpr $ transpileExpr (IrIdentifier discriminant)
+    )
+  ]
+transpileExpr (IrEnumInit t@(BasicTypeComplexEnum name variants) discriminant fields)
+  = u $ CCompoundLit
+    (cDecl t Nothing Nothing)
+    [ ( [u $ CMemberDesig (internalIdent "__discriminant")]
+      , u $ CInitExpr $ transpileExpr (IrIdentifier discriminant)
+      )
+    , ( [ u
+          $  CMemberDesig
+          $  internalIdent
+          $  "__variant.variant_"
+          ++ (s_unpack discriminant)
+        ]
+      , u $ CInitExpr $ transpileExpr
+        (IrStructInit
+          (BasicTypeStruct (Just $ s_concat [name, "_Variant_", discriminant])
+                           []
+          )
+          (zip (map fst $ getVariantFieldNames variants discriminant) fields)
+        )
+      )
+    ]
+
+getVariantFieldNames variants discriminant =
+  case find (\(name, _) -> name == discriminant) variants of
+    Just (_, args) -> args
+    _              -> []
 
 transpileStmt :: IrExpr -> CStat
 transpileStmt IrBreak             = u CBreak

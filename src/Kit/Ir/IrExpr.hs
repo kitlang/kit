@@ -24,4 +24,5 @@ data IrExpr
   | IrCArrLiteral [IrExpr]
   | IrVarDeclaration Str BasicType (Maybe IrExpr)
   | IrStructInit BasicType [(Str, IrExpr)]
+  | IrEnumInit BasicType Str [IrExpr]
   deriving (Eq, Show)

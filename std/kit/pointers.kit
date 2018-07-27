@@ -89,16 +89,8 @@ struct Shared[T] {
         (*this) => (*this.value);
     }
 
-    public function new(value: T) {
-        this.value = value;
-    }
-
-    public function delete() {
-        --rc;
-        if rc <= 0 {
-            delete rc;
-            delete value;
-        }
+    public static function new(value: T) {
+        return struct Self {value};
     }
 
     /**
@@ -114,6 +106,17 @@ struct Shared[T] {
      */
     public function weak(): Weak[T] {
         return value;
+    }
+}
+
+implement Drop for Shared[T] {
+    public function drop() {
+        --rc;
+        if rc <= 0 {
+            // TODO
+            // delete rc;
+            // delete value;
+        }
     }
 }
 

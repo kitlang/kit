@@ -11,6 +11,7 @@ import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
+import Kit.Compiler.Unify
 import Kit.Compiler.Utils
 import Kit.Error
 import Kit.HashTable
@@ -61,6 +62,8 @@ resolveTypesForMod ctx mod = do
   forM_ specs (addSpecialization ctx mod)
   impls <- readIORef (modImpls mod)
   forM_ impls (addImplementation ctx mod)
+  contents <- bindingList (modContents mod)
+  forM_ contents (resolveDecl ctx mod)
   return ()
 
 addSpecialization
@@ -106,97 +109,68 @@ addImplementation ctx mod impl@(TraitImplementation { implTrait = Just (TypeSpec
       _ -> throwk $ BasicError ("Couldn't resolve trait: " ++ show tpTrait)
                                (Just posTrait)
 
-{-
-  Parse module toplevel statements, which can be type, function, or variable
-  declarations, and try to resolve their types recursively. Fail here if any
-  unknown types are referenced.
--}
-_checkForTopLevel :: CompileContext -> Module -> Statement -> IO ()
-_checkForTopLevel ctx mod s = do
-  tctx <- newTypeContext []
-  return ()
-  {-case stmt s of
-    {-TraitDeclaration t -> do
-      h_insert (modTraits mod) (traitName t) t
-    Implement t -> do
-      -- TODO
-      implTrait <-
-      h_insert (modImpls mod) (traitName t) t-}
-    Specialize trait inst -> do
-      -- TODO
-      return ()
-    TypeDeclaration t -> do
-      debugLog ctx
-        $  "found type "
-        ++ s_unpack (typeName t)
-        ++ " in "
-        ++ (show mod)
-      --bindToScope (mod_type_definitions mod) (typeName t) usage
-      ct <- typeDefinitionToConcreteType ctx tctx mod t
-      bindToScope (modTypes mod)
-                  (typeName t)
-                  (newTypeBinding (BindingType t) ct)
-      case t of
-        TypeDefinition { typeName = typeName, typeType = Enum { enumVariants = variants } }
-          -> do
-            forM_
-              (variants)
-              (\variant -> do
-                args <- mapM
-                  (\arg -> do
-                    t <- resolveMaybeType ctx tctx mod (argPos arg) (argType arg)
-                    return (argName arg, t)
+resolveDecl :: CompileContext -> Module -> Decl -> IO ()
+resolveDecl ctx mod decl = case decl of
+  DeclVar v@(VarDefinition { varName = name, varType = Just t }) -> do
+    tctx    <- newTypeContext []
+    modType <- resolveLocal (modScope mod) name
+    case modType of
+      Just (Binding { bindingConcrete = ct }) -> do
+        t' <- resolveType ctx tctx mod t
+        resolveConstraint
+          ctx
+          tctx
+          mod
+          (TypeEq ct
+                  t'
+                  "Var type must match its annotation"
+                  (typeSpecPosition t)
+          )
+      _ -> throwk $ InternalError
+        ("Unexpected missing var binding " ++ s_unpack name)
+        Nothing
+  DeclFunction f@(FunctionDefinition { functionName = name, functionArgs = args, functionType = rt })
+    -> do
+    -- TODO: params
+      tctx    <- newTypeContext []
+      modType <- resolveLocal (modScope mod) name
+      case modType of
+        Just (Binding { bindingConcrete = TypeFunction cRt cArgs _ }) -> do
+          case rt of
+            Just rt -> do
+              rt' <- resolveType ctx tctx mod rt
+              resolveConstraint
+                ctx
+                tctx
+                mod
+                (TypeEq cRt
+                        rt'
+                        "Function return type must match its annotation"
+                        (typeSpecPosition rt)
+                )
+            _ -> return ()
+          forM_
+            (zip args cArgs)
+            (\(arg, (_, cArgType)) -> case argType arg of
+              Just t -> do
+                t' <- resolveType ctx tctx mod t
+                resolveConstraint
+                  ctx
+                  tctx
+                  mod
+                  (TypeEq cArgType
+                          t'
+                          "Function arg type must match its annotation"
+                          (argPos arg)
                   )
-                  (variantArgs variant)
-                let constructor =
-                      EnumConstructor ((modPath mod), typeName) args
-                bindToScope (modVars mod)
-                            (variantName variant)
-                            (newBinding constructor Nothing)
-                return ()
-              )
-        _ -> do
-          return ()
-    Typedef a b -> do
-      debugLog ctx
-        $  "found typedef "
-        ++ s_unpack a
-        ++ " -> "
-        ++ (show b)
-        ++ " in "
-        ++ (show mod)
-      b' <- resolveType ctx tctx mod b
-      bindToScope (modTypes mod) a (newTypeBinding (BindingTypedef) (b'))
-    ModuleVarDeclaration v -> do
-      debugLog ctx
-        $  "found variable "
-        ++ s_unpack (varName v)
-        ++ " in "
-        ++ (show mod)
-      varType <- resolveMaybeType ctx tctx mod (stmtPos s) (varType v)
-      bindToScope (modVars mod)
-                  (varName v)
-                  (newBinding (VarBinding (varType)) (Just $ modPath mod))
-    FunctionDeclaration f -> do
-      debugLog ctx
-        $  "found function "
-        ++ s_unpack (functionName f)
-        ++ " in "
-        ++ (show mod)
-      functionType <- resolveMaybeType ctx tctx mod (stmtPos s) (functionType f)
-      args         <- mapM
-        (\arg -> do
-          t <- resolveMaybeType ctx tctx mod (stmtPos s) (argType arg)
-          return (argName arg, t)
-        )
-        (functionArgs f)
-      bindToScope
-        (modVars mod)
-        (functionName f)
-        (newBinding (FunctionBinding (functionType) args (functionVarargs f))
-                    (Just $ modPath mod)
-        )
-      bindToScope (modFunctions mod)
-                  (functionName f)
-                  (f { functionNameMangling = Just $ modPath mod })
-    _ -> return ()-}
+              _ -> return ()
+            )
+        _ -> throwk
+          $ InternalError ("Expected function " ++ s_unpack name) Nothing
+  {-DeclType t@(TypeDefinition { typeName = name, typeType = Struct { structFields = fields } })
+    -> do
+      tctx    <- newTypeContext []
+      modType <- resolveLocal (modScope mod) name
+      case modType of
+        TypeStruct _ -}
+  _ -> return ()

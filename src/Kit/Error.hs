@@ -14,7 +14,8 @@ import Kit.Str
 ePutStr = hPutStr stderr
 ePutStrLn = hPutStrLn stderr
 
-throwk e = do throw $ KitError e
+throwk e = do
+  throw $ KitError e
 
 class (Eq a, Show a) => Errable a where
   logError :: a -> IO ()
@@ -101,14 +102,11 @@ logErrorTitle err = do
         stderr
         [SetColor Foreground Vivid Red, SetConsoleIntensity BoldIntensity]
       hPutStr stderr $ "Error: "
-  hSetSGR
-    stderr
-    [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
+  hSetSGR stderr [Reset]
 
 logErrorBasic :: (Errable e) => e -> String -> IO ()
 logErrorBasic err msg = do
   logErrorTitle err
-  hSetSGR stderr [Reset]
   hPutStrLn stderr msg
   case errPos err of
     Just pos@Span { file = Just f } -> displayFileSnippet (s_unpack f) pos
@@ -151,23 +149,25 @@ displayFileSnippet fp span = do
              <  length line
           then
             do
-              hSetSGR
-                stderr
-                [ SetColor Foreground Vivid Yellow
-                , SetConsoleIntensity BoldIntensity
-                ]
               let this_start_col = if n == start_line span
                     then start_col span
                     else length (takeWhile ((==) ' ') line) + 1
               let this_end_col =
                     if n == end_line span then end_col span else length line
-              hPutStrLn stderr
+              hSetSGR stderr [Reset]
+              ePutStr
                 $  "            "
                 ++ (take ((this_start_col) - 1) (repeat ' '))
-                ++ (take ((this_end_col) - (this_start_col) + 1) $ repeat '^')
+              hSetSGR
+                stderr
+                [ SetColor Foreground Vivid Yellow
+                , SetConsoleIntensity BoldIntensity
+                ]
+              ePutStrLn
+                (take ((this_end_col) - (this_start_col) + 1) $ repeat '^')
           else
             do
               return ()
-  hSetSGR stderr [Reset]
+  hSetSGR   stderr [Reset]
   hPutStrLn stderr ""
   return ()

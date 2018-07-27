@@ -34,12 +34,12 @@ typeContent ctx = do
 
 typeModuleContent :: CompileContext -> Module -> IO ()
 typeModuleContent ctx mod = do
-  defs <- bindingList (modDefinitions mod)
+  defs <- bindingList (modContents mod)
   forM_
     defs
     (\d -> case d of
-      DefinitionFunction f -> typeFunction ctx mod f
-      DefinitionVar      v -> typeVar ctx mod v
-      DefinitionTrait    t -> typeTrait ctx mod t
-      DefinitionType     t -> typeTypeDefinition ctx mod t
+      DeclFunction f -> typeFunction ctx mod f
+      DeclVar      v -> typeVar ctx mod v
+      DeclTrait    t -> typeTrait ctx mod t
+      DeclType     t -> typeTypeDefinition ctx mod t
     )

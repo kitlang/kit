@@ -23,15 +23,15 @@ spec = do
       testUnify ctx
         a
         b
-        (TypeVarIs (TypeVar 1) b)
+        (TypeVarIs 1 b)
       testUnify ctx
         a
         (TypeStruct (["a", "b"], "mytype") [])
-        (TypeVarIs (TypeVar 1) (TypeStruct (["a", "b"], "mytype") []))
+        (TypeVarIs 1 (TypeStruct (["a", "b"], "mytype") []))
       testUnify ctx
         (TypeStruct (["a", "b"], "mytype") [])
         a
-        (TypeVarIs (TypeVar 1) (TypeStruct (["a", "b"], "mytype") []))
+        (TypeVarIs 1 (TypeStruct (["a", "b"], "mytype") []))
   describe "Basic type unifiation" $ do
     it "unifies numeric types" $ do
       unifyBasic (BasicTypeInt 32) (BasicTypeInt 64)

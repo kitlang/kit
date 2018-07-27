@@ -24,6 +24,7 @@ data TypeDefinition a b = TypeDefinition {
 data TypeDefinitionType a b
   = Atom
   | Struct {structFields :: [VarDefinition a b]}
+  | Union {unionFields :: [VarDefinition a b]}
   | Enum {enumVariants :: [EnumVariant a b], enumUnderlyingType :: b}
   | Abstract {abstractUnderlyingType :: b}
   deriving (Eq, Show)
@@ -51,6 +52,9 @@ convertTypeDefinition exprConverter typeConverter t = do
     Struct { structFields = f } -> do
       fields <- forM f (convertVarDefinition exprConverter typeConverter)
       return $ Struct {structFields = fields}
+    Union { unionFields = f } -> do
+      fields <- forM f (convertVarDefinition exprConverter typeConverter)
+      return $ Union {unionFields = fields}
     Enum { enumVariants = variants, enumUnderlyingType = t } -> do
       variants <- forM variants (convertEnumVariant exprConverter typeConverter)
       underlyingType <- typeConverter t
@@ -65,3 +69,5 @@ convertTypeDefinition exprConverter typeConverter t = do
                                               t
                                             , typeType         = newType
                                             }
+
+enumIsSimple enum = all variantIsSimple $ enumVariants enum

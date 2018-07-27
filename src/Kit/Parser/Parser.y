@@ -78,6 +78,7 @@ import Kit.Parser.Token
   tokens {(KeywordTokens,_)}
   trait {(KeywordTrait,_)}
   typedef {(KeywordTypedef,_)}
+  union {(KeywordUnion,_)}
   unsafe {(KeywordUnsafe,_)}
   var {(KeywordVar,_)}
   while {(KeywordWhile,_)}
@@ -162,6 +163,18 @@ Statement :: {Statement}
       typeParams = fst $4,
       typeType = Struct {
         structFields = reverse $ fst $ fst $5
+      }
+    }
+  }
+  | DocMetaMods union upper_identifier TypeParams RewriteRulesOrFieldsBody {
+    ps (fp [p $1, p $2, p $5]) $ TypeDeclaration $ (newTypeDefinition $ extract_upper_identifier $3) {
+      typeDoc = doc $1,
+      typeMeta = reverse $ metas $1,
+      typeModifiers = reverse $ mods $1,
+      typeRules = reverse $ snd $ fst $5,
+      typeParams = fst $4,
+      typeType = Union {
+        unionFields = reverse $ fst $ fst $5
       }
     }
   }

@@ -5,6 +5,7 @@ import Kit.Ast.BasicType
 import Kit.Ast.ConcreteType
 import Kit.Ast.ModulePath
 import Kit.Parser.Span
+import Kit.Str
 
 type UnresolvedTypeConstraint = ConcreteType -> TypeConstraint
 
@@ -35,7 +36,15 @@ data TypeVarInfo = TypeVarInfo
   { typeVarValue :: Maybe ConcreteType
   , typeVarConstraints :: [(TraitConstraint, (String, Span))]
   , typeVarPositions :: [Span]
-  } deriving (Eq, Show)
+  } deriving (Eq)
+
+instance Show TypeVarInfo where
+  show (TypeVarInfo {typeVarValue = Just v, typeVarConstraints = l}) = show v
+  show (TypeVarInfo {typeVarValue = Nothing, typeVarConstraints = l}) = "Unbound type variable implementing " ++ _showConstraints l
+
+_showConstraints [] = ""
+_showConstraints l = "(" ++ intercalate ", " (map (s_unpack . _showConstraint . fst) l) ++ ")"
+_showConstraint (tp, _) = showTypePath tp
 
 newTypeVarInfo p = TypeVarInfo
   { typeVarValue       = Nothing

@@ -2,6 +2,7 @@ module Kit.Ast.Statement where
 
 import Data.Traversable
 import Kit.Ast.ConcreteType
+import Kit.Ast.Declaration
 import Kit.Ast.Definitions
 import Kit.Ast.Expr
 import Kit.Ast.ExprType
@@ -35,3 +36,5 @@ makeStmt st = Statement {stmt = st, stmtPos = null_span}
 
 ps :: Span -> StatementType Expr (Maybe TypeSpec) -> Statement
 ps p st = Statement {stmt = st, stmtPos = p}
+
+type Decl = Declaration Expr (Maybe TypeSpec)

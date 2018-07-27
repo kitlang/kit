@@ -29,7 +29,9 @@ compileCode ctx = do
   debugLog                 ctx  ("found C compiler at " ++ compiler)
   mods <- ctxSourceModules ctx
   forM_ mods (compileModule ctx compiler compilerFlags)
-  link ctx compiler linkerFlags mods
+  if ctxNoLink ctx
+    then return ()
+    else link ctx compiler linkerFlags mods
 
 compileModule :: CompileContext -> FilePath -> [String] -> Module -> IO ()
 compileModule ctx cc args mod = do
@@ -43,16 +45,21 @@ compileModule ctx cc args mod = do
              , "-o"
              , objPath ctx (modPath mod)
              ]
+          ++ (if (ctxIsLibrary ctx) then ["-fPIC"] else [])
   printLog $ "compiling " ++ show mod
   traceLog $ showCommandForUser cc args'
   callProcess cc args'
 
 link :: CompileContext -> FilePath -> [String] -> [Module] -> IO ()
 link ctx cc args mods = do
-  let args' =
-        [ objPath ctx (modPath mod) | mod <- mods ]
-          ++ ["-I" ++ includeDir ctx]
-          ++ ["-obuild/main"]
+  let args' = if (ctxIsLibrary ctx)
+        then
+          [ objPath ctx (modPath mod) | mod <- mods ]
+          ++ ["-I" ++ includeDir ctx, "-shared", "-obuild/main.so"]
+          ++ args
+        else
+          [ objPath ctx (modPath mod) | mod <- mods ]
+          ++ ["-I" ++ includeDir ctx, "-obuild/main"]
           ++ args
   printLog $ "linking"
   traceLog $ showCommandForUser cc args'

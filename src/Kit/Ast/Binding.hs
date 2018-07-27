@@ -24,5 +24,9 @@ data BindingType
   | EnumConstructor
   deriving (Show, Eq)
 
-newBinding b ct mangle pos =
-  Binding {bindingType = b, bindingConcrete = ct, bindingNameMangling = mangle, bindingPos = pos}
+newBinding b ct mangle pos = Binding
+  { bindingType         = b
+  , bindingConcrete     = ct
+  , bindingNameMangling = mangle
+  , bindingPos          = pos
+  }

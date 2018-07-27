@@ -58,6 +58,7 @@ data ExprType a b
   | InlineCall a
   | Field a Identifier
   | StructInit b [(Str, a)]
+  | EnumInit b Str [a]
   | ArrayAccess a a
   | Call a [a]
   | Cast a b

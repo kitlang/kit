@@ -141,6 +141,9 @@ typeBasicType def@(TypeDefinition { typeName = name }) = case typeType def of
   Struct { structFields = fields } -> BasicTypeStruct
     (Just name)
     [ (varName field, varType field) | field <- fields ]
+  Union { unionFields = fields } -> BasicTypeUnion
+    (Just name)
+    [ (varName field, varType field) | field <- fields ]
   Enum { enumVariants = variants } -> if all variantIsSimple variants
     then BasicTypeSimpleEnum (Just name) [ variantName v | v <- variants ]
     else BasicTypeComplexEnum

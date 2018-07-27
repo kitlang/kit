@@ -142,8 +142,8 @@ _loadModule ctx mod pos = do
   let stmts = prelude ++ exprs
   m <- newMod mod fp
   forM_ stmts (addStmtToModuleInterface ctx m)
-  let imports  = findImports mod stmts
-  let includes = findIncludes stmts
+  let imports    = findImports mod stmts
+  let includes   = findIncludes stmts
   let createdMod = m { modImports = imports }
   writeIORef (modIncludes createdMod) includes
   return createdMod
@@ -182,6 +182,7 @@ addStmtToModuleInterface ctx mod s = do
         let ct = case subtype of
               Atom       -> TypeAtom
               Struct{}   -> TypeStruct (modPath mod, name) []
+              Union{}    -> TypeUnion (modPath mod, name) []
               Enum{}     -> TypeEnum (modPath mod, name) []
               Abstract{} -> TypeAbstract (modPath mod, name) []
         let extern = hasMeta "extern" (typeMeta d)
@@ -189,13 +190,40 @@ addStmtToModuleInterface ctx mod s = do
         addToInterface name (TypeBinding) (not extern) ct
         addDefinition
           name
-          (DefinitionType $ d { typeNameMangling = if extern then Nothing else Just $ modPath mod })
+          (DeclType $ d
+            { typeNameMangling = if extern then Nothing else Just $ modPath mod
+            }
+          )
+
+        case subtype of
+          Enum { enumVariants = variants } -> do
+            forM_
+              variants
+              (\variant -> do
+                args <-
+                  (forM
+                    (variantArgs variant)
+                    (\arg -> do
+                      t <- makeTypeVar ctx (stmtPos s)
+                      return (argName arg, t)
+                    )
+                  )
+                addToInterface
+                  (variantName variant)
+                  EnumConstructor
+                  False
+                  (TypeEnumConstructor (modPath mod, name)
+                                       (variantName variant)
+                                       args
+                  )
+              )
+          _ -> return ()
     TraitDeclaration d@(TraitDefinition { traitName = name }) -> do
       addToInterface name
                      (TraitBinding)
                      (False)
                      (TypeTraitConstraint ((modPath mod, name), []))
-      addDefinition name (DefinitionTrait d)
+      addDefinition name (DeclTrait d)
     ModuleVarDeclaration d@(VarDefinition { varName = name }) -> do
       tv <- makeTypeVar ctx (stmtPos s)
       let extern = hasMeta "extern" (varMeta d)
@@ -203,7 +231,10 @@ addStmtToModuleInterface ctx mod s = do
       addToInterface name (VarBinding) (not extern) tv
       addDefinition
         name
-        (DefinitionVar $ d { varNameMangling = if extern then Nothing else Just $ modPath mod })
+        (DeclVar $ d
+          { varNameMangling = if extern then Nothing else Just $ modPath mod
+          }
+        )
     FunctionDeclaration d@(FunctionDefinition { functionName = name, functionArgs = args, functionVarargs = varargs })
       -> do
         rt    <- makeTypeVar ctx (stmtPos s)
@@ -215,30 +246,43 @@ addStmtToModuleInterface ctx mod s = do
           )
         let extern = hasMeta "extern" (functionMeta d)
         if extern then recordGlobalName name else return ()
-        addToInterface name (FunctionBinding) (not extern) (TypeFunction rt args' varargs)
+        addToInterface name
+                       (FunctionBinding)
+                       (not extern)
+                       (TypeFunction rt args' varargs)
         addDefinition
           name
-          (DefinitionFunction $ d { functionNameMangling = if extern then Nothing else Just $ modPath mod })
+          (DeclFunction $ d
+            { functionNameMangling = if extern
+              then Nothing
+              else Just $ modPath mod
+            }
+          )
     Specialize a b -> do
       modifyIORef (modSpecializations mod) (\l -> ((a, b), stmtPos s) : l)
     Implement t -> do
       modifyIORef (modImpls mod) (\l -> t : l)
     _ -> return ()
  where
-  pos = stmtPos s
+  pos              = stmtPos s
   recordGlobalName = addGlobalName ctx mod pos
-  addToInterface name b mangle ct =
-    (do
-      existing <- resolveLocal (modScope mod) name
-      case existing of
-        Just (Binding { bindingPos = pos }) ->
-          throwk $ DuplicateDeclarationError (modPath mod) name pos (stmtPos s)
-        Nothing -> bindToScope
-          (modScope mod)
-          name
-          (newBinding b ct (if mangle then Just (modPath mod) else Nothing) (stmtPos s))
-    )
-  addDefinition name d = bindToScope (modDefinitions mod) name d
+  addToInterface name b mangle ct
+    = (do
+        existing <- resolveLocal (modScope mod) name
+        case existing of
+          Just (Binding { bindingPos = pos }) ->
+            throwk
+              $ DuplicateDeclarationError (modPath mod) name pos (stmtPos s)
+          Nothing -> bindToScope
+            (modScope mod)
+            name
+            (newBinding b
+                        ct
+                        (if mangle then Just (modPath mod) else Nothing)
+                        (stmtPos s)
+            )
+      )
+  addDefinition name d = bindToScope (modContents mod) name d
 
 findImports :: ModulePath -> [Statement] -> [(ModulePath, Span)]
 findImports mod stmts = foldr

@@ -45,7 +45,7 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
   result <- case et of
     (Block children) -> do
       blockScope <- newScope
-      let tctx' = tctx {tctxScopes = blockScope : tctxScopes tctx}
+      let tctx' = tctx { tctxScopes = blockScope : tctxScopes tctx }
       typedChildren <- mapM (typeExpr ctx tctx' mod) children
       return $ makeExprTyped
         (Block typedChildren)
@@ -84,14 +84,16 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
               -> return $ makeExprTyped (Identifier v mangle)
                                         (TypeFunction f args variadic)
                                         pos
-            Just (Binding { bindingType = EnumConstructor, bindingConcrete = TypeEnumConstructor t args })
+            Just (Binding { bindingType = EnumConstructor, bindingConcrete = TypeEnumConstructor t discriminant args })
               ->
               -- TODO: handle type params
-                 return $ makeExprTyped (Identifier v Nothing) t' pos
-             where
-              t' = if args == []
-                then (TypeEnum t [])
-                else (TypeEnumConstructor t args)
+                 return $ if null args
+                then makeExprTyped (EnumInit (TypeEnum t []) discriminant [])
+                                   (TypeEnum t [])
+                                   pos
+                else makeExprTyped (Identifier v Nothing)
+                                   (TypeEnumConstructor t discriminant args)
+                                   pos
             _ -> throwk
               $ TypingError ("Unknown identifier: " ++ (s_unpack vname)) pos
         MacroVar vname (Just t) -> do
@@ -298,8 +300,16 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
       typedArgs <- mapM r args
       case inferredType r1 of
         TypeFunction _ _ _ -> typeFunctionCall ctx tctx mod r1 typedArgs
-        TypeEnumConstructor _ _ ->
-          typeEnumConstructorCall ctx tctx mod r1 typedArgs
+        TypeEnumConstructor tp discriminant argTypes -> typeEnumConstructorCall
+          ctx
+          tctx
+          mod
+          r1
+          typedArgs
+          tp
+          discriminant
+          argTypes
+        x -> throwk $ TypingError ("Type " ++ show x ++ " is not callable") pos
 
     (Throw e1) -> do
       throwk $ InternalError "Not yet implemented" (Just pos)
@@ -312,10 +322,10 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
       case inferredType r1 of
         TypeStruct (structModPath, structName) params -> do
           structMod <- getMod ctx structModPath
-          def       <- resolveLocal (modDefinitions structMod) structName
+          def       <- resolveLocal (modContents structMod) structName
           case def of
-            Just (DefinitionType (TypeDefinition { typeType = Struct { structFields = fields } }))
-              -> typeStructFieldAccess ctx tctx mod fields r1 fieldName pos
+            Just (DeclType (TypeDefinition { typeType = Struct { structFields = fields } }))
+              -> typeStructUnionFieldAccess ctx tctx mod fields r1 fieldName pos
             _ -> throwk $ InternalError
               (  "Unexpected error: variable was typed as a struct, but struct "
               ++ s_unpack structName
@@ -324,9 +334,26 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
               )
               (Just $ tPos r1)
           -- TODO
+
+        TypeUnion (unionModPath, unionName) params -> do
+          unionMod <- getMod ctx unionModPath
+          def       <- resolveLocal (modContents unionMod) unionName
+          case def of
+            Just (DeclType (TypeDefinition { typeType = Union { unionFields = fields } }))
+              -> typeStructUnionFieldAccess ctx tctx mod fields r1 fieldName pos
+            _ -> throwk $ InternalError
+              (  "Unexpected error: variable was typed as a union, but union "
+              ++ s_unpack unionName
+              ++ " not found in module "
+              ++ s_unpack (showModulePath unionModPath)
+              )
+              (Just $ tPos r1)
+          -- TODO
+
         TypePtr x ->
           -- try to auto-dereference
           r $ ep (Field (ep (PreUnop Deref e1) (tPos r1)) (Var fieldName)) pos
+
         x -> throwk $ InternalError
           ("Field access is not allowed on " ++ show x)
           Nothing
@@ -400,9 +427,9 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
       case structType of
         TypeStruct tp@(mp, name) params -> do
           owningModule <- getMod ctx mp
-          structDef    <- resolveLocal (modDefinitions owningModule) name
+          structDef    <- resolveLocal (modContents owningModule) name
           case structDef of
-            Just (DefinitionType (TypeDefinition { typeType = Struct { structFields = structFields } }))
+            Just (DeclType (TypeDefinition { typeType = Struct { structFields = structFields } }))
               -> do
                 let providedNames = map fst fields
                 let fieldNames    = map varName structFields
@@ -523,11 +550,42 @@ typeEnumConstructorCall
   -> Module
   -> TypedExpr
   -> [TypedExpr]
+  -> TypePath
+  -> Str
+  -> ConcreteArgs
   -> IO TypedExpr
-typeEnumConstructorCall ctx tctx mod e args = do
-  return e
+typeEnumConstructorCall ctx tctx mod e args tp discriminant argTypes = do
+  if length args < length argTypes
+    then throwk $ BasicError
+      (  "Expected "
+      ++ (show $ length argTypes)
+      ++ " arguments (called with "
+      ++ (show $ length args)
+      ++ ")"
+      )
+      (Just $ tPos e)
+    else return ()
+  forM_
+    (zip argTypes args)
+    (\((_, argType), argValue) -> do
+      t1 <- follow ctx tctx mod argType
+      t2 <- knownType ctx tctx mod (inferredType argValue)
+      resolveConstraint
+        ctx
+        tctx
+        mod
+        (TypeEq t1
+                t2
+                "Enum arg types must match the enum's declaration"
+                (tPos argValue)
+        )
+    )
+          -- TODO: params
+  return $ makeExprTyped (EnumInit (TypeEnum tp []) discriminant args)
+                         (TypeEnum tp [])
+                         (tPos e)
 
-typeStructFieldAccess
+typeStructUnionFieldAccess
   :: CompileContext
   -> TypeContext
   -> Module
@@ -536,8 +594,8 @@ typeStructFieldAccess
   -> Str
   -> Span
   -> IO TypedExpr
-typeStructFieldAccess ctx tctx mod fields r fieldName pos = do
-  case findStructField fields fieldName of
+typeStructUnionFieldAccess ctx tctx mod fields r fieldName pos = do
+  case findStructUnionField fields fieldName of
     Just field -> do
       t <- resolveMaybeType ctx tctx mod pos (varType field)
       return $ makeExprTyped (Field r (Var fieldName)) t pos
@@ -545,10 +603,10 @@ typeStructFieldAccess ctx tctx mod fields r fieldName pos = do
       ("Struct doesn't have a field called `" ++ s_unpack fieldName ++ "`")
       pos
 
-findStructField :: [VarDefinition a b] -> Str -> Maybe (VarDefinition a b)
-findStructField (h : t) fieldName =
-  if varName h == fieldName then Just h else findStructField t fieldName
-findStructField [] _ = Nothing
+findStructUnionField :: [VarDefinition a b] -> Str -> Maybe (VarDefinition a b)
+findStructUnionField (h : t) fieldName =
+  if varName h == fieldName then Just h else findStructUnionField t fieldName
+findStructUnionField [] _ = Nothing
 
 literalConstraints :: ValueLiteral -> ConcreteType -> Span -> [TypeConstraint]
 literalConstraints (BoolValue _) s pos =

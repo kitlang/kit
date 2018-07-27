@@ -50,7 +50,11 @@ generateDeclIr ctx mod t = do
       addDecl $ DeclType $ converted
     DeclFunction f@(FunctionDefinition { functionArgs = args, functionType = t })
       -> do
-        debugLog ctx $ "generating IR for function " ++ s_unpack (functionName f) ++ " in " ++ show mod
+        debugLog ctx
+          $  "generating IR for function "
+          ++ s_unpack (functionName f)
+          ++ " in "
+          ++ show mod
 
         args       <- forM args (convertArgSpec exprConverter typeConverter)
         returnType <- typeConverter t
@@ -80,10 +84,31 @@ findUnderlyingType ctx mod t = do
       return $ BasicTypeStruct Nothing fields'
     TypeStruct (modPath, name) fieldTypes -> do
       definitionMod <- getMod ctx modPath
-      typeDef       <- resolveLocal (modDefinitions definitionMod) name
+      typeDef       <- resolveLocal (modContents definitionMod) name
       -- TODO
       return $ BasicTypeStruct (Just name) []
-    -- TypeEnum TypePath [ConcreteType]
+    TypeUnion (modPath, name) fieldTypes -> do
+      definitionMod <- getMod ctx modPath
+      typeDef       <- resolveLocal (modContents definitionMod) name
+      -- TODO
+      return $ BasicTypeUnion (Just name) []
+    TypeEnum tp@(modPath, name) argTypes -> do
+      definitionMod <- getMod ctx modPath
+      typeDef       <- resolveLocal (modContents definitionMod) name
+      case typeDef of
+        Just (DeclType (TypeDefinition { typeType = enum@(Enum { enumVariants = variants }) }))
+          -> return $ if enumIsSimple enum
+            then BasicTypeSimpleEnum (Just name) [] -- we won't care about the variants in this case
+            else BasicTypeComplexEnum
+              name
+              [ ( variantName variant
+                , [ (argName arg, BasicTypeUnknown)
+                  | arg <- variantArgs variant
+                  ]
+                )
+              | variant <- variants
+              ]
+        _ -> throwk $ InternalError "Expected enum not found" Nothing
     -- TypeAbstract TypePath [ConcreteType]
     -- TypeTypedef TypePath [ConcreteType]
     -- TypeFunction ConcreteType ConcreteArgs Bool
@@ -100,7 +125,7 @@ findUnderlyingType ctx mod t = do
       tctx  <- newTypeContext [] -- TODO...
       known <- knownType ctx tctx mod t
       case known of
-        TypeTypeVar (tv'@(TypeVar id)) -> if tv == tv'
+        TypeTypeVar id -> if tv == id
           then findDefaultType ctx mod id
           else findUnderlyingType ctx mod known
         _ -> findUnderlyingType ctx mod known
@@ -114,7 +139,7 @@ findDefaultType ctx mod id = do
   info <- getTypeVar ctx id
   if null (typeVarConstraints info)
     then throwk $ BasicError
-      ("Couldn't determine the type of this expression. Try adding a type annotation: `(myExpression: Type)`"
+      ("The type of this expression is ambiguous; not enough information to infer a type.\n\nTry adding a type annotation: `(myExpression: Type)`"
       )
       (Just $ head $ typeVarPositions info)
     else do
@@ -164,7 +189,7 @@ findDefaultType ctx mod id = do
                | ((c, _), (reason, _)) <- constraints
                ]
              )
-          ++ "\n\nbut no specialization for these traits satisfies all of the constraints, so no concrete type can be determined.\n\nTry adding a type annotation."
+          ++ "\n\nbut no specialization for one of these traits satisfies all of them, so no concrete type can be determined.\n\nTry adding a type annotation: `(myExpression: Type)`"
           )
           (Just $ head $ typeVarPositions info)
 
@@ -302,6 +327,9 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
             return (name, r1)
           )
         return $ IrStructInit f resolvedFields
+      (EnumInit t d args) -> do
+        resolvedArgs <- forM args r
+        return $ IrEnumInit f d resolvedArgs
 
 addHeader :: Module -> FilePath -> Span -> IO ()
 addHeader mod fp pos = do

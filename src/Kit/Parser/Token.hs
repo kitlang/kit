@@ -70,6 +70,7 @@ data TokenClass
   | KeywordTokens
   | KeywordTrait
   | KeywordTypedef
+  | KeywordUnion
   | KeywordUnsafe
   | KeywordVar
   | KeywordWhile
@@ -147,6 +148,7 @@ instance Show TokenClass where
     KeywordTokens -> "tokens"
     KeywordTrait -> "trait"
     KeywordTypedef -> "typedef"
+    KeywordUnion -> "union"
     KeywordUnsafe -> "unsafe"
     KeywordVar -> "var"
     KeywordWhile -> "while"

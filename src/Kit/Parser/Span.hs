@@ -10,7 +10,11 @@ instance Show Span where
   show span =
     if span == null_span
       then "@(???)"
-      else "@" ++ (case file span of {Just f -> s_unpack f; Nothing -> "(???)"}) ++ ":" ++ (show $ start_line span) ++ ":" ++ (show $ start_col span) ++ "-" ++ (show $ end_line span) ++ ":" ++ (show $ end_col span)
+      else "@" ++ (case file span of {Just f -> s_unpack f; Nothing -> "(???)"}) ++
+              ":" ++ (show $ start_line span) ++ ":" ++ (show $ start_col span) ++
+              (if (start_col span /= end_col span) || (start_line span /= end_line span)
+                then "-" ++ (show $ end_line span) ++ ":" ++ (show $ end_col span)
+                else "")
 
 null_span :: Span
 null_span = Span
