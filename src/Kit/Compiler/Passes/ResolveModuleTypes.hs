@@ -167,10 +167,33 @@ resolveDecl ctx mod decl = case decl of
             )
         _ -> throwk
           $ InternalError ("Expected function " ++ s_unpack name) Nothing
-  {-DeclType t@(TypeDefinition { typeName = name, typeSubtype = Struct { structFields = fields } })
+  DeclType t@(TypeDefinition { typeName = name })
     -> do
-      tctx    <- newTypeContext []
-      modType <- resolveLocal (modScope mod) name
-      case modType of
-        TypeStruct _ -}
+      -- TODO: params
+      tctx     <- newTypeContext []
+      subScope <- getSubScope (modScope mod) [name]
+      forM_
+        (typeStaticFields t)
+        (\field -> do
+          binding <- scopeGet subScope (varName field)
+          case varType field of
+            Just t -> do
+              t' <- resolveType ctx tctx mod t
+              resolveConstraint
+                ctx
+                tctx
+                mod
+                (TypeEq (bindingConcrete binding)
+                        t'
+                        "Static field type must match its type annotation"
+                        -- FIXME: position
+                        (null_span)
+                )
+            _ -> return ()
+        )
+      -- modType <- resolveLocal (modScope mod) name
+
+      -- case modType of
+        -- TypeStruct _
+      return ()
   _ -> return ()

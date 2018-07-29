@@ -58,22 +58,12 @@ typeFunction ctx mod f = do
       (argName arg)
       (newBinding ([], argName arg) VarBinding (argType arg) [] (argPos arg))
     )
-  returnType <- resolveMaybeType ctx tctx mod fPos (functionType f)
-  ct         <- scopeGet (modScope mod) (functionName f)
-  let concreteRt = case (bindingConcrete ct) of
+  ct <- scopeGet (modScope mod) (functionName f)
+  let returnType = case (bindingConcrete ct) of
         TypeFunction rt _ _ -> rt
         _                   -> throwk $ InternalError
           "Function type was unexpectedly missing from module scope"
           Nothing
-  resolveConstraint
-    ctx
-    tctx
-    mod
-    (TypeEq concreteRt
-            returnType
-            "Function return type and type annotation must match"
-            (fPos)
-    )
   let functionTypeContext =
         (tctx { tctxScopes     = functionScope : (tctxScopes tctx)
               , tctxReturnType = Just returnType
@@ -85,24 +75,22 @@ typeFunction ctx mod f = do
     args
     returnType
     f
-  resolvedReturnType <- knownType ctx tctx mod returnType
   -- Try to unify with void; if unification doesn't fail, we didn't encounter a return statement, so the function is void.
-  unification        <- unify ctx tctx mod (resolvedReturnType) voidType
-  finalReturn        <- case unification of
+  unification <- unify ctx tctx mod returnType voidType
+  case unification of
     TypeVarIs _ (TypeBasicType BasicTypeVoid) -> do
       resolveConstraint
         ctx
         tctx
         mod
-        (TypeEq resolvedReturnType
+        (TypeEq returnType
                 voidType
                 "Functions whose return type unifies with Void are Void"
                 fPos
         )
-      knownType ctx tctx mod resolvedReturnType
-    _ -> return resolvedReturnType
+    _ -> return ()
   let typedFunction = converted
-        { functionType      = finalReturn
+        { functionType      = returnType
         , functionNamespace = (if isMain then [] else functionNamespace f)
         }
   bindToScope (modTypedContents mod)

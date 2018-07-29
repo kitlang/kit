@@ -9,7 +9,12 @@ data Identifier
   -- A macro variable with optional type annotation:
   -- `$abc` or `${abc: Int}`
   | MacroVar Str (Maybe TypeSpec)
-  deriving (Eq, Show)
+  deriving (Eq)
+
+instance Show Identifier where
+  show (Var s) = s_unpack s
+  show (MacroVar s (Just x)) = "${" ++ s_unpack s ++ ": " ++ show x ++ "}"
+  show (MacroVar s Nothing) = "$" ++ s_unpack s
 
 identifierName x = case x of
   Var s        -> s

@@ -83,12 +83,13 @@ relativeLibPath mod = moduleFilePath mod -<.> ""
 modDef :: ModulePath -> String
 modDef m = "KIT_INCLUDE__" ++ (intercalate "__" (map s_unpack m))
 
-generateHeaderForwardDecl :: CompileContext -> Module -> Handle -> IrDecl -> IO ()
+generateHeaderForwardDecl
+  :: CompileContext -> Module -> Handle -> IrDecl -> IO ()
 generateHeaderForwardDecl ctx mod headerFile decl = do
   case decl of
     DeclType def@(TypeDefinition { typeSubtype = Atom }) -> return ()
 
-    DeclType def@(TypeDefinition {typeName = name}                  ) -> do
+    DeclType def@(TypeDefinition { typeName = name }   ) -> do
       let decl = cDecl (typeBasicType def) Nothing Nothing
       hPutStrLn headerFile (render $ pretty $ CDeclExt $ decl)
 
@@ -100,18 +101,20 @@ generateHeaderDecl ctx mod headerFile decl = do
   case decl of
     DeclType def@(TypeDefinition { typeSubtype = Atom }) -> return ()
 
-    DeclType def@(TypeDefinition{}                  ) -> do
+    DeclType def@(TypeDefinition{}                     ) -> do
       let decls = cdecl (typeBasicType def)
-      mapM_
-        (\d -> hPutStrLn headerFile (render $ pretty $ CDeclExt $ d))
-        decls
+      mapM_ (\d -> hPutStrLn headerFile (render $ pretty $ CDeclExt $ d)) decls
 
-    DeclFunction def@(FunctionDefinition { functionName = name, functionType = t, functionArgs = args, functionVarargs = varargs, functionNamespace = namespace })
+    DeclFunction def@(FunctionDefinition { functionName = name, functionType = t, functionArgs = args, functionVarargs = varargs })
       -> do
-        let name' = mangleName namespace name
         hPutStrLn
           headerFile
-          (render $ pretty $ CDeclExt $ cfunDecl name' (functionBasicType def))
+          (render $ pretty $ CDeclExt $ cfunDecl name (functionBasicType def))
+
+    DeclVar def@(VarDefinition { varName = name, varType = t }) -> do
+      hPutStrLn headerFile
+                (render $ pretty $ CDeclExt $ cDecl t (Just name) Nothing)
+
     -- TODO: remove
     _ -> do
       return ()
@@ -119,14 +122,18 @@ generateHeaderDecl ctx mod headerFile decl = do
 generateDef :: CompileContext -> Module -> Handle -> IrDecl -> IO ()
 generateDef ctx mod codeFile decl = do
   case decl of
-    DeclFunction def@(FunctionDefinition { functionName = name, functionType = t, functionBody = Just body, functionNamespace = namespace })
+    DeclFunction def@(FunctionDefinition { functionName = name, functionType = t, functionBody = Just body })
       -> do
-        let name' = mangleName namespace name
         hPutStrLn
           codeFile
-          (  "\n"
-          ++ (render $ pretty $ cfunDef name' (functionBasicType def) body)
+          ("\n" ++ (render $ pretty $ cfunDef name (functionBasicType def) body)
           )
+
+    DeclVar def@(VarDefinition { varName = name, varType = t, varDefault = Just val })
+      -> do
+        hPutStrLn
+          codeFile
+          ("\n" ++ (render $ pretty $ CDeclExt $ cDecl t (Just name) (Just $ u $ CInitExpr $ transpileExpr val)))
 
     _ -> do
       return ()
@@ -137,17 +144,18 @@ functionBasicType (FunctionDefinition { functionType = t, functionArgs = args, f
     )
 
 typeBasicType :: TypeDefinition IrExpr BasicType -> BasicType
-typeBasicType def@(TypeDefinition { typeName = name }) = case typeSubtype def of
-  Struct { structFields = fields } -> BasicTypeStruct
-    (Just name)
-    [ (varName field, varType field) | field <- fields ]
-  Union { unionFields = fields } -> BasicTypeUnion
-    (Just name)
-    [ (varName field, varType field) | field <- fields ]
-  Enum { enumVariants = variants } -> if all variantIsSimple variants
-    then BasicTypeSimpleEnum (Just name) [ variantName v | v <- variants ]
-    else BasicTypeComplexEnum
-      name
-      [ (variantName v, [ (argName a, argType a) | a <- variantArgs v ])
-      | v <- variants
-      ]
+typeBasicType def@(TypeDefinition { typeName = name }) =
+  case typeSubtype def of
+    Struct { structFields = fields } -> BasicTypeStruct
+      (Just name)
+      [ (varName field, varType field) | field <- fields ]
+    Union { unionFields = fields } -> BasicTypeUnion
+      (Just name)
+      [ (varName field, varType field) | field <- fields ]
+    Enum { enumVariants = variants } -> if all variantIsSimple variants
+      then BasicTypeSimpleEnum (Just name) [ variantName v | v <- variants ]
+      else BasicTypeComplexEnum
+        name
+        [ (variantName v, [ (argName a, argType a) | a <- variantArgs v ])
+        | v <- variants
+        ]

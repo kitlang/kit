@@ -92,6 +92,9 @@ resolveConstraint
 resolveConstraint ctx tctx mod constraint@(TypeEq a b reason pos) = do
   result <- resolveConstraintOrThrow ctx tctx mod constraint
   case result of
+    TypeVarIs a (TypeTypeVar b) | a == b -> do
+      -- tautological; would cause an endless loop
+      return ()
     TypeVarIs id x -> do
       info <- getTypeVar ctx id
       let constraints = typeVarConstraints info

@@ -50,7 +50,8 @@ data CompileContext = CompileContext {
   ctxImpls :: HashTable TypePath (HashTable ConcreteType (TraitImplementation Expr (Maybe TypeSpec))),
   ctxGlobalNames :: HashTable Str Span,
   ctxNoCompile :: Bool,
-  ctxNoLink :: Bool
+  ctxNoLink :: Bool,
+  ctxDumpAst :: Bool
 }
 
 instance Show CompileContext where
@@ -100,6 +101,7 @@ newCompileContext = do
     , ctxGlobalNames          = globals
     , ctxNoCompile            = False
     , ctxNoLink               = False
+    , ctxDumpAst              = False
     }
 
 ctxSourceModules :: CompileContext -> IO [Module]
@@ -141,7 +143,7 @@ getTypeVar ctx tv = do
   info <- h_get (ctxTypeVariables ctx) tv
   case typeVarValue info of
     Just (TypeTypeVar tv') -> getTypeVar ctx tv'
-    _ -> return info
+    _                      -> return info
 
 resolveVar
   :: CompileContext -> [Scope Binding] -> Module -> Str -> IO (Maybe Binding)

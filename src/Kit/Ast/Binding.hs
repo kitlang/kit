@@ -25,6 +25,7 @@ data BindingType
   | EnumConstructor
   deriving (Show, Eq)
 
+newBinding :: TypePath -> BindingType -> ConcreteType -> [Str] -> Span -> Binding
 newBinding path b ct ns pos = Binding
   { bindingType      = b
   , bindingPath      = path

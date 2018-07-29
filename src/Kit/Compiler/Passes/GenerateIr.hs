@@ -48,12 +48,17 @@ generateDeclIr ctx mod t = do
       debugLog ctx $ "generating IR for " ++ s_unpack name ++ " in " ++ show mod
       converted <- convertTypeDefinition exprConverter typeConverter def
       addDecl $ DeclType $ converted
-      -- TODO: add declarations for methods and static fields
-    DeclFunction f@(FunctionDefinition { functionArgs = args, functionType = t })
+      -- TODO: add declarations for methods
+      forM_
+        (typeStaticFields def)
+        (\field -> generateDeclIr ctx mod
+          $ DeclVar (field { varNamespace = (modPath mod) ++ [name] })
+        )
+    DeclFunction f@(FunctionDefinition { functionName = name, functionArgs = args, functionType = t })
       -> do
         debugLog ctx
           $  "generating IR for function "
-          ++ s_unpack (functionName f)
+          ++ s_unpack name
           ++ " in "
           ++ show mod
 
@@ -65,6 +70,19 @@ generateDeclIr ctx mod t = do
                                                 returnType
                                                 f
         addDecl $ DeclFunction $ converted
+          { functionName = mangleName (functionNamespace f) name
+          }
+    DeclVar v@(VarDefinition { varName = name, varType = t }) -> do
+      debugLog ctx
+        $  "generating IR for var "
+        ++ s_unpack name
+        ++ " in "
+        ++ show mod
+
+      converted <- convertVarDefinition exprConverter typeConverter v
+      addDecl $ DeclVar $ converted { varName = mangleName (varNamespace v) name
+                                    }
+
     _ -> undefined -- TODO
 
 {-
@@ -227,10 +245,11 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
       (Self) -> throw $ KitError $ BasicError
         ("unexpected Self in typed AST")
         (Just pos)
-      (Identifier (Var v) namespace) ->
-        case t of
-          TypeTypeOf x -> throwk $ BasicError "Names of types can't be used as runtime values" (Just pos)
-          _ -> return $ IrIdentifier (mangleName namespace v)
+      (Identifier (Var v) namespace) -> case t of
+        TypeTypeOf x -> throwk $ BasicError
+          "Names of types can't be used as runtime values"
+          (Just pos)
+        _ -> return $ IrIdentifier (mangleName namespace v)
       (Identifier     (MacroVar v _) _) -> return $ IrIdentifier v
       (TypeAnnotation e1             t) -> throw $ KitError $ BasicError
         ("unexpected type annotation in typed AST")
@@ -282,12 +301,12 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
       (Return e1) -> do
         r1 <- maybeR e1
         return $ IrReturn r1
-      (Throw e1           ) -> return $ undefined -- TODO
+      (Throw      e1   ) -> return $ undefined -- TODO
       -- (Match e1 cases (e2)) -> do
         -- r1 <- r e1
 
-      (InlineCall e1      ) -> return $ undefined -- TODO
-      (Field e1 (Var v)   ) -> do
+      (InlineCall e1   ) -> return $ undefined -- TODO
+      (Field e1 (Var v)) -> do
         r1 <- r e1
         return $ IrField r1 v
       (Field e1 (MacroVar v _)) -> throwk $ InternalError

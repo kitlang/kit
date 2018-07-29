@@ -60,7 +60,7 @@ instance Show ConcreteType where
   show (TypeAbstract tp params) = "abstract " ++ (s_unpack $ showTypePath tp) ++ "[" ++ (intercalate ", " [show x | x <- params])
   show (TypeTypedef tp []) = (s_unpack $ showTypePath tp)
   show (TypeTypedef tp params) = (s_unpack $ showTypePath tp) ++ "[" ++ (intercalate ", " [show x | x <- params])
-  show (TypeFunction rt args var) = "function (" ++ (intercalate ", " [s_unpack name ++ ": " ++ (show t) | (name, t) <- args]) ++ (if var then ", ..." else "") ++ "): (" ++ (show rt) ++ ")"
+  show (TypeFunction rt args var) = "function (" ++ (intercalate ", " [s_unpack name ++ ": " ++ (show t) | (name, t) <- args]) ++ (if var then ", ..." else "") ++ ") -> " ++ show rt
   show (TypeBasicType t) = show t
   show (TypePtr (TypeBasicType (BasicTypeInt 8))) = "CString"
   show (TypePtr t) = "Ptr[" ++ (show t) ++ "]"

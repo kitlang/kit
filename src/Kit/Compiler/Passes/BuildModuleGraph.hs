@@ -190,9 +190,23 @@ addStmtToModuleInterface ctx mod s = do
         addToInterface name (TypeBinding) (not extern) ct
         addDefinition
           name
-          (DeclType $ d
-            { typeNamespace = if extern then [] else modPath mod
-            }
+          (DeclType $ d { typeNamespace = if extern then [] else modPath mod })
+
+        subNamespace <- getSubScope (modScope mod) [name]
+        -- FIXME: position
+        forM_
+          (typeStaticFields d)
+          (\var -> do
+            t <- makeTypeVar ctx (stmtPos s)
+            bindToScope
+              (subNamespace)
+              (varName var)
+              (newBinding (modPath mod ++ [name], varName var)
+                          VarBinding
+                          t
+                          (modPath mod ++ [name])
+                          (stmtPos s)
+              )
           )
 
         case subtype of
@@ -231,10 +245,7 @@ addStmtToModuleInterface ctx mod s = do
       addToInterface name (VarBinding) (not extern) tv
       addDefinition
         name
-        (DeclVar $ d
-          { varNamespace = if extern then [] else modPath mod
-          }
-        )
+        (DeclVar $ d { varNamespace = if extern then [] else modPath mod })
     FunctionDeclaration d@(FunctionDefinition { functionName = name, functionArgs = args, functionVarargs = varargs })
       -> do
         rt    <- makeTypeVar ctx (stmtPos s)
@@ -252,11 +263,8 @@ addStmtToModuleInterface ctx mod s = do
                        (TypeFunction rt args' varargs)
         addDefinition
           name
-          (DeclFunction $ d
-            { functionNamespace = if extern
-              then []
-              else modPath mod
-            }
+          ( DeclFunction
+          $ d { functionNamespace = if extern then [] else modPath mod }
           )
     Specialize a b -> do
       modifyIORef (modSpecializations mod) (\l -> ((a, b), stmtPos s) : l)
@@ -266,23 +274,22 @@ addStmtToModuleInterface ctx mod s = do
  where
   pos              = stmtPos s
   recordGlobalName = addGlobalName ctx mod pos
-  addToInterface name b namespace ct
-    = (do
-        existing <- resolveLocal (modScope mod) name
-        case existing of
-          Just (Binding { bindingPos = pos }) ->
-            throwk
-              $ DuplicateDeclarationError (modPath mod) name pos (stmtPos s)
-          Nothing -> bindToScope
-            (modScope mod)
-            name
-            (newBinding (modPath mod, name)
-                        b
-                        ct
-                        (if namespace then (modPath mod) else [])
-                        (stmtPos s)
-            )
-      )
+  addToInterface name b namespace ct =
+    (do
+      existing <- resolveLocal (modScope mod) name
+      case existing of
+        Just (Binding { bindingPos = pos }) ->
+          throwk $ DuplicateDeclarationError (modPath mod) name pos (stmtPos s)
+        Nothing -> bindToScope
+          (modScope mod)
+          name
+          (newBinding (modPath mod, name)
+                      b
+                      ct
+                      (if namespace then (modPath mod) else [])
+                      (stmtPos s)
+          )
+    )
   addDefinition name d = bindToScope (modContents mod) name d
 
 findImports :: ModulePath -> [Statement] -> [(ModulePath, Span)]

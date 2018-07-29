@@ -30,7 +30,8 @@ data Options = Options {
   optDefines :: [String],
   optIsLibrary :: Bool,
   optNoCompile :: Bool,
-  optNoLink :: Bool
+  optNoLink :: Bool,
+  optDumpAst :: Bool
 } deriving (Eq, Show)
 
 options :: Parser Options
@@ -78,6 +79,11 @@ options =
     <*> switch
           (long "no-link" <> help
             "compile C files but skip linking into a library or binary"
+          )
+
+    <*> switch
+          (long "dump-ast" <> help
+            "output the typed AST after typing, for debugging purposes"
           )
 
 sourceDirParser = strOption
@@ -135,6 +141,7 @@ main = do
             , ctxVerbose      = optVerbose opts
             , ctxNoCompile    = optNoCompile opts
             , ctxNoLink       = optNoLink opts
+            , ctxDumpAst      = optDumpAst opts
             }
 
       result  <- tryCompile ctx

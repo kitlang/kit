@@ -8,6 +8,7 @@ import Data.Maybe
 import System.FilePath
 import Kit.Ast
 import Kit.Compiler.Context
+import Kit.Compiler.DumpAst
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
@@ -43,3 +44,63 @@ typeModuleContent ctx mod = do
       DeclTrait    t -> typeTrait ctx mod t
       DeclType     t -> typeTypeDefinition ctx mod t
     )
+  if ctxDumpAst ctx then dumpModuleContent ctx mod else return ()
+
+dumpModuleContent :: CompileContext -> Module -> IO ()
+dumpModuleContent ctx mod = do
+  putStrLn $ show mod
+  defs <- bindingList (modTypedContents mod)
+  forM_ defs (dumpModuleDecl ctx mod)
+  putStrLn ""
+
+dumpModuleDecl ctx mod decl = do
+  case decl of
+    DeclFunction f -> do
+      putStr $ "  function " ++ (s_unpack $ functionName f) ++ ": "
+      if null $ functionArgs f
+        then putStr "() -> "
+        else do
+          putStrLn "("
+          forM_
+            (functionArgs f)
+            (\arg -> do
+              t <- dumpCt ctx (argType arg)
+              putStrLn $ "      " ++ s_unpack (argName arg) ++ ": " ++ t
+            )
+          putStr $ "    ) -> "
+      rt <- dumpCt ctx (functionType f)
+      putStrLn rt
+      case functionBody f of
+        Just x -> do
+          out <- dumpAst ctx 2 x
+          putStrLn out
+        _ -> return ()
+      putStrLn ""
+
+    DeclVar v -> do
+      t <- dumpCt ctx (varType v)
+      putStrLn $ "  var " ++ (s_unpack $ varName v) ++ ": " ++ t ++ "\n"
+      case varDefault v of
+        Just x -> do
+          out <- dumpAst ctx 2 x
+          putStrLn out
+        _ -> return ()
+
+    DeclType t -> do
+      putStrLn
+        $  "  type "
+        ++ (s_unpack $ showTypePath (modPath mod, typeName t))
+      forM_
+        (typeStaticFields t)
+        (\v -> do
+          t <- dumpCt ctx (varType v)
+          putStrLn $ "    static var " ++ (s_unpack $ varName v) ++ ": " ++ t
+          case varDefault v of
+            Just x -> do
+              out <- dumpAst ctx 3 x
+              putStrLn out
+            _ -> return ()
+        )
+      putStrLn ""
+
+    _ -> return ()

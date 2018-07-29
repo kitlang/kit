@@ -39,18 +39,25 @@ compile :: CompileContext -> IO ()
 compile ctx = do
   debugLog ctx $ show ctx
   -- load the main module and all of its dependencies recursively
+
   printLog "building module graph"
   buildModuleGraph ctx
+
   printLog "processing C includes"
   includeCModules ctx
+
   printLog "resolving module types"
   resolveModuleTypes ctx
+
   printLog "typing module content"
   typeContent ctx
+
   printLog "generating internal representation"
   generateIr ctx
+
   printLog "generating code"
   generateCode ctx
+
   if ctxNoCompile ctx
     then printLog "skipping compile"
     else do

@@ -11,6 +11,8 @@ import Kit.Compiler.TypedDecl
 import Kit.Compiler.TypedExpr
 import Kit.Compiler.Typers.Base
 import Kit.Compiler.Typers.TypeExpression
+import Kit.Compiler.Typers.TypeFunction
+import Kit.Compiler.Typers.TypeVar
 import Kit.Compiler.Unify
 import Kit.Compiler.Utils
 import Kit.Error
@@ -21,10 +23,13 @@ typeTypeDefinition
   :: CompileContext -> Module -> TypeDefinition Expr (Maybe TypeSpec) -> IO ()
 typeTypeDefinition ctx mod def@(TypeDefinition { typeName = name }) = do
   debugLog ctx $ "typing " ++ s_unpack name ++ " in " ++ show mod
-
   -- TODO: handle params here
-  tctx      <- newTypeContext []
-  converted <- convertTypeDefinition (typeExpr ctx tctx mod)
-                                     (resolveMaybeType ctx tctx mod null_span) -- FIXME: position
-                                     def
-  bindToScope (modTypedContents mod) name (DeclType converted)
+  tctx <- newTypeContext []
+  let exprConverter = typeExpr ctx tctx mod
+  -- FIXME: position
+  let typeConverter = resolveMaybeType ctx tctx mod null_span
+  staticFields <- forM (typeStaticFields def) (typeVarDefinition ctx tctx mod)
+  converted    <- convertTypeDefinition exprConverter typeConverter def
+  bindToScope (modTypedContents mod)
+              name
+              (DeclType $ converted { typeStaticFields = staticFields })
