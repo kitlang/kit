@@ -8,6 +8,7 @@ import Kit.Compiler.Module
 import Kit.Compiler.TypeContext
 import Kit.Error
 import Kit.HashTable
+import Kit.Log
 import Kit.Parser.Span
 import Kit.Str
 

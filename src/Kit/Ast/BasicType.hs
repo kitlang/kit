@@ -32,6 +32,7 @@ data BasicType
   | BasicTypeComplexEnum Str [(Str, BasicArgs)]
   | BasicTypeAtom
   | BasicTypeFunction BasicType BasicArgs Bool
+  | BasicTypeTuple [BasicType]
   -- If for some reason we can't parse type specifiers into a meaningful
   -- BasicType, the value isn't usable from Kit without casting.
   | BasicTypeUnknown

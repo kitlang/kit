@@ -93,12 +93,14 @@ spec = parallel $ do
     it "lexes bool literals" $ do
       lx "true false" `shouldBe` [LiteralBool True, LiteralBool False]
     it "lexes keywords" $ do
-      lx "public in inline this token"
+      lx "public in inline this match rule rules"
         `shouldBe` [ KeywordPublic
                    , KeywordIn
                    , KeywordInline
                    , KeywordThis
-                   , KeywordToken
+                   , KeywordMatch
+                   , KeywordRule
+                   , KeywordRules
                    ]
     it "lexes function call block" $ do
       lx "  {\nf.ghi(abc)\n}"

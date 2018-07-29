@@ -57,6 +57,6 @@ findModule ctx mod pos = do
         [ (dir </> modPath) | dir <- ctxSourcePaths ctx ]
         pos
 
-mangleName :: Maybe ModulePath -> Str -> Str
-mangleName (Just mp) s = s_join "__" (("kit" : mp) ++ [s])
-mangleName Nothing   s = s
+mangleName :: [Str] -> Str -> Str
+mangleName [] s = s
+mangleName namespace s = s_join "__" (("kit" : namespace) ++ [s])

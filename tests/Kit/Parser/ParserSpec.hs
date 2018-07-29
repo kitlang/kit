@@ -18,14 +18,14 @@ spec = parallel $ do
   describe "Parse expressions" $ do
     it "parses identifiers" $ do
       testParseExpr "apple"
-        `shouldBe` (pe (sp 1 1 1 5) $ Identifier (Var "apple") Nothing)
+        `shouldBe` (pe (sp 1 1 1 5) $ Identifier (Var "apple") [])
       testParseExpr "this" `shouldBe` (pe (sp 1 1 1 4) $ This)
       testParseExpr "Self" `shouldBe` (pe (sp 1 1 1 4) $ Self)
 
     it "parses type annotations" $ do
       testParseExpr "x : T"
         `shouldBe` (pe (sp 1 1 1 5) $ TypeAnnotation
-                     (pe (sp 1 1 1 1) $ Identifier (Var "x") Nothing)
+                     (pe (sp 1 1 1 1) $ Identifier (Var "x") [])
                      (Just $ TypeSpec (([], "T")) [] null_span)
                    )
 
@@ -36,7 +36,7 @@ spec = parallel $ do
       testParseExpr "a = 1 + 2.0 * 'abc def'"
         `shouldBe` (pe (sp 1 1 1 23) $ Binop
                      Assign
-                     (e $ Identifier (Var "a") Nothing)
+                     (e $ Identifier (Var "a") [])
                      (e $ Binop
                        Add
                        (e $ Literal $ IntValue "1")
@@ -170,12 +170,12 @@ spec = parallel $ do
                                                ]
                          , functionType      = Just $ makeTypeSpec "Something"
                          , functionBody      = Just $ e $ Block
-                           [ e $ Call (e $ Identifier (Var "print") Nothing)
-                                      [e $ Identifier (Var "a") Nothing]
-                           , e $ Call (e $ Identifier (Var "print") Nothing)
-                                      [e $ Identifier (Var "b") Nothing]
-                           , e $ Call (e $ Identifier (Var "print") Nothing)
-                                      [e $ Identifier (Var "c") Nothing]
+                           [ e $ Call (e $ Identifier (Var "print") [])
+                                      [e $ Identifier (Var "a") []]
+                           , e $ Call (e $ Identifier (Var "print") [])
+                                      [e $ Identifier (Var "b") []]
+                           , e $ Call (e $ Identifier (Var "print") [])
+                                      [e $ Identifier (Var "c") []]
                            ]
                          , functionVarargs   = True
                          }
@@ -199,7 +199,7 @@ spec = parallel $ do
         typeModifiers = [],
         typeRules = [],
         typeParams = [TypeParam {paramType = makeTypeSpec "A", constraints = []}],
-        typeType = Typedef {
+        typeSubtype = Typedef {
           typedef_definition = TypeSpec ([], "OtherType") [TypeParam {paramType = makeTypeSpec "B", constraints = []}] null_span
         }
       }]-}
@@ -207,7 +207,7 @@ spec = parallel $ do
     it "parses atoms" $ do
       testParse "atom MyAtom;"
         `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition "MyAtom")
-                       { typeType      = Atom
+                       { typeSubtype   = Atom
                        , typeDoc       = Nothing
                        , typeMeta      = []
                        , typeModifiers = []
@@ -217,7 +217,7 @@ spec = parallel $ do
                    ]
       testParse "public atom MyAtom;"
         `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition "MyAtom")
-                       { typeType      = Atom
+                       { typeSubtype   = Atom
                        , typeDoc       = Nothing
                        , typeMeta      = []
                        , typeModifiers = [Public]
@@ -227,7 +227,7 @@ spec = parallel $ do
                    ]
       testParse "/** Doc*/ atom MyAtom;"
         `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition "MyAtom")
-                       { typeType      = Atom
+                       { typeSubtype   = Atom
                        , typeDoc       = Just "Doc"
                        , typeMeta      = []
                        , typeModifiers = []
@@ -237,7 +237,7 @@ spec = parallel $ do
                    ]
       testParse "/** Doc*/ #[meta] public atom MyAtom;"
         `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition "MyAtom")
-                       { typeType      = Atom
+                       { typeSubtype   = Atom
                        , typeDoc       = Just "Doc"
                        , typeMeta      = [ Metadata
                                              { metaName = "meta"
@@ -263,7 +263,7 @@ spec = parallel $ do
                        , typeModifiers = []
                        , typeRules     = []
                        , typeParams    = []
-                       , typeType      = Enum
+                       , typeSubtype   = Enum
                          { enumUnderlyingType = Just (makeTypeSpec "Float")
                          , enumVariants       = [ EnumVariant
                                                   { variantName      = "Apple"
@@ -276,14 +276,14 @@ spec = parallel $ do
                                                 , EnumVariant
                                                   { variantName      = "Banana"
                                                   , variantDoc       = Nothing
-                                                  , variantArgs      = [ newArgSpec
-                                                                           { argName = "i"
-                                                                           , argType = Just
-                                                                             (makeTypeSpec
-                                                                               "Int"
-                                                                             )
-                                                                           }
-                                                                       ]
+                                                  , variantArgs = [ newArgSpec
+                                                                      { argName = "i"
+                                                                      , argType = Just
+                                                                        (makeTypeSpec
+                                                                          "Int"
+                                                                        )
+                                                                      }
+                                                                  ]
                                                   , variantMeta      = []
                                                   , variantModifiers = []
                                                   , variantValue     = Nothing
@@ -308,14 +308,43 @@ spec = parallel $ do
             \    var abc;\n\
             \    public var def;\n\
             \    /** test */ #[meta] var ghi: Int = 1;\n\
+            \\n\
+            \    static var ghi;\n\
+            \    static function jkl() {}\n\
             \}"
         `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition "MyStruct")
-                       { typeDoc       = Nothing
-                       , typeMeta      = []
-                       , typeModifiers = []
-                       , typeRules     = []
-                       , typeParams    = []
-                       , typeType      = Struct
+                       { typeDoc           = Nothing
+                       , typeMeta          = []
+                       , typeModifiers     = []
+                       , typeRules         = []
+                       , typeParams        = []
+                       , typeStaticFields  = [ VarDefinition
+                                                 { varName      = "ghi"
+                                                 , varDoc       = Nothing
+                                                 , varMeta      = []
+                                                 , varModifiers = [Static]
+                                                 , varType      = Nothing
+                                                 , varDefault   = Nothing
+                                                 , varNamespace = []
+                                                 }
+                                             ]
+                       , typeStaticMethods = [ FunctionDefinition
+                                                 { functionName      = "jkl"
+                                                 , functionDoc       = Nothing
+                                                 , functionMeta      = []
+                                                 , functionModifiers = [Static]
+                                                 , functionParams    = []
+                                                 , functionArgs      = []
+                                                 , functionType      = Nothing
+                                                 , functionBody      = Just
+                                                   (e $ Block [])
+                                                 , functionVarargs   = False
+                                                 , functionNamespace = []
+                                                 , functionThis      = Nothing
+                                                 , functionSelf      = Nothing
+                                                 }
+                                             ]
+                       , typeSubtype       = Struct
                          { structFields = [ (newVarDefinition :: VarDefinition
                                                 Expr
                                                 (Maybe TypeSpec)

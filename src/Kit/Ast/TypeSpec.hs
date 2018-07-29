@@ -17,6 +17,7 @@ type TypeSpecArgs = [(Str, TypeSpec)]
 -}
 data TypeSpec
   = TypeSpec TypePath [TypeSpec] Span
+  | TypeTupleSpec [TypeSpec] Span
   | TypeFunctionSpec TypeSpec [TypeSpec] TypeSpecArgs Bool
   | TypeSpecConstant ValueLiteral
   {-

@@ -69,7 +69,7 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
 
     (Self) -> do
       case tctxSelf tctx of
-        Just t -> return $ makeExprTyped Self t pos
+        Just t -> return $ makeExprTyped Self (TypeTypeOf t) pos
         Nothing ->
           throwk $ TypingError ("`Self` can only be used in methods") pos
 
@@ -78,28 +78,12 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
         Var vname -> do
           binding <- resolveVar ctx (tctxScopes tctx) mod vname
           case binding of
-            Just (Binding { bindingType = VarBinding, bindingConcrete = t, bindingNameMangling = mangle })
-              -> return $ makeExprTyped (Identifier v mangle) t pos
-            Just (Binding { bindingType = FunctionBinding, bindingConcrete = TypeFunction f args variadic, bindingNameMangling = mangle })
-              -> return $ makeExprTyped (Identifier v mangle)
-                                        (TypeFunction f args variadic)
-                                        pos
-            Just (Binding { bindingType = EnumConstructor, bindingConcrete = TypeEnumConstructor t discriminant args })
-              ->
-              -- TODO: handle type params
-                 return $ if null args
-                then makeExprTyped (EnumInit (TypeEnum t []) discriminant [])
-                                   (TypeEnum t [])
-                                   pos
-                else makeExprTyped (Identifier v Nothing)
-                                   (TypeEnumConstructor t discriminant args)
-                                   pos
-            _ -> throwk
-              $ TypingError ("Unknown identifier: " ++ (s_unpack vname)) pos
+            Just binding -> typeVarBinding ctx vname binding pos
+            Nothing -> throwk $ TypingError ("Unknown identifier: " ++ s_unpack vname) pos
         MacroVar vname (Just t) -> do
           macroType <- resolveType ctx tctx mod t
           return $ makeExprTyped
-            (Identifier (MacroVar vname (Just t)) Nothing)
+            (Identifier (MacroVar vname (Just t)) [])
             macroType
             pos
         MacroVar vname Nothing -> throwk $ TypingError
@@ -204,7 +188,7 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
           "For statements must iterate over an Iterable type"
           (tPos r2)
       return $ makeExprTyped
-        (For (makeExprTyped (Identifier v Nothing) (TypeIdentifier tv) pos1)
+        (For (makeExprTyped (Identifier v []) (TypeIdentifier tv) pos1)
              r2
              r3
         )
@@ -324,7 +308,7 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
           structMod <- getMod ctx structModPath
           def       <- resolveLocal (modContents structMod) structName
           case def of
-            Just (DeclType (TypeDefinition { typeType = Struct { structFields = fields } }))
+            Just (DeclType (TypeDefinition { typeSubtype = Struct { structFields = fields } }))
               -> typeStructUnionFieldAccess ctx tctx mod fields r1 fieldName pos
             _ -> throwk $ InternalError
               (  "Unexpected error: variable was typed as a struct, but struct "
@@ -333,13 +317,12 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
               ++ s_unpack (showModulePath structModPath)
               )
               (Just $ tPos r1)
-          -- TODO
 
         TypeUnion (unionModPath, unionName) params -> do
           unionMod <- getMod ctx unionModPath
-          def       <- resolveLocal (modContents unionMod) unionName
+          def      <- resolveLocal (modContents unionMod) unionName
           case def of
-            Just (DeclType (TypeDefinition { typeType = Union { unionFields = fields } }))
+            Just (DeclType (TypeDefinition { typeSubtype = Union { unionFields = fields } }))
               -> typeStructUnionFieldAccess ctx tctx mod fields r1 fieldName pos
             _ -> throwk $ InternalError
               (  "Unexpected error: variable was typed as a union, but union "
@@ -348,11 +331,19 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
               ++ s_unpack (showModulePath unionModPath)
               )
               (Just $ tPos r1)
-          -- TODO
 
         TypePtr x ->
           -- try to auto-dereference
           r $ ep (Field (ep (PreUnop Deref e1) (tPos r1)) (Var fieldName)) pos
+
+        TypeTypeOf x@(mp, name) -> do
+          -- look for a static method or field
+          definitionMod <- getMod ctx mp
+          subScope <- getSubScope (modScope definitionMod) [name]
+          findStatic <- resolveLocal subScope name
+          case findStatic of
+            Just binding -> typeVarBinding ctx name binding pos
+            Nothing -> throwk $ TypingError ("Type " ++ (s_unpack $ showTypePath x) ++ " has no static field " ++ s_unpack fieldName) pos
 
         x -> throwk $ InternalError
           ("Field access is not allowed on " ++ show x)
@@ -373,7 +364,7 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
     (Unsafe e1) -> do
       t' <- makeTypeVar ctx pos
       let r1 = case expr e1 of
-            Identifier i _ -> Identifier i Nothing
+            Identifier i _ -> Identifier i []
             _ -> throwk $ InternalError "Not yet implemented" (Just pos)
       return $ makeExprTyped r1 t' pos
     (BlockComment s) -> do
@@ -412,9 +403,10 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
       case existing of
         Just (Binding { bindingPos = pos' }) ->
           throwk $ DuplicateDeclarationError (modPath mod) vname pos pos'
-        _ -> bindToScope (head $ tctxScopes tctx)
-                         vname
-                         (newBinding VarBinding varType Nothing pos)
+        _ -> bindToScope
+          (head $ tctxScopes tctx)
+          vname
+          (newBinding ([], vname) VarBinding varType [] pos)
       return $ makeExprTyped (VarDeclaration (Var vname) (varType) init')
                              varType
                              pos
@@ -429,7 +421,7 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
           owningModule <- getMod ctx mp
           structDef    <- resolveLocal (modContents owningModule) name
           case structDef of
-            Just (DeclType (TypeDefinition { typeType = Struct { structFields = structFields } }))
+            Just (DeclType (TypeDefinition { typeSubtype = Struct { structFields = structFields } }))
               -> do
                 let providedNames = map fst fields
                 let fieldNames    = map varName structFields
@@ -580,7 +572,7 @@ typeEnumConstructorCall ctx tctx mod e args tp discriminant argTypes = do
                 (tPos argValue)
         )
     )
-          -- TODO: params
+            -- TODO: params
   return $ makeExprTyped (EnumInit (TypeEnum tp []) discriminant args)
                          (TypeEnum tp [])
                          (tPos e)
@@ -607,6 +599,36 @@ findStructUnionField :: [VarDefinition a b] -> Str -> Maybe (VarDefinition a b)
 findStructUnionField (h : t) fieldName =
   if varName h == fieldName then Just h else findStructUnionField t fieldName
 findStructUnionField [] _ = Nothing
+
+typeVarBinding :: CompileContext -> Str -> Binding -> Span -> IO TypedExpr
+typeVarBinding ctx name binding pos = do
+  let namespace = bindingNamespace binding
+  let t = bindingConcrete binding
+  let tp = bindingPath binding
+  case (bindingType binding, t) of
+    (VarBinding, _)
+      -> return $ makeExprTyped (Identifier (Var name) namespace) t pos
+    (FunctionBinding, TypeFunction f args variadic)
+      -> return $ makeExprTyped (Identifier (Var name) namespace)
+                                (TypeFunction f args variadic)
+                                pos
+    (EnumConstructor, TypeEnumConstructor t discriminant args)
+      ->
+      -- TODO: handle type params
+        return $ if null args
+        then makeExprTyped (EnumInit (TypeEnum t []) discriminant [])
+                          (TypeEnum t [])
+                          pos
+        else makeExprTyped (Identifier (Var name) [])
+                          (TypeEnumConstructor t discriminant args)
+                          pos
+    (TypeBinding, _) -> return $ makeExprTyped (Identifier (Var name) namespace) (TypeTypeOf tp) pos
+    -- TODO: in static method context, `Self`
+    -- TODO: in instance method context, `this`
+    -- TODO: in instance method context, all methods
+    -- TODO: in struct/union instance method context, field names
+    -- TODO: in any method context, static methods
+    -- TODO: in any method context, static fields
 
 literalConstraints :: ValueLiteral -> ConcreteType -> Span -> [TypeConstraint]
 literalConstraints (BoolValue _) s pos =

@@ -152,7 +152,9 @@ defineTypedef ctx mod typeSpec pos (name, declr) = do
   case t' of
     TypeBasicType BasicTypeUnknown -> unknownTypeWarning ctx mod name pos
     _                              -> return ()
-  bindToScope (modScope mod) name (newBinding TypeBinding t' Nothing pos)
+  bindToScope (modScope mod)
+              name
+              (newBinding (modPath mod, name) TypeBinding t' [] pos)
 
 parseType :: ModulePath -> [CTypeSpec] -> [CDerivedDeclr] -> ConcreteType
 parseType m typeSpec declr =
@@ -233,7 +235,9 @@ addCDecl ctx mod name t pos = do
   let bindingData = case t of
         TypeFunction t argTypes isVariadic -> FunctionBinding
         _ -> VarBinding
-  bindToScope (modScope mod) name (newBinding bindingData t Nothing pos)
+  bindToScope (modScope mod)
+              name
+              (newBinding (modPath mod, name) bindingData t [] pos)
   return ()
 
 isTypedef :: [CStorageSpec] -> Bool
@@ -254,15 +258,15 @@ defineNamedStructsEnumsUnions ctx mod pos (h : t) = do
       let fields =
             [ (newVarDefinition) { varName = fieldName
                                  , varType = Just $ ConcreteType $ fieldType
-                                 , varNameMangling = Nothing
+                                 , varNamespace = []
                                  }
             | field                  <- fields'
             , (fieldName, fieldType) <- decomposeStructField (modPath mod) field
             ]
       let typeDef =
             ((newTypeDefinition (s_pack name))
-              { typeNameMangling = Nothing
-              , typeType         = if tag == CStructTag
+              { typeNamespace = []
+              , typeSubtype   = if tag == CStructTag
                 then Struct {structFields = fields}
                 else Union {unionFields = fields}
               }
@@ -270,9 +274,10 @@ defineNamedStructsEnumsUnions ctx mod pos (h : t) = do
       bindToScope
         (modScope mod)
         (s_pack name)
-        (newBinding TypeBinding
+        (newBinding (modPath mod, s_pack name)
+                    TypeBinding
                     (TypeStruct (modPath mod, s_pack name) [])
-                    Nothing
+                    []
                     pos
         )
       bindToScope (modContents mod) (s_pack name) (DeclType typeDef)
@@ -287,8 +292,8 @@ defineNamedStructsEnumsUnions ctx mod pos (h : t) = do
                Expr
                (Maybe TypeSpec)
            )
-            { typeNameMangling = Nothing
-            , typeType         = Enum
+            { typeNamespace = []
+            , typeSubtype   = Enum
               { enumUnderlyingType = Nothing
               , enumVariants       = [ newEnumVariant
                                          { variantName = s_pack variantName
@@ -299,24 +304,26 @@ defineNamedStructsEnumsUnions ctx mod pos (h : t) = do
             }
           )
       let ct = (TypeEnum (modPath mod, s_pack name) [])
-      bindToScope (modScope mod)
-                  (s_pack name)
-                  (newBinding TypeBinding ct Nothing pos)
+      bindToScope
+        (modScope mod)
+        (s_pack name)
+        (newBinding (modPath mod, s_pack name) TypeBinding ct [] pos)
       bindToScope (modContents mod) (s_pack name) (DeclType typeDef)
       debugLog ctx $ "define enum " ++ name
       forM_
-        (enumVariants $ typeType typeDef)
+        (enumVariants $ typeSubtype typeDef)
         (\variant -> do
           bindToScope
             (modScope mod)
             (variantName variant)
             (newBinding
+              (modPath mod, s_pack name)
               EnumConstructor
               (TypeEnumConstructor (modPath mod, typeName typeDef)
                                    (variantName variant)
                                    []
               )
-              Nothing
+              []
               pos
             )
           debugLog ctx

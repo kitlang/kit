@@ -9,6 +9,7 @@ import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Error
 import Kit.HashTable
+import Kit.Log
 import Kit.Parser
 import Kit.Str
 
@@ -33,7 +34,7 @@ data TypeContext = TypeContext {
   tctxTypeParamScopes :: [Scope ConcreteType],
   tctxReturnType :: Maybe ConcreteType,
   tctxThis :: Maybe ConcreteType,
-  tctxSelf :: Maybe ConcreteType,
+  tctxSelf :: Maybe TypePath,
   tctxLoopCount :: Int,
   tctxRewriteRecursionDepth :: Int
 }

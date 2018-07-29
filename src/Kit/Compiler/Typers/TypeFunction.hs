@@ -56,7 +56,7 @@ typeFunction ctx mod f = do
     (\arg -> bindToScope
       functionScope
       (argName arg)
-      (newBinding VarBinding (argType arg) Nothing (argPos arg))
+      (newBinding ([], argName arg) VarBinding (argType arg) [] (argPos arg))
     )
   returnType <- resolveMaybeType ctx tctx mod fPos (functionType f)
   ct         <- scopeGet (modScope mod) (functionName f)
@@ -102,11 +102,8 @@ typeFunction ctx mod f = do
       knownType ctx tctx mod resolvedReturnType
     _ -> return resolvedReturnType
   let typedFunction = converted
-        { functionType         = finalReturn
-        , functionNameMangling = (if isMain
-                                   then Nothing
-                                   else functionNameMangling f
-                                 )
+        { functionType      = finalReturn
+        , functionNamespace = (if isMain then [] else functionNamespace f)
         }
   bindToScope (modTypedContents mod)
               (functionName f)

@@ -86,7 +86,7 @@ modDef m = "KIT_INCLUDE__" ++ (intercalate "__" (map s_unpack m))
 generateHeaderForwardDecl :: CompileContext -> Module -> Handle -> IrDecl -> IO ()
 generateHeaderForwardDecl ctx mod headerFile decl = do
   case decl of
-    DeclType def@(TypeDefinition { typeType = Atom }) -> return ()
+    DeclType def@(TypeDefinition { typeSubtype = Atom }) -> return ()
 
     DeclType def@(TypeDefinition {typeName = name}                  ) -> do
       let decl = cDecl (typeBasicType def) Nothing Nothing
@@ -98,7 +98,7 @@ generateHeaderForwardDecl ctx mod headerFile decl = do
 generateHeaderDecl :: CompileContext -> Module -> Handle -> IrDecl -> IO ()
 generateHeaderDecl ctx mod headerFile decl = do
   case decl of
-    DeclType def@(TypeDefinition { typeType = Atom }) -> return ()
+    DeclType def@(TypeDefinition { typeSubtype = Atom }) -> return ()
 
     DeclType def@(TypeDefinition{}                  ) -> do
       let decls = cdecl (typeBasicType def)
@@ -106,9 +106,9 @@ generateHeaderDecl ctx mod headerFile decl = do
         (\d -> hPutStrLn headerFile (render $ pretty $ CDeclExt $ d))
         decls
 
-    DeclFunction def@(FunctionDefinition { functionName = name, functionType = t, functionArgs = args, functionVarargs = varargs, functionNameMangling = mangle })
+    DeclFunction def@(FunctionDefinition { functionName = name, functionType = t, functionArgs = args, functionVarargs = varargs, functionNamespace = namespace })
       -> do
-        let name' = mangleName mangle name
+        let name' = mangleName namespace name
         hPutStrLn
           headerFile
           (render $ pretty $ CDeclExt $ cfunDecl name' (functionBasicType def))
@@ -119,9 +119,9 @@ generateHeaderDecl ctx mod headerFile decl = do
 generateDef :: CompileContext -> Module -> Handle -> IrDecl -> IO ()
 generateDef ctx mod codeFile decl = do
   case decl of
-    DeclFunction def@(FunctionDefinition { functionName = name, functionType = t, functionBody = Just body, functionNameMangling = mangle })
+    DeclFunction def@(FunctionDefinition { functionName = name, functionType = t, functionBody = Just body, functionNamespace = namespace })
       -> do
-        let name' = mangleName mangle name
+        let name' = mangleName namespace name
         hPutStrLn
           codeFile
           (  "\n"
@@ -137,7 +137,7 @@ functionBasicType (FunctionDefinition { functionType = t, functionArgs = args, f
     )
 
 typeBasicType :: TypeDefinition IrExpr BasicType -> BasicType
-typeBasicType def@(TypeDefinition { typeName = name }) = case typeType def of
+typeBasicType def@(TypeDefinition { typeName = name }) = case typeSubtype def of
   Struct { structFields = fields } -> BasicTypeStruct
     (Just name)
     [ (varName field, varType field) | field <- fields ]

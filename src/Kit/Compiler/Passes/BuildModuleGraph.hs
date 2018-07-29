@@ -177,7 +177,7 @@ parseModuleExprs ctx mod fp pos = do
 addStmtToModuleInterface :: CompileContext -> Module -> Statement -> IO ()
 addStmtToModuleInterface ctx mod s = do
   case stmt s of
-    TypeDeclaration d@(TypeDefinition { typeName = name, typeType = subtype })
+    TypeDeclaration d@(TypeDefinition { typeName = name, typeSubtype = subtype, typeRules = rules })
       -> do
         let ct = case subtype of
               Atom       -> TypeAtom
@@ -191,7 +191,7 @@ addStmtToModuleInterface ctx mod s = do
         addDefinition
           name
           (DeclType $ d
-            { typeNameMangling = if extern then Nothing else Just $ modPath mod
+            { typeNamespace = if extern then [] else modPath mod
             }
           )
 
@@ -232,7 +232,7 @@ addStmtToModuleInterface ctx mod s = do
       addDefinition
         name
         (DeclVar $ d
-          { varNameMangling = if extern then Nothing else Just $ modPath mod
+          { varNamespace = if extern then [] else modPath mod
           }
         )
     FunctionDeclaration d@(FunctionDefinition { functionName = name, functionArgs = args, functionVarargs = varargs })
@@ -253,9 +253,9 @@ addStmtToModuleInterface ctx mod s = do
         addDefinition
           name
           (DeclFunction $ d
-            { functionNameMangling = if extern
-              then Nothing
-              else Just $ modPath mod
+            { functionNamespace = if extern
+              then []
+              else modPath mod
             }
           )
     Specialize a b -> do
@@ -266,7 +266,7 @@ addStmtToModuleInterface ctx mod s = do
  where
   pos              = stmtPos s
   recordGlobalName = addGlobalName ctx mod pos
-  addToInterface name b mangle ct
+  addToInterface name b namespace ct
     = (do
         existing <- resolveLocal (modScope mod) name
         case existing of
@@ -276,9 +276,10 @@ addStmtToModuleInterface ctx mod s = do
           Nothing -> bindToScope
             (modScope mod)
             name
-            (newBinding b
+            (newBinding (modPath mod, name)
+                        b
                         ct
-                        (if mangle then Just (modPath mod) else Nothing)
+                        (if namespace then (modPath mod) else [])
                         (stmtPos s)
             )
       )

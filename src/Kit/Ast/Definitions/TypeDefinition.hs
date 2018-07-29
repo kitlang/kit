@@ -2,6 +2,7 @@ module Kit.Ast.Definitions.TypeDefinition where
 
 import Control.Monad
 import Kit.Ast.Definitions.EnumVariant
+import Kit.Ast.Definitions.FunctionDefinition
 import Kit.Ast.Definitions.RewriteRule
 import Kit.Ast.Definitions.VarDefinition
 import Kit.Ast.Metadata
@@ -15,10 +16,13 @@ data TypeDefinition a b = TypeDefinition {
   typeDoc :: Maybe Str,
   typeMeta :: [Metadata],
   typeModifiers :: [Modifier],
-  typeRules :: [RewriteRuleType a b],
-  typeType :: TypeDefinitionType a b,
+  typeMethods :: [FunctionDefinition a b],
+  typeStaticFields :: [VarDefinition a b],
+  typeStaticMethods :: [FunctionDefinition a b],
+  typeRules :: [RewriteRule a b],
+  typeSubtype :: TypeDefinitionType a b,
   typeParams :: [TypeParam],
-  typeNameMangling :: Maybe ModulePath
+  typeNamespace :: [Str]
 } deriving (Eq, Show)
 
 data TypeDefinitionType a b
@@ -30,14 +34,17 @@ data TypeDefinitionType a b
   deriving (Eq, Show)
 
 newTypeDefinition x = TypeDefinition
-  { typeName         = x
-  , typeDoc          = Nothing
-  , typeMeta         = []
-  , typeModifiers    = []
-  , typeRules        = []
-  , typeParams       = []
-  , typeType         = undefined
-  , typeNameMangling = Nothing
+  { typeName          = x
+  , typeDoc           = Nothing
+  , typeMeta          = []
+  , typeModifiers     = []
+  , typeMethods       = []
+  , typeStaticFields  = []
+  , typeStaticMethods = []
+  , typeRules         = []
+  , typeParams        = []
+  , typeSubtype       = undefined
+  , typeNamespace     = []
   }
 
 convertTypeDefinition
@@ -47,7 +54,7 @@ convertTypeDefinition
   -> TypeDefinition a b
   -> m (TypeDefinition c d)
 convertTypeDefinition exprConverter typeConverter t = do
-  newType <- case typeType t of
+  newType <- case typeSubtype t of
     Atom                        -> return Atom
     Struct { structFields = f } -> do
       fields <- forM f (convertVarDefinition exprConverter typeConverter)
@@ -61,13 +68,13 @@ convertTypeDefinition exprConverter typeConverter t = do
       return
         $ Enum {enumVariants = variants, enumUnderlyingType = underlyingType}
     Abstract{} -> return Atom -- TODO
-  return $ (newTypeDefinition (typeName t)) { typeDoc          = typeDoc t
-                                            , typeMeta         = typeMeta t
-                                            , typeModifiers    = typeModifiers t
-                                            , typeParams       = typeParams t
-                                            , typeNameMangling = typeNameMangling
-                                              t
-                                            , typeType         = newType
+  -- TODO: static fields, methods, rules
+  return $ (newTypeDefinition (typeName t)) { typeDoc       = typeDoc t
+                                            , typeMeta      = typeMeta t
+                                            , typeModifiers = typeModifiers t
+                                            , typeParams    = typeParams t
+                                            , typeNamespace = typeNamespace t
+                                            , typeSubtype   = newType
                                             }
 
 enumIsSimple enum = all variantIsSimple $ enumVariants enum

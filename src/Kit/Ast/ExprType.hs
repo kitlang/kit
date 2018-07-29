@@ -37,8 +37,8 @@ data ExprType a b
   | Literal ValueLiteral
   | This
   | Self
-  -- identifier, nameMangling
-  | Identifier Identifier (Maybe ModulePath)
+  -- identifier, namespace
+  | Identifier Identifier [Str]
   -- expression, optional type annotation; blank to infer type
   | TypeAnnotation a b
   | PreUnop Operator a

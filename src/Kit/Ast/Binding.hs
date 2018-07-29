@@ -10,8 +10,9 @@ import Kit.Str
 
 data Binding = Binding {
   bindingType :: BindingType,
+  bindingPath :: TypePath,
   bindingConcrete :: ConcreteType,
-  bindingNameMangling :: Maybe ModulePath,
+  bindingNamespace :: [Str],
   bindingPos :: Span
 } deriving (Eq, Show)
 
@@ -24,9 +25,10 @@ data BindingType
   | EnumConstructor
   deriving (Show, Eq)
 
-newBinding b ct mangle pos = Binding
-  { bindingType         = b
-  , bindingConcrete     = ct
-  , bindingNameMangling = mangle
-  , bindingPos          = pos
+newBinding path b ct ns pos = Binding
+  { bindingType      = b
+  , bindingPath      = path
+  , bindingConcrete  = ct
+  , bindingNamespace = ns
+  , bindingPos       = pos
   }

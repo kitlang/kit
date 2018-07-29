@@ -167,7 +167,7 @@ resolveDecl ctx mod decl = case decl of
             )
         _ -> throwk
           $ InternalError ("Expected function " ++ s_unpack name) Nothing
-  {-DeclType t@(TypeDefinition { typeName = name, typeType = Struct { structFields = fields } })
+  {-DeclType t@(TypeDefinition { typeName = name, typeSubtype = Struct { structFields = fields } })
     -> do
       tctx    <- newTypeContext []
       modType <- resolveLocal (modScope mod) name

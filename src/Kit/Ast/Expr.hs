@@ -17,7 +17,6 @@ import Kit.Parser.Token
 import Kit.Str
 
 type SyntacticExprType = ExprType Expr (Maybe TypeSpec)
-type RewriteRule = RewriteRuleType Expr (Maybe TypeSpec)
 
 data Expr = Expr {expr :: SyntacticExprType, pos :: Span} deriving (Show)
 ePos = pos

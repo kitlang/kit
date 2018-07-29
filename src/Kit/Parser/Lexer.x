@@ -43,8 +43,6 @@ tokens :-
   as { tok KeywordAs }
   atom { tok KeywordAtom }
   break { tok KeywordBreak }
-  case { tok KeywordCase }
-  code { tok KeywordCode }
   const { tok KeywordConst }
   continue { tok KeywordContinue }
   default { tok KeywordDefault }
@@ -60,11 +58,8 @@ tokens :-
   include { tok KeywordInclude }
   inline { tok KeywordInline }
   in { tok KeywordIn }
-  macro { tok KeywordMacro }
   match { tok KeywordMatch }
   null { tok KeywordNull }
-  op { tok KeywordOp }
-  override { tok KeywordOverride }
   private { tok KeywordPrivate }
   public { tok KeywordPublic }
   return { tok KeywordReturn }
@@ -74,13 +69,9 @@ tokens :-
   specialize { tok KeywordSpecialize }
   static { tok KeywordStatic }
   struct { tok KeywordStruct }
-  super { tok KeywordSuper }
-  switch { tok KeywordSwitch }
   then { tok KeywordThen }
   this { tok KeywordThis }
   throw { tok KeywordThrow }
-  token { tok KeywordToken }
-  tokens { tok KeywordTokens }
   trait { tok KeywordTrait }
   typedef { tok KeywordTypedef }
   union { tok KeywordUnion }

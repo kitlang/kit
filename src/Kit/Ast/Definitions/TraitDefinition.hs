@@ -1,6 +1,7 @@
 module Kit.Ast.Definitions.TraitDefinition where
 
 import Control.Monad
+import Kit.Ast.Definitions.FunctionDefinition
 import Kit.Ast.Definitions.RewriteRule
 import Kit.Ast.Metadata
 import Kit.Ast.Modifier
@@ -14,5 +15,6 @@ data TraitDefinition a b = TraitDefinition {
   traitMeta :: [Metadata],
   traitModifiers :: [Modifier],
   traitParams :: [TypeParam],
-  traitRules :: [RewriteRuleType a b]
+  traitRules :: [RewriteRule a b],
+  traitMethods :: [FunctionDefinition a b]
 } deriving (Eq, Show)

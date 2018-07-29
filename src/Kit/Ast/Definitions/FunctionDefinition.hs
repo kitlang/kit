@@ -19,21 +19,25 @@ data FunctionDefinition a b = FunctionDefinition {
   functionType :: b,
   functionBody :: Maybe a,
   functionVarargs :: Bool,
-  functionNameMangling :: Maybe ModulePath
+  functionNamespace :: [Str],
+  functionThis :: Maybe b,
+  functionSelf :: Maybe b
 } deriving (Eq, Show)
 
 newFunctionDefinition :: FunctionDefinition a b
 newFunctionDefinition = FunctionDefinition
-  { functionName         = undefined
-  , functionDoc          = Nothing
-  , functionMeta         = []
-  , functionModifiers    = [Public]
-  , functionParams       = []
-  , functionArgs         = []
-  , functionType         = undefined
-  , functionBody         = Nothing
-  , functionVarargs      = False
-  , functionNameMangling = Nothing
+  { functionName      = undefined
+  , functionDoc       = Nothing
+  , functionMeta      = []
+  , functionModifiers = [Public]
+  , functionParams    = []
+  , functionArgs      = []
+  , functionType      = undefined
+  , functionBody      = Nothing
+  , functionVarargs   = False
+  , functionNamespace = []
+  , functionThis      = Nothing
+  , functionSelf      = Nothing
   }
 
 convertFunctionDefinition
@@ -46,18 +50,17 @@ convertFunctionDefinition
   -> m (FunctionDefinition c d)
 convertFunctionDefinition exprConverter typeConverter newArgs newType f = do
   newBody <- maybeConvert exprConverter (functionBody f)
-  return $ (newFunctionDefinition)
-    { functionName         = functionName f
-    , functionDoc          = functionDoc f
-    , functionMeta         = functionMeta f
-    , functionModifiers    = functionModifiers f
-    , functionParams       = functionParams f
-    , functionArgs         = newArgs
-    , functionType         = newType
-    , functionBody         = newBody
-    , functionVarargs      = functionVarargs f
-    , functionNameMangling = functionNameMangling f
-    }
+  return $ (newFunctionDefinition) { functionName      = functionName f
+                                   , functionDoc       = functionDoc f
+                                   , functionMeta      = functionMeta f
+                                   , functionModifiers = functionModifiers f
+                                   , functionParams    = functionParams f
+                                   , functionArgs      = newArgs
+                                   , functionType      = newType
+                                   , functionBody      = newBody
+                                   , functionVarargs   = functionVarargs f
+                                   , functionNamespace = functionNamespace f
+                                   }
 
 data ArgSpec a b = ArgSpec {
   argName :: Str,

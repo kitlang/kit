@@ -29,20 +29,22 @@ logPrefix :: LogLevel -> IO ()
 logPrefix lv = do
   hSetSGR stderr [color (logColor lv), normal]
   case lv of
-    Notice  -> hPutStr stderr "===> "
-    Debug   -> hPutStr stderr "DBG: "
-    Warning -> hPutStr stderr "WRN: "
-    Error   -> hPutStr stderr "ERR: "
+    Notice  -> ePutStr "===> "
+    Debug   -> ePutStr "DBG: "
+    Warning -> ePutStr "WRN: "
+    Error   -> ePutStr "ERR: "
 
 logMsg :: Maybe LogLevel -> String -> IO ()
 logMsg lv msg = do
   hSetSGR stderr [color Yellow, normal]
-  hPutStr stderr "["
+  ePutStr "["
   hSetSGR stderr [color Cyan, normal]
   t <- getCurrentTime
-  hPutStr stderr $ formatTime defaultTimeLocale "%F %T.%6q" t
+  ePutStr $ formatTime defaultTimeLocale "%F %T.%6q" t
   hSetSGR stderr [color Yellow, normal]
-  hPutStr stderr "] "
+  ePutStr "]"
+  hSetSGR stderr [Reset]
+  ePutStr " "
   case lv of
     Just lv -> logPrefix lv
     Nothing -> return ()
@@ -52,10 +54,13 @@ logMsg lv msg = do
   case lv of
     Just lv -> hSetSGR stderr [color (logColor lv), intensity]
     Nothing -> hSetSGR stderr [Reset]
-  hPutStrLn stderr msg
-  hSetSGR   stderr [Reset]
+  ePutStrLn msg
+  hSetSGR stderr [Reset]
 
 traceLog = logMsg Nothing
 printLog = logMsg (Just Notice)
 warningLog = logMsg (Just Warning)
 errorLog = logMsg (Just Error)
+
+ePutStr = hPutStr stderr
+ePutStrLn = hPutStrLn stderr

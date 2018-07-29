@@ -3,9 +3,8 @@ module Kit.Ast.Modifier where
 data Modifier
   = Public
   | Private
-  | Macro
   | Inline
-  | Override
-  | Static
   | Const
+  | Static
   deriving (Eq, Show)
+

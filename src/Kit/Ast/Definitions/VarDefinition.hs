@@ -15,18 +15,18 @@ data VarDefinition a b = VarDefinition {
   varModifiers :: [Modifier],
   varType :: b,
   varDefault :: Maybe a,
-  varNameMangling :: Maybe ModulePath
+  varNamespace :: [Str]
 } deriving (Eq, Show)
 
 newVarDefinition :: VarDefinition a b
 newVarDefinition = VarDefinition
-  { varName         = undefined
-  , varDoc          = Nothing
-  , varMeta         = []
-  , varModifiers    = [Public]
-  , varType         = undefined
-  , varDefault      = Nothing
-  , varNameMangling = Nothing
+  { varName      = undefined
+  , varDoc       = Nothing
+  , varMeta      = []
+  , varModifiers = [Public]
+  , varType      = undefined
+  , varDefault   = Nothing
+  , varNamespace = []
   }
 
 convertVarDefinition
@@ -38,11 +38,11 @@ convertVarDefinition
 convertVarDefinition exprConverter typeConverter v = do
   newType    <- typeConverter (varType v)
   newDefault <- maybeConvert exprConverter (varDefault v)
-  return $ (newVarDefinition) { varName         = varName v
-                              , varDoc          = varDoc v
-                              , varMeta         = varMeta v
-                              , varModifiers    = varModifiers v
-                              , varType         = newType
-                              , varDefault      = newDefault
-                              , varNameMangling = varNameMangling v
+  return $ (newVarDefinition) { varName      = varName v
+                              , varDoc       = varDoc v
+                              , varMeta      = varMeta v
+                              , varModifiers = varModifiers v
+                              , varType      = newType
+                              , varDefault   = newDefault
+                              , varNamespace = varNamespace v
                               }

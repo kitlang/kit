@@ -12,7 +12,7 @@ import Kit.HashTable
 import Kit.Parser
 import Kit.Str
 
-newVar s = newBinding VarBinding (TypeBasicType BasicTypeVoid) Nothing null_span
+newVar s = newBinding ([], "") VarBinding (TypeBasicType BasicTypeVoid) [] null_span
 
 spec :: Spec
 spec = do

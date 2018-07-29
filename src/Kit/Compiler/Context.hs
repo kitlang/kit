@@ -15,6 +15,7 @@ import Kit.Compiler.TypedDecl
 import Kit.Error
 import Kit.HashTable
 import Kit.Ir
+import Kit.Log
 import Kit.Parser.Span
 import Kit.Str
 

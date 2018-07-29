@@ -30,8 +30,6 @@ data TokenClass
   | KeywordAs
   | KeywordAtom
   | KeywordBreak
-  | KeywordCase
-  | KeywordCode
   | KeywordConst
   | KeywordContinue
   | KeywordDefault
@@ -47,11 +45,8 @@ data TokenClass
   | KeywordInclude
   | KeywordInline
   | KeywordIn
-  | KeywordMacro
   | KeywordMatch
   | KeywordNull
-  | KeywordOp
-  | KeywordOverride
   | KeywordPrivate
   | KeywordPublic
   | KeywordReturn
@@ -61,13 +56,9 @@ data TokenClass
   | KeywordSpecialize
   | KeywordStatic
   | KeywordStruct
-  | KeywordSuper
-  | KeywordSwitch
   | KeywordThen
   | KeywordThis
   | KeywordThrow
-  | KeywordToken
-  | KeywordTokens
   | KeywordTrait
   | KeywordTypedef
   | KeywordUnion
@@ -108,8 +99,6 @@ instance Show TokenClass where
     KeywordAs -> "as"
     KeywordAtom -> "atom"
     KeywordBreak -> "break"
-    KeywordCase -> "case"
-    KeywordCode -> "code"
     KeywordConst -> "const"
     KeywordContinue -> "continue"
     KeywordDefault -> "default"
@@ -125,11 +114,8 @@ instance Show TokenClass where
     KeywordInclude -> "include"
     KeywordInline -> "inline"
     KeywordIn -> "in"
-    KeywordMacro -> "macro"
     KeywordMatch -> "match"
     KeywordNull -> "null"
-    KeywordOp -> "op"
-    KeywordOverride -> "override"
     KeywordPrivate -> "private"
     KeywordPublic -> "public"
     KeywordReturn -> "return"
@@ -139,13 +125,9 @@ instance Show TokenClass where
     KeywordSpecialize -> "specialize"
     KeywordStatic -> "static"
     KeywordStruct -> "struct"
-    KeywordSuper -> "super"
-    KeywordSwitch -> "switch"
     KeywordThen -> "then"
     KeywordThis -> "this"
     KeywordThrow -> "throw"
-    KeywordToken -> "token"
-    KeywordTokens -> "tokens"
     KeywordTrait -> "trait"
     KeywordTypedef -> "typedef"
     KeywordUnion -> "union"

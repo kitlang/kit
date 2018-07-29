@@ -48,6 +48,7 @@ generateDeclIr ctx mod t = do
       debugLog ctx $ "generating IR for " ++ s_unpack name ++ " in " ++ show mod
       converted <- convertTypeDefinition exprConverter typeConverter def
       addDecl $ DeclType $ converted
+      -- TODO: add declarations for methods and static fields
     DeclFunction f@(FunctionDefinition { functionArgs = args, functionType = t })
       -> do
         debugLog ctx
@@ -96,7 +97,7 @@ findUnderlyingType ctx mod t = do
       definitionMod <- getMod ctx modPath
       typeDef       <- resolveLocal (modContents definitionMod) name
       case typeDef of
-        Just (DeclType (TypeDefinition { typeType = enum@(Enum { enumVariants = variants }) }))
+        Just (DeclType (TypeDefinition { typeSubtype = enum@(Enum { enumVariants = variants }) }))
           -> return $ if enumIsSimple enum
             then BasicTypeSimpleEnum (Just name) [] -- we won't care about the variants in this case
             else BasicTypeComplexEnum
@@ -226,8 +227,10 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
       (Self) -> throw $ KitError $ BasicError
         ("unexpected Self in typed AST")
         (Just pos)
-      (Identifier (Var v) mangle) ->
-        return $ IrIdentifier (mangleName mangle v)
+      (Identifier (Var v) namespace) ->
+        case t of
+          TypeTypeOf x -> throwk $ BasicError "Names of types can't be used as runtime values" (Just pos)
+          _ -> return $ IrIdentifier (mangleName namespace v)
       (Identifier     (MacroVar v _) _) -> return $ IrIdentifier v
       (TypeAnnotation e1             t) -> throw $ KitError $ BasicError
         ("unexpected type annotation in typed AST")
@@ -280,7 +283,9 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
         r1 <- maybeR e1
         return $ IrReturn r1
       (Throw e1           ) -> return $ undefined -- TODO
-      (Match e1 cases (e2)) -> return $ undefined -- TODO
+      -- (Match e1 cases (e2)) -> do
+        -- r1 <- r e1
+
       (InlineCall e1      ) -> return $ undefined -- TODO
       (Field e1 (Var v)   ) -> do
         r1 <- r e1

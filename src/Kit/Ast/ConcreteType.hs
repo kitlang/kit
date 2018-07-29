@@ -38,6 +38,8 @@ data ConcreteType
   | TypeIdentifier ConcreteType
   | TypeRange
   | TypeTraitConstraint TraitConstraint
+  | TypeTuple [ConcreteType]
+  | TypeTypeOf TypePath
   | TypeTypeVar TypeVar
   deriving (Eq, Generic)
 
@@ -68,6 +70,8 @@ instance Show ConcreteType where
   show (TypeIdentifier t) = "Identifier of " ++ (show t)
   show (TypeRange) = "range"
   show (TypeTraitConstraint (tp, params)) = "trait " ++ s_unpack (showTypePath tp)
+  show (TypeTuple t) = "(" ++ intercalate ", " (map show t) ++ ")"
+  show (TypeTypeOf t) = "typeof " ++ s_unpack (showTypePath t)
   show (TypeTypeVar i) = "type var #" ++ show i
 
 type TypeVar = Int

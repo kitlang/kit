@@ -1,22 +1,22 @@
 /**
  * An automatically dereferencing C pointer to type T.
  */
-abstract Raw[T]: Ptr[T] {
+abstract Ptr[T] {
     public rules {
         (this as Ptr[T]);
         ((_: Ptr[T]) as Self);
         (this as T) => (*this);
         (this.$x) => (*this).$x;
-        ((x: T) as Raw[T]) => (&x);
+        ((x: T) as Ptr[T]) => (&x);
     }
 }
 
 /**
  * A typesafe nullable pointer.
  */
-abstract Null[T]: Raw[T] {
+abstract Null[T]: Ptr[T] {
     public rules {
-        (this as Raw[T]);
+        (this as Ptr[T]);
         ((x: T) as Null[T]) => (&x);
 
         (this.isNull()) => (this as CPtr[T]) == 0;
@@ -25,10 +25,10 @@ abstract Null[T]: Raw[T] {
         (*this): T => if this.isNull() {
             throw NulIdentifierError;
         } else {
-            *(this as Raw[T]);
+            *(this as Ptr[T]);
         }
 
-        (this ?? (other: Raw[T])): Null[T] => if this.isNull() {
+        (this ?? (other: Ptr[T])): Null[T] => if this.isNull() {
             other;
         } else {
             this;
@@ -51,12 +51,12 @@ atom NulIdentifierError;
  * A smart pointer to type T. When this pointer goes out of scope, the
  * memory will be reclaimed immediately.
  */
-abstract Unique[T]: Raw[T] {
+abstract Unique[T]: Ptr[T] {
     public rules {
-        ((_:Raw[T]) as Self);
+        ((_:Ptr[T]) as Self);
 
         // assignment of this value to a pointer generates a weak reference
-        ((x: Raw[T]) = this) => x = this.weak();
+        ((x: Ptr[T]) = this) => x = this.weak();
     }
 
     public function delete();
@@ -66,7 +66,7 @@ abstract Unique[T]: Raw[T] {
      * is destroyed, this reference will no longer be valid.
      */
     public function weak(): Weak[T] {
-        return (this as Raw[T]) as Weak[T];
+        return (this as Ptr[T]) as Weak[T];
     }
 }
 
@@ -76,15 +76,15 @@ abstract Unique[T]: Raw[T] {
  * memory will be reclaimed immediately.
  */
 struct Shared[T] {
-    var rc: Raw[Uint] = 1;
-    var value: Raw[T];
+    var rc: Ptr[Uint] = 1;
+    var value: Ptr[T];
 
     public rules {
         (this as T) => this.value;
         (this.$x) => this.value.$x;
 
         // assignment of this value to a pointer generates a weak reference
-        ((x: Raw[T]) = this) => x = this.weak();
+        ((x: Ptr[T]) = this) => x = this.weak();
 
         (*this) => (*this.value);
     }
@@ -123,8 +123,8 @@ implement Drop for Shared[T] {
 /**
  * A weak reference to a value of type T.
  */
-abstract Weak[T]: Raw[T] {
+abstract Weak[T]: Ptr[T] {
     public rules {
-        ((_:Raw[T]) as Self);
+        ((_:Ptr[T]) as Self);
     }
 }

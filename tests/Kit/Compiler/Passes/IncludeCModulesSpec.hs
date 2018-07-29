@@ -171,25 +171,25 @@ spec = do
         , "Struct1"
         , TypeStruct (["c"], "Struct1") []
         , Just $ DeclType $ (newTypeDefinition "Struct1")
-          { typeNameMangling = Nothing
-          , typeType         = Struct
+          { typeNamespace = []
+          , typeSubtype   = Struct
             { structFields = [ newVarDefinition
-                                { varName         = "field1"
-                                , varNameMangling = Nothing
-                                , varType         = Just
-                                  $ ConcreteType
-                                  $ TypeBasicType
-                                  $ BasicTypeInt 8
-                                }
-                              , newVarDefinition
-                                { varName         = "field2"
-                                , varNameMangling = Nothing
-                                , varType         = Just
-                                  $ ConcreteType
-                                  $ TypeBasicType
-                                  $ BasicTypeUint 16
-                                }
-                              ]
+                               { varName      = "field1"
+                               , varNamespace = []
+                               , varType      = Just
+                                 $ ConcreteType
+                                 $ TypeBasicType
+                                 $ BasicTypeInt 8
+                               }
+                             , newVarDefinition
+                               { varName      = "field2"
+                               , varNamespace = []
+                               , varType      = Just
+                                 $ ConcreteType
+                                 $ TypeBasicType
+                                 $ BasicTypeUint 16
+                               }
+                             ]
             }
           }
         )
@@ -205,20 +205,20 @@ spec = do
         , "Struct3"
         , TypeStruct (["c"], "Struct3") []
         , Just $ DeclType $ (newTypeDefinition "Struct3")
-          { typeNameMangling = Nothing
-          , typeType         = Struct {structFields = []}
+          { typeNamespace = []
+          , typeSubtype   = Struct {structFields = []}
           }
         )
       , ( "Parses enum definitions"
         , "Enum1"
         , TypeEnum (["c"], "Enum1") []
         , Just $ DeclType $ (newTypeDefinition "Enum1")
-          { typeNameMangling = Nothing
-          , typeType         = Enum
-            { enumVariants        = [ newEnumVariant { variantName = "apple" }
-                                     , newEnumVariant { variantName = "banana" }
-                                     , newEnumVariant { variantName = "cherry" }
-                                     ]
+          { typeNamespace = []
+          , typeSubtype   = Enum
+            { enumVariants       = [ newEnumVariant { variantName = "apple" }
+                                   , newEnumVariant { variantName = "banana" }
+                                   , newEnumVariant { variantName = "cherry" }
+                                   ]
             , enumUnderlyingType = Nothing
             }
           }

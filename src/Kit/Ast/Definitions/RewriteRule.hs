@@ -8,12 +8,7 @@ import Kit.Ast.ModulePath
 import Kit.Ast.TypeSpec
 import Kit.Str
 
-data RewriteRuleType a b
-  = Rule (TermRewriteRule a b)
-  | Method (FunctionDefinition a b)
-  deriving (Eq, Show)
-
-data TermRewriteRule a b = TermRewriteRule {
+data RewriteRule a b = RewriteRule {
   ruleDoc :: Maybe Str,
   ruleMeta :: [Metadata],
   ruleModifiers :: [Modifier],
