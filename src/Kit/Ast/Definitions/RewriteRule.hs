@@ -9,10 +9,6 @@ import Kit.Ast.TypeSpec
 import Kit.Str
 
 data RewriteRule a b = RewriteRule {
-  ruleDoc :: Maybe Str,
-  ruleMeta :: [Metadata],
-  ruleModifiers :: [Modifier],
-  ruleParams :: [TypeParam],
   ruleType :: b,
   rulePattern :: a,
   ruleBody :: Maybe a

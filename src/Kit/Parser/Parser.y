@@ -511,53 +511,32 @@ MethodsBody :: {([Member Expr (Maybe TypeSpec)], Span)}
   : '{' Methods '}' {($2, p $1 <+> p $3)}
   | ';' {([], p $1)}
 
-RulePrefix :: {(DocMetaMod, [TypeParam])}
-  : DocMetaMods rule TypeParams {($1, fst $3)}
-
-RulesPrefix :: {(DocMetaMod, [TypeParam])}
-  : DocMetaMods rules TypeParams {($1, fst $3)}
-
 RewriteExpr :: {Expr}
   : Expr {$1}
   | StandaloneExpr {$1}
 
-PrefixedRule :: {((DocMetaMod, [TypeParam]), Expr)}
-  : RulePrefix '(' RewriteExpr ')' {($1, $3)}
+PrefixedRule :: {Expr}
+  : rule '(' RewriteExpr ')' {$3}
 
 RewriteRule :: {RewriteRule Expr (Maybe TypeSpec)}
   : PrefixedRule TypeAnnotation "=>" OptionalRuleBody {
     RewriteRule {
-      ruleDoc = doc $ fst $ fst $1,
-      ruleMeta = reverse $ metas $ fst $ fst $1,
-      ruleModifiers = reverse $ mods $ fst $ fst $1,
-      ruleParams = snd $ fst $1,
-      rulePattern = snd $1,
+      rulePattern = $1,
       ruleType = fst $2,
       ruleBody = fst $4
     }
   }
   | PrefixedRule TypeAnnotation ';' {
     RewriteRule {
-      ruleDoc = doc $ fst $ fst $1,
-      ruleMeta = reverse $ metas $ fst $ fst $1,
-      ruleModifiers = reverse $ mods $ fst $ fst $1,
-      ruleParams = snd $ fst $1,
-      rulePattern = snd $1,
+      rulePattern = $1,
       ruleType = fst $2,
       ruleBody = Nothing
     }
   }
 
 RuleBlock :: {[RewriteRule Expr (Maybe TypeSpec)]}
-  : RulesPrefix '{' ShortRules '}' {
+  : rules '{' ShortRules '}' {
     [RewriteRule {
-      ruleDoc = (case ruleDoc of
-        Just s -> ruleDoc
-        Nothing -> doc $ fst $1
-      ),
-      ruleMeta = reverse (meta ++ (metas $ fst $1)),
-      ruleModifiers = reverse (modifiers ++ (mods $ fst $1)),
-      ruleParams = snd $1,
       rulePattern = pattern,
       ruleType = ruleType,
       ruleBody = body

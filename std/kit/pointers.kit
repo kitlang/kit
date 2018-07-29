@@ -2,7 +2,7 @@
  * An automatically dereferencing C pointer to type T.
  */
 abstract Ptr[T] {
-    public rules {
+    rules {
         (this as Ptr[T]);
         ((_: Ptr[T]) as Self);
         (this as T) => (*this);
@@ -15,7 +15,7 @@ abstract Ptr[T] {
  * A typesafe nullable pointer.
  */
 abstract Null[T]: Ptr[T] {
-    public rules {
+    rules {
         (this as Ptr[T]);
         ((x: T) as Null[T]) => (&x);
 
@@ -52,7 +52,7 @@ atom NulIdentifierError;
  * memory will be reclaimed immediately.
  */
 abstract Unique[T]: Ptr[T] {
-    public rules {
+    rules {
         ((_:Ptr[T]) as Self);
 
         // assignment of this value to a pointer generates a weak reference
@@ -79,7 +79,7 @@ struct Shared[T] {
     var rc: Ptr[Uint] = 1;
     var value: Ptr[T];
 
-    public rules {
+    rules {
         (this as T) => this.value;
         (this.$x) => this.value.$x;
 
@@ -124,7 +124,7 @@ implement Drop for Shared[T] {
  * A weak reference to a value of type T.
  */
 abstract Weak[T]: Ptr[T] {
-    public rules {
+    rules {
         ((_:Ptr[T]) as Self);
     }
 }

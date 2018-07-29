@@ -5,7 +5,7 @@
  * easy conversion into CStrings.
  */
 abstract String: Vector[Uint8] {
-    public rules {
+    rules {
         ((v: Vector[Uint8]) as String);
         (this as Vector[Uint8]);
         // TODO
@@ -30,7 +30,7 @@ specialize Stringy as CString;
 trait ToString {
     public function toString(): String;
 
-    public rules {
+    rules {
         (this as String) => (this.toString());
     }
 }
@@ -51,7 +51,7 @@ implement ToString for CString {
  * A StringBuffer is a dynamically resizing collection (Array) of bytes.
  */
 abstract StringBuffer: Array[Uint8] {
-    public rules {
+    rules {
         ((v: Array[Uint8]) as StringBuffer);
         (this as Array[Uint8]);
         inline ((v: String) as StringBuffer) => ((v as Vector[Uint8]) as Array[Uint8]) as StringBuffer;

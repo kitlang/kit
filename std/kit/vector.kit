@@ -5,7 +5,7 @@ struct Vector[T] {
     public var length: Uint;
     public var a: CArray[T];
 
-    public rules {
+    rules {
         ((cArray: CArray[T]) as Vector[T]);
 
         (this.length) => Uint;
