@@ -19,15 +19,23 @@ typeVar
   :: CompileContext -> Module -> VarDefinition Expr (Maybe TypeSpec) -> IO ()
 typeVar ctx mod def@(VarDefinition { varName = name, varNamespace = namespace })
   = do
-  -- TODO: insert definition position
-    tctx  <- newTypeContext []
-    typed <- typeVarDefinition ctx tctx mod def
+    tctx    <- newTypeContext []
+    binding <- scopeGet (modScope mod) name
+    typed   <- typeVarDefinition ctx tctx mod def binding
     bindToScope (modTypedContents mod) name (DeclVar typed)
 
-typeVarDefinition ctx tctx mod def = do
-  typed <- convertVarDefinition (typeExpr ctx tctx mod)
-                                (resolveMaybeType ctx tctx mod NoPos)
-                                def
+typeVarDefinition
+  :: CompileContext
+  -> TypeContext
+  -> Module
+  -> VarDefinition Expr (Maybe TypeSpec)
+  -> Binding
+  -> IO (VarDefinition TypedExpr ConcreteType)
+typeVarDefinition ctx tctx mod def binding = do
+  typed' <- convertVarDefinition (typeExpr ctx tctx mod)
+                                 (resolveMaybeType ctx tctx mod (varPos def))
+                                 def
+  let typed = typed' { varType = bindingConcrete binding }
   case varDefault typed of
     Just x -> do
       resolveConstraint
@@ -38,6 +46,7 @@ typeVarDefinition ctx tctx mod def = do
           (inferredType x)
           (varType typed)
           "Variable and field default values must match the variable's type"
-          NoPos
+          (varPos def)
         )
+    _ -> return ()
   return typed

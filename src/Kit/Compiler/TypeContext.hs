@@ -50,7 +50,6 @@ newTypeContext scopes = do
     , tctxRewriteRecursionDepth = 0
     }
 
--- TODO: position information
 unknownType t pos = do
   throw $ KitError $ TypingError ("Unknown type: " ++ (show t)) pos
 

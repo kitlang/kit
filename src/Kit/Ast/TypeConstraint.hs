@@ -11,6 +11,7 @@ type UnresolvedTypeConstraint = ConcreteType -> TypeConstraint
 
 data TypeConstraint
   = TypeEq ConcreteType ConcreteType String Span
+  -- | TypeNotVoid
   deriving (Eq, Show)
 
 data TypeInformation

@@ -48,11 +48,16 @@ generateDeclIr ctx mod t = do
       debugLog ctx $ "generating IR for " ++ s_unpack name ++ " in " ++ show mod
       converted <- convertTypeDefinition exprConverter typeConverter def
       addDecl $ DeclType $ converted
-      -- TODO: add declarations for methods
+      -- TODO: add declarations for instance methods
       forM_
         (typeStaticFields def)
         (\field -> generateDeclIr ctx mod
           $ DeclVar (field { varNamespace = (modPath mod) ++ [name] })
+        )
+      forM_
+        (typeStaticMethods def)
+        (\method -> generateDeclIr ctx mod
+          $ DeclFunction (method { functionNamespace = (modPath mod) ++ [name] })
         )
     DeclFunction f@(FunctionDefinition { functionName = name, functionArgs = args, functionType = t })
       -> do
@@ -158,7 +163,7 @@ findDefaultType ctx mod id = do
   info <- getTypeVar ctx id
   if null (typeVarConstraints info)
     then throwk $ BasicError
-      ("The type of this expression is ambiguous; not enough information to infer a type.\n\nTry adding a type annotation: `(myExpression: Type)`"
+      ("The type of this expression is ambiguous; not enough information to infer a type.\n\nTry adding a type annotation: `expression: Type`"
       )
       (Just $ head $ typeVarPositions info)
     else do
@@ -302,7 +307,9 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
         r1 <- maybeR e1
         return $ IrReturn r1
       (Throw      e1   ) -> return $ undefined -- TODO
-      -- (Match e1 cases (e2)) -> do
+      (Match e1 cases (e2)) -> do
+        -- TODO
+        throwk $ InternalError "Not yet implemented" (Just pos)
         -- r1 <- r e1
 
       (InlineCall e1   ) -> return $ undefined -- TODO

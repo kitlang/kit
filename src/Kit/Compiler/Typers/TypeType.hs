@@ -24,12 +24,27 @@ typeTypeDefinition
 typeTypeDefinition ctx mod def@(TypeDefinition { typeName = name }) = do
   debugLog ctx $ "typing " ++ s_unpack name ++ " in " ++ show mod
   -- TODO: handle params here
-  tctx <- newTypeContext []
+  tctx     <- newTypeContext []
+  subScope <- getSubScope (modScope mod) [name]
   let exprConverter = typeExpr ctx tctx mod
-  -- FIXME: position
-  let typeConverter = resolveMaybeType ctx tctx mod NoPos
-  staticFields <- forM (typeStaticFields def) (typeVarDefinition ctx tctx mod)
-  converted    <- convertTypeDefinition exprConverter typeConverter def
-  bindToScope (modTypedContents mod)
-              name
-              (DeclType $ converted { typeStaticFields = staticFields })
+  let typeConverter = resolveMaybeType ctx tctx mod (typePos def)
+  staticFields <- forM
+    (typeStaticFields def)
+    (\field -> do
+      binding <- scopeGet subScope (varName field)
+      typeVarDefinition ctx tctx mod field binding
+    )
+  staticMethods <- forM
+    (typeStaticMethods def)
+    (\method -> do
+      binding <- scopeGet subScope (functionName method)
+      typeFunctionDefinition ctx tctx mod method binding
+    )
+  converted <- convertTypeDefinition exprConverter typeConverter def
+  bindToScope
+    (modTypedContents mod)
+    name
+    (DeclType $ converted { typeStaticFields  = staticFields
+                          , typeStaticMethods = staticMethods
+                          }
+    )

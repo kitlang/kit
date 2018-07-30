@@ -109,89 +109,95 @@ addImplementation ctx mod impl@(TraitImplementation { implTrait = Just (TypeSpec
 
 resolveDecl :: CompileContext -> Module -> Decl -> IO ()
 resolveDecl ctx mod decl = case decl of
-  DeclVar v@(VarDefinition { varName = name, varType = Just t }) -> do
+  DeclVar v -> do
     tctx    <- newTypeContext []
-    modType <- resolveLocal (modScope mod) name
-    case modType of
-      Just (Binding { bindingConcrete = ct }) -> do
-        t' <- resolveType ctx tctx mod t
-        resolveConstraint
-          ctx
-          tctx
-          mod
-          (TypeEq ct
-                  t'
-                  "Var type must match its annotation"
-                  (typeSpecPosition t)
-          )
-      _ -> throwk $ InternalError
-        ("Unexpected missing var binding " ++ s_unpack name)
-        Nothing
-  DeclFunction f@(FunctionDefinition { functionName = name, functionArgs = args, functionType = rt })
-    -> do
+    modType <- resolveLocal (modScope mod) (varName v)
+    resolveVarDef ctx tctx mod modType v
+  DeclFunction f -> do
     -- TODO: params
-      tctx    <- newTypeContext []
-      modType <- resolveLocal (modScope mod) name
-      case modType of
-        Just (Binding { bindingConcrete = TypeFunction cRt cArgs _ }) -> do
-          case rt of
-            Just rt -> do
-              rt' <- resolveType ctx tctx mod rt
-              resolveConstraint
-                ctx
-                tctx
-                mod
-                (TypeEq cRt
-                        rt'
-                        "Function return type must match its annotation"
-                        (typeSpecPosition rt)
-                )
-            _ -> return ()
-          forM_
-            (zip args cArgs)
-            (\(arg, (_, cArgType)) -> case argType arg of
-              Just t -> do
-                t' <- resolveType ctx tctx mod t
-                resolveConstraint
-                  ctx
-                  tctx
-                  mod
-                  (TypeEq cArgType
-                          t'
-                          "Function arg type must match its annotation"
-                          (argPos arg)
-                  )
-              _ -> return ()
-            )
-        _ -> throwk
-          $ InternalError ("Expected function " ++ s_unpack name) Nothing
-  DeclType t@(TypeDefinition { typeName = name })
-    -> do
+    tctx    <- newTypeContext []
+    modType <- resolveLocal (modScope mod) (functionName f)
+    resolveFunctionDef ctx tctx mod modType f
+  DeclType t@(TypeDefinition { typeName = name }) -> do
       -- TODO: params
-      tctx     <- newTypeContext []
-      subScope <- getSubScope (modScope mod) [name]
-      forM_
-        (typeStaticFields t)
-        (\field -> do
-          binding <- scopeGet subScope (varName field)
-          case varType field of
-            Just t -> do
-              t' <- resolveType ctx tctx mod t
-              resolveConstraint
-                ctx
-                tctx
-                mod
-                (TypeEq (bindingConcrete binding)
-                        t'
-                        "Static field type must match its type annotation"
-                        -- FIXME: position
-                        (NoPos)
-                )
-            _ -> return ()
-        )
-      -- modType <- resolveLocal (modScope mod) name
+    tctx     <- newTypeContext []
+    subScope <- getSubScope (modScope mod) [name]
+    forM_
+      (typeStaticFields t)
+      (\field -> do
+        binding <- resolveLocal subScope (varName field)
+        resolveVarDef ctx tctx mod binding field
+      )
+    forM_
+      (typeStaticMethods t)
+      (\method -> do
+        binding <- resolveLocal subScope (functionName method)
+        resolveFunctionDef ctx tctx mod binding method
+      )
+    -- modType <- resolveLocal (modScope mod) name
 
-      -- case modType of
-        -- TypeStruct _
-      return ()
+    -- case modType of
+      -- TypeStruct _
+    return ()
   _ -> return ()
+
+resolveVarDef
+  :: CompileContext
+  -> TypeContext
+  -> Module
+  -> Maybe Binding
+  -> VarDefinition Expr (Maybe TypeSpec)
+  -> IO ()
+resolveVarDef ctx tctx mod modType v@(VarDefinition { varName = name, varType = Just t })
+  = case modType of
+    Just (Binding { bindingConcrete = ct }) -> do
+      t' <- resolveType ctx tctx mod t
+      resolveConstraint
+        ctx
+        tctx
+        mod
+        (TypeEq ct t' "Var type must match its annotation" (typeSpecPosition t))
+    _ -> throwk $ InternalError
+      ("Unexpected missing var binding " ++ s_unpack name)
+      Nothing
+
+resolveFunctionDef
+  :: CompileContext
+  -> TypeContext
+  -> Module
+  -> Maybe Binding
+  -> FunctionDefinition Expr (Maybe TypeSpec)
+  -> IO ()
+resolveFunctionDef ctx tctx mod modType f@(FunctionDefinition { functionName = name, functionArgs = args, functionType = rt })
+  = case modType of
+    Just (Binding { bindingConcrete = TypeFunction cRt cArgs _ }) -> do
+      case rt of
+        Just rt -> do
+          rt' <- resolveType ctx tctx mod rt
+          resolveConstraint
+            ctx
+            tctx
+            mod
+            (TypeEq cRt
+                    rt'
+                    "Function return type must match its annotation"
+                    (typeSpecPosition rt)
+            )
+        _ -> return ()
+      forM_
+        (zip args cArgs)
+        (\(arg, (_, cArgType)) -> case argType arg of
+          Just t -> do
+            t' <- resolveType ctx tctx mod t
+            resolveConstraint
+              ctx
+              tctx
+              mod
+              (TypeEq cArgType
+                      t'
+                      "Function arg type must match its annotation"
+                      (argPos arg)
+              )
+          _ -> return ()
+        )
+    _ -> throwk $ InternalError ("Expected function " ++ s_unpack name) Nothing

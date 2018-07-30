@@ -7,6 +7,7 @@ import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
 import Kit.Compiler.TypedDecl
+import Kit.Compiler.TypedExpr
 import Kit.Compiler.Typers.Base
 import Kit.Compiler.Typers.TypeExpression
 import Kit.Compiler.Unify
@@ -27,12 +28,22 @@ typeFunction ctx mod f = do
     ++ s_unpack (functionName f)
     ++ " in "
     ++ show mod
+  tctx  <- newTypeContext []
+  binding <- scopeGet (modScope mod) (functionName f)
+  typed <- typeFunctionDefinition ctx tctx mod f binding
+  bindToScope (modTypedContents mod)
+              (functionName f)
+              (DeclFunction typed)
 
-  -- FIXME: position
-  let fPos = case functionBody f of
-        Just x  -> pos x
-        Nothing -> NoPos
-
+typeFunctionDefinition
+  :: CompileContext
+  -> TypeContext
+  -> Module
+  -> FunctionDefinition Expr (Maybe TypeSpec)
+  -> Binding
+  -> IO (FunctionDefinition TypedExpr ConcreteType)
+typeFunctionDefinition ctx tctx mod f binding = do
+  let fPos = functionPos f
   let isMain =
         (functionName f == "main") && (ctxMainModule ctx == modPath mod) && not
           (ctxIsLibrary ctx)
@@ -58,8 +69,7 @@ typeFunction ctx mod f = do
       (argName arg)
       (newBinding ([], argName arg) VarBinding (argType arg) [] (argPos arg))
     )
-  ct <- scopeGet (modScope mod) (functionName f)
-  let returnType = case (bindingConcrete ct) of
+  let returnType = case (bindingConcrete binding) of
         TypeFunction rt _ _ -> rt
         _                   -> throwk $ InternalError
           "Function type was unexpectedly missing from module scope"
@@ -89,10 +99,7 @@ typeFunction ctx mod f = do
                 fPos
         )
     _ -> return ()
-  let typedFunction = converted
-        { functionType      = returnType
-        , functionNamespace = (if isMain then [] else functionNamespace f)
-        }
-  bindToScope (modTypedContents mod)
-              (functionName f)
-              (DeclFunction typedFunction)
+  return $ converted
+    { functionType      = returnType
+    , functionNamespace = (if isMain then [] else functionNamespace f)
+    }

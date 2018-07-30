@@ -196,16 +196,36 @@ addStmtToModuleInterface ctx mod s = do
         -- FIXME: position
         forM_
           (typeStaticFields d)
-          (\var -> do
-            t <- makeTypeVar ctx (stmtPos s)
+          (\field -> do
+            t <- makeTypeVar ctx (varPos field)
             bindToScope
               (subNamespace)
-              (varName var)
-              (newBinding (modPath mod ++ [name], varName var)
+              (varName field)
+              (newBinding (modPath mod ++ [name], varName field)
                           VarBinding
                           t
                           (modPath mod ++ [name])
-                          (stmtPos s)
+                          (varPos field)
+              )
+          )
+        forM_
+          (typeStaticMethods d)
+          (\method -> do
+            args <- forM
+              (functionArgs method)
+              (\arg -> do
+                t <- makeTypeVar ctx (argPos arg)
+                return (argName arg, t)
+              )
+            rt <- makeTypeVar ctx (functionPos method)
+            bindToScope
+              (subNamespace)
+              (functionName method)
+              (newBinding (modPath mod ++ [name], functionName method)
+                          FunctionBinding
+                          (TypeFunction rt args (functionVarargs method))
+                          (modPath mod ++ [name])
+                          (functionPos method)
               )
           )
 
