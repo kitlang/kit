@@ -6,6 +6,7 @@ import Kit.HashTable
 import Kit.Str
 
 data Scope a = Scope {
+  scopeNamespace :: [Str],
   -- bound names in this scope
   scopeBindings :: HashTable Str a,
   -- child namespaces within this scope
@@ -13,20 +14,24 @@ data Scope a = Scope {
 }
 
 -- Create a new scope.
-newScope :: IO (Scope a)
-newScope = do
-  bindings <- h_new
+newScope :: [Str] -> IO (Scope a)
+newScope n = do
+  bindings  <- h_new
   subScopes <- h_new
-  return $ Scope {scopeBindings = bindings, subScopes = subScopes}
+  return $ Scope
+    { scopeNamespace = n
+    , scopeBindings  = bindings
+    , subScopes      = subScopes
+    }
 
 getSubScope :: Scope a -> [Str] -> IO (Scope a)
-getSubScope scope [] = return scope
-getSubScope scope (h:t) = do
+getSubScope scope []      = return scope
+getSubScope scope (h : t) = do
   existing <- h_lookup (subScopes scope) h
   case existing of
-    Just x -> getSubScope x t
+    Just x  -> getSubScope x t
     Nothing -> do
-      x <- newScope
+      x <- newScope (scopeNamespace scope ++ [h])
       h_insert (subScopes scope) h x
       getSubScope x t
 

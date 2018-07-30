@@ -33,10 +33,10 @@ spec = do
       bindToScope (modScope m) "a" (newVar "a1")
       bindToScope (modScope m) "b" (newVar "b1")
       bindToScope (modScope m) "c" (newVar "c1")
-      s1 <- newScope
+      s1 <- newScope []
       bindToScope s1 "a" (newVar "a2")
       bindToScope s1 "b" (newVar "b2")
-      s2 <- newScope
+      s2 <- newScope []
       bindToScope s2 "a" (newVar "a3")
       let scopes = [s2, s1]
       ctx <- newCompileContext

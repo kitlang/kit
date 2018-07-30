@@ -23,10 +23,10 @@ data Module = Module {
   modImports :: [(ModulePath, Span)],
   modIncludes :: IORef [(FilePath, Span)],
   modScope :: Scope Binding,
+  modContents :: Scope (Declaration Expr (Maybe TypeSpec)),
   modImpls :: IORef [TraitImplementation Expr (Maybe TypeSpec)],
   modSpecializations :: IORef [((TypeSpec, TypeSpec), Span)],
-  modContents :: Scope (Declaration Expr (Maybe TypeSpec)),
-  modTypedContents :: Scope TypedDecl,
+  modTypedContents :: IORef [TypedDecl],
   modIr :: IORef [IrDecl],
   modIsCModule :: Bool
 }
@@ -34,19 +34,18 @@ data Module = Module {
 instance Show Module where
   show m = "<module " ++ (s_unpack $ showModulePath $ modPath m) ++ " (" ++ (modSourcePath m) ++ ")>"
 
-emptyMod :: IO Module
-emptyMod = do
-  scope         <- newScope
-  defs          <- newScope
-  traits        <- newScope
+newMod :: ModulePath -> FilePath -> IO Module
+newMod path fp = do
+  scope         <- newScope path
+  defs          <- newScope path
   impls         <- newIORef []
   specs         <- newIORef []
-  typedContents <- newScope
+  typedContents <- newIORef []
   ir            <- newIORef []
   includes      <- newIORef []
   return $ Module
-    { modPath            = undefined
-    , modSourcePath      = undefined
+    { modPath            = path
+    , modSourcePath      = fp
     , modImports         = []
     , modIncludes        = includes
     , modScope           = scope
@@ -58,18 +57,12 @@ emptyMod = do
     , modIsCModule       = False
     }
 
-newMod :: ModulePath -> FilePath -> IO Module
-newMod path fp = do
-  mod <- emptyMod
-  return $ mod { modPath = path, modSourcePath = fp }
+emptyMod = newMod [] undefined
 
 newCMod :: FilePath -> IO Module
 newCMod fp = do
-  mod <- emptyMod
-  return $ mod { modPath       = includeToModulePath fp
-               , modSourcePath = fp
-               , modIsCModule  = True
-               }
+  mod <- newMod (includeToModulePath fp) fp
+  return $ mod { modIsCModule = True }
 
 includeToModulePath :: FilePath -> ModulePath
 includeToModulePath fp = "c" : (map s_pack $ splitDirectories (fp -<.> ""))

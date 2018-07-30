@@ -9,12 +9,12 @@ spec :: Spec
 spec = do
   describe "Scope resolution" $ do
     it "resolves values from scopes" $ do
-      scope1 <- newScope
+      scope1 <- newScope []
       bindToScope scope1 "a" 1
-      scope2 <- newScope
+      scope2 <- newScope []
       bindToScope scope2 "a" 2
       bindToScope scope2 "b" 3
-      scope3 <- newScope
+      scope3 <- newScope []
       bindToScope scope3 "a" 4
       bindToScope scope3 "b" 5
       bindToScope scope3 "c" 6

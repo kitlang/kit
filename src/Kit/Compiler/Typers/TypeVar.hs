@@ -1,6 +1,7 @@
 module Kit.Compiler.Typers.TypeVar where
 
 import Control.Monad
+import Data.IORef
 import Data.List
 import Kit.Ast
 import Kit.Compiler.Context
@@ -22,7 +23,7 @@ typeVar ctx mod def@(VarDefinition { varName = name, varNamespace = namespace })
     tctx    <- newTypeContext []
     binding <- scopeGet (modScope mod) name
     typed   <- typeVarDefinition ctx tctx mod def binding
-    bindToScope (modTypedContents mod) name (DeclVar typed)
+    modifyIORef (modTypedContents mod) ((:) $ DeclVar typed)
 
 typeVarDefinition
   :: CompileContext

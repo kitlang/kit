@@ -49,7 +49,7 @@ typeModuleContent ctx mod = do
 dumpModuleContent :: CompileContext -> Module -> IO ()
 dumpModuleContent ctx mod = do
   putStrLn $ show mod
-  defs <- bindingList (modTypedContents mod)
+  defs <- readIORef (modTypedContents mod)
   forM_ defs (dumpModuleDecl ctx mod)
   putStrLn ""
 

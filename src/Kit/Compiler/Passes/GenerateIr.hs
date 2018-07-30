@@ -34,7 +34,7 @@ generateIr ctx = do
 generateModuleIr :: CompileContext -> Module -> IO ()
 generateModuleIr ctx mod = do
   debugLog ctx $ "generating IR for " ++ show mod
-  bindings <- bindingList $ modTypedContents mod
+  bindings <- readIORef (modTypedContents mod)
   forM (bindings) (\t -> generateDeclIr ctx mod t)
   return ()
 

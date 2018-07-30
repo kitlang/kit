@@ -44,7 +44,8 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
   let resolve constraint = resolveConstraint ctx tctx mod constraint
   result <- case et of
     (Block children) -> do
-      blockScope <- newScope
+      -- FIXME: you may be in an inner scope...
+      blockScope <- newScope (modPath mod)
       let tctx' = tctx { tctxScopes = blockScope : tctxScopes tctx }
       typedChildren <- mapM (typeExpr ctx tctx' mod) children
       return $ makeExprTyped
@@ -170,7 +171,7 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
 
     (For (Expr { expr = Identifier v _, pos = pos1 }) e2 e3) -> do
       r2    <- r e2
-      scope <- newScope
+      scope <- newScope (modPath mod)
       r3    <- typeExpr
         ctx
         (tctx { tctxScopes    = scope : (tctxScopes tctx)
@@ -194,7 +195,7 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
 
     (While e1 e2) -> do
       r1    <- r e1
-      scope <- newScope
+      scope <- newScope (modPath mod)
       r2    <- typeExpr
         ctx
         (tctx { tctxScopes    = scope : (tctxScopes tctx)
@@ -211,12 +212,12 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
 
     (If e1 e2 (Just e3)) -> do
       r1     <- r e1
-      scope1 <- newScope
+      scope1 <- newScope (modPath mod)
       r2     <- typeExpr ctx
                          (tctx { tctxScopes = scope1 : (tctxScopes tctx) })
                          mod
                          e2
-      scope2 <- newScope
+      scope2 <- newScope (modPath mod)
       r3     <- typeExpr ctx
                          (tctx { tctxScopes = scope2 : (tctxScopes tctx) })
                          mod
@@ -238,7 +239,8 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
       return $ makeExprTyped (If r1 r2 (Just r3)) (tv) pos
     (If e1 e2 Nothing) -> do
       r1    <- r e1
-      scope <- newScope
+      -- FIXME: scope
+      scope <- newScope (modPath mod)
       r2    <- typeExpr ctx
                         (tctx { tctxScopes = scope : (tctxScopes tctx) })
                         mod

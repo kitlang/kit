@@ -1,6 +1,7 @@
 module Kit.Compiler.Typers.TypeFunction where
 
 import Control.Monad
+import Data.IORef
 import Kit.Ast
 import Kit.Compiler.Context
 import Kit.Compiler.Module
@@ -28,12 +29,10 @@ typeFunction ctx mod f = do
     ++ s_unpack (functionName f)
     ++ " in "
     ++ show mod
-  tctx  <- newTypeContext []
+  tctx    <- newTypeContext []
   binding <- scopeGet (modScope mod) (functionName f)
-  typed <- typeFunctionDefinition ctx tctx mod f binding
-  bindToScope (modTypedContents mod)
-              (functionName f)
-              (DeclFunction typed)
+  typed   <- typeFunctionDefinition ctx tctx mod f binding
+  modifyIORef (modTypedContents mod) ((:) $ DeclFunction typed)
 
 typeFunctionDefinition
   :: CompileContext
@@ -48,7 +47,7 @@ typeFunctionDefinition ctx tctx mod f binding = do
         (functionName f == "main") && (ctxMainModule ctx == modPath mod) && not
           (ctxIsLibrary ctx)
   imports       <- getModImports ctx mod
-  functionScope <- newScope
+  functionScope <- newScope (modPath mod)
   tctx          <- newTypeContext (map modScope imports)
   args          <- forM
     (functionArgs f)

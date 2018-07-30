@@ -1,6 +1,7 @@
 module Kit.Compiler.Typers.TypeType where
 
 import Control.Monad
+import Data.IORef
 import Data.List
 import Kit.Ast
 import Kit.Compiler.Context
@@ -41,10 +42,9 @@ typeTypeDefinition ctx mod def@(TypeDefinition { typeName = name }) = do
       typeFunctionDefinition ctx tctx mod method binding
     )
   converted <- convertTypeDefinition exprConverter typeConverter def
-  bindToScope
+  modifyIORef
     (modTypedContents mod)
-    name
-    (DeclType $ converted { typeStaticFields  = staticFields
-                          , typeStaticMethods = staticMethods
-                          }
+    ((:) $ DeclType $ converted { typeStaticFields  = staticFields
+                                , typeStaticMethods = staticMethods
+                                }
     )

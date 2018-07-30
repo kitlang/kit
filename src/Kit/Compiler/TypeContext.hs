@@ -39,9 +39,8 @@ data TypeContext = TypeContext {
 
 newTypeContext :: [Scope Binding] -> IO TypeContext
 newTypeContext scopes = do
-  scope <- newScope
   return $ TypeContext
-    { tctxScopes                = scope : scopes
+    { tctxScopes                = scopes
     , tctxTypeParamScopes       = []
     , tctxReturnType            = Nothing
     , tctxThis                  = Nothing
