@@ -18,13 +18,11 @@ import Kit.Str
 
 type SyntacticExprType = ExprType Expr (Maybe TypeSpec)
 
-data Expr = Expr {expr :: SyntacticExprType, pos :: Span} deriving (Show)
+data Expr = Expr {expr :: SyntacticExprType, pos :: Span} deriving (Eq, Show)
 ePos = pos
-instance Eq Expr where
-  (==) a b = (expr a) == (expr b) && (pos a == pos b || pos a == null_span || pos b == null_span)
 
 e :: SyntacticExprType -> Expr
-e et = ep et null_span
+e et = ep et NoPos
 
 ep :: SyntacticExprType -> Span -> Expr
 ep et p = Expr {expr = et, pos = p}

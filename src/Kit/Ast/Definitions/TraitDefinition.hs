@@ -7,10 +7,12 @@ import Kit.Ast.Metadata
 import Kit.Ast.Modifier
 import Kit.Ast.ModulePath
 import Kit.Ast.TypeSpec
+import Kit.Parser.Span
 import Kit.Str
 
 data TraitDefinition a b = TraitDefinition {
   traitName :: Str,
+  traitPos :: Span,
   traitDoc :: Maybe Str,
   traitMeta :: [Metadata],
   traitModifiers :: [Modifier],

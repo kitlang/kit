@@ -26,7 +26,7 @@ typeVar ctx mod def@(VarDefinition { varName = name, varNamespace = namespace })
 
 typeVarDefinition ctx tctx mod def = do
   typed <- convertVarDefinition (typeExpr ctx tctx mod)
-                                (resolveMaybeType ctx tctx mod null_span)
+                                (resolveMaybeType ctx tctx mod NoPos)
                                 def
   case varDefault typed of
     Just x -> do
@@ -38,6 +38,6 @@ typeVarDefinition ctx tctx mod def = do
           (inferredType x)
           (varType typed)
           "Variable and field default values must match the variable's type"
-          null_span
+          NoPos
         )
   return typed

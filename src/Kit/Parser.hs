@@ -18,9 +18,9 @@ import Kit.Parser.Token
 import Kit.Str
 
 parseString :: Str -> Parser [Statement]
-parseString s = parseTokens (scanTokens Nothing s)
+parseString s = parseTokens (scanTokens "" s)
 
 parseFile :: FilePath -> IO (Parser [Statement])
 parseFile f = do
   contents <- s_readFile f
-  return $ parseTokens (scanTokens (Just $ s_pack f) contents)
+  return $ parseTokens (scanTokens f contents)

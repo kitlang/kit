@@ -18,7 +18,7 @@ import Kit.Str
 
 data Statement = Statement {stmt :: StatementType Expr (Maybe TypeSpec), stmtPos :: Span} deriving (Show)
 instance Eq Statement where
-  (==) a b = (stmt a) == (stmt b) && (stmtPos a == stmtPos b || stmtPos a == null_span || stmtPos b == null_span)
+  (==) a b = (stmt a) == (stmt b) && (stmtPos a == stmtPos b || stmtPos a == NoPos || stmtPos b == NoPos)
 
 data StatementType a b
   = ModuleVarDeclaration (VarDefinition a b)
@@ -32,7 +32,7 @@ data StatementType a b
   | Include FilePath
   deriving (Eq, Show)
 
-makeStmt st = Statement {stmt = st, stmtPos = null_span}
+makeStmt st = Statement {stmt = st, stmtPos = NoPos}
 
 ps :: Span -> StatementType Expr (Maybe TypeSpec) -> Statement
 ps p st = Statement {stmt = st, stmtPos = p}

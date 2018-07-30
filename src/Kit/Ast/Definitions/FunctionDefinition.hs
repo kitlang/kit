@@ -11,6 +11,7 @@ import Kit.Str
 
 data FunctionDefinition a b = FunctionDefinition {
   functionName :: Str,
+  functionPos :: Span,
   functionDoc :: Maybe Str,
   functionMeta :: [Metadata],
   functionModifiers :: [Modifier],
@@ -38,6 +39,7 @@ newFunctionDefinition = FunctionDefinition
   , functionNamespace = []
   , functionThis      = Nothing
   , functionSelf      = Nothing
+  , functionPos       = NoPos
   }
 
 convertFunctionDefinition
@@ -60,6 +62,7 @@ convertFunctionDefinition exprConverter typeConverter newArgs newType f = do
                                    , functionBody      = newBody
                                    , functionVarargs   = functionVarargs f
                                    , functionNamespace = functionNamespace f
+                                   , functionPos       = functionPos f
                                    }
 
 data ArgSpec a b = ArgSpec {
@@ -76,7 +79,7 @@ newArgSpec = ArgSpec
   { argName    = undefined
   , argType    = Nothing
   , argDefault = Nothing
-  , argPos     = null_span
+  , argPos     = NoPos
   }
 
 convertArgSpec

@@ -7,10 +7,12 @@ import Kit.Ast.Metadata
 import Kit.Ast.Modifier
 import Kit.Ast.ModulePath
 import Kit.Ast.TypeSpec
+import Kit.Parser.Span
 import Kit.Str
 
 data EnumVariant a b = EnumVariant {
   variantName :: Str,
+  variantPos :: Span,
   variantDoc :: Maybe Str,
   variantMeta :: [Metadata],
   variantModifiers :: [Modifier],
@@ -25,6 +27,7 @@ newEnumVariant = EnumVariant
   , variantModifiers = []
   , variantArgs      = []
   , variantValue     = Nothing
+  , variantPos       = NoPos
   }
 
 variantIsSimple = null . variantArgs
@@ -44,4 +47,5 @@ convertEnumVariant exprConverter typeConverter v = do
                           , variantModifiers = variantModifiers v
                           , variantArgs      = newArgs
                           , variantValue     = newValue
+                          , variantPos       = variantPos v
                           }

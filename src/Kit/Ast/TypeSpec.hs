@@ -28,7 +28,7 @@ data TypeSpec
   -}
   | ConcreteType ConcreteType
 
-makeTypeSpec s = TypeSpec ([], s) [] null_span
+makeTypeSpec s = TypeSpec ([], s) [] NoPos
 
 typeSpecParams :: TypeSpec -> [TypeSpec]
 typeSpecParams (TypeSpec _ params _          ) = params
@@ -41,7 +41,7 @@ typeSpecName (TypeFunctionSpec (TypeSpec (_, name) _ _) _ _ _) = name
 
 typeSpecPosition (TypeSpec _ _ pos        ) = pos
 typeSpecPosition (TypeFunctionSpec t _ _ _) = typeSpecPosition t
-typeSpecPosition (ConcreteType _          ) = null_span
+typeSpecPosition (ConcreteType _          ) = NoPos
 
 instance Show TypeSpec where
   show (TypeSpec (tp) params _) = (s_unpack $ showTypePath tp) ++ (if params == [] then "" else "[" ++ (intercalate "," [show param | param <- params]) ++ "]")

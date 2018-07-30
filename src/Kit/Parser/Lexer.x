@@ -148,7 +148,7 @@ posnOffset (line, col) s = (line + length indices, if length indices == 0 then c
                                  l = (fromIntegral $ s_length s)
 
 -- wrapper to convert an Alex position to a Span
-pos2span (AlexPn _ line col) s = sp line col end_line end_col where (end_line, end_col) = posnOffset (line, col) s
+pos2span (AlexPn _ line col) s = (line, col, end_line, end_col) where (end_line, end_col) = posnOffset (line, col) s
 
 processStringLiteral :: Str -> Str
 processStringLiteral s = s_pack (_processString (s_unpack s) False) -- FIXME: better way?
@@ -185,6 +185,6 @@ scanTokens f str = go (alexStartPos,'\n',str,0)
             AlexSkip  inp' len     -> go inp'
             AlexToken inp'@(_,_,_,n') _ act ->
               (a, b) : go inp'
-              where (a', b') = act pos (ByteString.take (n'-n) str)
-                    (a, b) = (a', b' {file = f})
+              where (a', (b1, b2, b3, b4)) = act pos (ByteString.take (n'-n) str)
+                    (a, b) = (a', sp f b1 b2 b3 b4)
 }

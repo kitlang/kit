@@ -27,7 +27,7 @@ typeTypeDefinition ctx mod def@(TypeDefinition { typeName = name }) = do
   tctx <- newTypeContext []
   let exprConverter = typeExpr ctx tctx mod
   -- FIXME: position
-  let typeConverter = resolveMaybeType ctx tctx mod null_span
+  let typeConverter = resolveMaybeType ctx tctx mod NoPos
   staticFields <- forM (typeStaticFields def) (typeVarDefinition ctx tctx mod)
   converted    <- convertTypeDefinition exprConverter typeConverter def
   bindToScope (modTypedContents mod)

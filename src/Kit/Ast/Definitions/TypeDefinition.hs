@@ -9,10 +9,12 @@ import Kit.Ast.Metadata
 import Kit.Ast.Modifier
 import Kit.Ast.ModulePath
 import Kit.Ast.TypeSpec
+import Kit.Parser.Span
 import Kit.Str
 
 data TypeDefinition a b = TypeDefinition {
   typeName :: Str,
+  typePos :: Span,
   typeDoc :: Maybe Str,
   typeMeta :: [Metadata],
   typeModifiers :: [Modifier],
@@ -45,6 +47,7 @@ newTypeDefinition x = TypeDefinition
   , typeParams        = []
   , typeSubtype       = undefined
   , typeNamespace     = []
+  , typePos           = NoPos
   }
 
 convertTypeDefinition
@@ -75,6 +78,7 @@ convertTypeDefinition exprConverter typeConverter t = do
                                             , typeParams    = typeParams t
                                             , typeNamespace = typeNamespace t
                                             , typeSubtype   = newType
+                                            , typePos       = typePos t
                                             }
 
 enumIsSimple enum = all variantIsSimple $ enumVariants enum

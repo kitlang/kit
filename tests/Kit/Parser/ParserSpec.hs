@@ -6,9 +6,9 @@ import Test.QuickCheck
 import Kit.Ast
 import Kit.Parser
 
-testParse s = unwrapParsed $ parseTokens (scanTokens Nothing s)
-testParseExpr s = unwrapParsed $ parseExpr (scanTokens Nothing s)
-testParseTopLevel s = unwrapParsed $ parseTopLevelExpr (scanTokens Nothing s)
+testParse s = unwrapParsed $ parseTokens (scanTokens "" s)
+testParseExpr s = unwrapParsed $ parseExpr (scanTokens "" s)
+testParseTopLevel s = unwrapParsed $ parseTopLevelExpr (scanTokens "" s)
 unwrapParsed x = case x of
   ParseResult r -> r
   Err         e -> error $ show e
@@ -18,23 +18,23 @@ spec = parallel $ do
   describe "Parse expressions" $ do
     it "parses identifiers" $ do
       testParseExpr "apple"
-        `shouldBe` (pe (sp 1 1 1 5) $ Identifier (Var "apple") [])
-      testParseExpr "this" `shouldBe` (pe (sp 1 1 1 4) $ This)
-      testParseExpr "Self" `shouldBe` (pe (sp 1 1 1 4) $ Self)
+        `shouldBe` (pe (sp "" 1 1 1 5) $ Identifier (Var "apple") [])
+      testParseExpr "this" `shouldBe` (pe (sp "" 1 1 1 4) $ This)
+      testParseExpr "Self" `shouldBe` (pe (sp "" 1 1 1 4) $ Self)
 
     it "parses type annotations" $ do
       testParseExpr "x : T"
-        `shouldBe` (pe (sp 1 1 1 5) $ TypeAnnotation
-                     (pe (sp 1 1 1 1) $ Identifier (Var "x") [])
-                     (Just $ TypeSpec (([], "T")) [] null_span)
+        `shouldBe` (pe (sp "" 1 1 1 5) $ TypeAnnotation
+                     (pe (sp "" 1 1 1 1) $ Identifier (Var "x") [])
+                     (Just $ TypeSpec (([], "T")) [] NoPos)
                    )
 
     it "parses value literals" $ do
-      testParseExpr "1" `shouldBe` (pe (sp 1 1 1 1) $ Literal $ IntValue "1")
+      testParseExpr "1" `shouldBe` (pe (sp "" 1 1 1 1) $ Literal $ IntValue "1")
 
     it "parses binops" $ do
       testParseExpr "a = 1 + 2.0 * 'abc def'"
-        `shouldBe` (pe (sp 1 1 1 23) $ Binop
+        `shouldBe` (pe (sp "" 1 1 1 23) $ Binop
                      Assign
                      (e $ Identifier (Var "a") [])
                      (e $ Binop
@@ -73,14 +73,14 @@ spec = parallel $ do
                      (e This)
                      (Just $ TypeSpec ([], "A")
                                       [typeParamToSpec $ makeTypeParam "B"]
-                                      null_span
+                                      NoPos
                      )
                    )
 
     it "parses inline structs" $ do
       testParseExpr "struct Abc {a: 1, b: true}"
         `shouldBe` (e $ StructInit
-                     (Just $ TypeSpec ([], "Abc") [] (sp 1 8 1 10))
+                     (Just $ TypeSpec ([], "Abc") [] (sp "" 1 8 1 10))
                      [ ("a", e $ Literal $ IntValue "1")
                      , ("b", e $ Literal $ BoolValue True)
                      ]
@@ -89,19 +89,19 @@ spec = parallel $ do
   describe "Parse statements" $ do
     it "parses blocks" $ do
       testParseTopLevel "{this; Self;\n break;}"
-        `shouldBe` ( pe (sp 1 1 2 8)
+        `shouldBe` ( pe (sp "" 1 1 2 8)
                    $ Block
-                       [ pe (sp 1 2 1 6)  This
-                       , pe (sp 1 8 1 12) Self
-                       , pe (sp 2 2 2 7)  Break
+                       [ pe (sp "" 1 2 1 6)  This
+                       , pe (sp "" 1 8 1 12) Self
+                       , pe (sp "" 2 2 2 7)  Break
                        ]
                    )
 
     it "parses continue" $ do
-      testParseTopLevel "continue;" `shouldBe` (pe (sp 1 1 1 9) $ Continue)
+      testParseTopLevel "continue;" `shouldBe` (pe (sp "" 1 1 1 9) $ Continue)
 
     it "parses break" $ do
-      testParseTopLevel "break;" `shouldBe` (pe (sp 1 1 1 6) $ Break)
+      testParseTopLevel "break;" `shouldBe` (pe (sp "" 1 1 1 6) $ Break)
 
     -- it "parses token blocks" $ do
     --   testParseTopLevel "tokens { }" `shouldBe` (e $ TokenExpr [])
@@ -120,7 +120,7 @@ spec = parallel $ do
     it "parses functions" $ do
       testParse
           "/**test*/ #[meta] inline function abc[A, B: Int, C: (ToString, ToInt)](a: A, b: B = 2, c: C, ...): Something { print(a); print(b); print(c); }"
-        `shouldBe` [ ( ps (sp 1 26 1 37)
+        `shouldBe` [ ( ps (sp "" 1 26 1 37)
                      $ FunctionDeclaration
                      $ (newFunctionDefinition :: FunctionDefinition
                            Expr
@@ -200,7 +200,7 @@ spec = parallel $ do
         typeRules = [],
         typeParams = [TypeParam {paramType = makeTypeSpec "A", constraints = []}],
         typeSubtype = Typedef {
-          typedef_definition = TypeSpec ([], "OtherType") [TypeParam {paramType = makeTypeSpec "B", constraints = []}] null_span
+          typedef_definition = TypeSpec ([], "OtherType") [TypeParam {paramType = makeTypeSpec "B", constraints = []}] NoPos
         }
       }]-}
 
@@ -265,7 +265,7 @@ spec = parallel $ do
                        , typeParams    = []
                        , typeSubtype   = Enum
                          { enumUnderlyingType = Just (makeTypeSpec "Float")
-                         , enumVariants       = [ EnumVariant
+                         , enumVariants       = [ newEnumVariant
                                                   { variantName      = "Apple"
                                                   , variantDoc       = Nothing
                                                   , variantArgs      = []
@@ -273,7 +273,7 @@ spec = parallel $ do
                                                   , variantModifiers = []
                                                   , variantValue     = Nothing
                                                   }
-                                                , EnumVariant
+                                                , newEnumVariant
                                                   { variantName      = "Banana"
                                                   , variantDoc       = Nothing
                                                   , variantArgs = [ newArgSpec
@@ -288,7 +288,7 @@ spec = parallel $ do
                                                   , variantModifiers = []
                                                   , variantValue     = Nothing
                                                   }
-                                                , EnumVariant
+                                                , newEnumVariant
                                                   { variantName = "Strawberry"
                                                   , variantDoc = Just "Abc"
                                                   , variantArgs = []
@@ -318,7 +318,7 @@ spec = parallel $ do
                        , typeModifiers     = []
                        , typeRules         = []
                        , typeParams        = []
-                       , typeStaticFields  = [ VarDefinition
+                       , typeStaticFields  = [ newVarDefinition
                                                  { varName      = "ghi"
                                                  , varDoc       = Nothing
                                                  , varMeta      = []
@@ -328,7 +328,7 @@ spec = parallel $ do
                                                  , varNamespace = []
                                                  }
                                              ]
-                       , typeStaticMethods = [ FunctionDefinition
+                       , typeStaticMethods = [ newFunctionDefinition
                                                  { functionName      = "jkl"
                                                  , functionDoc       = Nothing
                                                  , functionMeta      = []

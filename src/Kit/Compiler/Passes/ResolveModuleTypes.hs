@@ -24,9 +24,7 @@ instance Errable DuplicateSpecializationError where
   logError e@(DuplicateSpecializationError mod tp pos1 pos2) = do
     logErrorBasic e $ "Duplicate specialization for `" ++ s_unpack (showTypePath tp) ++ "` in " ++ s_unpack (showModulePath mod) ++ "; \n\nFirst specialization:"
     ePutStrLn "\nSecond specialization:"
-    case file pos2 of
-      Just fp -> displayFileSnippet (s_unpack fp) pos2
-      _ -> return ()
+    displayFileSnippet pos2
     ePutStrLn "\nTraits cannot have overlapping specializations."
   errPos (DuplicateSpecializationError _ _ pos _) = Just pos
 
@@ -187,7 +185,7 @@ resolveDecl ctx mod decl = case decl of
                         t'
                         "Static field type must match its type annotation"
                         -- FIXME: position
-                        (null_span)
+                        (NoPos)
                 )
             _ -> return ()
         )

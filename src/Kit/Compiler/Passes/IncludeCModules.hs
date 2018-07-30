@@ -94,9 +94,7 @@ unknownTypeWarning ctx mod name pos = do
     ++ " "
     ++ (show pos)
     ++ "; attempts to access values of this type will fail"
-  case file pos of
-    Just f -> displayFileSnippet (s_unpack f) pos
-    _      -> return ()
+  displayFileSnippet pos
 
 parseCDecls :: CompileContext -> Module -> FilePath -> [CExtDecl] -> IO ()
 parseCDecls ctx mod path [] = do
@@ -107,12 +105,12 @@ parseCDecls ctx mod path (h : t) = do
       let ann     = annotation cdecl
       let nodePos = posOfNode ann
       let pos = if isSourcePos nodePos
-            then fsp (s_pack $ posFile nodePos)
-                     (posRow nodePos)
-                     (posColumn nodePos)
-                     (posRow nodePos)
-                     (posColumn nodePos)
-            else null_span
+            then sp (posFile nodePos)
+                    (posRow nodePos)
+                    (posColumn nodePos)
+                    (posRow nodePos)
+                    (posColumn nodePos)
+            else NoPos
       let (storageSpec, typeSpec, initializers) = decomposeCDecl cdecl
       if isTypedef storageSpec
         then do

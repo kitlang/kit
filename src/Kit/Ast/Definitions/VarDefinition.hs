@@ -6,10 +6,12 @@ import Kit.Ast.Metadata
 import Kit.Ast.Modifier
 import Kit.Ast.ModulePath
 import Kit.Ast.TypeSpec
+import Kit.Parser.Span
 import Kit.Str
 
 data VarDefinition a b = VarDefinition {
   varName :: Str,
+  varPos :: Span,
   varDoc :: Maybe Str,
   varMeta :: [Metadata],
   varModifiers :: [Modifier],
@@ -27,6 +29,7 @@ newVarDefinition = VarDefinition
   , varType      = undefined
   , varDefault   = Nothing
   , varNamespace = []
+  , varPos       = NoPos
   }
 
 convertVarDefinition
@@ -45,4 +48,5 @@ convertVarDefinition exprConverter typeConverter v = do
                               , varType      = newType
                               , varDefault   = newDefault
                               , varNamespace = varNamespace v
+                              , varPos       = varPos v
                               }

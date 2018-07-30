@@ -23,9 +23,7 @@ instance Errable DuplicateDeclarationError where
   logError e@(DuplicateDeclarationError mod name pos1 pos2) = do
     logErrorBasic e $ "Duplicate declaration for `" ++ s_unpack name ++ "` in " ++ s_unpack (showModulePath mod) ++ "; \n\nFirst declaration:"
     ePutStrLn "\nSecond declaration:"
-    case file pos2 of
-      Just fp -> displayFileSnippet (s_unpack fp) pos2
-      _ -> return ()
+    displayFileSnippet pos2
     ePutStrLn "\nFunction, variable, type and trait names must be unique within the same scope."
   errPos (DuplicateDeclarationError _ _ pos _) = Just pos
 
@@ -94,7 +92,7 @@ follow ctx tctx mod t = do
       return $ TypeEnumConstructor tp d resolvedArgs
     TypeTypedef tp params -> do
       resolveType ctx tctx mod
-        $ TypeSpec tp [ ConcreteType p | p <- params ] null_span
+        $ TypeSpec tp [ ConcreteType p | p <- params ] NoPos
     _ -> return t
 
 resolveModuleBinding
@@ -145,7 +143,7 @@ resolveType ctx tctx mod t = do
 
     TypeFunctionSpec rt params args isVariadic -> do
       -- TODO
-      unknownType "TODO" null_span
+      unknownType "TODO" NoPos
 
 resolveMaybeType
   :: CompileContext

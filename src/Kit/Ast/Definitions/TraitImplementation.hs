@@ -6,11 +6,13 @@ import Kit.Ast.Metadata
 import Kit.Ast.Modifier
 import Kit.Ast.ModulePath
 import Kit.Ast.TypeSpec
+import Kit.Parser.Span
 import Kit.Str
 
 data TraitImplementation a b = TraitImplementation {
   implTrait :: b,
   implFor :: b,
   implMethods :: [FunctionDefinition a b],
-  implDoc :: Maybe Str
+  implDoc :: Maybe Str,
+  implPos :: Span
 } deriving (Eq, Show)

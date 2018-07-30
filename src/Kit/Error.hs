@@ -7,6 +7,7 @@ import Control.Exception
 import Control.Monad
 import Data.List
 import System.Console.ANSI
+import System.Directory
 import System.IO
 import Kit.Log
 import Kit.Parser.Span
@@ -86,7 +87,7 @@ logErrorTitle err = do
     [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
   hPutStrLn stderr $ take 40 (repeat '-')
   case errPos err of
-    Just pos@Span { file = Just f, start_line = start } -> do
+    Just pos@Span { file = f, start_line = start } -> do
       hSetSGR
         stderr
         [SetColor Foreground Vivid Red, SetConsoleIntensity BoldIntensity]
@@ -94,7 +95,7 @@ logErrorTitle err = do
       hSetSGR
         stderr
         [SetColor Foreground Vivid White, SetConsoleIntensity BoldIntensity]
-      hPutStr stderr $ (s_unpack f) ++ ":" ++ (show start) ++ ": "
+      hPutStr stderr $ f ++ ":" ++ (show start) ++ ": "
     _ -> do
       hSetSGR
         stderr
@@ -107,65 +108,71 @@ logErrorBasic err msg = do
   logErrorTitle err
   hPutStrLn stderr msg
   case errPos err of
-    Just pos@Span { file = Just f } -> displayFileSnippet (s_unpack f) pos
-    _                               -> return ()
+    Just pos -> displayFileSnippet pos
+    _        -> return ()
 
 lpad :: String -> Int -> String
 lpad s n = (take (n - length s) (repeat ' ')) ++ s
 
-displayFileSnippet :: FilePath -> Span -> IO ()
-displayFileSnippet fp span = do
-  hSetSGR
-    stderr
-    [SetColor Foreground Vivid Blue, SetConsoleIntensity NormalIntensity]
-  if span == null_span
-    then hPutStrLn stderr $ "\n  " ++ show fp
-    else hPutStrLn stderr $ "\n  " ++ show span
-  contents <- readFile $ fp
-  let content_lines = lines contents
-  forM_ [(start_line span) .. (end_line span)] $ \n -> do
-    hSetSGR
-      stderr
-      [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
-    if n == (start_line span) + 3
-      then do
-        hPutStrLn stderr $ "\n  ...\n"
-      else if n > (start_line span) + 3 && n < (end_line span) - 2
-        then do
-          return ()
-        else do
-          let line = content_lines !! (n - 1)
-          hSetSGR stderr [SetConsoleIntensity NormalIntensity]
-          hPutStr stderr $ (lpad (show n) 8) ++ "    "
-          hSetSGR stderr [SetConsoleIntensity FaintIntensity]
-          hPutStrLn stderr $ line
-          if (start_line span)
-             <= (end_line span)
-             || (start_col span)
-             >  1
-             || (end_col span)
-             <  length line
-          then
-            do
-              let this_start_col = if n == start_line span
-                    then start_col span
-                    else length (takeWhile ((==) ' ') line) + 1
-              let this_end_col =
-                    if n == end_line span then end_col span else length line
-              hSetSGR stderr [Reset]
-              ePutStr
-                $  "            "
-                ++ (take ((this_start_col) - 1) (repeat ' '))
-              hSetSGR
-                stderr
-                [ SetColor Foreground Vivid Yellow
-                , SetConsoleIntensity BoldIntensity
-                ]
-              ePutStrLn
-                (take ((this_end_col) - (this_start_col) + 1) $ repeat '^')
-          else
-            do
+displayFileSnippet :: Span -> IO ()
+displayFileSnippet span = do
+  let fp = file span
+  exists <- doesFileExist fp
+  if not exists
+    then return ()
+    else do
+      hSetSGR
+        stderr
+        [SetColor Foreground Vivid Blue, SetConsoleIntensity NormalIntensity]
+      if span == NoPos
+        then hPutStrLn stderr $ "\n  " ++ show fp
+        else hPutStrLn stderr $ "\n  " ++ show span
+      contents <- readFile $ fp
+      let content_lines = lines contents
+      forM_ [(start_line span) .. (end_line span)] $ \n -> do
+        hSetSGR
+          stderr
+          [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
+        if n == (start_line span) + 3
+          then do
+            hPutStrLn stderr $ "\n  ...\n"
+          else if n > (start_line span) + 3 && n < (end_line span) - 2
+            then do
               return ()
-  hSetSGR   stderr [Reset]
-  hPutStrLn stderr ""
-  return ()
+            else do
+              let line = content_lines !! (n - 1)
+              hSetSGR stderr [SetConsoleIntensity NormalIntensity]
+              hPutStr stderr $ (lpad (show n) 8) ++ "    "
+              hSetSGR stderr [SetConsoleIntensity FaintIntensity]
+              hPutStrLn stderr $ line
+              if (start_line span)
+                 <= (end_line span)
+                 || (start_col span)
+                 >  1
+                 || (end_col span)
+                 <  length line
+              then
+                do
+                  let this_start_col = if n == start_line span
+                        then start_col span
+                        else length (takeWhile ((==) ' ') line) + 1
+                  let this_end_col = if n == end_line span
+                        then end_col span
+                        else length line
+                  hSetSGR stderr [Reset]
+                  ePutStr
+                    $  "            "
+                    ++ (take ((this_start_col) - 1) (repeat ' '))
+                  hSetSGR
+                    stderr
+                    [ SetColor Foreground Vivid Yellow
+                    , SetConsoleIntensity BoldIntensity
+                    ]
+                  ePutStrLn
+                    (take ((this_end_col) - (this_start_col) + 1) $ repeat '^')
+              else
+                do
+                  return ()
+      hSetSGR   stderr [Reset]
+      hPutStrLn stderr ""
+      return ()

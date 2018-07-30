@@ -24,9 +24,7 @@ instance Errable DuplicateGlobalNameError where
   logError e@(DuplicateGlobalNameError mod name pos1 pos2) = do
     logErrorBasic e $ "Duplicate declaration for global name `" ++ s_unpack name ++ "` in " ++ s_unpack (showModulePath mod) ++ "; \n\nFirst declaration:"
     ePutStrLn "\nSecond declaration:"
-    case file pos2 of
-      Just fp -> displayFileSnippet (s_unpack fp) pos2
-      _ -> return ()
+    displayFileSnippet pos2
     ePutStrLn "\n#[extern] declarations and declarations from included C headers must have globally unique names."
   errPos (DuplicateGlobalNameError _ _ pos _) = Just pos
 

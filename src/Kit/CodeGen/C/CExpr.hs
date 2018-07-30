@@ -26,10 +26,7 @@ cDecl t ident body = u
     []
 
 u x = x undefNode
-cpos p x = x $ case (file p) of
-  Just f -> mkNodeInfoOnlyPos
-    $ position 0 (s_unpack f) (start_line p) (start_col p) Nothing
-  Nothing -> undefNode
+cpos p x = x $ mkNodeInfoOnlyPos $ position 0 (file p) (start_line p) (start_col p) Nothing
 
 ctype :: BasicType -> ([CTypeSpec], [CDerivedDeclr])
 ctype BasicTypeVoid       = ([u CVoidType], [])

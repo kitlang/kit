@@ -31,7 +31,7 @@ typeFunction ctx mod f = do
   -- FIXME: position
   let fPos = case functionBody f of
         Just x  -> pos x
-        Nothing -> null_span
+        Nothing -> NoPos
 
   let isMain =
         (functionName f == "main") && (ctxMainModule ctx == modPath mod) && not

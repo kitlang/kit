@@ -22,9 +22,7 @@ instance Errable UnificationError where
                                 info <- getTypeVar ctx i
                                 ePutStrLn $ "  - " ++ show info
                                 let varPos = head $ typeVarPositions info
-                                case file varPos of
-                                  Just f -> displayFileSnippet (s_unpack f) varPos
-                                  _ -> return ()
+                                displayFileSnippet varPos
                               _ -> ePutStrLn $ "  - Type := " ++ show x
                            ePutStrLn "")
   errPos (UnificationError _ (TypeEq _ _ _ pos)) = Just pos

@@ -132,6 +132,7 @@ Statement :: {Statement}
       typeStaticMethods = [],
       typeParams = [],
       typeStaticFields = [],
+      typePos = snd $2 <+> snd $3,
       typeSubtype = Atom
     }
   }
@@ -145,9 +146,10 @@ Statement :: {Statement}
       typeStaticFields = reverse $ extractStaticFields $7,
       typeStaticMethods = reverse $ extractStaticMethods $7,
       typeParams = fst $4,
+      typePos = snd $2 <+> snd $3,
       typeSubtype = Enum {
         enumVariants = reverse $ extractVariants $7,
-        enumUnderlyingType = case fst $5 of {Just x -> Just x; Nothing -> Just (TypeSpec ([], "Int") [] null_span)}
+        enumUnderlyingType = case fst $5 of {Just x -> Just x; Nothing -> Just (TypeSpec ([], "Int") [] NoPos)}
       }
     }
   }
@@ -161,6 +163,7 @@ Statement :: {Statement}
       typeStaticFields = reverse $ extractStaticFields $ fst $5,
       typeStaticMethods = reverse $ extractStaticMethods $ fst $5,
       typeParams = fst $4,
+      typePos = snd $2 <+> snd $3,
       typeSubtype = Struct {
         structFields = reverse $ extractFields $ fst $5
       }
@@ -176,6 +179,7 @@ Statement :: {Statement}
       typeStaticFields = reverse $ extractStaticFields $ fst $5,
       typeStaticMethods = reverse $ extractStaticMethods $ fst $5,
       typeParams = fst $4,
+      typePos = snd $2 <+> snd $3,
       typeSubtype = Union {
         unionFields = reverse $ extractFields $ fst $5
       }
@@ -191,6 +195,7 @@ Statement :: {Statement}
       typeStaticFields = reverse $ extractStaticFields $ fst $6,
       typeStaticMethods = reverse $ extractStaticMethods $ fst $6,
       typeParams = fst $4,
+      typePos = snd $2 <+> snd $3,
       typeSubtype = Abstract {
         abstractUnderlyingType = fst $5
       }
@@ -203,6 +208,7 @@ Statement :: {Statement}
       traitMeta = reverse $ metas $1,
       traitModifiers = reverse $ mods $1,
       traitParams = fst $4,
+      traitPos = snd $2 <+> snd $3,
       traitRules = reverse $ extractRules $ fst $5,
       traitMethods = reverse $ extractMethods $ fst $5
     }
@@ -212,13 +218,14 @@ Statement :: {Statement}
       implTrait = Just $ fst $3,
       implFor = Just $ fst $5,
       implMethods = reverse $ extractMethods $ fst $6,
-      implDoc = doc $1
+      implDoc = doc $1,
+      implPos = snd $2 <+> snd $3
     }
   }
   | DocMetaMods specialize TypeSpec as TypeSpec ';' {
     ps (fp [p $1, p $2, p $6]) $ Specialize (fst $3) (fst $5)
   }
-  | VarDefinition {ps (p $1) $ ModuleVarDeclaration $ fst $1}
+  | VarDefinition {ps (varPos $1) $ ModuleVarDeclaration $ $1}
   | FunctionDecl {$1}
 
 TopLevelExpr :: {Expr}
@@ -252,7 +259,8 @@ FunctionDecl :: {Statement}
       functionType = fst $8,
       functionArgs = reverse (fst $6),
       functionBody = fst $9,
-      functionVarargs = snd $6
+      functionVarargs = snd $6,
+      functionPos = snd $2 <+> snd $3
     }
   }
 
@@ -267,7 +275,8 @@ StaticFunctionDecl :: {FunctionDefinition Expr (Maybe TypeSpec)}
       functionType = fst $8,
       functionArgs = reverse (fst $6),
       functionBody = fst $9,
-      functionVarargs = snd $6
+      functionVarargs = snd $6,
+      functionPos = snd $2 <+> snd $3
     }
   }
 
@@ -311,7 +320,7 @@ Metadata :: {(Metadata, Span)}
   | "#[" identifier ']' {(Metadata {metaName = extract_identifier $2, metaArgs = []}, (p $1) <+> (p $3))}
 
 MetaMods :: {(([Metadata], [Modifier]), Span)}
-  : {(([], []), null_span)}
+  : {(([], []), NoPos)}
   | MetaMods Metadata {let (meta, mods) = fst $1 in (((fst $2 : meta, mods)), snd $1 <+> snd $2)}
   | MetaMods public {let (meta, mods) = fst $1 in (((meta, Public : mods)), snd $1 <+> snd $2)}
   | MetaMods private {let (meta, mods) = fst $1 in (((meta, Private : mods)), snd $1 <+> snd $2)}
@@ -330,22 +339,22 @@ StaticDocMetaMods :: {((Maybe B.ByteString, [Metadata], [Modifier]), Span)}
   }
 
 TypeAnnotation :: {(Maybe TypeSpec, Span)}
-  : {(Nothing, null_span)}
+  : {(Nothing, NoPos)}
   | ':' TypeSpec {(Just $ fst $2, p $1 <+> p $2)}
 
 TypeSpec :: {(TypeSpec, Span)}
   : TypePath TypeSpecParams {(TypeSpec (fst $1) (reverse $ fst $2) (p $1 <+> p $2), p $1 <+> p $2)}
 
 OptionalBody :: {(Maybe Expr, Span)}
-  : ';' {(Nothing, null_span)}
+  : ';' {(Nothing, NoPos)}
   | ExprBlock {(Just $1, pos $1)}
 
 OptionalRuleBody :: {(Maybe Expr, Span)}
-  : ';' {(Nothing, null_span)}
+  : ';' {(Nothing, NoPos)}
   | StandaloneExpr {(Just $1, pos $1)}
 
 TypeParams :: {([TypeParam], Span)}
-  : {([], null_span)}
+  : {([], NoPos)}
   | '[' TypeParams_ ']' {(reverse $2, p $1 <+> p $3)}
 
 TypeParams_ :: {[TypeParam]}
@@ -357,7 +366,7 @@ TypeParam :: {TypeParam}
   | upper_identifier ':' TypeConstraints {TypeParam {paramName = (extract_upper_identifier $1), constraints = $3}}
 
 TypeSpecParams :: {([TypeSpec], Span)}
-  : {([], null_span)}
+  : {([], NoPos)}
   | '[' TypeSpecParams_ ']' {(reverse $2, p $1 <+> p $3)}
 
 TypeSpecParams_ :: {[TypeSpec]}
@@ -383,15 +392,17 @@ TypePath :: {(TypePath, Span)}
   | UpperOrLowerIdentifier {(([], fst $1), p $1)}
   | Self {(([], B.pack "Self"), p $1)}
 
-VarDefinition :: {(VarDefinition Expr (Maybe TypeSpec), Span)}
+VarDefinition :: {VarDefinition Expr (Maybe TypeSpec)}
   : DocMetaMods var UpperOrLowerIdentifier TypeAnnotation OptionalDefault ';' {
-    (newVarDefinition {
+    newVarDefinition {
       varName = fst $ $3,
       varDoc = doc $1,
       varMeta = reverse (metas $1),
       varType = fst $4,
       varModifiers = reverse (mods $1),
-      varDefault = $5}, fp [p $1, p $2, p $6])
+      varDefault = $5,
+      varPos = p $2 <+> p $3
+    }
   }
 
 StaticVarDefinition :: {VarDefinition Expr (Maybe TypeSpec)}
@@ -402,7 +413,8 @@ StaticVarDefinition :: {VarDefinition Expr (Maybe TypeSpec)}
       varMeta = reverse (metas $1),
       varType = fst $4,
       varModifiers = reverse (mods $1),
-      varDefault = $5
+      varDefault = $5,
+      varPos = p $2 <+> p $3
     }
   }
 
@@ -410,38 +422,41 @@ OptionalDefault :: {Maybe Expr}
   : {Nothing}
   | '=' Expr {Just $2}
 
-EnumPrefix :: {(DocMetaMod, B.ByteString)}
-  : DocMetaMods upper_identifier {($1, extract_upper_identifier $2)}
+EnumPrefix :: {((DocMetaMod, B.ByteString), Span)}
+  : DocMetaMods upper_identifier {(($1, extract_upper_identifier $2), snd $2)}
 
 EnumVariant :: {EnumVariant Expr (Maybe TypeSpec)}
   : EnumPrefix ';' {
       EnumVariant {
-        variantName = snd $1,
-        variantDoc = doc $ fst $1,
-        variantMeta = reverse $ metas $ fst $1,
-        variantModifiers = reverse $ mods $ fst $1,
+        variantName = snd $ fst $1,
+        variantDoc = doc $ fst $ fst $1,
+        variantMeta = reverse $ metas $ fst $ fst $1,
+        variantModifiers = reverse $ mods $ fst $ fst $1,
         variantArgs = [],
-        variantValue = Nothing
+        variantValue = Nothing,
+        variantPos = snd $1
       }
     }
   | EnumPrefix '=' Expr ';' {
       EnumVariant {
-        variantName = snd $1,
-        variantDoc = doc $ fst $1,
-        variantMeta = reverse $ metas $ fst $1,
-        variantModifiers = reverse $ mods $ fst $1,
+        variantName = snd $ fst $1,
+        variantDoc = doc $ fst $ fst $1,
+        variantMeta = reverse $ metas $ fst $ fst $1,
+        variantModifiers = reverse $ mods $ fst $ fst $1,
         variantArgs = [],
-        variantValue = Just $3
+        variantValue = Just $3,
+        variantPos = snd $1
       }
     }
   | EnumPrefix '(' Args ')' ';' {
       EnumVariant {
-        variantName = snd $1,
-        variantDoc = doc $ fst $1,
-        variantMeta = reverse $ metas $ fst $1,
-        variantModifiers = reverse $ mods $ fst $1,
+        variantName = snd $ fst $1,
+        variantDoc = doc $ fst $ fst $1,
+        variantMeta = reverse $ metas $ fst $ fst $1,
+        variantModifiers = reverse $ mods $ fst $ fst $1,
         variantArgs = reverse $3,
-        variantValue = Nothing
+        variantValue = Nothing,
+        variantPos = snd $1
       }
     }
 
@@ -459,7 +474,7 @@ ArgSpec  :: {ArgSpec Expr (Maybe TypeSpec)}
     argName = extract_identifier $1,
      argType = fst $2,
      argDefault = $3,
-     argPos = p $1 <+> p $2 <+> (case $3 of { Just x -> pos x; Nothing -> null_span })
+     argPos = p $1 <+> p $2 <+> (case $3 of { Just x -> pos x; Nothing -> NoPos })
     }
   }
 
@@ -476,7 +491,7 @@ RulesMethodsFields :: {[Member Expr (Maybe TypeSpec)]}
   | RulesMethodsFields RuleBlock {(map RuleMember $2) ++ $1}
   | RulesMethodsFields Method {$2 : $1}
   | RulesMethodsFields StaticVarDefinition {StaticFieldMember $2 : $1}
-  | RulesMethodsFields VarDefinition {(FieldMember (fst $2) : $1)}
+  | RulesMethodsFields VarDefinition {(FieldMember $2 : $1)}
 
 RulesMethodsVariants :: {[Member Expr (Maybe TypeSpec)]}
   : {[]}
@@ -708,7 +723,7 @@ MacroIdentifier :: {(Identifier, Span)}
 -- LexMacroTokensInsideBlock :: {[Token]}
 --   : {[]}
 --   | LexMacroTokensInsideBlock LexMacroToken {$2 : $1}
---   | LexMacroTokensInsideBlock LexMacroTokenBlock {((CurlyBraceClose, null_span) : (reverse $ fst $2)) ++ ((CurlyBraceOpen, null_span) : $1)}
+--   | LexMacroTokensInsideBlock LexMacroTokenBlock {((CurlyBraceClose, NoPos) : (reverse $ fst $2)) ++ ((CurlyBraceOpen, NoPos) : $1)}
 
 -- LexMacroTokenAny :: {Token}
 --   : '{' {$1}
@@ -849,7 +864,7 @@ tc t = [fst t' | t' <- t]
 p = snd
 
 fp :: [Span] -> Span
-fp s = foldr (<+>) null_span s
+fp s = foldr (<+>) NoPos s
 
 type DocMetaMod = ((Maybe B.ByteString, [Metadata], [Modifier]), Span)
 
