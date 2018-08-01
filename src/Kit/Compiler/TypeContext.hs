@@ -3,6 +3,7 @@ module Kit.Compiler.TypeContext where
 import Control.Applicative
 import Control.Exception
 import Control.Monad
+import Data.IORef
 import Kit.Ast
 import Kit.Compiler.Context
 import Kit.Compiler.Module
@@ -173,6 +174,36 @@ knownType ctx tctx mod t = do
         Nothing -> follow ctx tctx mod t
     t -> follow ctx tctx mod t
 
+addUsing
+  :: CompileContext
+  -> TypeContext
+  -> Module
+  -> UsingType Expr (Maybe TypeSpec)
+  -> IO TypeContext
+addUsing ctx tctx mod using = case using of
+  UsingRuleSet (Just (TypeSpec ([], n) [] _)) -> do
+    def <- h_lookup (modContents mod) n
+    case def of
+      Just (DeclType t) -> do
+        -- FIXME: this is terrible...
+        binding <- scopeGet (modScope mod) n
+        return $ tctx
+          { tctxRules = ((typeRuleSet t)
+                          { ruleSetThis = Just (bindingConcrete binding)
+                          }
+                        )
+            : tctxRules tctx
+          }
+      Just (DeclRuleSet r) -> return $ tctx { tctxRules = r : tctxRules tctx }
+      _                    -> return tctx
+
+modTypeContext :: CompileContext -> Module -> IO TypeContext
+modTypeContext ctx mod = do
+  imports <- getModImports ctx mod
+  tctx    <- newTypeContext (map modScope imports)
+  using   <- readIORef (modUsing mod)
+  foldM (\tctx using -> addUsing ctx tctx mod using) tctx using
+
 builtinToConcreteType
   :: CompileContext
   -> TypeContext
@@ -200,8 +231,8 @@ builtinToConcreteType ctx tctx mod s p = do
     ("Char"   , [] ) -> builtinToConcreteType ctx tctx mod "Int8" []
     ("Short"  , [] ) -> builtinToConcreteType ctx tctx mod "Int16" []
     ("Int"    , [] ) -> builtinToConcreteType ctx tctx mod "Int32" []
-    ("Uint"   , [] ) -> builtinToConcreteType ctx tctx mod "Uint32" []
     ("Long"   , [] ) -> builtinToConcreteType ctx tctx mod "Int64" []
+    ("Uint"   , [] ) -> builtinToConcreteType ctx tctx mod "Uint32" []
     ("Float"  , [] ) -> builtinToConcreteType ctx tctx mod "Float32" []
     ("Double" , [] ) -> builtinToConcreteType ctx tctx mod "Float64" []
     ("Void"   , [] ) -> return $ Just $ TypeBasicType BasicTypeVoid

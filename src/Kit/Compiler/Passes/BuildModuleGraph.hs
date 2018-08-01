@@ -292,6 +292,8 @@ addStmtToModuleInterface ctx mod s = do
       modifyIORef (modImpls mod) (\l -> t : l)
     RuleSetDeclaration r -> do
       addDefinition (ruleSetName r) (DeclRuleSet r)
+    ModuleUsing using -> do
+      modifyIORef (modUsing mod) (\l -> using : l)
     _ -> return ()
  where
   pos              = stmtPos s

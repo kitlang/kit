@@ -124,6 +124,7 @@ MaybeDoc :: {Maybe B.ByteString}
 Statement :: {Statement}
   : import ModulePath ';' {ps (p $1 <+> p $3) $ Import (reverse $ fst $2)}
   | include str ';' {ps (p $1 <+> p $3) $ Include $ B.unpack $ extract_lit $ fst $2}
+  | using UsingClause ';' {ps (snd $1 <+> snd $3) $ ModuleUsing $ fst $2}
   | DocMetaMods typedef upper_identifier '=' TypeSpec ';' {
     ps (fp [p $1, p $2, p $6]) $ Typedef (extract_upper_identifier $3) (fst $5)
   }

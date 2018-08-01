@@ -26,6 +26,7 @@ data Module = Module {
   modContents :: HashTable Str (Declaration Expr (Maybe TypeSpec)),
   modImpls :: IORef [TraitImplementation Expr (Maybe TypeSpec)],
   modSpecializations :: IORef [((TypeSpec, TypeSpec), Span)],
+  modUsing :: IORef [UsingType Expr (Maybe TypeSpec)],
   modTypedContents :: IORef [TypedDecl],
   modIr :: IORef [IrDecl],
   modIsCModule :: Bool
@@ -43,6 +44,7 @@ newMod path fp = do
   typedContents <- newIORef []
   ir            <- newIORef []
   includes      <- newIORef []
+  using         <- newIORef []
   return $ Module
     { modPath            = path
     , modSourcePath      = fp
@@ -52,6 +54,7 @@ newMod path fp = do
     , modContents        = defs
     , modImpls           = impls
     , modSpecializations = specs
+    , modUsing           = using
     , modTypedContents   = typedContents
     , modIr              = ir
     , modIsCModule       = False

@@ -82,3 +82,8 @@ convertTypeDefinition exprConverter typeConverter t = do
                                             }
 
 enumIsSimple enum = all variantIsSimple $ enumVariants enum
+
+typeRuleSet t = newRuleSet { ruleSetName  = typeName t
+                           , ruleSetPos   = typePos t
+                           , ruleSetRules = typeRules t
+                           }

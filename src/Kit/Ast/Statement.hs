@@ -31,6 +31,7 @@ data StatementType a b
   | Typedef Str TypeSpec
   | Import ModulePath
   | Include FilePath
+  | ModuleUsing (UsingType a b)
   deriving (Eq, Show)
 
 makeStmt st = Statement {stmt = st, stmtPos = NoPos}

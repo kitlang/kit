@@ -29,7 +29,7 @@ typeFunction ctx mod f = do
     ++ s_unpack (functionName f)
     ++ " in "
     ++ show mod
-  tctx    <- newTypeContext []
+  tctx    <- modTypeContext ctx mod
   binding <- scopeGet (modScope mod) (functionName f)
   typed   <- typeFunctionDefinition ctx tctx mod f binding
   modifyIORef (modTypedContents mod) ((:) $ DeclFunction typed)
@@ -41,15 +41,14 @@ typeFunctionDefinition
   -> FunctionDefinition Expr (Maybe TypeSpec)
   -> Binding
   -> IO (FunctionDefinition TypedExpr ConcreteType)
-typeFunctionDefinition ctx tctx mod f binding = do
+typeFunctionDefinition ctx tctx' mod f binding = do
   let fPos = functionPos f
   let isMain =
         (functionName f == "main") && (ctxMainModule ctx == modPath mod) && not
           (ctxIsLibrary ctx)
-  imports       <- getModImports ctx mod
   functionScope <- newScope (modPath mod)
-  tctx          <- newTypeContext (map modScope imports)
-  args          <- forM
+  let tctx = tctx' { tctxScopes = functionScope : tctxScopes tctx' }
+  args <- forM
     (functionArgs f)
     (\arg -> do
       argType    <- resolveMaybeType ctx tctx mod (argPos arg) (argType arg)

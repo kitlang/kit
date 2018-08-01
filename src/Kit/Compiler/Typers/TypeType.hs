@@ -25,7 +25,7 @@ typeTypeDefinition
 typeTypeDefinition ctx mod def@(TypeDefinition { typeName = name }) = do
   debugLog ctx $ "typing " ++ s_unpack name ++ " in " ++ show mod
   -- TODO: handle params here
-  tctx     <- newTypeContext []
+  tctx     <- modTypeContext ctx mod
   subScope <- getSubScope (modScope mod) [name]
   let exprConverter = typeExpr ctx tctx mod
   let typeConverter = resolveMaybeType ctx tctx mod (typePos def)

@@ -75,18 +75,7 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
         pos
 
     (Using using e1) -> do
-      tctx' <- foldM
-        (\c use -> case use of
-          -- TODO: fix ruleset name resolution
-          UsingRuleSet (Just (TypeSpec ([], n) [] _)) -> do
-            def <- h_lookup (modContents mod) n
-            case def of
-              Just (DeclRuleSet r) ->
-                return $ c { tctxRules = r : tctxRules c }
-              _ -> return c
-        )
-        tctx
-        using
+      tctx' <- foldM (\c use -> addUsing ctx c mod use) tctx using
       typeExpr ctx tctx' mod e1
 
     (Meta m e1) -> do

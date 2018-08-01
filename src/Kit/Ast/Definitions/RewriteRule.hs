@@ -1,6 +1,7 @@
 module Kit.Ast.Definitions.RewriteRule where
 
 import Control.Monad
+import Kit.Ast.ConcreteType
 import Kit.Ast.Metadata
 import Kit.Ast.Modifier
 import Kit.Ast.ModulePath
@@ -16,24 +17,26 @@ data RewriteRule a b = RewriteRule {
   rulePos :: Span
 } deriving (Eq, Show)
 
-newRewriteRule = RewriteRule {
-  ruleDoc = Nothing,
-  ruleType = undefined,
-  rulePattern = undefined,
-  ruleBody = Nothing,
-  rulePos = NoPos
-}
+newRewriteRule = RewriteRule
+  { ruleDoc     = Nothing
+  , ruleType    = undefined
+  , rulePattern = undefined
+  , ruleBody    = Nothing
+  , rulePos     = NoPos
+  }
 
 data RuleSet a b = RuleSet {
   ruleSetName :: Str,
   ruleSetPos :: Span,
   ruleSetDoc :: Maybe Str,
+  ruleSetThis :: Maybe ConcreteType,
   ruleSetRules :: [RewriteRule a b]
 } deriving (Eq, Show)
 
-newRuleSet = RuleSet {
-  ruleSetName = undefined,
-  ruleSetPos = NoPos,
-  ruleSetDoc = Nothing,
-  ruleSetRules = []
-}
+newRuleSet = RuleSet
+  { ruleSetName  = undefined
+  , ruleSetPos   = NoPos
+  , ruleSetDoc   = Nothing
+  , ruleSetThis  = Nothing
+  , ruleSetRules = []
+  }
