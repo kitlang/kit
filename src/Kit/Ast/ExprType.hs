@@ -13,6 +13,9 @@ import Kit.Parser.Token
 import Kit.Str
 
 data MatchCase a = MatchCase {match_pattern :: a, match_body :: a} deriving (Eq, Show)
+data UsingType a b
+  = UsingRuleSet b
+  deriving (Eq, Show)
 
 {-
   All AST structures use the convention of two type parameters, a and b.
@@ -33,6 +36,7 @@ data MatchCase a = MatchCase {match_pattern :: a, match_body :: a} deriving (Eq,
 -}
 data ExprType a b
   = Block [a]
+  | Using [UsingType a b] a
   | Meta (Metadata) a
   | Literal ValueLiteral
   | This
@@ -73,3 +77,71 @@ data ExprType a b
   | VarDeclaration Identifier b (Maybe a)
   | Defer a
   deriving (Eq, Show)
+
+exprDiscriminant :: ExprType a b -> Int
+exprDiscriminant et =
+  case et of
+    Block _ -> 1
+    Using _ _ -> 1
+    Meta _ _ -> 3
+    Literal _ -> 4
+    This -> 5
+    Self -> 6
+    Identifier _ _ -> 7
+    TypeAnnotation _ _ -> 8
+    PreUnop _ _ -> 9
+    PostUnop _ _ -> 10
+    Binop _ _ _ -> 11
+    For _ _ _ -> 12
+    While _ _ -> 13
+    If _ _ _ -> 14
+    Continue -> 15
+    Break -> 16
+    Return _ -> 17
+    Throw _ -> 18
+    Match _ _ _ -> 19
+    InlineCall _ -> 20
+    Field _ _ -> 21
+    StructInit _ _ -> 22
+    EnumInit _ _ _ -> 23
+    ArrayAccess _ _ -> 24
+    Call _ _ -> 25
+    Cast _ _ -> 26
+    TokenExpr _ -> 27
+    Unsafe _ -> 28
+    BlockComment _ -> 29
+    LexMacro _ _ -> 30
+    RangeLiteral _ _ -> 31
+    VectorLiteral _ -> 32
+    VarDeclaration _ _ _ -> 33
+    Defer _ -> 34
+
+exprChildren :: ExprType a b -> [a]
+exprChildren et =
+  case et of
+    Block x -> x
+    Using _ x -> [x]
+    Meta _ x -> [x]
+    TypeAnnotation x _ -> [x]
+    PreUnop _ x -> [x]
+    PostUnop _ x -> [x]
+    Binop _ x y -> [x, y]
+    For x y z -> [x, y, z]
+    While x y -> [x, y]
+    If x y (Just z) -> [x, y, z]
+    If x y Nothing -> [x, y]
+    Throw x -> [x]
+    Match x _ _ -> [x]
+    InlineCall x -> [x]
+    Field x _ -> [x]
+    StructInit _ fields -> map snd fields
+    EnumInit _ _ x -> x
+    ArrayAccess x y -> [x, y]
+    Call x args -> x : args
+    Cast x _ -> [x]
+    Unsafe x -> [x]
+    RangeLiteral x y -> [x, y]
+    VectorLiteral x -> x
+    VarDeclaration _ _ (Just x) -> [x]
+    Defer x -> [x]
+    _ -> []

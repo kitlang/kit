@@ -35,16 +35,17 @@ typeContent ctx = do
 
 typeModuleContent :: CompileContext -> Module -> IO ()
 typeModuleContent ctx mod = do
-  defs <- bindingList (modContents mod)
+  defs <- h_toList (modContents mod)
   forM_
     defs
-    (\d -> case d of
+    (\(_, d) -> case d of
       DeclFunction f -> typeFunction ctx mod f
       DeclVar      v -> typeVar ctx mod v
       DeclTrait    t -> typeTrait ctx mod t
       DeclType     t -> typeTypeDefinition ctx mod t
+      DeclRuleSet  _ -> return ()
     )
-  if ctxDumpAst ctx then dumpModuleContent ctx mod else return ()
+  when (ctxDumpAst ctx) $ dumpModuleContent ctx mod
 
 dumpModuleContent :: CompileContext -> Module -> IO ()
 dumpModuleContent ctx mod = do

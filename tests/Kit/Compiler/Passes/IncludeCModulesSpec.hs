@@ -7,6 +7,7 @@ import Kit.Ast
 import Kit.CodeGen.C
 import Kit.Compiler
 import Kit.Compiler.Passes
+import Kit.HashTable
 import Kit.Ir
 
 testHeader :: IO Module
@@ -238,6 +239,6 @@ spec = do
             _ -> Nothing
           )
           `shouldBe` Just ct
-        def' <- resolveLocal (modContents header) name
+        def' <- h_lookup (modContents header) name
         def' `shouldBe` def
       )

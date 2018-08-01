@@ -52,10 +52,10 @@ implement ToString for CString {
  */
 abstract StringBuffer: Array[Uint8] {
     rules {
-        ((v: Array[Uint8]) as StringBuffer);
+        (${v: Array[Uint8]} as StringBuffer);
         (this as Array[Uint8]);
-        inline ((v: String) as StringBuffer) => ((v as Vector[Uint8]) as Array[Uint8]) as StringBuffer;
-        inline (this as String) => ((this as Array[Uint8]) as Vector[Uint8]) as String;
+        (${v: String} as StringBuffer) => (($v as Vector[Uint8]) as Array[Uint8]) as StringBuffer;
+        (this as String) => ((this as Array[Uint8]) as Vector[Uint8]) as String;
     }
 }
 

@@ -71,6 +71,7 @@ import Kit.Parser.Token
   typedef {(KeywordTypedef,_)}
   union {(KeywordUnion,_)}
   unsafe {(KeywordUnsafe,_)}
+  using {(KeywordUsing,_)}
   var {(KeywordVar,_)}
   while {(KeywordWhile,_)}
   doc_comment {(DocComment _,_)}
@@ -115,6 +116,10 @@ Statements :: {[Statement]}
 Statements_ :: {[Statement]}
   : {[]}
   | Statements_ Statement {$2 : $1}
+
+MaybeDoc :: {Maybe B.ByteString}
+  : {Nothing}
+  | doc_comment {Just $ extract_doc_comment $1}
 
 Statement :: {Statement}
   : import ModulePath ';' {ps (p $1 <+> p $3) $ Import (reverse $ fst $2)}
@@ -225,6 +230,14 @@ Statement :: {Statement}
   | DocMetaMods specialize TypeSpec as TypeSpec ';' {
     ps (fp [p $1, p $2, p $6]) $ Specialize (fst $3) (fst $5)
   }
+  | MaybeDoc rules upper_identifier '{' ShortRules '}' {
+    ps (snd $2 <+> snd $3) $ RuleSetDeclaration $ newRuleSet {
+      ruleSetName = extract_upper_identifier $3,
+      ruleSetPos = snd $2 <+> snd $3,
+      ruleSetDoc = $1,
+      ruleSetRules = $5
+    }
+  }
   | VarDefinition {ps (varPos $1) $ ModuleVarDeclaration $ $1}
   | FunctionDecl {$1}
 
@@ -241,12 +254,20 @@ TopLevelExpr :: {Expr}
 
 StandaloneExpr :: {Expr}
   : ExprBlock {$1}
+  | using UsingClauses StandaloneExpr {pe (snd $1 <+> snd $2) $ Using (reverse $ fst $2) $3}
   | if BinopTermOr ExprBlock else ExprBlock {pe (p $1 <+> pos $5) $ If $2 $3 (Just $5)}
   | if BinopTermOr ExprBlock {pe (p $1 <+> pos $3) $ If $2 $3 (Nothing)}
   | for Identifier in Expr ExprBlock {pe (p $1 <+> pos $5) $ For (pe (snd $2) (Identifier (fst $2) [])) $4 $5}
   | while Expr ExprBlock {pe (p $1 <+> pos $3) $ While $2 $3}
   | match Expr '{' MatchCases DefaultMatchCase '}' {pe (p $1 <+> p $6) $ Match $2 (reverse $4) $5}
   | Expr ';' {me (pos $1 <+> p $2) $1}
+
+UsingClauses :: {([UsingType Expr (Maybe TypeSpec)], Span)}
+  : UsingClause {([fst $1], snd $1)}
+  | UsingClauses ',' UsingClause {(fst $3 : fst $1, snd $1 <+> snd $3)}
+
+UsingClause :: {(UsingType Expr (Maybe TypeSpec), Span)}
+  : rules TypeSpec {(UsingRuleSet $ Just $ fst $2, snd $1 <+> snd $2)}
 
 FunctionDecl :: {Statement}
   : DocMetaMods function identifier TypeParams '(' VarArgs ')' TypeAnnotation OptionalBody {
@@ -349,9 +370,9 @@ OptionalBody :: {(Maybe Expr, Span)}
   : ';' {(Nothing, NoPos)}
   | ExprBlock {(Just $1, pos $1)}
 
-OptionalRuleBody :: {(Maybe Expr, Span)}
-  : ';' {(Nothing, NoPos)}
-  | StandaloneExpr {(Just $1, pos $1)}
+OptionalRuleBody :: {Maybe Expr}
+  : ';' {Nothing}
+  | "=>" StandaloneExpr {Just $2}
 
 TypeParams :: {([TypeParam], Span)}
   : {([], NoPos)}
@@ -530,47 +551,33 @@ RewriteExpr :: {Expr}
   : Expr {$1}
   | StandaloneExpr {$1}
 
-PrefixedRule :: {Expr}
-  : rule '(' RewriteExpr ')' {$3}
-
 RewriteRule :: {RewriteRule Expr (Maybe TypeSpec)}
-  : PrefixedRule TypeAnnotation "=>" OptionalRuleBody {
+  : MaybeDoc rule '(' RewriteExpr ')' TypeAnnotation OptionalRuleBody {
     RewriteRule {
-      rulePattern = $1,
-      ruleType = fst $2,
-      ruleBody = fst $4
-    }
-  }
-  | PrefixedRule TypeAnnotation ';' {
-    RewriteRule {
-      rulePattern = $1,
-      ruleType = fst $2,
-      ruleBody = Nothing
+      ruleDoc = $1,
+      rulePattern = $4,
+      ruleType = fst $6,
+      ruleBody = $7,
+      rulePos = snd $2 <+> snd $5
     }
   }
 
 RuleBlock :: {[RewriteRule Expr (Maybe TypeSpec)]}
-  : rules '{' ShortRules '}' {
-    [RewriteRule {
-      rulePattern = pattern,
-      ruleType = ruleType,
-      ruleBody = body
-    } | (ruleDoc, meta, modifiers, pattern, ruleType, body) <- $3]
-  }
+  : rules '{' ShortRules '}' {$3}
 
-ShortRules :: {[(Maybe B.ByteString, [Metadata], [Modifier], Expr, Maybe TypeSpec, Maybe Expr)]}
+ShortRules :: {[RewriteRule Expr (Maybe TypeSpec)]}
   : {[]}
   | ShortRules ShortRule {$2 : $1}
 
-ShortRulePrefix :: {(DocMetaMod, Expr)}
-  : DocMetaMods '(' RewriteExpr ')' {($1, $3)}
-
-ShortRule :: {(Maybe B.ByteString, [Metadata], [Modifier], Expr, Maybe TypeSpec, Maybe Expr)}
-  : ShortRulePrefix TypeAnnotation "=>" OptionalRuleBody {
-    (doc $ fst $1, metas $ fst $1, mods $ fst $1, snd $1, fst $2, fst $4)
-  }
-  | ShortRulePrefix TypeAnnotation ';' {
-    (doc $ fst $1, metas $ fst $1, mods $ fst $1, snd $1, fst $2, Nothing)
+ShortRule :: {RewriteRule Expr (Maybe TypeSpec)}
+  : MaybeDoc '(' RewriteExpr ')' TypeAnnotation OptionalRuleBody {
+    newRewriteRule {
+      ruleDoc = $1,
+      rulePattern = $3,
+      ruleType = fst $5,
+      ruleBody = $6,
+      rulePos = snd $2 <+> snd $4
+    }
   }
 
 Expr :: {Expr}

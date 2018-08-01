@@ -7,6 +7,7 @@ import Kit.Ast
 import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
+import Kit.Compiler.TypedExpr
 import Kit.Error
 import Kit.HashTable
 import Kit.Log
@@ -29,7 +30,9 @@ instance Errable DuplicateDeclarationError where
 
 data TypeContext = TypeContext {
   tctxScopes :: [Scope Binding],
-  tctxTypeParamScopes :: [Scope ConcreteType],
+  tctxMacroVars :: [(Str, TypedExpr)],
+  tctxRules :: [RuleSet Expr (Maybe TypeSpec)],
+  tctxActiveRules :: [(RewriteRule Expr (Maybe TypeSpec), Span)],
   tctxReturnType :: Maybe ConcreteType,
   tctxThis :: Maybe ConcreteType,
   tctxSelf :: Maybe TypePath,
@@ -41,7 +44,9 @@ newTypeContext :: [Scope Binding] -> IO TypeContext
 newTypeContext scopes = do
   return $ TypeContext
     { tctxScopes                = scopes
-    , tctxTypeParamScopes       = []
+    , tctxRules                 = []
+    , tctxActiveRules           = []
+    , tctxMacroVars             = []
     , tctxReturnType            = Nothing
     , tctxThis                  = Nothing
     , tctxSelf                  = Nothing
@@ -115,11 +120,11 @@ resolveType ctx tctx mod t = do
     TypeSpec (m, s) params pos -> do
       case m of
         [] -> do
-          scoped <- resolveBinding (tctxTypeParamScopes tctx) s
+          scoped <- resolveBinding (tctxScopes tctx) s
           case scoped of
             Just x ->
               -- named binding exists locally; resolve and return it
-              resolveType ctx tctx mod (ConcreteType x)
+              return $ bindingConcrete x
             Nothing -> do
               -- search other modules
               bound <- resolveBinding (map modScope importedMods) s

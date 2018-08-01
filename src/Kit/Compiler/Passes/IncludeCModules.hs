@@ -278,7 +278,7 @@ defineNamedStructsEnumsUnions ctx mod pos (h : t) = do
                     []
                     pos
         )
-      bindToScope (modContents mod) (s_pack name) (DeclType typeDef)
+      h_insert (modContents mod) (s_pack name) (DeclType typeDef)
       debugLog ctx $ "define struct " ++ name
     (CEnumType (CEnum (Just (Ident name _ _)) variants _ _) _) -> do
       let variants' = case variants of
@@ -306,7 +306,7 @@ defineNamedStructsEnumsUnions ctx mod pos (h : t) = do
         (modScope mod)
         (s_pack name)
         (newBinding (modPath mod, s_pack name) TypeBinding ct [] pos)
-      bindToScope (modContents mod) (s_pack name) (DeclType typeDef)
+      h_insert (modContents mod) (s_pack name) (DeclType typeDef)
       debugLog ctx $ "define enum " ++ name
       forM_
         (enumVariants $ typeSubtype typeDef)

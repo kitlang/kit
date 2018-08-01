@@ -8,4 +8,5 @@ data Declaration a b
   | DeclFunction (FunctionDefinition a b)
   | DeclType (TypeDefinition a b)
   | DeclTrait (TraitDefinition a b)
+  | DeclRuleSet (RuleSet a b)
   deriving (Eq, Show)

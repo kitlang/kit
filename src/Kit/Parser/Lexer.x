@@ -76,6 +76,7 @@ tokens :-
   typedef { tok KeywordTypedef }
   union { tok KeywordUnion }
   unsafe { tok KeywordUnsafe }
+  using { tok KeywordUsing }
   var { tok KeywordVar }
   while { tok KeywordWhile }
 

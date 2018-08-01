@@ -63,6 +63,7 @@ data TokenClass
   | KeywordTypedef
   | KeywordUnion
   | KeywordUnsafe
+  | KeywordUsing
   | KeywordVar
   | KeywordWhile
   | LiteralBool Bool
@@ -132,6 +133,7 @@ instance Show TokenClass where
     KeywordTypedef -> "typedef"
     KeywordUnion -> "union"
     KeywordUnsafe -> "unsafe"
+    KeywordUsing -> "using"
     KeywordVar -> "var"
     KeywordWhile -> "while"
     LiteralBool True -> "bool `true`"

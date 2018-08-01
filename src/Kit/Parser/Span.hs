@@ -5,7 +5,7 @@ import System.FilePath
 import Kit.Str
 
 data Span
-  = Span {file :: FilePath, start_line :: Int, start_col :: Int, end_line :: Int, end_col :: Int}
+  = Span {file :: FilePath, start_line :: Int, start_col :: Int, end_line :: Int, end_col :: Int, rewritten :: Maybe Span}
   | NoPos
 
 instance Eq Span where
@@ -22,8 +22,14 @@ instance Show Span where
                 else "")
 
 sp :: FilePath -> Int -> Int -> Int -> Int -> Span
-sp f a b c d =
-  Span {file = f, start_line = a, start_col = b, end_line = c, end_col = d}
+sp f a b c d = Span
+  { file       = f
+  , start_line = a
+  , start_col  = b
+  , end_line   = c
+  , end_col    = d
+  , rewritten  = Nothing
+  }
 
 (<+>) span1 NoPos = span1
 (<+>) NoPos span2 = span2

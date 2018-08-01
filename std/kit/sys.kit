@@ -20,28 +20,28 @@ function time(): Double {
     return tv.tv_sec + (tv.tv_usec / 1000000.0);
 }
 
-struct DirectoryReader {
-    var path: CString;
-    var dirEntry: Ptr[dirent];
-    var dir: Ptr[DIR];
+// struct DirectoryReader {
+//     var path: CString;
+//     var dirEntry: Ptr[dirent];
+//     var dir: Ptr[DIR];
 
-    public static function new (path: CString) {
-        var dir = opendir(path);
-        return struct Self {
-            path,
-            dir,
-            dirEntry: null,
-        };
-    }
-}
+//     public static function new (path: CString) {
+//         var dir = opendir(path);
+//         return struct Self {
+//             path,
+//             dir,
+//             dirEntry: null,
+//         };
+//     }
+// }
 
-implement Iterator for DirectoryReader {
-    public function next(): CString {
-        this.dirEntry = readdir(this.dir);
-        if (this.dirEntry != null) {
-            return this.dirEntry;
-        } else {
-            return null;
-        }
-    }
-}
+// implement Iterator for DirectoryReader {
+//     public function next(): CString {
+//         this.dirEntry = readdir(this.dir);
+//         if (this.dirEntry != null) {
+//             return this.dirEntry;
+//         } else {
+//             return null;
+//         }
+//     }
+// }

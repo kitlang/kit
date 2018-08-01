@@ -108,17 +108,17 @@ findUnderlyingType ctx mod t = do
       return $ BasicTypeStruct Nothing fields'
     TypeStruct (modPath, name) fieldTypes -> do
       definitionMod <- getMod ctx modPath
-      typeDef       <- resolveLocal (modContents definitionMod) name
+      typeDef       <- h_lookup (modContents definitionMod) name
       -- TODO
       return $ BasicTypeStruct (Just name) []
     TypeUnion (modPath, name) fieldTypes -> do
       definitionMod <- getMod ctx modPath
-      typeDef       <- resolveLocal (modContents definitionMod) name
+      typeDef       <- h_lookup (modContents definitionMod) name
       -- TODO
       return $ BasicTypeUnion (Just name) []
     TypeEnum tp@(modPath, name) argTypes -> do
       definitionMod <- getMod ctx modPath
-      typeDef       <- resolveLocal (modContents definitionMod) name
+      typeDef       <- h_lookup (modContents definitionMod) name
       case typeDef of
         Just (DeclType (TypeDefinition { typeSubtype = enum@(Enum { enumVariants = variants }) }))
           -> return $ if enumIsSimple enum
@@ -237,6 +237,9 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
       (Block children) -> do
         children' <- mapM r children
         return $ IrBlock children'
+      (Using _ _) -> throw $ KitError $ BasicError
+        ("unexpected `using` in typed AST")
+        (Just pos)
       (Meta m e1               ) -> r e1
       (Literal (l@(IntValue _))) -> do
         return $ IrCast (IrLiteral l) f
@@ -248,7 +251,7 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
         return $ IrLiteral l
       (This) -> return $ IrIdentifier "__this"
       (Self) -> throw $ KitError $ BasicError
-        ("unexpected Self in typed AST")
+        ("unexpected `Self` in typed AST")
         (Just pos)
       (Identifier (Var v) namespace) -> case t of
         TypeTypeOf x -> throwk $ BasicError

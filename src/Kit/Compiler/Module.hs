@@ -23,7 +23,7 @@ data Module = Module {
   modImports :: [(ModulePath, Span)],
   modIncludes :: IORef [(FilePath, Span)],
   modScope :: Scope Binding,
-  modContents :: Scope (Declaration Expr (Maybe TypeSpec)),
+  modContents :: HashTable Str (Declaration Expr (Maybe TypeSpec)),
   modImpls :: IORef [TraitImplementation Expr (Maybe TypeSpec)],
   modSpecializations :: IORef [((TypeSpec, TypeSpec), Span)],
   modTypedContents :: IORef [TypedDecl],
@@ -37,7 +37,7 @@ instance Show Module where
 newMod :: ModulePath -> FilePath -> IO Module
 newMod path fp = do
   scope         <- newScope path
-  defs          <- newScope path
+  defs          <- h_new
   impls         <- newIORef []
   specs         <- newIORef []
   typedContents <- newIORef []

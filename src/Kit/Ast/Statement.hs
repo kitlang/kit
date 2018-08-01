@@ -27,6 +27,7 @@ data StatementType a b
   | TraitDeclaration (TraitDefinition a b)
   | Implement (TraitImplementation a b)
   | Specialize TypeSpec TypeSpec
+  | RuleSetDeclaration (RuleSet a b)
   | Typedef Str TypeSpec
   | Import ModulePath
   | Include FilePath

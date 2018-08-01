@@ -60,8 +60,8 @@ resolveTypesForMod ctx mod = do
   forM_ specs (addSpecialization ctx mod)
   impls <- readIORef (modImpls mod)
   forM_ impls (addImplementation ctx mod)
-  contents <- bindingList (modContents mod)
-  forM_ contents (resolveDecl ctx mod)
+  contents <- h_toList (modContents mod)
+  forM_ (map snd contents) (resolveDecl ctx mod)
   return ()
 
 addSpecialization

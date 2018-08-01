@@ -186,7 +186,7 @@ addStmtToModuleInterface ctx mod s = do
               Enum{}     -> TypeEnum (modPath mod, name) []
               Abstract{} -> TypeAbstract (modPath mod, name) []
         let extern = hasMeta "extern" (typeMeta d)
-        if extern then recordGlobalName name else return ()
+        when extern $ recordGlobalName name
         addToInterface name (TypeBinding) (not extern) ct
         addDefinition
           name
@@ -261,7 +261,7 @@ addStmtToModuleInterface ctx mod s = do
     ModuleVarDeclaration d@(VarDefinition { varName = name }) -> do
       tv <- makeTypeVar ctx (stmtPos s)
       let extern = hasMeta "extern" (varMeta d)
-      if extern then recordGlobalName name else return ()
+      when extern $ recordGlobalName name
       addToInterface name (VarBinding) (not extern) tv
       addDefinition
         name
@@ -276,7 +276,7 @@ addStmtToModuleInterface ctx mod s = do
             return (argName arg, argType)
           )
         let extern = hasMeta "extern" (functionMeta d)
-        if extern then recordGlobalName name else return ()
+        when extern $ recordGlobalName name
         addToInterface name
                        (FunctionBinding)
                        (not extern)
@@ -290,6 +290,8 @@ addStmtToModuleInterface ctx mod s = do
       modifyIORef (modSpecializations mod) (\l -> ((a, b), stmtPos s) : l)
     Implement t -> do
       modifyIORef (modImpls mod) (\l -> t : l)
+    RuleSetDeclaration r -> do
+      addDefinition (ruleSetName r) (DeclRuleSet r)
     _ -> return ()
  where
   pos              = stmtPos s
@@ -310,7 +312,7 @@ addStmtToModuleInterface ctx mod s = do
                       (stmtPos s)
           )
     )
-  addDefinition name d = bindToScope (modContents mod) name d
+  addDefinition name d = h_insert (modContents mod) name d
 
 findImports :: ModulePath -> [Statement] -> [(ModulePath, Span)]
 findImports mod stmts = foldr
