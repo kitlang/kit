@@ -124,9 +124,7 @@ displayFileSnippet span = do
       hSetSGR
         stderr
         [SetColor Foreground Vivid Blue, SetConsoleIntensity NormalIntensity]
-      if span == NoPos
-        then hPutStrLn stderr $ "\n  " ++ show fp
-        else hPutStrLn stderr $ "\n  " ++ show span
+      hPutStrLn stderr $ "\n  " ++ show span
       contents <- readFile $ fp
       let content_lines = lines contents
       forM_ [(start_line span) .. (end_line span)] $ \n -> do

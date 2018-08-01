@@ -1,6 +1,7 @@
 module Kit.Compiler.TermRewrite where
 
 import Control.Monad
+import Data.List
 import Kit.Ast
 import Kit.Compiler.Context
 import Kit.Compiler.Module
@@ -12,12 +13,12 @@ import Kit.Log
 import Kit.Parser.Span
 import Kit.Str
 
-data TermRewriteError = TermRewriteError String (RewriteRule Expr (Maybe TypeSpec)) Span deriving (Eq, Show)
+data TermRewriteError = TermRewriteError String [(String, RewriteRule Expr (Maybe TypeSpec))] Span deriving (Eq, Show)
 instance Errable TermRewriteError where
-  logError e@(TermRewriteError msg rule pos) = do
+  logError e@(TermRewriteError msg rules pos) = do
     logErrorBasic e $ msg
-    ePutStrLn "Matching rule:"
-    displayFileSnippet (rulePos rule)
+    forM_ rules (\(msg, rule) -> do ePutStrLn msg; displayFileSnippet (rulePos rule))
+
   errPos (TermRewriteError _ _ pos) = Just pos
 
 type RuleBinding = (Str, TypedExpr)
@@ -37,13 +38,24 @@ rewriteExpr ctx tctx mod rule te typer = do
                      (resolveType ctx tctx mod)
   case (match, ruleBody rule) of
     (Just x, Just body) -> do
-      let tctx' = tctx { tctxActiveRules = (rule, tPos te) : tctxActiveRules tctx
-                       , tctxMacroVars   = x ++ tctxMacroVars tctx
-                       }
-      when ((length $ tctxActiveRules tctx) > 100) $ throwk $ TermRewriteError
-        "Maximum number of rewrite rule applications exceeded"
-        rule
-        (tPos te)
+      let tctx' = tctx
+            { tctxActiveRules = (rule, tPos te) : tctxActiveRules tctx
+            , tctxMacroVars   = x ++ tctxMacroVars tctx
+            }
+      when ((length $ tctxActiveRules tctx) > 255)
+        $ let [firstRule, prevRule] = take 2 $ reverse $ tctxActiveRules tctx
+          in
+            do
+              throwk $ TermRewriteError
+                "Maximum number of rewrite rule applications exceeded, starting here:"
+                (nubBy
+                  (\(_, a) (_, b) -> a == b)
+                  [ ("Last matching rule:"    , rule)
+                  , ("Previous matching rule:", fst prevRule)
+                  , ("First matching rule:"   , fst firstRule)
+                  ]
+                )
+                (snd firstRule)
       t <- typer tctx' body
       return $ Just t
     _ -> return Nothing
@@ -83,7 +95,8 @@ ruleMatch pattern te thisType typeResolver = do
     (Identifier (MacroVar x Nothing) [], y) ->
       -- $var - match and bind anything
       return $ Just [(x, te)]
-    (a, b) -> if exprDiscriminant a == exprDiscriminant b
+    (Literal a, Literal b) -> return $ if a == b then Just [] else Nothing
+    (a        , b        ) -> if exprDiscriminant a == exprDiscriminant b
       then
         let (c1, c2) = (exprChildren a, exprChildren b)
         in
