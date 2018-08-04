@@ -49,7 +49,8 @@ data CompileContext = CompileContext {
   ctxGlobalNames :: HashTable Str Span,
   ctxNoCompile :: Bool,
   ctxNoLink :: Bool,
-  ctxDumpAst :: Bool
+  ctxDumpAst :: Bool,
+  ctxRecursionLimit :: Int
 }
 
 instance Show CompileContext where
@@ -100,6 +101,7 @@ newCompileContext = do
     , ctxNoCompile            = False
     , ctxNoLink               = False
     , ctxDumpAst              = False
+    , ctxRecursionLimit       = 256
     }
 
 ctxSourceModules :: CompileContext -> IO [Module]

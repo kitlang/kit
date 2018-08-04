@@ -7,7 +7,7 @@ import Kit.Str
 data Metadata = Metadata {metaName :: Str, metaArgs :: [MetaArg]} deriving (Eq, Show)
 
 data MetaArg
-  = MetaIdentifier Identifier
+  = MetaIdentifier Str
   | MetaLiteral ValueLiteral
   deriving (Eq, Show)
 

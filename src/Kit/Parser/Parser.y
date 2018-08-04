@@ -268,7 +268,7 @@ UsingClauses :: {([UsingType Expr (Maybe TypeSpec)], Span)}
   | UsingClauses ',' UsingClause {(fst $3 : fst $1, snd $1 <+> snd $3)}
 
 UsingClause :: {(UsingType Expr (Maybe TypeSpec), Span)}
-  : rules TypeSpec {(UsingRuleSet $ Just $ fst $2, snd $1 <+> snd $2)}
+  : rules TypePath {(UsingRuleSet $ fst $2, snd $1 <+> snd $2)}
 
 FunctionDecl :: {Statement}
   : DocMetaMods function identifier TypeParams '(' VarArgs ')' TypeAnnotation OptionalBody {
@@ -331,7 +331,7 @@ CallArgs :: {[Expr]}
 
 MetaArg :: {MetaArg}
   : Term {MetaLiteral $ fst $1}
-  | Identifier {MetaIdentifier $ fst $1}
+  | UpperOrLowerIdentifier {MetaIdentifier $ fst $1}
 
 MetaArgs :: {[MetaArg]}
   : MetaArg {[$1]}
@@ -717,11 +717,11 @@ StructInitField :: {(B.ByteString, Expr)}
   : UpperOrLowerIdentifier ':' Expr {(fst $1, $3)}
   | UpperOrLowerIdentifier {(fst $1, pe (snd $1) $ Identifier (Var $ fst $1) [])}
 
-Identifier :: {(Identifier, Span)}
+Identifier :: {(Identifier (Maybe TypeSpec), Span)}
   : UpperOrLowerIdentifier {(Var $ fst $1, snd $1)}
   | MacroIdentifier {$1}
 
-MacroIdentifier :: {(Identifier, Span)}
+MacroIdentifier :: {(Identifier (Maybe TypeSpec), Span)}
   : macro_identifier {(MacroVar (extract_macro_identifier $1) Nothing, snd $1)}
   | '$' '{' UpperOrLowerIdentifier TypeAnnotation '}' {(MacroVar (fst $3) (fst $4), (p $1 <+> p $5))}
 

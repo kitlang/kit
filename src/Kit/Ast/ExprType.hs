@@ -7,15 +7,12 @@ import Kit.Ast.Modifier
 import Kit.Ast.ModulePath
 import Kit.Ast.Operator
 import Kit.Ast.TypeSpec
+import Kit.Ast.UsingType
 import Kit.Ast.Value
 import Kit.Parser.Span
-import Kit.Parser.Token
 import Kit.Str
 
 data MatchCase a = MatchCase {match_pattern :: a, match_body :: a} deriving (Eq, Show)
-data UsingType a b
-  = UsingRuleSet b
-  deriving (Eq, Show)
 
 {-
   All AST structures use the convention of two type parameters, a and b.
@@ -42,7 +39,7 @@ data ExprType a b
   | This
   | Self
   -- identifier, namespace
-  | Identifier Identifier [Str]
+  | Identifier (Identifier b) [Str]
   -- expression, optional type annotation; blank to infer type
   | TypeAnnotation a b
   | PreUnop Operator a
@@ -60,21 +57,19 @@ data ExprType a b
   | Throw a
   | Match a [MatchCase a] (Maybe a)
   | InlineCall a
-  | Field a Identifier
+  | Field a (Identifier b)
   | StructInit b [(Str, a)]
   | EnumInit b Str [a]
   | ArrayAccess a a
   | Call a [a]
   | Cast a b
-  | TokenExpr [TokenClass]
   | Unsafe a
   | BlockComment Str
-  | LexMacro Str [TokenClass]
   -- e1 ... e2
   | RangeLiteral a a
   | VectorLiteral [a]
   -- var id[: type] [= default];
-  | VarDeclaration Identifier b (Maybe a)
+  | VarDeclaration (Identifier b) b (Maybe a)
   | Defer a
   deriving (Eq, Show)
 
@@ -107,14 +102,12 @@ exprDiscriminant et =
     ArrayAccess _ _ -> 24
     Call _ _ -> 25
     Cast _ _ -> 26
-    TokenExpr _ -> 27
-    Unsafe _ -> 28
-    BlockComment _ -> 29
-    LexMacro _ _ -> 30
-    RangeLiteral _ _ -> 31
-    VectorLiteral _ -> 32
-    VarDeclaration _ _ _ -> 33
-    Defer _ -> 34
+    Unsafe _ -> 27
+    BlockComment _ -> 28
+    RangeLiteral _ _ -> 29
+    VectorLiteral _ -> 30
+    VarDeclaration _ _ _ -> 31
+    Defer _ -> 32
 
 exprChildren :: ExprType a b -> [a]
 exprChildren et =

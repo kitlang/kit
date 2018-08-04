@@ -42,7 +42,7 @@ rewriteExpr ctx tctx mod rule te typer = do
             { tctxActiveRules = (rule, tPos te) : tctxActiveRules tctx
             , tctxMacroVars   = x ++ tctxMacroVars tctx
             }
-      when ((length $ tctxActiveRules tctx) > 255)
+      when ((length $ tctxActiveRules tctx) > ctxRecursionLimit ctx)
         $ let [firstRule, prevRule] = take 2 $ reverse $ tctxActiveRules tctx
           in
             do

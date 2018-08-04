@@ -11,6 +11,7 @@ import Kit.Compiler.TypeContext
 import Kit.Compiler.TypedDecl
 import Kit.Compiler.TypedExpr
 import Kit.Compiler.Typers.Base
+import Kit.Compiler.Typers.ConvertExpr
 import Kit.Compiler.Typers.TypeExpression
 import Kit.Compiler.Typers.TypeFunction
 import Kit.Compiler.Typers.TypeVar
@@ -21,30 +22,11 @@ import Kit.Parser
 import Kit.Str
 
 typeTypeDefinition
-  :: CompileContext -> Module -> TypeDefinition Expr (Maybe TypeSpec) -> IO ()
+  :: CompileContext -> Module -> TypeDefinition TypedExpr ConcreteType -> IO (Maybe TypedDecl, Bool)
 typeTypeDefinition ctx mod def@(TypeDefinition { typeName = name }) = do
   debugLog ctx $ "typing " ++ s_unpack name ++ " in " ++ show mod
   -- TODO: handle params here
-  tctx     <- modTypeContext ctx mod
-  subScope <- getSubScope (modScope mod) [name]
-  let exprConverter = typeExpr ctx tctx mod
-  let typeConverter = resolveMaybeType ctx tctx mod (typePos def)
-  staticFields <- forM
-    (typeStaticFields def)
-    (\field -> do
-      binding <- scopeGet subScope (varName field)
-      typeVarDefinition ctx tctx mod field binding
-    )
-  staticMethods <- forM
-    (typeStaticMethods def)
-    (\method -> do
-      binding <- scopeGet subScope (functionName method)
-      typeFunctionDefinition ctx tctx mod method binding
-    )
-  converted <- convertTypeDefinition exprConverter typeConverter def
-  modifyIORef
-    (modTypedContents mod)
-    ((:) $ DeclType $ converted { typeStaticFields  = staticFields
-                                , typeStaticMethods = staticMethods
-                                }
-    )
+  tctx'     <- modTypeContext ctx mod
+  let tctx = tctx' {tctxTypeParams = [(paramName param, ()) | param <- typeParams def]}
+  -- TODO: type methods, variable defaults...
+  return $ (Just $ DeclType def, True)

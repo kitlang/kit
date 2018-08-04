@@ -11,6 +11,7 @@ import Kit.Compiler.TermRewrite
 import Kit.Compiler.TypeContext
 import Kit.Compiler.TypedExpr
 import Kit.Compiler.Typers.Base
+import Kit.Compiler.Typers.ConvertExpr
 import Kit.Compiler.Unify
 import Kit.Error
 import Kit.HashTable
@@ -21,7 +22,7 @@ typeMaybeExpr
   :: CompileContext
   -> TypeContext
   -> Module
-  -> Maybe Expr
+  -> Maybe TypedExpr
   -> IO (Maybe TypedExpr)
 typeMaybeExpr ctx tctx mod e = case e of
   Just ex -> do
@@ -42,8 +43,8 @@ typeMaybeExpr ctx tctx mod e = case e of
   After typing a subexpression, rewrite rules may take effect and trigger
   an early exit.
 -}
-typeExpr :: CompileContext -> TypeContext -> Module -> Expr -> IO TypedExpr
-typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
+typeExpr :: CompileContext -> TypeContext -> Module -> TypedExpr -> IO TypedExpr
+typeExpr ctx tctx mod ex@(TypedExpr { texpr = et, tPos = pos }) = do
   let r = typeExpr ctx tctx mod
   let resolve constraint = resolveConstraint ctx tctx mod constraint
   let unknownTyped x = makeExprTyped x (TypeBasicType BasicTypeUnknown) pos
@@ -51,22 +52,26 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
         result <- foldM
           (\acc rule -> case acc of
             Just x  -> return $ Just x
-            Nothing -> rewriteExpr ctx
-                                   tctx
-                                   mod
-                                   rule
-                                   x
-                                   (\tctx ex -> typeExpr ctx tctx mod ex)
+            Nothing -> rewriteExpr
+              ctx
+              tctx
+              mod
+              rule
+              x
+              (\tctx ex -> do
+                body <- convertExpr ctx tctx mod ex
+                typeExpr ctx tctx mod body
+              )
           )
           Nothing
           [ rule | ruleset <- tctxRules tctx, rule <- ruleSetRules ruleset ]
         case result of
           Just x  -> return x
           Nothing -> y
+  let stop x e = (unknownTyped x) { tError = Just e }
   result <- case et of
     (Block children) -> do
-      -- FIXME: you may be in an inner scope...
-      blockScope <- newScope (modPath mod)
+      blockScope <- newScope (scopeNamespace $ head $ tctxScopes tctx)
       let tctx' = tctx { tctxScopes = blockScope : tctxScopes tctx }
       typedChildren <- mapM (typeExpr ctx tctx' mod) children
       return $ makeExprTyped
@@ -75,12 +80,17 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
         pos
 
     (Using using e1) -> do
-      tctx' <- foldM (\c use -> addUsing ctx c mod use) tctx using
-      typeExpr ctx tctx' mod e1
+      tctx' <- foldM (\c use -> addUsing ctx c mod $ convertUsingType use)
+                     tctx
+                     using
+      r1 <- typeExpr ctx tctx' mod e1
+      return $ makeExprTyped (Using (map convertUsingType using) r1)
+                             (inferredType $ r1)
+                             pos
 
     (Meta m e1) -> do
       r1 <- r e1
-      return $ makeExprTyped (Meta m r1) (inferredType $ r1) pos
+      return $ makeExprTyped (Meta m r1) (inferredType r1) pos
 
     (Literal l) -> do
       typeVar <- makeTypeVar ctx pos
@@ -109,34 +119,11 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
               Just binding -> typeVarBinding ctx vname binding pos
               Nothing      -> throwk
                 $ TypingError ("Unknown identifier: " ++ s_unpack vname) pos
-          MacroVar vname (Just t) -> do
-            macroType <- resolveType ctx tctx mod t
-            return $ makeExprTyped (Identifier (MacroVar vname (Just t)) [])
-                                   macroType
-                                   pos
-          MacroVar vname Nothing ->
-            case
-                foldl
-                  (\acc (name, val) ->
-                    acc <|> (if vname == name then Just val else Nothing)
-                  )
-                  (Nothing)
-                  (tctxMacroVars tctx)
-              of
-                Just x  -> return x
-                Nothing -> throwk $ TypingError
-                  (  "To use macro variable $"
-                  ++ (s_unpack vname)
-                  ++ " outside of a rewrite rule, it needs a type annotation:\n\n    ${"
-                  ++ (s_unpack vname)
-                  ++ ": Type}"
-                  )
-                  pos
+          MacroVar vname t -> return ex
         )
 
     (TypeAnnotation e1 t) -> do
       r1 <- r e1
-      t  <- resolveMaybeType ctx tctx mod pos t
       tryRewrite (unknownTyped $ TypeAnnotation r1 t) $ do
         resolve $ TypeEq
           (inferredType r1)
@@ -227,7 +214,7 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
             Nothing          -> return () -- TODO
         return $ makeExprTyped (Binop op r1 r2) tv pos
 
-    (For (Expr { expr = Identifier v _, pos = pos1 }) e2 e3) -> do
+    (For (TypedExpr { texpr = Identifier v _, tPos = pos1 }) e2 e3) -> do
       r2    <- r e2
       scope <- newScope (modPath mod)
       r3    <- typeExpr
@@ -239,7 +226,7 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
         mod
         e3
       tv <- makeTypeVar ctx pos
-      case expr e2 of
+      case texpr e2 of
         RangeLiteral _ _ -> return ()
         _                -> resolve $ TypeEq
           (typeClassIterable tv)
@@ -405,7 +392,12 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
 
           TypePtr x ->
             -- try to auto-dereference
-            r $ ep (Field (ep (PreUnop Deref e1) (tPos r1)) (Var fieldName)) pos
+                       r $ makeExprTyped
+            (Field (makeExprTyped (PreUnop Deref r1) x (tPos r1))
+                   (Var fieldName)
+            )
+            (inferredType ex)
+            pos
 
           TypeTypeOf x@(mp, name) -> do
             -- look for a static method or field
@@ -442,21 +434,13 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
 
     (Cast e1 t) -> do
       r1 <- r e1
-      t' <- resolveMaybeType ctx tctx mod pos t
-      tryRewrite (unknownTyped $ Cast r1 t') $ return $ makeExprTyped
-        (Cast r1 t')
-        t'
+      tryRewrite (unknownTyped $ Cast r1 t) $ return $ makeExprTyped
+        (Cast r1 t)
+        t
         pos
 
-    (Unsafe e1) -> do
-      t' <- makeTypeVar ctx pos
-      let r1 = case expr e1 of
-            Identifier i _ -> Identifier i []
-            _ -> throwk $ InternalError "Not yet implemented" (Just pos)
-      return $ makeExprTyped r1 t' pos
     (BlockComment s) -> do
       return $ makeExprTyped (BlockComment s) voidType pos
-    (LexMacro s t) -> throwk $ InternalError "Not yet implemented" (Just pos)
 
     (RangeLiteral e1 e2) -> do
       r1 <- r e1
@@ -474,9 +458,8 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
     (VectorLiteral items) ->
       throwk $ InternalError "Not yet implemented" (Just pos)
 
-    (VarDeclaration (Var vname) t init) -> do
-      varType <- resolveMaybeType ctx tctx mod pos t
-      init'   <- case init of
+    (VarDeclaration (Var vname) varType init) -> do
+      init' <- case init of
         Just e1 -> do
           r1 <- r e1
           resolve $ TypeEq
@@ -500,73 +483,66 @@ typeExpr ctx tctx mod ex@(Expr { expr = et, pos = pos }) = do
     (Defer e1) -> do
       throwk $ InternalError "Not yet implemented" (Just pos)
 
-    (StructInit (Just t) fields) -> do
-      structType <- resolveType ctx tctx mod t
-      case structType of
-        TypeStruct tp@(mp, name) params -> do
-          owningModule <- getMod ctx mp
-          structDef    <- h_lookup (modContents owningModule) name
-          case structDef of
-            Just (DeclType (TypeDefinition { typeSubtype = Struct { structFields = structFields } }))
-              -> do
-                let providedNames = map fst fields
-                let fieldNames    = map varName structFields
-                let extraNames    = providedNames \\ fieldNames
-                -- TODO: check for duplicate fields
-                -- check for extra fields
-                unless (null extraNames) $ throwk $ BasicError
-                  (  "Struct "
-                  ++ s_unpack (showTypePath tp)
-                  ++ " has the following extra fields:\n\n"
-                  ++ intercalate
-                       "\n"
-                       [ "  - `" ++ s_unpack name ++ "`"
-                       | name <- extraNames
-                       ]
-                  ++ "\n\nRemove these fields or correct any typos."
-                  )
-                  (Just pos)
-                let nonProvidedNames = fieldNames \\ providedNames
-                typedFields <- forM
-                  (structFields)
-                  (\field -> do
-                    fieldType <- resolveMaybeType ctx
-                                                  tctx
-                                                  mod
-                                                  pos
-                                                  (varType field)
-                    let provided =
-                          find (\(name, _) -> name == varName field) fields
-                    case provided of
-                      Just (name, value) -> return ((name, value), fieldType)
-                      Nothing            -> case varDefault field of
-                        Just fieldDefault ->
-                          return ((varName field, fieldDefault), fieldType)
-                        Nothing -> throwk $ BasicError
-                          (  "Struct "
-                          ++ s_unpack (showTypePath tp)
-                          ++ " is missing field "
-                          ++ s_unpack (varName field)
-                          ++ ", and no default value is provided."
-                          )
-                          (Just pos)
-                  )
-                typedFields <- forM
-                  typedFields
-                  (\((name, expr), fieldType) -> do
-                    r1 <- r expr
-                    resolve $ TypeEq
-                      (inferredType r1)
-                      fieldType
-                      "Provided struct field values must match the declared struct field type"
-                      (tPos r1)
-                    return (name, r1)
-                  )
-                return $ makeExprTyped (StructInit structType typedFields)
-                                       structType
-                                       pos
-        _ -> throwk
-          $ BasicError ("Type " ++ (show t) ++ " is not a struct") (Just pos)
+    (StructInit structType@(TypeStruct tp@(mp, name) params) fields) -> do
+      owningModule <- getMod ctx mp
+      structDef    <- h_lookup (modContents owningModule) name
+      case structDef of
+        Just (DeclType (TypeDefinition { typeSubtype = Struct { structFields = structFields } }))
+          -> do
+            let providedNames = map fst fields
+            let fieldNames    = map varName structFields
+            let extraNames    = providedNames \\ fieldNames
+            -- TODO: check for duplicate fields
+            -- check for extra fields
+            unless (null extraNames) $ throwk $ BasicError
+              (  "Struct "
+              ++ s_unpack (showTypePath tp)
+              ++ " has the following extra fields:\n\n"
+              ++ intercalate
+                   "\n"
+                   [ "  - `" ++ s_unpack name ++ "`" | name <- extraNames ]
+              ++ "\n\nRemove these fields or correct any typos."
+              )
+              (Just pos)
+            let nonProvidedNames = fieldNames \\ providedNames
+            typedFields <- forM
+              (structFields)
+              (\field -> do
+                fieldType <- resolveMaybeType ctx tctx mod pos (varType field)
+                let provided =
+                      find (\(name, _) -> name == varName field) fields
+                case provided of
+                  Just (name, value) -> return ((name, value), fieldType)
+                  Nothing            -> case varDefault field of
+                    Just fieldDefault -> do
+                      -- FIXME
+                      converted <- convertExpr ctx tctx mod fieldDefault
+                      return ((varName field, converted), fieldType)
+                    Nothing -> throwk $ BasicError
+                      (  "Struct "
+                      ++ s_unpack (showTypePath tp)
+                      ++ " is missing field "
+                      ++ s_unpack (varName field)
+                      ++ ", and no default value is provided."
+                      )
+                      (Just pos)
+              )
+            typedFields <- forM
+              typedFields
+              (\((name, expr), fieldType) -> do
+                r1 <- r expr
+                resolve $ TypeEq
+                  (inferredType r1)
+                  fieldType
+                  "Provided struct field values must match the declared struct field type"
+                  (tPos r1)
+                return (name, r1)
+              )
+            return $ makeExprTyped (StructInit structType typedFields)
+                                   structType
+                                   pos
+
+    _ -> return $ ex {tComplete = True}
 
   t' <- knownType ctx tctx mod (inferredType result)
   let result' = result { inferredType = t' }

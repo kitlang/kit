@@ -37,6 +37,7 @@ data TypeContext = TypeContext {
   tctxReturnType :: Maybe ConcreteType,
   tctxThis :: Maybe ConcreteType,
   tctxSelf :: Maybe TypePath,
+  tctxTypeParams :: [(Str, ())], -- TODO
   tctxLoopCount :: Int,
   tctxRewriteRecursionDepth :: Int
 }
@@ -51,6 +52,7 @@ newTypeContext scopes = do
     , tctxReturnType            = Nothing
     , tctxThis                  = Nothing
     , tctxSelf                  = Nothing
+    , tctxTypeParams            = []
     , tctxLoopCount             = 0
     , tctxRewriteRecursionDepth = 0
     }
@@ -121,6 +123,7 @@ resolveType ctx tctx mod t = do
     TypeSpec (m, s) params pos -> do
       case m of
         [] -> do
+          -- TODO: get type param if available
           scoped <- resolveBinding (tctxScopes tctx) s
           case scoped of
             Just x ->
@@ -181,7 +184,7 @@ addUsing
   -> UsingType Expr (Maybe TypeSpec)
   -> IO TypeContext
 addUsing ctx tctx mod using = case using of
-  UsingRuleSet (Just (TypeSpec ([], n) [] _)) -> do
+  UsingRuleSet ([], n) -> do
     def <- h_lookup (modContents mod) n
     case def of
       Just (DeclType t) -> do

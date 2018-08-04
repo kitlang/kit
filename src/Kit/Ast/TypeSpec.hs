@@ -5,6 +5,7 @@ import Data.List
 import Kit.Ast.BasicType
 import Kit.Ast.ConcreteType
 import Kit.Ast.ModulePath
+import Kit.Ast.TypePath
 import Kit.Ast.Value
 import Kit.Parser.Span
 import Kit.Str

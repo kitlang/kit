@@ -36,16 +36,58 @@ typeContent ctx = do
 typeModuleContent :: CompileContext -> Module -> IO ()
 typeModuleContent ctx mod = do
   defs <- h_toList (modContents mod)
-  forM_
+  tctx <- modTypeContext ctx mod
+  -- FIXME: pos
+  let varConverter = converter (convertExpr ctx tctx mod)
+                               (resolveMaybeType ctx tctx mod NoPos)
+  -- TODO: params
+  let paramConverter params = varConverter
+  converted <- forM
     defs
-    (\(_, d) -> case d of
-      DeclFunction f -> typeFunction ctx mod f
-      DeclVar      v -> typeVar ctx mod v
-      DeclTrait    t -> typeTrait ctx mod t
-      DeclType     t -> typeTypeDefinition ctx mod t
-      DeclRuleSet  _ -> return ()
+    (\(_, d) ->
+      let r f x = do
+            x' <- x
+            return $ f x'
+      in
+        case d of
+          DeclFunction f ->
+            r DeclFunction $ convertFunctionDefinition paramConverter f
+          DeclVar     v  -> r DeclVar $ convertVarDefinition varConverter v
+          DeclType    t  -> r DeclType $ convertTypeDefinition paramConverter t
+          DeclTrait t -> r DeclTrait $ convertTraitDefinition paramConverter t
+          DeclRuleSet rs -> r DeclRuleSet $ convertRuleSet varConverter rs
     )
+  iterativeTyping ctx mod converted 0
+  -- addSpecializations ctx mod
+  -- retype ctx mod
   when (ctxDumpAst ctx) $ dumpModuleContent ctx mod
+
+iterativeTyping ctx mod converted passes = do
+  when (passes > ctxRecursionLimit ctx) $ if ctxDumpAst ctx
+    then do
+      throwk $ BasicError
+        ("Maximum number of compile passes exceeded while typing " ++ show mod)
+        Nothing
+      dumpModuleContent ctx mod
+    else throwk $ BasicError
+      (  "Maximum number of compile passes exceeded while typing "
+      ++ show mod
+      ++ "; run again with --dump-ast to see typed output"
+      )
+      Nothing
+  results <- forM
+    converted
+    (\d -> do
+      case d of
+        DeclFunction f -> typeFunction ctx mod f
+        DeclVar v -> typeVar ctx mod v
+        DeclType t -> typeTypeDefinition ctx mod t
+        DeclTrait t -> typeTrait ctx mod t
+        DeclRuleSet rs -> return (Nothing, True)
+    )
+  let incomplete = filter (\(decl, complete) -> not complete) results
+  when (not $ null incomplete)
+    $ iterativeTyping ctx mod (catMaybes $ map fst incomplete) passes
 
 dumpModuleContent :: CompileContext -> Module -> IO ()
 dumpModuleContent ctx mod = do
@@ -53,55 +95,3 @@ dumpModuleContent ctx mod = do
   defs <- readIORef (modTypedContents mod)
   forM_ defs (dumpModuleDecl ctx mod)
   putStrLn ""
-
-dumpModuleDecl ctx mod decl = do
-  case decl of
-    DeclFunction f -> do
-      putStr $ "  function " ++ (s_unpack $ functionName f) ++ ": "
-      if null $ functionArgs f
-        then putStr "() -> "
-        else do
-          putStrLn "("
-          forM_
-            (functionArgs f)
-            (\arg -> do
-              t <- dumpCt ctx (argType arg)
-              putStrLn $ "      " ++ s_unpack (argName arg) ++ ": " ++ t
-            )
-          putStr $ "    ) -> "
-      rt <- dumpCt ctx (functionType f)
-      putStrLn rt
-      case functionBody f of
-        Just x -> do
-          out <- dumpAst ctx 2 x
-          putStrLn out
-        _ -> return ()
-      putStrLn ""
-
-    DeclVar v -> do
-      t <- dumpCt ctx (varType v)
-      putStrLn $ "  var " ++ (s_unpack $ varName v) ++ ": " ++ t ++ "\n"
-      case varDefault v of
-        Just x -> do
-          out <- dumpAst ctx 2 x
-          putStrLn out
-        _ -> return ()
-
-    DeclType t -> do
-      putStrLn
-        $  "  type "
-        ++ (s_unpack $ showTypePath (modPath mod, typeName t))
-      forM_
-        (typeStaticFields t)
-        (\v -> do
-          t <- dumpCt ctx (varType v)
-          putStrLn $ "    static var " ++ (s_unpack $ varName v) ++ ": " ++ t
-          case varDefault v of
-            Just x -> do
-              out <- dumpAst ctx 3 x
-              putStrLn out
-            _ -> return ()
-        )
-      putStrLn ""
-
-    _ -> return ()

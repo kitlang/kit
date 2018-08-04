@@ -46,7 +46,8 @@ generateDeclIr ctx mod t = do
   case t of
     DeclType def@(TypeDefinition { typeName = name }) -> do
       debugLog ctx $ "generating IR for " ++ s_unpack name ++ " in " ++ show mod
-      converted <- convertTypeDefinition exprConverter typeConverter def
+      -- TODO: params
+      converted <- convertTypeDefinition (\params -> converter exprConverter typeConverter) def
       addDecl $ DeclType $ converted
       -- TODO: add declarations for instance methods
       forM_
@@ -56,35 +57,33 @@ generateDeclIr ctx mod t = do
         )
       forM_
         (typeStaticMethods def)
-        (\method -> generateDeclIr ctx mod
-          $ DeclFunction (method { functionNamespace = (modPath mod) ++ [name] })
+        (\method -> generateDeclIr ctx mod $ DeclFunction
+          (method { functionNamespace = (modPath mod) ++ [name] })
         )
-    DeclFunction f@(FunctionDefinition { functionName = name, functionArgs = args, functionType = t })
-      -> do
-        debugLog ctx
-          $  "generating IR for function "
-          ++ s_unpack name
-          ++ " in "
-          ++ show mod
+    DeclFunction f@(FunctionDefinition { functionName = name }) -> do
+      debugLog ctx
+        $  "generating IR for function "
+        ++ s_unpack name
+        ++ " in "
+        ++ show mod
 
-        args       <- forM args (convertArgSpec exprConverter typeConverter)
-        returnType <- typeConverter t
-        converted  <- convertFunctionDefinition exprConverter
-                                                typeConverter
-                                                args
-                                                returnType
-                                                f
-        addDecl $ DeclFunction $ converted
-          { functionName = mangleName (functionNamespace f) name
-          }
-    DeclVar v@(VarDefinition { varName = name, varType = t }) -> do
+      -- FIXME: params
+      converted <- convertFunctionDefinition
+        (\params -> converter exprConverter typeConverter)
+        f
+      addDecl $ DeclFunction $ converted
+        { functionName = mangleName (functionNamespace f) name
+        }
+    DeclVar v@(VarDefinition { varName = name }) -> do
       debugLog ctx
         $  "generating IR for var "
         ++ s_unpack name
         ++ " in "
         ++ show mod
 
-      converted <- convertVarDefinition exprConverter typeConverter v
+      converted <- convertVarDefinition
+        (converter exprConverter typeConverter)
+        v
       addDecl $ DeclVar $ converted { varName = mangleName (varNamespace v) name
                                     }
 
@@ -309,7 +308,7 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
       (Return e1) -> do
         r1 <- maybeR e1
         return $ IrReturn r1
-      (Throw      e1   ) -> return $ undefined -- TODO
+      (Throw e1           ) -> return $ undefined -- TODO
       (Match e1 cases (e2)) -> do
         -- TODO
         throwk $ InternalError "Not yet implemented" (Just pos)
@@ -331,14 +330,10 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
         r1  <- r e1
         t1' <- findUnderlyingType ctx mod (inferredType e1)
         return $ if t1' == f then r1 else IrCast r1 f
-      (TokenExpr tc) -> return $ undefined -- TODO
-      (Unsafe    e1) -> return $ throwk $ BasicError
+      (Unsafe e1) -> return $ throwk $ BasicError
         ("unexpected `unsafe` in typed AST")
         (Just pos)
       (BlockComment s) -> return $ IrBlock []
-      (LexMacro s t  ) -> return $ throwk $ BasicError
-        ("unexpected lexical macro invocation in typed AST")
-        (Just pos)
       (RangeLiteral e1 e2) ->
         throwk $ BasicError ("unexpected range literal in typed AST") (Just pos)
       (VectorLiteral items) -> do

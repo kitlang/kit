@@ -4,7 +4,7 @@ import Kit.Ast.ConcreteType
 import Kit.Ast.Definitions
 import Kit.Ast.Expr
 import Kit.Ast.ModulePath
-import Kit.Ast.TypeSpec
+import Kit.Ast.TypePath
 import Kit.Parser.Span
 import Kit.Str
 

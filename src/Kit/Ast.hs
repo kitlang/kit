@@ -13,7 +13,9 @@ module Kit.Ast (
   module Kit.Ast.Operator,
   module Kit.Ast.Statement,
   module Kit.Ast.TypeConstraint,
+  module Kit.Ast.TypePath,
   module Kit.Ast.TypeSpec,
+  module Kit.Ast.UsingType,
   module Kit.Ast.Value
 ) where
 
@@ -31,5 +33,7 @@ import Kit.Ast.ModulePath
 import Kit.Ast.Operator
 import Kit.Ast.Statement
 import Kit.Ast.TypeConstraint
+import Kit.Ast.TypePath
 import Kit.Ast.TypeSpec
+import Kit.Ast.UsingType
 import Kit.Ast.Value

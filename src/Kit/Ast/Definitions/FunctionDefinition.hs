@@ -44,22 +44,25 @@ newFunctionDefinition = FunctionDefinition
 
 convertFunctionDefinition
   :: (Monad m)
-  => (a -> m c)
-  -> (b -> m d)
-  -> [ArgSpec c d]
-  -> d
+  => ParameterizedConverter m a b c d
   -> FunctionDefinition a b
   -> m (FunctionDefinition c d)
-convertFunctionDefinition exprConverter typeConverter newArgs newType f = do
-  newBody <- maybeConvert exprConverter (functionBody f)
+convertFunctionDefinition paramConverter f = do
+  let params = map paramName (functionParams f)
+  let
+    (Converter { exprConverter = exprConverter, typeConverter = typeConverter })
+      = paramConverter params
+  rt   <- typeConverter (functionType f)
+  args <- forM (functionArgs f) (convertArgSpec exprConverter typeConverter)
+  body <- maybeConvert exprConverter (functionBody f)
   return $ (newFunctionDefinition) { functionName      = functionName f
                                    , functionDoc       = functionDoc f
                                    , functionMeta      = functionMeta f
                                    , functionModifiers = functionModifiers f
                                    , functionParams    = functionParams f
-                                   , functionArgs      = newArgs
-                                   , functionType      = newType
-                                   , functionBody      = newBody
+                                   , functionArgs      = args
+                                   , functionType      = rt
+                                   , functionBody      = body
                                    , functionVarargs   = functionVarargs f
                                    , functionNamespace = functionNamespace f
                                    , functionPos       = functionPos f

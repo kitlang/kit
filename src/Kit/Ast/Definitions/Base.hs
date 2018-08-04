@@ -14,3 +14,21 @@ maybeConvert converter val = do
       converted <- converter v
       return $ Just converted
     Nothing -> return Nothing
+
+{-
+  Converts AST structures from m X (a b) to m X (c d), where a/c are
+  expressions and b/d are types.
+-}
+data Converter m a b c d = Converter {
+  exprConverter :: (a -> m c),
+  typeConverter :: (b -> m d)
+}
+
+{-
+  Converter for things (functions, types) which need to care about type
+  parameters when resolving types. Given a list of type parameter names, will
+  return a Converter that will handle them in type lookups.
+-}
+type ParameterizedConverter m a b c d = [Str] -> Converter m a b c d
+
+converter e t = Converter {exprConverter = e, typeConverter = t}

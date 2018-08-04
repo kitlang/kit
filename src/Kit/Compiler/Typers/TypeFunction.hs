@@ -10,6 +10,7 @@ import Kit.Compiler.TypeContext
 import Kit.Compiler.TypedDecl
 import Kit.Compiler.TypedExpr
 import Kit.Compiler.Typers.Base
+import Kit.Compiler.Typers.ConvertExpr
 import Kit.Compiler.Typers.TypeExpression
 import Kit.Compiler.Unify
 import Kit.Compiler.Utils
@@ -21,26 +22,27 @@ import Kit.Str
 typeFunction
   :: CompileContext
   -> Module
-  -> FunctionDefinition Expr (Maybe TypeSpec)
-  -> IO ()
+  -> FunctionDefinition TypedExpr ConcreteType
+  -> IO (Maybe TypedDecl, Bool)
 typeFunction ctx mod f = do
   debugLog ctx
     $  "typing function "
     ++ s_unpack (functionName f)
     ++ " in "
     ++ show mod
-  tctx    <- modTypeContext ctx mod
-  binding <- scopeGet (modScope mod) (functionName f)
-  typed   <- typeFunctionDefinition ctx tctx mod f binding
-  modifyIORef (modTypedContents mod) ((:) $ DeclFunction typed)
+  tctx              <- modTypeContext ctx mod
+  binding           <- scopeGet (modScope mod) (functionName f)
+  (typed, complete) <- typeFunctionDefinition ctx tctx mod f binding
+  --modifyIORef (modTypedContents mod) ((:) $ DeclFunction typed)
+  return $ (Just $ DeclFunction typed, complete)
 
 typeFunctionDefinition
   :: CompileContext
   -> TypeContext
   -> Module
-  -> FunctionDefinition Expr (Maybe TypeSpec)
+  -> FunctionDefinition TypedExpr ConcreteType
   -> Binding
-  -> IO (FunctionDefinition TypedExpr ConcreteType)
+  -> IO (FunctionDefinition TypedExpr ConcreteType, Bool)
 typeFunctionDefinition ctx tctx' mod f binding = do
   let fPos = functionPos f
   let isMain =
@@ -48,20 +50,9 @@ typeFunctionDefinition ctx tctx' mod f binding = do
           (ctxIsLibrary ctx)
   functionScope <- newScope (modPath mod)
   let tctx = tctx' { tctxScopes = functionScope : tctxScopes tctx' }
-  args <- forM
-    (functionArgs f)
-    (\arg -> do
-      argType    <- resolveMaybeType ctx tctx mod (argPos arg) (argType arg)
-      argDefault <- maybeConvert (typeExpr ctx tctx mod) (argDefault arg)
-      return $ newArgSpec { argName    = argName arg
-                          , argType    = argType
-                          , argDefault = argDefault
-                          , argPos     = argPos arg
-                          }
-    )
 
   forM_
-    args
+    (functionArgs f)
     (\arg -> bindToScope
       functionScope
       (argName arg)
@@ -72,32 +63,37 @@ typeFunctionDefinition ctx tctx' mod f binding = do
         _                   -> throwk $ InternalError
           "Function type was unexpectedly missing from module scope"
           Nothing
-  let functionTypeContext =
+  let ftctx =
         (tctx { tctxScopes     = functionScope : (tctxScopes tctx)
+              , tctxTypeParams = [(paramName param, ()) | param <- functionParams f]
               , tctxReturnType = Just returnType
               }
         )
-  converted <- convertFunctionDefinition
-    (typeExpr ctx functionTypeContext mod)
-    (resolveMaybeType ctx tctx mod fPos)
-    args
-    returnType
-    f
-  -- Try to unify with void; if unification doesn't fail, we didn't encounter a return statement, so the function is void.
-  unification <- unify ctx tctx mod returnType voidType
-  case unification of
-    TypeVarIs _ (TypeBasicType BasicTypeVoid) -> do
-      resolveConstraint
-        ctx
-        tctx
-        mod
-        (TypeEq returnType
-                voidType
-                "Functions whose return type unifies with Void are Void"
-                fPos
-        )
-    _ -> return ()
-  return $ converted
-    { functionType      = returnType
-    , functionNamespace = (if isMain then [] else functionNamespace f)
-    }
+  body <- typeMaybeExpr ctx ftctx mod (functionBody f)
+  if case body of
+       Just x  -> tComplete x
+       Nothing -> True
+    then do
+      -- We're done with the body, or there wasn't one
+      -- Try to unify with void; if unification doesn't fail, we didn't encounter a return statement, so the function is void.
+      unification <- unify ctx ftctx mod returnType voidType
+      case unification of
+        TypeVarIs _ (TypeBasicType BasicTypeVoid) -> do
+          resolveConstraint
+            ctx
+            tctx
+            mod
+            (TypeEq returnType
+                    voidType
+                    "Functions whose return type unifies with Void are Void"
+                    fPos
+            )
+        _ -> return ()
+      return
+        $ ( f { functionBody      = body
+              , functionType      = returnType
+              , functionNamespace = (if isMain then [] else functionNamespace f)
+              }
+          , True
+          )
+    else return (f { functionBody = body }, False)

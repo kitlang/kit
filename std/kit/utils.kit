@@ -1,9 +1,16 @@
-import kit.io;
-
-public function println(s: CString) {
-    printf("%s\n", s);
+rules FormatString {
+    (fmt(${_: Byte})) => "%hh";
+    (fmt(${_: Short})) => "%h";
+    (fmt(${_: Int})) => "%l";
+    (fmt(${_: Long})) => "%ll";
+    (fmt(${_: Float})) => "%f";
+    (fmt(${_: Double})) => "%f";
 }
 
-public inline function print[S: ToString](s: S) {
-    println(s.toString());
-}
+// public function println(s: CString) {
+    // printf("%s\n", s);
+// }
+
+// public inline function print[S: ToString](s: S) {
+    // println(s.toString());
+// }

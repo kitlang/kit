@@ -11,6 +11,7 @@ import Kit.Ast.Modifier
 import Kit.Ast.ModulePath
 import Kit.Ast.Operator
 import Kit.Ast.TypeSpec
+import Kit.Ast.UsingType
 import Kit.Ast.Value
 import Kit.Parser.Span
 import Kit.Parser.Token

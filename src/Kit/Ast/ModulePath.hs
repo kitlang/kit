@@ -14,8 +14,3 @@ showModulePath s = s_join "." s
 
 moduleFilePath :: ModulePath -> FilePath
 moduleFilePath mod = replaceExtension (joinPath (map s_unpack mod)) ".kit"
-
--- (Optional module path or empty, type name)
-type TypePath = (ModulePath, Str)
-showTypePath ([], s) = s
-showTypePath (mp, s) = s_concat [showModulePath mp, ".", s]

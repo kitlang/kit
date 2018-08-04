@@ -34,19 +34,19 @@ newVarDefinition = VarDefinition
 
 convertVarDefinition
   :: (Monad m)
-  => (a -> m c)
-  -> (b -> m d)
+  => Converter m a b c d
   -> VarDefinition a b
   -> m (VarDefinition c d)
-convertVarDefinition exprConverter typeConverter v = do
-  newType    <- typeConverter (varType v)
-  newDefault <- maybeConvert exprConverter (varDefault v)
-  return $ (newVarDefinition) { varName      = varName v
-                              , varDoc       = varDoc v
-                              , varMeta      = varMeta v
-                              , varModifiers = varModifiers v
-                              , varType      = newType
-                              , varDefault   = newDefault
-                              , varNamespace = varNamespace v
-                              , varPos       = varPos v
-                              }
+convertVarDefinition (Converter { exprConverter = exprConverter, typeConverter = typeConverter }) v
+  = do
+    newType    <- typeConverter (varType v)
+    newDefault <- maybeConvert exprConverter (varDefault v)
+    return $ (newVarDefinition) { varName      = varName v
+                                , varDoc       = varDoc v
+                                , varMeta      = varMeta v
+                                , varModifiers = varModifiers v
+                                , varType      = newType
+                                , varDefault   = newDefault
+                                , varNamespace = varNamespace v
+                                , varPos       = varPos v
+                                }

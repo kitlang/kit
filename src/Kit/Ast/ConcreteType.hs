@@ -8,6 +8,7 @@ import Data.List
 import GHC.Generics
 import Kit.Ast.BasicType
 import Kit.Ast.ModulePath
+import Kit.Ast.TypePath
 import Kit.Parser.Span
 import Kit.Str
 
@@ -41,6 +42,7 @@ data ConcreteType
   | TypeTuple [ConcreteType]
   | TypeTypeOf TypePath
   | TypeTypeVar TypeVar
+  | TypeTypeParam Str
   deriving (Eq, Generic)
 
 instance Hashable ConcreteType
@@ -73,5 +75,9 @@ instance Show ConcreteType where
   show (TypeTuple t) = "(" ++ intercalate ", " (map show t) ++ ")"
   show (TypeTypeOf t) = "typeof " ++ s_unpack (showTypePath t)
   show (TypeTypeVar i) = "type var #" ++ show i
+  show (TypeTypeParam s) = "type param " ++ s_unpack s
 
 type TypeVar = Int
+
+basicType = TypeBasicType
+voidType = TypeBasicType BasicTypeVoid
