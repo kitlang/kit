@@ -10,3 +10,4 @@ src/Kit/Parser/Parser.hs
 src/Kit/Parser/Parser.info
 tests/Kit/Parser/Custom
 kitlang.cabal
+assets/*.png

@@ -45,5 +45,7 @@ spec = parallel $ do
           )
           `shouldBe` Nothing
         out <- readProcess ("build" </> "main") [] ""
-        -- TODO: verify output
-        return ()
+        outTemplateExists <- doesFileExist (path -<.> "stdout")
+        when (outTemplateExists) $ do
+          outTemplate <- readFile (path -<.> "stdout")
+          out `shouldBe` outTemplate
