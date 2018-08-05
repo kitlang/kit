@@ -132,7 +132,10 @@ convertExpr ctx tctx mod e = do
       t  <- typeOrTypeVar t
       r1 <- r e1
       return $ m (Cast r1 t) t
-    Unsafe       e1    -> container1 e1 Unsafe
+    Unsafe e1 -> do
+      t  <- makeTypeVar ctx pos'
+      r1 <- r e1
+      return $ m (Unsafe (r1 { inferredType = t })) t
     BlockComment s     -> return $ m (BlockComment s) voidType
     RangeLiteral e1 e2 -> container2 e1 e2 RangeLiteral
     VectorLiteral args -> do

@@ -147,7 +147,9 @@ resolveType ctx tctx mod t = do
           case result of
             Just (Binding { bindingType = TypeBinding _, bindingConcrete = t })
               -> follow ctx tctx mod t
-            _ -> unknownType s pos
+            Just (Binding { bindingType = TypedefBinding, bindingConcrete = t }) ->
+              follow ctx tctx mod t
+            _ -> unknownType (s_unpack $ showTypePath (m, s)) pos
 
     TypeFunctionSpec rt params args isVariadic -> do
       -- TODO
