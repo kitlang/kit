@@ -7,10 +7,14 @@ import Data.List
 import System.Directory
 import System.FilePath
 import Kit.Ast
+import Kit.Compiler.Binding
 import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
+import Kit.Compiler.TypedDecl
+import Kit.Compiler.TypedExpr
+import Kit.Compiler.Typers.ConvertExpr
 import Kit.Compiler.Unify
 import Kit.Compiler.Utils
 import Kit.Error
@@ -33,36 +37,102 @@ instance Errable DuplicateSpecializationError where
   during BuildModuleGraph, including:
 
   - Discovering trait implementations and specializations
-  - Resolving type annotations to specific types
+  - Unifying module interface type vars with actual type annotations
 -}
-resolveModuleTypes :: CompileContext -> IO ()
-resolveModuleTypes ctx = do
-  mods <- h_toList $ ctxModules ctx
-  forM_ (map snd mods) (resolveTypesForMod ctx)
-  if (ctxIsLibrary ctx) then return () else validateMain ctx
-  return ()
+resolveModuleTypes
+  :: CompileContext
+  -> [(Module, [Declaration Expr (Maybe TypeSpec)])]
+  -> IO [(Module, [TypedDecl])]
+resolveModuleTypes ctx modContents = do
+  unless (ctxIsLibrary ctx) $ validateMain ctx
+  forM modContents $ resolveTypesForMod ctx
 
 validateMain :: CompileContext -> IO ()
 validateMain ctx = do
   mod  <- getMod ctx (ctxMainModule ctx)
   main <- resolveLocal (modScope mod) "main"
   case main of
-    Just (Binding { bindingType = FunctionBinding }) -> return ()
+    Just (Binding { bindingType = FunctionBinding f }) -> do
+      -- TODO
+      return ()
     _ -> throwk $ BasicError
       (show mod
       ++ " doesn't have a function called 'main'; main module requires a main function"
       )
       (Nothing)
 
-resolveTypesForMod :: CompileContext -> Module -> IO ()
-resolveTypesForMod ctx mod = do
+resolveTypesForMod
+  :: CompileContext
+  -> (Module, [Declaration Expr (Maybe TypeSpec)])
+  -> IO (Module, [TypedDecl])
+resolveTypesForMod ctx (mod, contents) = do
   specs <- readIORef (modSpecializations mod)
   forM_ specs (addSpecialization ctx mod)
   impls <- readIORef (modImpls mod)
   forM_ impls (addImplementation ctx mod)
-  contents <- h_toList (modContents mod)
-  forM_ (map snd contents) (resolveDecl ctx mod)
-  return ()
+  tctx <- modTypeContext ctx mod
+
+  let varConverter =
+        converter (convertExpr ctx tctx mod) (resolveMaybeType ctx tctx mod)
+  -- TODO: params
+  let paramConverter params = varConverter
+
+  converted <- forM
+    contents
+    (\decl -> do
+      binding <- scopeGet (modScope mod) (declName decl)
+      case (bindingType binding, decl) of
+        (VarBinding vi, DeclVar v) -> do
+          converted <- convertVarDefinition varConverter v
+          resolveConstraint
+            ctx
+            tctx
+            mod
+            (TypeEq (varType vi)
+                    (varType converted)
+                    "Var type must match its annotation"
+                    (varPos vi)
+            )
+          return $ DeclVar converted
+        (FunctionBinding fi, DeclFunction f) -> do
+          converted <- convertFunctionDefinition paramConverter f
+          resolveConstraint
+            ctx
+            tctx
+            mod
+            (TypeEq (functionType fi)
+                    (functionType converted)
+                    "Function return type must match its annotation"
+                    (functionPos fi)
+            )
+          forM
+            (zip (functionArgs fi) (functionArgs converted))
+            (\(arg1, arg2) -> do
+              resolveConstraint
+                ctx
+                tctx
+                mod
+                (TypeEq (argType arg1)
+                        (argType arg2)
+                        "Function argument type must match its annotation"
+                        (argPos arg1)
+                )
+            )
+          return $ DeclFunction converted
+        (TypeBinding ti, DeclType t) -> do
+          converted <- convertTypeDefinition paramConverter t
+          -- TODO: unify
+          return $ DeclType converted
+        (TraitBinding ti, DeclTrait t) -> do
+          converted <- convertTraitDefinition paramConverter t
+          -- TODO: unify
+          return $ DeclTrait converted
+        (RuleSetBinding ri, DeclRuleSet r) -> do
+          converted <- convertRuleSet varConverter r
+          return $ DeclRuleSet converted
+    )
+
+  return (mod, converted)
 
 addSpecialization
   :: CompileContext -> Module -> ((TypeSpec, TypeSpec), Span) -> IO ()
@@ -70,7 +140,7 @@ addSpecialization ctx mod (((TypeSpec tp params _), b), pos) = do
   tctx  <- newTypeContext []
   found <- resolveModuleBinding ctx tctx mod tp
   case found of
-    Just (Binding { bindingType = TraitBinding, bindingConcrete = TypeTraitConstraint (tp, params') })
+    Just (Binding { bindingType = TraitBinding _, bindingConcrete = TypeTraitConstraint (tp, params') })
       -> do
       -- TODO: params
         existing <- h_lookup (ctxTraitSpecializations ctx) tp
@@ -94,7 +164,7 @@ addImplementation ctx mod impl@(TraitImplementation { implTrait = Just (TypeSpec
     tctx       <- newTypeContext []
     foundTrait <- resolveModuleBinding ctx tctx mod (tpTrait)
     case foundTrait of
-      Just (Binding { bindingType = TraitBinding, bindingConcrete = TypeTraitConstraint (tpTrait, tpParams) })
+      Just (Binding { bindingType = TraitBinding _, bindingConcrete = TypeTraitConstraint (tpTrait, tpParams) })
         -> do
           ct       <- resolveType ctx tctx mod implFor
           existing <- h_lookup (ctxImpls ctx) tpTrait
@@ -106,98 +176,3 @@ addImplementation ctx mod impl@(TraitImplementation { implTrait = Just (TypeSpec
               h_insert (ctxImpls ctx) tpTrait impls
       _ -> throwk $ BasicError ("Couldn't resolve trait: " ++ show tpTrait)
                                (Just posTrait)
-
-resolveDecl :: CompileContext -> Module -> Decl -> IO ()
-resolveDecl ctx mod decl = case decl of
-  DeclVar v -> do
-    tctx    <- newTypeContext []
-    modType <- resolveLocal (modScope mod) (varName v)
-    resolveVarDef ctx tctx mod modType v
-  DeclFunction f -> do
-    -- TODO: params
-    tctx    <- newTypeContext []
-    modType <- resolveLocal (modScope mod) (functionName f)
-    resolveFunctionDef ctx tctx mod modType f
-  DeclType t@(TypeDefinition { typeName = name }) -> do
-      -- TODO: params
-    tctx     <- newTypeContext []
-    subScope <- getSubScope (modScope mod) [name]
-    forM_
-      (typeStaticFields t)
-      (\field -> do
-        binding <- resolveLocal subScope (varName field)
-        resolveVarDef ctx tctx mod binding field
-      )
-    forM_
-      (typeStaticMethods t)
-      (\method -> do
-        binding <- resolveLocal subScope (functionName method)
-        resolveFunctionDef ctx tctx mod binding method
-      )
-    -- modType <- resolveLocal (modScope mod) name
-
-    -- case modType of
-      -- TypeStruct _
-    return ()
-  _ -> return ()
-
-resolveVarDef
-  :: CompileContext
-  -> TypeContext
-  -> Module
-  -> Maybe Binding
-  -> VarDefinition Expr (Maybe TypeSpec)
-  -> IO ()
-resolveVarDef ctx tctx mod modType v@(VarDefinition { varName = name, varType = Just t })
-  = case modType of
-    Just (Binding { bindingConcrete = ct }) -> do
-      t' <- resolveType ctx tctx mod t
-      resolveConstraint
-        ctx
-        tctx
-        mod
-        (TypeEq ct t' "Var type must match its annotation" (typeSpecPosition t))
-    _ -> throwk $ InternalError
-      ("Unexpected missing var binding " ++ s_unpack name)
-      Nothing
-
-resolveFunctionDef
-  :: CompileContext
-  -> TypeContext
-  -> Module
-  -> Maybe Binding
-  -> FunctionDefinition Expr (Maybe TypeSpec)
-  -> IO ()
-resolveFunctionDef ctx tctx mod modType f@(FunctionDefinition { functionName = name, functionArgs = args, functionType = rt })
-  = case modType of
-    Just (Binding { bindingConcrete = TypeFunction cRt cArgs _ }) -> do
-      case rt of
-        Just rt -> do
-          rt' <- resolveType ctx tctx mod rt
-          resolveConstraint
-            ctx
-            tctx
-            mod
-            (TypeEq cRt
-                    rt'
-                    "Function return type must match its annotation"
-                    (typeSpecPosition rt)
-            )
-        _ -> return ()
-      forM_
-        (zip args cArgs)
-        (\(arg, (_, cArgType)) -> case argType arg of
-          Just t -> do
-            t' <- resolveType ctx tctx mod t
-            resolveConstraint
-              ctx
-              tctx
-              mod
-              (TypeEq cArgType
-                      t'
-                      "Function arg type must match its annotation"
-                      (argPos arg)
-              )
-          _ -> return ()
-        )
-    _ -> throwk $ InternalError ("Expected function " ++ s_unpack name) Nothing

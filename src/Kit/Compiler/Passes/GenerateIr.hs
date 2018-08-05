@@ -8,6 +8,7 @@ import Data.IORef
 import Data.List
 import Data.Maybe
 import Kit.Ast
+import Kit.Compiler.Binding
 import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
@@ -25,41 +26,43 @@ import Kit.Str
 {-
   Generates declarations in interediate representation for each typed module.
 -}
-generateIr :: CompileContext -> IO ()
-generateIr ctx = do
-  mods <- ctxSourceModules ctx
-  forM_ mods (generateModuleIr ctx)
-  return ()
+generateIr
+  :: CompileContext -> [(Module, [TypedDecl])] -> IO [(Module, [IrDecl])]
+generateIr ctx modContent = forM modContent (generateModuleIr ctx)
 
-generateModuleIr :: CompileContext -> Module -> IO ()
-generateModuleIr ctx mod = do
+generateModuleIr
+  :: CompileContext -> (Module, [TypedDecl]) -> IO (Module, [IrDecl])
+generateModuleIr ctx (mod, decls) = do
   debugLog ctx $ "generating IR for " ++ show mod
-  bindings <- readIORef (modTypedContents mod)
-  forM (bindings) (\t -> generateDeclIr ctx mod t)
-  return ()
+  decls <- forM decls (generateDeclIr ctx mod)
+  return (mod, foldr (++) [] decls)
 
-generateDeclIr :: CompileContext -> Module -> TypedDecl -> IO ()
+generateDeclIr :: CompileContext -> Module -> TypedDecl -> IO [IrDecl]
 generateDeclIr ctx mod t = do
-  let addDecl d = modifyIORef (modIr mod) (\x -> d : x)
   let exprConverter = (typedToIr ctx mod)
-  let typeConverter = (findUnderlyingType ctx mod)
+  let typeConverter = (\pos -> findUnderlyingType ctx mod)
   case t of
     DeclType def@(TypeDefinition { typeName = name }) -> do
       debugLog ctx $ "generating IR for " ++ s_unpack name ++ " in " ++ show mod
       -- TODO: params
-      converted <- convertTypeDefinition (\params -> converter exprConverter typeConverter) def
-      addDecl $ DeclType $ converted
+      converted <- convertTypeDefinition
+        (\_ -> converter exprConverter typeConverter)
+        def
       -- TODO: add declarations for instance methods
-      forM_
+      staticFields <- forM
         (typeStaticFields def)
         (\field -> generateDeclIr ctx mod
           $ DeclVar (field { varNamespace = (modPath mod) ++ [name] })
         )
-      forM_
+      staticMethods <- forM
         (typeStaticMethods def)
         (\method -> generateDeclIr ctx mod $ DeclFunction
           (method { functionNamespace = (modPath mod) ++ [name] })
         )
+      return
+        $ (DeclType converted)
+        : (foldr (++) [] (staticFields ++ staticMethods))
+
     DeclFunction f@(FunctionDefinition { functionName = name }) -> do
       debugLog ctx
         $  "generating IR for function "
@@ -71,9 +74,11 @@ generateDeclIr ctx mod t = do
       converted <- convertFunctionDefinition
         (\params -> converter exprConverter typeConverter)
         f
-      addDecl $ DeclFunction $ converted
-        { functionName = mangleName (functionNamespace f) name
-        }
+      return
+        [ DeclFunction
+            $ converted { functionName = mangleName (functionNamespace f) name }
+        ]
+
     DeclVar v@(VarDefinition { varName = name }) -> do
       debugLog ctx
         $  "generating IR for var "
@@ -84,10 +89,10 @@ generateDeclIr ctx mod t = do
       converted <- convertVarDefinition
         (converter exprConverter typeConverter)
         v
-      addDecl $ DeclVar $ converted { varName = mangleName (varNamespace v) name
-                                    }
+      return
+        [DeclVar $ converted { varName = mangleName (varNamespace v) name }]
 
-    _ -> undefined -- TODO
+    _ -> return [] -- TODO
 
 {-
   Recursively dereference a high level ConcreteType into a BasicType.
@@ -107,19 +112,19 @@ findUnderlyingType ctx mod t = do
       return $ BasicTypeStruct Nothing fields'
     TypeStruct (modPath, name) fieldTypes -> do
       definitionMod <- getMod ctx modPath
-      typeDef       <- h_lookup (modContents definitionMod) name
+      -- typeDef       <- h_lookup (modContents definitionMod) name
       -- TODO
       return $ BasicTypeStruct (Just name) []
     TypeUnion (modPath, name) fieldTypes -> do
       definitionMod <- getMod ctx modPath
-      typeDef       <- h_lookup (modContents definitionMod) name
+      -- typeDef       <- h_lookup (modContents definitionMod) name
       -- TODO
       return $ BasicTypeUnion (Just name) []
     TypeEnum tp@(modPath, name) argTypes -> do
       definitionMod <- getMod ctx modPath
-      typeDef       <- h_lookup (modContents definitionMod) name
-      case typeDef of
-        Just (DeclType (TypeDefinition { typeSubtype = enum@(Enum { enumVariants = variants }) }))
+      binding       <- scopeGet (modScope definitionMod) name
+      case bindingType binding of
+        TypeBinding (TypeDefinition { typeSubtype = enum@(Enum { enumVariants = variants }) })
           -> return $ if enumIsSimple enum
             then BasicTypeSimpleEnum (Just name) [] -- we won't care about the variants in this case
             else BasicTypeComplexEnum
@@ -236,10 +241,8 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
       (Block children) -> do
         children' <- mapM r children
         return $ IrBlock children'
-      (Using _ _) -> throw $ KitError $ BasicError
-        ("unexpected `using` in typed AST")
-        (Just pos)
-      (Meta m e1               ) -> r e1
+      (Using _ e1              ) -> r e1
+      (Meta  m e1              ) -> r e1
       (Literal (l@(IntValue _))) -> do
         return $ IrCast (IrLiteral l) f
       (Literal (l@(FloatValue v))) -> case f of
@@ -330,12 +333,10 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
         r1  <- r e1
         t1' <- findUnderlyingType ctx mod (inferredType e1)
         return $ if t1' == f then r1 else IrCast r1 f
-      (Unsafe e1) -> return $ throwk $ BasicError
-        ("unexpected `unsafe` in typed AST")
-        (Just pos)
-      (BlockComment s) -> return $ IrBlock []
-      (RangeLiteral e1 e2) ->
-        throwk $ BasicError ("unexpected range literal in typed AST") (Just pos)
+      (Unsafe       e1   ) -> r e1
+      (BlockComment s    ) -> return $ IrBlock []
+      (RangeLiteral e1 e2) -> throwk
+        $ BasicError ("unexpected range literal in typed AST") (Just pos)
       (VectorLiteral items) -> do
         items' <- mapM r items
         return $ IrCArrLiteral items'
@@ -363,6 +364,5 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
 addHeader :: Module -> FilePath -> Span -> IO ()
 addHeader mod fp pos = do
   includes <- readIORef (modIncludes mod)
-  if elem fp (map fst includes)
-    then return ()
-    else modifyIORef (modIncludes mod) (\x -> (fp, pos) : x)
+  unless (elem fp (map fst includes))
+    $ modifyIORef (modIncludes mod) (\x -> (fp, pos) : x)

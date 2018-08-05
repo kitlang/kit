@@ -29,7 +29,7 @@ newRewriteRule = RewriteRule
 convertRule
   :: (Monad m) => Converter m a b c d -> RewriteRule a b -> m (RewriteRule c d)
 convertRule converter r = do
-  ruleType <- (typeConverter converter) (ruleType r)
+  ruleType <- (typeConverter converter) (rulePos r) (ruleType r)
   pattern  <- (exprConverter converter) (rulePattern r)
   body     <- maybeConvert (exprConverter converter) (ruleBody r)
   return $ (newRewriteRule) { ruleDoc     = ruleDoc r

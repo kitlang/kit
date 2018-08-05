@@ -50,10 +50,10 @@ convertFunctionDefinition
 convertFunctionDefinition paramConverter f = do
   let params = map paramName (functionParams f)
   let
-    (Converter { exprConverter = exprConverter, typeConverter = typeConverter })
+    converter@(Converter { exprConverter = exprConverter, typeConverter = typeConverter })
       = paramConverter params
-  rt   <- typeConverter (functionType f)
-  args <- forM (functionArgs f) (convertArgSpec exprConverter typeConverter)
+  rt   <- typeConverter (functionPos f) (functionType f)
+  args <- forM (functionArgs f) (convertArgSpec converter)
   body <- maybeConvert exprConverter (functionBody f)
   return $ (newFunctionDefinition) { functionName      = functionName f
                                    , functionDoc       = functionDoc f
@@ -86,12 +86,13 @@ newArgSpec = ArgSpec
   }
 
 convertArgSpec
-  :: (Monad m) => (a -> m c) -> (b -> m d) -> ArgSpec a b -> m (ArgSpec c d)
-convertArgSpec exprConverter typeConverter a = do
-  newType    <- typeConverter (argType a)
-  newDefault <- maybeConvert exprConverter (argDefault a)
-  return $ newArgSpec { argName    = argName a
-                      , argType    = newType
-                      , argDefault = newDefault
-                      , argPos     = argPos a
-                      }
+  :: (Monad m) => Converter m a b c d -> ArgSpec a b -> m (ArgSpec c d)
+convertArgSpec (Converter { exprConverter = exprConverter, typeConverter = typeConverter }) a
+  = do
+    newType    <- typeConverter (argPos a) (argType a)
+    newDefault <- maybeConvert exprConverter (argDefault a)
+    return $ newArgSpec { argName    = argName a
+                        , argType    = newType
+                        , argDefault = newDefault
+                        , argPos     = argPos a
+                        }

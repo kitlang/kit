@@ -7,16 +7,20 @@ import Data.List
 import System.Directory
 import System.FilePath
 import Kit.Ast
+import Kit.Compiler.Binding
 import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
+import Kit.Compiler.TypedExpr
 import Kit.Compiler.Utils
 import Kit.Error
 import Kit.HashTable
 import Kit.Log
 import Kit.Parser
 import Kit.Str
+
+type SyntacticDecl = Declaration Expr (Maybe TypeSpec)
 
 {-
   Starting from the compilation entry point ("main" module), recursively trace
@@ -27,21 +31,23 @@ import Kit.Str
   interface which can be used in ResolveModuleTypes; we'll know e.g. that type
   X exists and is a struct, but not its fields or types, etc.
 -}
-buildModuleGraph :: CompileContext -> IO ()
-buildModuleGraph ctx = do
-  loadModule ctx (ctxMainModule ctx) Nothing
-  return ()
+buildModuleGraph :: CompileContext -> IO [(Module, [SyntacticDecl])]
+buildModuleGraph ctx = loadModule ctx (ctxMainModule ctx) Nothing
 
 {-
   Load a module, if it hasn't already been loaded. Also triggers recursive
   loading of the module's imports and initial type resolution of top level
   declarations.
 -}
-loadModule :: CompileContext -> ModulePath -> Maybe Span -> IO Module
+loadModule
+  :: CompileContext
+  -> ModulePath
+  -> Maybe Span
+  -> IO [(Module, [SyntacticDecl])]
 loadModule ctx mod pos = do
   existing <- h_lookup (ctxModules ctx) mod
   case existing of
-    Just x  -> return x
+    Just x  -> return []
     Nothing -> do
       broken <- h_lookup (ctxFailedModules ctx) mod
       case broken of
@@ -52,7 +58,7 @@ loadModule ctx mod pos = do
             ++ ">"
           throwk $ KitErrors []
         Nothing -> do
-          m <- _loadModule ctx mod pos
+          (m, decls) <- _loadModule ctx mod pos
           h_insert (ctxModules ctx) mod m
           if modImports m /= []
           then
@@ -78,10 +84,21 @@ loadModule ctx mod pos = do
             (\(mod', _) ->
               modifyIORef (ctxIncludes ctx) (\current -> mod' : current)
             )
-          errs <- foldM (_loadImportedModule ctx) [] (modImports m)
-          if null errs
-            then return m
-            else throwk $ KitErrors $ nub $ reverse errs
+          imports <- forM (modImports m) (_loadImportedModule ctx)
+          let (errs, results) = foldr
+                (\result (errs, results) -> case result of
+                  Left  errs'    -> (errs ++ [errs'], results)
+                  Right results' -> (errs, results ++ results')
+                )
+                ([], [])
+                imports
+          unless ((null :: [KitError] -> Bool) errs)
+            $ throwk
+            $ KitErrors
+            $ nub
+            $ reverse errs
+          return $ (m, decls) : results
+
 
 {-
   Find all relevant prelude modules for a package, and return a list of
@@ -133,7 +150,8 @@ _loadPrelude ctx mod = do
               h_insert (ctxPreludes ctx) mod preludes
               return preludes
 
-_loadModule :: CompileContext -> ModulePath -> Maybe Span -> IO Module
+_loadModule
+  :: CompileContext -> ModulePath -> Maybe Span -> IO (Module, [SyntacticDecl])
 _loadModule ctx mod pos = do
   (fp, exprs) <- parseModuleExprs ctx mod Nothing pos
   prelude     <- if last mod == "prelude"
@@ -141,20 +159,18 @@ _loadModule ctx mod pos = do
     else _loadPreludes ctx (take (length mod - 1) mod)
   let stmts = prelude ++ exprs
   m <- newMod mod fp
-  forM_ stmts (addStmtToModuleInterface ctx m)
   let imports    = findImports mod stmts
   let includes   = findIncludes stmts
   let createdMod = m { modImports = imports }
   writeIORef (modIncludes createdMod) includes
-  return createdMod
+  decls <- forM stmts (addStmtToModuleInterface ctx m)
+  return (createdMod, foldr (++) [] decls)
 
 _loadImportedModule
-  :: CompileContext -> [KitError] -> (ModulePath, Span) -> IO [KitError]
-_loadImportedModule ctx acc (mod, pos) = do
-  result <- try $ loadModule ctx mod (Just pos)
-  return $ case result of
-    Left  e -> e : acc
-    Right m -> acc
+  :: CompileContext
+  -> (ModulePath, Span)
+  -> IO (Either KitError [(Module, [SyntacticDecl])])
+_loadImportedModule ctx (mod, pos) = try $ loadModule ctx mod (Just pos)
 
 parseModuleExprs
   :: CompileContext
@@ -174,36 +190,68 @@ parseModuleExprs ctx mod fp pos = do
       h_insert (ctxFailedModules ctx) mod ()
       throwk e
 
-addStmtToModuleInterface :: CompileContext -> Module -> Statement -> IO ()
+addStmtToModuleInterface
+  :: CompileContext -> Module -> Statement -> IO [SyntacticDecl]
 addStmtToModuleInterface ctx mod s = do
+  -- the expressions from these conversions shouldn't be used;
+  -- we'll use the actual typed versions generated later
+  let interfaceConverter = converter
+        (\e -> return $ makeExprTyped (This) (voidType) (ePos e))
+        (\pos _ -> makeTypeVar ctx pos)
   case stmt s of
     TypeDeclaration d@(TypeDefinition { typeName = name, typeSubtype = subtype, typeRules = rules })
       -> do
-        let ct = case subtype of
-              Atom       -> TypeAtom
-              Struct{}   -> TypeStruct (modPath mod, name) []
-              Union{}    -> TypeUnion (modPath mod, name) []
-              Enum{}     -> TypeEnum (modPath mod, name) []
-              Abstract{} -> TypeAbstract (modPath mod, name) []
+        converted <- convertTypeDefinition (\_ -> interfaceConverter) d
+        ct        <- case subtype of
+              --Atom       -> (TypeAtom
+          Struct { structFields = f } -> do
+            fields <- forM
+              f
+              (\field -> do
+                tv <- makeTypeVar ctx (varPos field)
+                return (varName field, tv)
+              )
+            return $ TypeStruct (modPath mod, name) []
+          Union { unionFields = f } -> do
+            fields <- forM
+              f
+              (\field -> do
+                tv <- makeTypeVar ctx (varPos field)
+                return (varName field, tv)
+              )
+            return $ TypeUnion (modPath mod, name) []
+          Enum { enumVariants = variants } -> do
+            variants <- forM
+              variants
+              (\variant -> do
+                args <- forM
+                  (variantArgs variant)
+                  (\arg -> do
+                    tv <- makeTypeVar ctx (argPos arg)
+                    return (argName arg, tv)
+                  )
+                return (variantName variant, args)
+              )
+            return $ TypeEnum (modPath mod, name) []
+          Abstract{} -> do
+            t <- makeTypeVar ctx (typePos d)
+            return $ TypeAbstract (modPath mod, name) []
+        let b      = TypeBinding converted
         let extern = hasMeta "extern" (typeMeta d)
         when extern $ recordGlobalName name
-        addToInterface name (TypeBinding) (not extern) ct
-        addDefinition
-          name
-          (DeclType $ d { typeNamespace = if extern then [] else modPath mod })
+        addToInterface name b (not extern) ct
 
         subNamespace <- getSubScope (modScope mod) [name]
-        -- FIXME: position
         forM_
           (typeStaticFields d)
           (\field -> do
-            t <- makeTypeVar ctx (varPos field)
+            converted <- convertVarDefinition interfaceConverter field
             bindToScope
               (subNamespace)
               (varName field)
               (newBinding (modPath mod ++ [name], varName field)
-                          VarBinding
-                          t
+                          (VarBinding converted)
+                          (varType converted)
                           (modPath mod ++ [name])
                           (varPos field)
               )
@@ -211,21 +259,21 @@ addStmtToModuleInterface ctx mod s = do
         forM_
           (typeStaticMethods d)
           (\method -> do
-            args <- forM
-              (functionArgs method)
-              (\arg -> do
-                t <- makeTypeVar ctx (argPos arg)
-                return (argName arg, t)
-              )
-            rt <- makeTypeVar ctx (functionPos method)
+            converted <- convertFunctionDefinition (\_ -> interfaceConverter)
+                                                   method
             bindToScope
               (subNamespace)
               (functionName method)
-              (newBinding (modPath mod ++ [name], functionName method)
-                          FunctionBinding
-                          (TypeFunction rt args (functionVarargs method))
-                          (modPath mod ++ [name])
-                          (functionPos method)
+              (newBinding
+                (modPath mod ++ [name], functionName method)
+                (FunctionBinding converted)
+                (TypeFunction
+                  (functionType converted)
+                  [ (argName arg, argType arg) | arg <- functionArgs converted ]
+                  (functionVarargs method)
+                )
+                (modPath mod ++ [name])
+                (functionPos method)
               )
           )
 
@@ -234,67 +282,83 @@ addStmtToModuleInterface ctx mod s = do
             forM_
               variants
               (\variant -> do
-                args <-
-                  (forM
-                    (variantArgs variant)
-                    (\arg -> do
-                      t <- makeTypeVar ctx (stmtPos s)
-                      return (argName arg, t)
-                    )
-                  )
+                converted <- convertEnumVariant interfaceConverter variant
                 addToInterface
                   (variantName variant)
-                  EnumConstructor
+                  (EnumConstructor converted)
                   False
-                  (TypeEnumConstructor (modPath mod, name)
-                                       (variantName variant)
-                                       args
+                  (TypeEnumConstructor
+                    (modPath mod, name)
+                    (variantName variant)
+                    [ (argName arg, argType arg)
+                    | arg <- variantArgs converted
+                    ]
                   )
               )
           _ -> return ()
+
+        return
+          [DeclType $ d { typeNamespace = if extern then [] else modPath mod }]
+
     TraitDeclaration d@(TraitDefinition { traitName = name }) -> do
+      converted <- convertTraitDefinition (\_ -> interfaceConverter) d
       addToInterface name
-                     (TraitBinding)
+                     (TraitBinding converted)
                      (False)
                      (TypeTraitConstraint ((modPath mod, name), []))
-      addDefinition name (DeclTrait d)
+      return [DeclTrait d]
+
     ModuleVarDeclaration d@(VarDefinition { varName = name }) -> do
-      tv <- makeTypeVar ctx (stmtPos s)
+      converted <- convertVarDefinition interfaceConverter d
       let extern = hasMeta "extern" (varMeta d)
       when extern $ recordGlobalName name
-      addToInterface name (VarBinding) (not extern) tv
-      addDefinition
-        name
-        (DeclVar $ d { varNamespace = if extern then [] else modPath mod })
+      addToInterface name
+                     (VarBinding converted)
+                     (not extern)
+                     (varType converted)
+      return [DeclVar $ d { varNamespace = if extern then [] else modPath mod }]
+
     FunctionDeclaration d@(FunctionDefinition { functionName = name, functionArgs = args, functionVarargs = varargs })
       -> do
-        rt    <- makeTypeVar ctx (stmtPos s)
-        args' <- forM
-          args
-          (\arg -> do
-            argType <- makeTypeVar ctx (argPos arg)
-            return (argName arg, argType)
-          )
+        converted <- convertFunctionDefinition (\_ -> interfaceConverter) d
         let extern = hasMeta "extern" (functionMeta d)
         when extern $ recordGlobalName name
-        addToInterface name
-                       (FunctionBinding)
-                       (not extern)
-                       (TypeFunction rt args' varargs)
-        addDefinition
+        addToInterface
           name
-          ( DeclFunction
-          $ d { functionNamespace = if extern then [] else modPath mod }
+          (FunctionBinding converted)
+          (not extern)
+          (TypeFunction
+            (functionType converted)
+            [ (argName arg, argType arg) | arg <- functionArgs converted ]
+            varargs
           )
+        return
+          [ DeclFunction d
+              { functionNamespace = if extern then [] else modPath mod
+              }
+          ]
+
+    RuleSetDeclaration r -> do
+      converted <- convertRuleSet interfaceConverter r
+      addToInterface (ruleSetName r)
+                     (RuleSetBinding converted)
+                     (False)
+                     (TypeBasicType BasicTypeUnknown)
+      return [DeclRuleSet r]
+
     Specialize a b -> do
       modifyIORef (modSpecializations mod) (\l -> ((a, b), stmtPos s) : l)
+      return []
+
     Implement t -> do
       modifyIORef (modImpls mod) (\l -> t : l)
-    RuleSetDeclaration r -> do
-      addDefinition (ruleSetName r) (DeclRuleSet r)
+      return []
+
     ModuleUsing using -> do
       modifyIORef (modUsing mod) (\l -> using : l)
-    _ -> return ()
+      return []
+
+    _ -> return []
  where
   pos              = stmtPos s
   recordGlobalName = addGlobalName ctx mod pos
@@ -314,7 +378,6 @@ addStmtToModuleInterface ctx mod s = do
                       (stmtPos s)
           )
     )
-  addDefinition name d = h_insert (modContents mod) name d
 
 findImports :: ModulePath -> [Statement] -> [(ModulePath, Span)]
 findImports mod stmts = foldr

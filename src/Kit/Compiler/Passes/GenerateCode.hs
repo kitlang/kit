@@ -24,18 +24,18 @@ import Kit.Str
   Generates C code and header files from the populated modIr fields of all
   modules.
 -}
-generateCode :: CompileContext -> IO ()
-generateCode ctx = do
+generateCode :: CompileContext -> [(Module, [IrDecl])] -> IO ()
+generateCode ctx ir = do
   mods <- ctxSourceModules ctx
-  forM_ mods (generateModule ctx)
+  forM_ ir (generateModule ctx)
   return ()
 
-generateModule :: CompileContext -> Module -> IO ()
-generateModule ctx mod = do
-  generateHeader ctx mod
-  generateLib    ctx mod
+generateModule :: CompileContext -> (Module, [IrDecl]) -> IO ()
+generateModule ctx (mod, decls) = do
+  generateHeader ctx mod decls
+  generateLib    ctx mod decls
 
-generateHeader ctx mod = do
+generateHeader ctx mod decls = do
   let headerFilePath = (includePath ctx $ modPath mod)
   debugLog ctx
     $  "generating header for "
@@ -55,15 +55,14 @@ generateHeader ctx mod = do
     (\imp -> do
       hPutStrLn handle $ "#include \"" ++ (relativeLibPath imp -<.> "h") ++ "\""
     )
-  ir <- readIORef (modIr mod)
   hPutStrLn handle "\n/* forward declarations */\n"
-  forM_     ir     (generateHeaderForwardDecl ctx mod handle)
+  forM_     decls  (generateHeaderForwardDecl ctx mod handle)
   hPutStrLn handle "\n/* type and function declarations */\n"
-  forM_     ir     (generateHeaderDecl ctx mod handle)
+  forM_     decls  (generateHeaderDecl ctx mod handle)
   hPutStrLn handle "#endif"
   hClose handle
 
-generateLib ctx mod = do
+generateLib ctx mod decls = do
   let codeFilePath = (libPath ctx $ modPath mod)
   debugLog ctx $ "generating code for " ++ show mod ++ " in " ++ codeFilePath
   -- create output directories
@@ -73,8 +72,7 @@ generateLib ctx mod = do
     $  "#include \""
     ++ (relativeLibPath (modPath mod) -<.> "h")
     ++ "\""
-  ir <- readIORef (modIr mod)
-  forM_ ir (generateDef ctx mod handle)
+  forM_ decls (generateDef ctx mod handle)
   hClose handle
 
 relativeLibPath :: ModulePath -> FilePath
@@ -133,7 +131,13 @@ generateDef ctx mod codeFile decl = do
       -> do
         hPutStrLn
           codeFile
-          ("\n" ++ (render $ pretty $ CDeclExt $ cDecl t (Just name) (Just $ u $ CInitExpr $ transpileExpr val)))
+          (  "\n"
+          ++ (render $ pretty $ CDeclExt $ cDecl
+               t
+               (Just name)
+               (Just $ u $ CInitExpr $ transpileExpr val)
+             )
+          )
 
     _ -> do
       return ()

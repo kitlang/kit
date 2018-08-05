@@ -39,7 +39,7 @@ convertVarDefinition
   -> m (VarDefinition c d)
 convertVarDefinition (Converter { exprConverter = exprConverter, typeConverter = typeConverter }) v
   = do
-    newType    <- typeConverter (varType v)
+    newType    <- typeConverter (varPos v) (varType v)
     newDefault <- maybeConvert exprConverter (varDefault v)
     return $ (newVarDefinition) { varName      = varName v
                                 , varDoc       = varDoc v

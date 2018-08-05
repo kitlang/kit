@@ -4,6 +4,7 @@ import Control.Monad
 import Data.IORef
 import Data.List
 import Kit.Ast
+import Kit.Compiler.Binding
 import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.Scope

@@ -3,6 +3,7 @@ module Kit.Compiler.Typers.TypeFunction where
 import Control.Monad
 import Data.IORef
 import Kit.Ast
+import Kit.Compiler.Binding
 import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
@@ -56,7 +57,17 @@ typeFunctionDefinition ctx tctx' mod f binding = do
     (\arg -> bindToScope
       functionScope
       (argName arg)
-      (newBinding ([], argName arg) VarBinding (argType arg) [] (argPos arg))
+      (newBinding
+        ([], argName arg)
+        (VarBinding $ newVarDefinition { varName = argName arg
+                                       , varType = argType arg
+                                       , varPos  = argPos arg
+                                       }
+        )
+        (argType arg)
+        []
+        (argPos arg)
+      )
     )
   let returnType = case (bindingConcrete binding) of
         TypeFunction rt _ _ -> rt
@@ -64,14 +75,17 @@ typeFunctionDefinition ctx tctx' mod f binding = do
           "Function type was unexpectedly missing from module scope"
           Nothing
   let ftctx =
-        (tctx { tctxScopes     = functionScope : (tctxScopes tctx)
-              , tctxTypeParams = [(paramName param, ()) | param <- functionParams f]
-              , tctxReturnType = Just returnType
-              }
+        (tctx
+          { tctxScopes     = functionScope : (tctxScopes tctx)
+          , tctxTypeParams = [ (paramName param, ())
+                             | param <- functionParams f
+                             ]
+          , tctxReturnType = Just returnType
+          }
         )
   body <- typeMaybeExpr ctx ftctx mod (functionBody f)
   if case body of
-       Just x  -> tComplete x
+       Just x  -> tError x == Nothing
        Nothing -> True
     then do
       -- We're done with the body, or there wasn't one

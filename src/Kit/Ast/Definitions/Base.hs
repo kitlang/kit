@@ -5,6 +5,7 @@ import Kit.Ast.Metadata
 import Kit.Ast.Modifier
 import Kit.Ast.ModulePath
 import Kit.Ast.TypeSpec
+import Kit.Parser.Span
 import Kit.Str
 
 maybeConvert :: (Monad m) => (a -> m b) -> Maybe a -> m (Maybe b)
@@ -21,7 +22,7 @@ maybeConvert converter val = do
 -}
 data Converter m a b c d = Converter {
   exprConverter :: (a -> m c),
-  typeConverter :: (b -> m d)
+  typeConverter :: (Span -> b -> m d)
 }
 
 {-

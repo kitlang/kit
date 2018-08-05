@@ -1,6 +1,5 @@
 module Kit.Ast (
   module Kit.Ast.BasicType,
-  module Kit.Ast.Binding,
   module Kit.Ast.ConcreteType,
   module Kit.Ast.Declaration,
   module Kit.Ast.Definitions,
@@ -20,7 +19,6 @@ module Kit.Ast (
 ) where
 
 import Kit.Ast.BasicType
-import Kit.Ast.Binding
 import Kit.Ast.ConcreteType
 import Kit.Ast.Declaration
 import Kit.Ast.Definitions

@@ -69,9 +69,9 @@ convertTypeDefinition paramConverter t = do
     Union { unionFields = f } -> do
       fields <- forM f (convertVarDefinition converter)
       return $ Union {unionFields = fields}
-    Enum { enumVariants = variants, enumUnderlyingType = t } -> do
-      variants <- forM variants (convertEnumVariant exprConverter typeConverter)
-      underlyingType <- typeConverter t
+    Enum { enumVariants = variants, enumUnderlyingType = t' } -> do
+      variants <- forM variants (convertEnumVariant converter)
+      underlyingType <- typeConverter (typePos t) t'
       return
         $ Enum {enumVariants = variants, enumUnderlyingType = underlyingType}
     Abstract{} -> return Atom -- TODO

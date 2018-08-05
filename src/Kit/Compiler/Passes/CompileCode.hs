@@ -29,9 +29,7 @@ compileCode ctx = do
   debugLog                 ctx  ("found C compiler at " ++ compiler)
   mods <- ctxSourceModules ctx
   forM_ mods (compileModule ctx compiler compilerFlags)
-  if ctxNoLink ctx
-    then return ()
-    else link ctx compiler linkerFlags mods
+  unless (ctxNoLink ctx) $ link ctx compiler linkerFlags mods
 
 compileModule :: CompileContext -> FilePath -> [String] -> Module -> IO ()
 compileModule ctx cc args mod = do

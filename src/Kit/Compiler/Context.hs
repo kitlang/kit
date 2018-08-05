@@ -9,6 +9,7 @@ import qualified Data.Text as T
 import System.Directory
 import System.FilePath
 import Kit.Ast
+import Kit.Compiler.Binding
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TypedDecl
@@ -131,6 +132,8 @@ getCMod ctx fp = do
     Nothing -> throw $ KitError $ InternalError
       ("Unexpected missing C module: " ++ fp)
       Nothing
+
+makeTypeVar :: CompileContext -> Span -> IO ConcreteType
 makeTypeVar ctx pos = do
   last <- readIORef (ctxLastTypeVar ctx)
   let next = last + 1
@@ -181,12 +184,11 @@ addGlobalName :: CompileContext -> Module -> Span -> Str -> IO ()
 addGlobalName ctx mod pos name = do
   existing <- h_lookup (ctxGlobalNames ctx) name
   case existing of
-    Just x  -> throwk $ DuplicateGlobalNameError (modPath mod) name pos x
+    Just x -> throwk $ DuplicateGlobalNameError (modPath mod) name pos x
     -- If this is a C module, check for collision, but don't store to avoid
     -- collisions within the same header
-    Nothing -> if modIsCModule mod
-      then return ()
-      else h_insert (ctxGlobalNames ctx) name pos
+    Nothing ->
+      unless (modIsCModule mod) $ h_insert (ctxGlobalNames ctx) name pos
 
 includeDir :: CompileContext -> FilePath
 includeDir ctx = (ctxOutputDir ctx) </> "include"

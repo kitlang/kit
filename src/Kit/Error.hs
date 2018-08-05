@@ -115,62 +115,54 @@ lpad :: String -> Int -> String
 lpad s n = (take (n - length s) (repeat ' ')) ++ s
 
 displayFileSnippet :: Span -> IO ()
-displayFileSnippet span = do
+displayFileSnippet NoPos = return ()
+displayFileSnippet span  = do
   let fp = file span
   exists <- doesFileExist fp
-  if not exists
-    then return ()
-    else do
+  when exists $ do
+    hSetSGR
+      stderr
+      [SetColor Foreground Vivid Blue, SetConsoleIntensity NormalIntensity]
+    hPutStrLn stderr $ "\n  " ++ show span
+    contents <- readFile $ fp
+    let content_lines = lines contents
+    forM_ [(start_line span) .. (end_line span)] $ \n -> do
       hSetSGR
         stderr
-        [SetColor Foreground Vivid Blue, SetConsoleIntensity NormalIntensity]
-      hPutStrLn stderr $ "\n  " ++ show span
-      contents <- readFile $ fp
-      let content_lines = lines contents
-      forM_ [(start_line span) .. (end_line span)] $ \n -> do
-        hSetSGR
-          stderr
-          [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
-        if n == (start_line span) + 3
-          then do
-            hPutStrLn stderr $ "\n  ...\n"
-          else if n > (start_line span) + 3 && n < (end_line span) - 2
-            then do
-              return ()
-            else do
-              let line = content_lines !! (n - 1)
-              hSetSGR stderr [SetConsoleIntensity NormalIntensity]
-              hPutStr stderr $ (lpad (show n) 8) ++ "    "
-              hSetSGR stderr [SetConsoleIntensity FaintIntensity]
-              hPutStrLn stderr $ line
-              if (start_line span)
-                 <= (end_line span)
-                 || (start_col span)
-                 >  1
-                 || (end_col span)
-                 <  length line
-              then
-                do
-                  let this_start_col = if n == start_line span
-                        then start_col span
-                        else length (takeWhile ((==) ' ') line) + 1
-                  let this_end_col = if n == end_line span
-                        then end_col span
-                        else length line
-                  hSetSGR stderr [Reset]
-                  ePutStr
-                    $  "            "
-                    ++ (take ((this_start_col) - 1) (repeat ' '))
-                  hSetSGR
-                    stderr
-                    [ SetColor Foreground Vivid Yellow
-                    , SetConsoleIntensity BoldIntensity
-                    ]
-                  ePutStrLn
-                    (take ((this_end_col) - (this_start_col) + 1) $ repeat '^')
-              else
-                do
-                  return ()
-      hSetSGR   stderr [Reset]
-      hPutStrLn stderr ""
-      return ()
+        [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
+      if n == (start_line span) + 3
+        then do
+          hPutStrLn stderr $ "\n  ...\n"
+        else unless (n > (start_line span) + 3 && n < (end_line span) - 2) $ do
+          let line = content_lines !! (n - 1)
+          hSetSGR stderr [SetConsoleIntensity NormalIntensity]
+          hPutStr stderr $ (lpad (show n) 8) ++ "    "
+          hSetSGR stderr [SetConsoleIntensity FaintIntensity]
+          hPutStrLn stderr $ line
+          when
+              (  (start_line span)
+              <= (end_line span)
+              || (start_col span)
+              >  1
+              || (end_col span)
+              <  length line
+              )
+            $ do
+                let this_start_col = if n == start_line span
+                      then start_col span
+                      else length (takeWhile ((==) ' ') line) + 1
+                let this_end_col =
+                      if n == end_line span then end_col span else length line
+                hSetSGR stderr [Reset]
+                ePutStr
+                  $  "            "
+                  ++ (take ((this_start_col) - 1) (repeat ' '))
+                hSetSGR
+                  stderr
+                  [ SetColor Foreground Vivid Yellow
+                  , SetConsoleIntensity BoldIntensity
+                  ]
+                ePutStrLn
+                  (take ((this_end_col) - (this_start_col) + 1) $ repeat '^')
+    hSetSGR   stderr [Reset]
+    hPutStrLn stderr ""

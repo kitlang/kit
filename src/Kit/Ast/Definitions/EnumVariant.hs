@@ -34,12 +34,11 @@ variantIsSimple = null . variantArgs
 
 convertEnumVariant
   :: (Monad m)
-  => (a -> m c)
-  -> (b -> m d)
+  => Converter m a b c d
   -> EnumVariant a b
   -> m (EnumVariant c d)
-convertEnumVariant exprConverter typeConverter v = do
-  newArgs  <- forM (variantArgs v) (convertArgSpec exprConverter typeConverter)
+convertEnumVariant converter@(Converter { exprConverter = exprConverter, typeConverter = typeConverter }) v = do
+  newArgs  <- forM (variantArgs v) (convertArgSpec converter)
   newValue <- maybeConvert exprConverter (variantValue v)
   return $ newEnumVariant { variantName      = variantName v
                           , variantDoc       = variantDoc v

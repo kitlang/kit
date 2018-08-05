@@ -5,6 +5,7 @@ import Control.Exception
 import Control.Monad
 import Data.IORef
 import Kit.Ast
+import Kit.Compiler.Binding
 import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
@@ -133,7 +134,7 @@ resolveType ctx tctx mod t = do
               -- search other modules
               bound <- resolveBinding (map modScope importedMods) s
               case bound of
-                Just (Binding { bindingType = TypeBinding, bindingConcrete = t })
+                Just (Binding { bindingType = TypeBinding _, bindingConcrete = t })
                   -> follow ctx tctx mod t
                 _ -> do
                   builtin <- builtinToConcreteType ctx tctx mod s params
@@ -144,7 +145,7 @@ resolveType ctx tctx mod t = do
           -- search only a specific module for this type
           result <- resolveBinding (map modScope importedMods) s
           case result of
-            Just (Binding { bindingType = TypeBinding, bindingConcrete = t })
+            Just (Binding { bindingType = TypeBinding _, bindingConcrete = t })
               -> follow ctx tctx mod t
             _ -> unknownType s pos
 
@@ -183,22 +184,24 @@ addUsing
   -> Module
   -> UsingType Expr (Maybe TypeSpec)
   -> IO TypeContext
-addUsing ctx tctx mod using = case using of
-  UsingRuleSet ([], n) -> do
-    def <- h_lookup (modContents mod) n
-    case def of
-      Just (DeclType t) -> do
-        -- FIXME: this is terrible...
-        binding <- scopeGet (modScope mod) n
-        return $ tctx
-          { tctxRules = ((typeRuleSet t)
-                          { ruleSetThis = Just (bindingConcrete binding)
-                          }
-                        )
-            : tctxRules tctx
-          }
-      Just (DeclRuleSet r) -> return $ tctx { tctxRules = r : tctxRules tctx }
-      _                    -> return tctx
+addUsing ctx tctx mod using = --case using of
+  -- UsingRuleSet ([], n) -> do
+  --   def <- h_lookup (modContents mod) n
+  --   case def of
+  --     Just (DeclType t) -> do
+  --       -- FIXME: this is terrible...
+  --       binding <- scopeGet (modScope mod) n
+  --       return $ tctx
+  --         { tctxRules = ((typeRuleSet t)
+  --                         { ruleSetThis = Just (bindingConcrete binding)
+  --                         }
+  --                       )
+  --           : tctxRules tctx
+  --         }
+  --     Just (DeclRuleSet r) -> return $ tctx { tctxRules = r : tctxRules tctx }
+  --     _                    -> return tctx
+  -- FIXME
+  return tctx
 
 modTypeContext :: CompileContext -> Module -> IO TypeContext
 modTypeContext ctx mod = do

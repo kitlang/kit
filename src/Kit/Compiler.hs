@@ -38,29 +38,59 @@ tryCompile context = try $ compile context
 compile :: CompileContext -> IO ()
 compile ctx = do
   debugLog ctx $ show ctx
-  -- load the main module and all of its dependencies recursively
 
+  {-
+    Load the main module and all of its dependencies recursively. Also builds
+    module interfaces, which declare the set of types that exist in a module
+    and map them to type variables.
+  -}
   printLog "building module graph"
-  buildModuleGraph ctx
+  declarations <- buildModuleGraph ctx
 
+  {-
+    Generate C modules for all includes found during buildModuleGraph.
+  -}
   printLog "processing C includes"
   includeCModules ctx
 
+  {-
+    This step utilizes the module interfaces from buildModuleGraph to convert
+    syntactic types to preliminary typed AST. Type annotations will be looked
+    up and will fail if they don't resolve, but program semantics won't be
+    checked yet; we'll get typed AST with a lot of spurious type variables,
+    which will be unified later.
+  -}
   printLog "resolving module types"
-  resolveModuleTypes ctx
+  resolved <- resolveModuleTypes ctx declarations
 
+  {-
+    Main checking of program semantics happens here. Takes and returns typed
+    AST, but the return value should have all necessary type information. This
+    step is iterative and repeats until successful convergence, or throws an
+    exception on failure.
+  -}
   printLog "typing module content"
-  typeContent ctx
+  typed <- typeContent ctx resolved
 
+  {-
+    Convert typed AST to IR.
+  -}
   printLog "generating internal representation"
-  generateIr ctx
+  ir <- generateIr ctx typed
 
+  {-
+    Generate header and code files from IR.
+  -}
   printLog "generating code"
-  generateCode ctx
+  generateCode ctx ir
 
+  {-
+    Compile the generated code.
+  -}
   if ctxNoCompile ctx
     then printLog "skipping compile"
     else do
       printLog "compiling"
       compileCode ctx
+
   printLog "finished"

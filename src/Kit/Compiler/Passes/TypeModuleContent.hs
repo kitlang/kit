@@ -28,70 +28,72 @@ import Kit.Str
 
   See Kit.Compiler.Typers.* for specific typing implementations.
 -}
-typeContent :: CompileContext -> IO ()
-typeContent ctx = do
-  mods <- ctxSourceModules ctx
-  forM_ mods (typeModuleContent ctx)
+typeContent
+  :: CompileContext -> [(Module, [TypedDecl])] -> IO [(Module, [TypedDecl])]
+typeContent ctx modContent = do
+  results <- typeIterative ctx modContent [] (ctxRecursionLimit ctx)
+  when (ctxDumpAst ctx)
+    $ forM_ results (\(mod, decls) -> dumpModuleContent ctx mod decls)
+  return results
 
-typeModuleContent :: CompileContext -> Module -> IO ()
-typeModuleContent ctx mod = do
-  defs <- h_toList (modContents mod)
-  tctx <- modTypeContext ctx mod
-  -- FIXME: pos
-  let varConverter = converter (convertExpr ctx tctx mod)
-                               (resolveMaybeType ctx tctx mod NoPos)
-  -- TODO: params
-  let paramConverter params = varConverter
-  converted <- forM
-    defs
-    (\(_, d) ->
-      let r f x = do
-            x' <- x
-            return $ f x'
-      in
-        case d of
-          DeclFunction f ->
-            r DeclFunction $ convertFunctionDefinition paramConverter f
-          DeclVar     v  -> r DeclVar $ convertVarDefinition varConverter v
-          DeclType    t  -> r DeclType $ convertTypeDefinition paramConverter t
-          DeclTrait t -> r DeclTrait $ convertTraitDefinition paramConverter t
-          DeclRuleSet rs -> r DeclRuleSet $ convertRuleSet varConverter rs
-    )
-  iterativeTyping ctx mod converted 0
-  -- addSpecializations ctx mod
-  -- retype ctx mod
-  when (ctxDumpAst ctx) $ dumpModuleContent ctx mod
-
-iterativeTyping ctx mod converted passes = do
-  when (passes > ctxRecursionLimit ctx) $ if ctxDumpAst ctx
+typeIterative
+  :: CompileContext
+  -> [(Module, [TypedDecl])]
+  -> [(Module, [TypedDecl])]
+  -> Int
+  -> IO [(Module, [TypedDecl])]
+typeIterative ctx input output limit = do
+  when (limit <= 0) $ if ctxDumpAst ctx
     then do
       throwk $ BasicError
-        ("Maximum number of compile passes exceeded while typing " ++ show mod)
+        ("Maximum number of compile passes exceeded while typing; incomplete content:"
+        )
         Nothing
-      dumpModuleContent ctx mod
+      mods <- ctxSourceModules ctx
+      forM_
+        input
+        (\(mod, decls) -> do
+          putStrLn $ show mod
+          forM_ decls (dumpModuleDecl ctx mod)
+          putStrLn ""
+        )
     else throwk $ BasicError
-      (  "Maximum number of compile passes exceeded while typing "
-      ++ show mod
+      (  "Maximum number of compile passes exceeded while typing;"
       ++ "; run again with --dump-ast to see typed output"
       )
       Nothing
   results <- forM
-    converted
-    (\d -> do
-      case d of
-        DeclFunction f -> typeFunction ctx mod f
-        DeclVar v -> typeVar ctx mod v
-        DeclType t -> typeTypeDefinition ctx mod t
-        DeclTrait t -> typeTrait ctx mod t
-        DeclRuleSet rs -> return (Nothing, True)
+    input
+    (\(mod, decls) -> do
+      results <- forM
+        decls
+        (\d -> do
+          (x, complete) <- case d of
+            DeclFunction f  -> typeFunction ctx mod f
+            DeclVar      v  -> typeVar ctx mod v
+            DeclType     t  -> typeTypeDefinition ctx mod t
+            DeclTrait    t  -> typeTrait ctx mod t
+            DeclRuleSet  rs -> return (Nothing, True)
+          return (x, complete)
+        )
+      let (incompleteResults, completeResults) = foldr
+            (\(x, complete) (i, c) ->
+              if complete then (i, x : c) else (x : i, c)
+            )
+            ([], [])
+            results
+      return (mod, (incompleteResults, completeResults))
     )
-  let incomplete = filter (\(decl, complete) -> not complete) results
-  when (not $ null incomplete)
-    $ iterativeTyping ctx mod (catMaybes $ map fst incomplete) passes
 
-dumpModuleContent :: CompileContext -> Module -> IO ()
-dumpModuleContent ctx mod = do
+  let incomplete = [ (mod, y) | (mod, x) <- results, let y = catMaybes $ fst x, not $ null y ]
+  let complete   = [ (mod, y) | (mod, x) <- results, let y = catMaybes $ snd x, not $ null y ]
+
+  if (null incomplete)
+    then return complete
+    else typeIterative ctx incomplete complete (limit - 1)
+
+dumpModuleContent :: CompileContext -> Module -> [TypedDecl] -> IO ()
+dumpModuleContent ctx mod defs = do
   putStrLn $ show mod
-  defs <- readIORef (modTypedContents mod)
   forM_ defs (dumpModuleDecl ctx mod)
   putStrLn ""

@@ -3,6 +3,7 @@ module Kit.Compiler.Module where
 import Data.IORef
 import System.FilePath
 import Kit.Ast
+import Kit.Compiler.Binding
 import Kit.Compiler.Scope
 import Kit.Compiler.TypedDecl
 import Kit.Compiler.TypedExpr
@@ -23,12 +24,9 @@ data Module = Module {
   modImports :: [(ModulePath, Span)],
   modIncludes :: IORef [(FilePath, Span)],
   modScope :: Scope Binding,
-  modContents :: HashTable Str (Declaration Expr (Maybe TypeSpec)),
   modImpls :: IORef [TraitImplementation Expr (Maybe TypeSpec)],
   modSpecializations :: IORef [((TypeSpec, TypeSpec), Span)],
   modUsing :: IORef [UsingType Expr (Maybe TypeSpec)],
-  modTypedContents :: IORef [TypedDecl],
-  modIr :: IORef [IrDecl],
   modIsCModule :: Bool
 }
 
@@ -38,11 +36,8 @@ instance Show Module where
 newMod :: ModulePath -> FilePath -> IO Module
 newMod path fp = do
   scope         <- newScope path
-  defs          <- h_new
   impls         <- newIORef []
   specs         <- newIORef []
-  typedContents <- newIORef []
-  ir            <- newIORef []
   includes      <- newIORef []
   using         <- newIORef []
   return $ Module
@@ -51,12 +46,9 @@ newMod path fp = do
     , modImports         = []
     , modIncludes        = includes
     , modScope           = scope
-    , modContents        = defs
     , modImpls           = impls
     , modSpecializations = specs
     , modUsing           = using
-    , modTypedContents   = typedContents
-    , modIr              = ir
     , modIsCModule       = False
     }
 
