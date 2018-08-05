@@ -1,9 +1,14 @@
+include "stdio.h";
+
 rules MyRewriteRules {
+    (5) => 6;
     (${x: Int} %% 1) => $x;
-    // (apple) => banana;
+    (apple) => banana;
 }
 
 function main() {
+    printf("%li\n", 5);
+
     using rules MyRewriteRules {
         // custom operator; must be rewritten or will fail to compile
         var x: Int = 5;
@@ -12,5 +17,7 @@ function main() {
         // var doesn't exist; must be rewritten or will fail to compile
         var banana = 1;
         apple;
+
+        printf("%li\n", 5);
     }
 }

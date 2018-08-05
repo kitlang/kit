@@ -1,7 +1,17 @@
+include "stdio.h";
+
 enum MySimpleEnum {
     Apple;
     Banana;
     Strawberry;
+
+    // public function toString(): CString {
+    //     return match this {
+    //         Apple => "apple";
+    //         Banana => "banana";
+    //         Strawberry => "strawberry";
+    //     }
+    // }
 }
 
 enum MyComplexEnum {
@@ -17,7 +27,13 @@ function main() {
     var d = Banana2(5, "hello");
     var e = Strawberry2;
 
-    if (a != b && d != e) {
+    var f: MyComplexEnum = d;
+    f = e;
+
+    if (a != b) {
         printf("hello!\n");
     }
+
+    // printf("%s\n", a.toString());
+    // printf("%s\n", b.toString());
 }

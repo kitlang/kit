@@ -32,8 +32,7 @@ typeFunction ctx mod f = do
     ++ " in "
     ++ show mod
   tctx              <- modTypeContext ctx mod
-  binding           <- scopeGet (modScope mod) (functionName f)
-  (typed, complete) <- typeFunctionDefinition ctx tctx mod f binding
+  (typed, complete) <- typeFunctionDefinition ctx tctx mod f
   --modifyIORef (modTypedContents mod) ((:) $ DeclFunction typed)
   return $ (Just $ DeclFunction typed, complete)
 
@@ -42,9 +41,8 @@ typeFunctionDefinition
   -> TypeContext
   -> Module
   -> FunctionDefinition TypedExpr ConcreteType
-  -> Binding
   -> IO (FunctionDefinition TypedExpr ConcreteType, Bool)
-typeFunctionDefinition ctx tctx' mod f binding = do
+typeFunctionDefinition ctx tctx' mod f = do
   let fPos = functionPos f
   let isMain =
         (functionName f == "main") && (ctxMainModule ctx == modPath mod) && not
@@ -69,11 +67,7 @@ typeFunctionDefinition ctx tctx' mod f binding = do
         (argPos arg)
       )
     )
-  let returnType = case (bindingConcrete binding) of
-        TypeFunction rt _ _ -> rt
-        _                   -> throwk $ InternalError
-          "Function type was unexpectedly missing from module scope"
-          Nothing
+  let returnType = functionType f
   let ftctx =
         (tctx
           { tctxScopes     = functionScope : (tctxScopes tctx)

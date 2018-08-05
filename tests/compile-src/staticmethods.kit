@@ -1,0 +1,18 @@
+include "stdio.h";
+
+struct MyStruct {
+    public static function myStaticMethod() {
+        printf("hello");
+    }
+}
+
+struct MyStruct2 {
+    public static function myStaticMethod() {
+        printf(" world!\n");
+    }
+}
+
+function main() {
+    MyStruct.myStaticMethod();
+    MyStruct2.myStaticMethod();
+}
