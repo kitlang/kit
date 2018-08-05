@@ -1,0 +1,16 @@
+include "stdio.h";
+
+union MyUnion {
+    public static var xyz = "hi";
+
+    var a: Int;
+    var b: CString;
+}
+
+function main() {
+    var a: MyUnion;
+    a.a = 100;
+    printf("%li\n", a.a);
+    a.b = "hello world";
+    printf("%s\n", a.b);
+}

@@ -33,22 +33,49 @@ typeTypeDefinition ctx mod def@(TypeDefinition { typeName = name }) = do
   let tctx = tctx'
         { tctxTypeParams = [ (paramName param, ()) | param <- typeParams def ]
         }
+  let r = typeExpr ctx tctx mod
   staticFields <- forM
     (typeStaticFields def)
     (\field -> case varDefault field of
       Just x -> do
-        def <- typeExpr ctx tctx mod x
+        def <- r x
         resolveConstraint
           ctx
           tctx
           mod
           (TypeEq (inferredType def)
                   (varType field)
-                  "Static field default value the field's type"
+                  "Static field default value must match the field's type"
                   (varPos field)
           )
-        return $ field {varDefault = Just def}
+        return $ field { varDefault = Just def }
       Nothing -> return field
     )
   -- TODO: type methods, variable defaults, fields, enum variants...
-  return $ (Just $ DeclType (def { typeStaticFields = staticFields }), True)
+  let s = typeSubtype def
+  subtype <- case s of
+    Struct { structFields = f } -> do
+      fields <- forM
+        f
+        (\field -> case varDefault field of
+          Just x -> do
+            def <- r x
+            resolveConstraint
+              ctx
+              tctx
+              mod
+              (TypeEq (inferredType def)
+                      (varType field)
+                      "Struct field default value must match the field's type"
+                      (varPos field)
+              )
+            return $ field {varDefault = Just def}
+          Nothing -> return field
+        )
+      return $ s {structFields = fields}
+    _ -> return $ typeSubtype def
+  return
+    $ ( Just $ DeclType
+        (def { typeStaticFields = staticFields, typeSubtype = subtype })
+      , True
+      )

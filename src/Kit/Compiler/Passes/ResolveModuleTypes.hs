@@ -85,28 +85,57 @@ resolveTypesForMod ctx (mod, contents) = do
         (VarBinding vi, DeclVar v) -> do
           converted <- convertVarDefinition varConverter v
           mergeVarInfo ctx tctx mod vi converted
+          bindToScope (modScope mod)
+                      (declName decl)
+                      (binding { bindingType = VarBinding converted })
           return $ DeclVar converted
 
         (FunctionBinding fi, DeclFunction f) -> do
           converted <- convertFunctionDefinition paramConverter f
           mergeFunctionInfo ctx tctx mod fi converted
+          bindToScope (modScope mod)
+                      (declName decl)
+                      (binding { bindingType = FunctionBinding converted })
           return $ DeclFunction converted
 
         (TypeBinding ti, DeclType t) -> do
           converted <- convertTypeDefinition paramConverter t
           forM_ (zip (typeStaticFields ti) (typeStaticFields converted))
                 (\(field1, field2) -> mergeVarInfo ctx tctx mod field1 field2)
-          forM_ (zip (typeStaticMethods ti) (typeStaticMethods converted))
-                (\(method1, method2) -> mergeFunctionInfo ctx tctx mod method1 method2)
+          forM_
+            (zip (typeStaticMethods ti) (typeStaticMethods converted))
+            (\(method1, method2) ->
+              mergeFunctionInfo ctx tctx mod method1 method2
+            )
+          case (typeSubtype ti, typeSubtype converted) of
+            (Struct { structFields = fields1 }, Struct { structFields = fields2 })
+              -> forM_
+                (zip fields1 fields2)
+                (\(field1, field2) -> mergeVarInfo ctx tctx mod field1 field2)
+            (Union { unionFields = fields1 }, Union { unionFields = fields2 })
+              -> forM_
+                (zip fields1 fields2)
+                (\(field1, field2) -> mergeVarInfo ctx tctx mod field1 field2)
+            _ -> return ()
+
+          bindToScope (modScope mod)
+                      (declName decl)
+                      (binding { bindingType = TypeBinding converted })
           return $ DeclType converted
 
         (TraitBinding ti, DeclTrait t) -> do
           converted <- convertTraitDefinition paramConverter t
           -- TODO: unify
+          bindToScope (modScope mod)
+                      (declName decl)
+                      (binding { bindingType = TraitBinding converted })
           return $ DeclTrait converted
 
         (RuleSetBinding ri, DeclRuleSet r) -> do
           converted <- convertRuleSet varConverter r
+          bindToScope (modScope mod)
+                      (declName decl)
+                      (binding { bindingType = RuleSetBinding converted })
           return $ DeclRuleSet converted
     )
 

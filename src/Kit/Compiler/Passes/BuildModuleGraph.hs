@@ -196,46 +196,25 @@ addStmtToModuleInterface ctx mod s = do
   -- the expressions from these conversions shouldn't be used;
   -- we'll use the actual typed versions generated later
   let interfaceConverter = converter
-        (\e -> return $ makeExprTyped (This) (voidType) (ePos e))
+        (\e -> do
+          tv <- makeTypeVar ctx pos
+          return $ makeExprTyped (This) tv (ePos e)
+        )
         (\pos _ -> makeTypeVar ctx pos)
   case stmt s of
     TypeDeclaration d@(TypeDefinition { typeName = name, typeSubtype = subtype, typeRules = rules })
       -> do
         converted <- convertTypeDefinition (\_ -> interfaceConverter) d
         ct        <- case subtype of
-              --Atom       -> (TypeAtom
-          Struct { structFields = f } -> do
-            fields <- forM
-              f
-              (\field -> do
-                tv <- makeTypeVar ctx (varPos field)
-                return (varName field, tv)
-              )
+          Atom -> return TypeAtom
+          Struct { structFields = f } ->
             return $ TypeStruct (modPath mod, name) []
-          Union { unionFields = f } -> do
-            fields <- forM
-              f
-              (\field -> do
-                tv <- makeTypeVar ctx (varPos field)
-                return (varName field, tv)
-              )
+          Union { unionFields = f } ->
             return $ TypeUnion (modPath mod, name) []
-          Enum { enumVariants = variants } -> do
-            variants <- forM
-              variants
-              (\variant -> do
-                args <- forM
-                  (variantArgs variant)
-                  (\arg -> do
-                    tv <- makeTypeVar ctx (argPos arg)
-                    return (argName arg, tv)
-                  )
-                return (variantName variant, args)
-              )
+          Enum { enumVariants = variants } ->
             return $ TypeEnum (modPath mod, name) []
-          Abstract{} -> do
-            t <- makeTypeVar ctx (typePos d)
-            return $ TypeAbstract (modPath mod, name) []
+          Abstract{} -> return $ TypeAbstract (modPath mod, name) []
+
         let b      = TypeBinding converted
         let extern = hasMeta "extern" (typeMeta d)
         when extern $ recordGlobalName name
