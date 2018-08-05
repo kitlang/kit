@@ -20,7 +20,7 @@ import Kit.Str
 {-
   Compile the generated C code.
 -}
-compileCode :: CompileContext -> IO ()
+compileCode :: CompileContext -> IO (Maybe FilePath)
 compileCode ctx = do
   compiler      <- findCompiler
   compilerFlags <- getCompilerFlags
@@ -29,7 +29,11 @@ compileCode ctx = do
   debugLog                 ctx  ("found C compiler at " ++ compiler)
   mods <- ctxSourceModules ctx
   forM_ mods (compileModule ctx compiler compilerFlags)
-  unless (ctxNoLink ctx) $ link ctx compiler linkerFlags mods
+  if ctxNoLink ctx
+    then return Nothing
+    else do
+      binPath <- link ctx compiler linkerFlags mods
+      return $ Just binPath
 
 compileModule :: CompileContext -> FilePath -> [String] -> Module -> IO ()
 compileModule ctx cc args mod = do
@@ -48,7 +52,7 @@ compileModule ctx cc args mod = do
   traceLog $ showCommandForUser cc args'
   callProcess cc args'
 
-link :: CompileContext -> FilePath -> [String] -> [Module] -> IO ()
+link :: CompileContext -> FilePath -> [String] -> [Module] -> IO FilePath
 link ctx cc args mods = do
   let args' = if (ctxIsLibrary ctx)
         then
@@ -62,6 +66,7 @@ link ctx cc args mods = do
   printLog $ "linking"
   traceLog $ showCommandForUser cc args'
   callProcess cc args'
+  return $ "build" </> "main"
 
 buildDir :: CompileContext -> FilePath
 buildDir ctx = (ctxOutputDir ctx)

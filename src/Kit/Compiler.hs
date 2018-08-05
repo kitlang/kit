@@ -15,6 +15,7 @@ import Data.IORef
 import Data.List
 import System.Directory
 import System.FilePath
+import System.Process
 import Kit.Ast
 import Kit.Compiler.Binding
 import Kit.Compiler.Context
@@ -89,10 +90,18 @@ compile ctx = do
   {-
     Compile the generated code.
   -}
-  if ctxNoCompile ctx
-    then printLog "skipping compile"
+  binPath <- if ctxNoCompile ctx
+    then do
+      printLog "skipping compile"
+      return Nothing
     else do
       printLog "compiling"
       compileCode ctx
 
   printLog "finished"
+
+  when (ctxRun ctx) $ case binPath of
+    Just x -> do
+      callProcess x []
+      return ()
+    Nothing -> logMsg Nothing "--run was set, but no binary path was generated; skipping"

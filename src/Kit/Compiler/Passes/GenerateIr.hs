@@ -70,14 +70,32 @@ generateDeclIr ctx mod t = do
         ++ " in "
         ++ show mod
 
+      let isMain =
+            (functionName f == "main")
+              && (ctxMainModule ctx == modPath mod)
+              && not (ctxIsLibrary ctx)
+
       -- FIXME: params
       converted <- convertFunctionDefinition
         (\params -> converter exprConverter typeConverter)
         f
-      return
-        [ DeclFunction
-            $ converted { functionName = mangleName (functionNamespace f) name }
-        ]
+
+      if (isMain && functionType converted == BasicTypeVoid)
+        then return
+          [ DeclFunction $ converted
+              { functionName = name
+              , functionType = BasicTypeInt 16
+              , functionBody = case functionBody converted of
+                Just x ->
+                  Just $ IrBlock [x, IrReturn $ Just $ IrLiteral $ IntValue "0"]
+                Nothing -> Just (IrReturn $ Just $ IrLiteral $ IntValue "0")
+              }
+          ]
+        else return
+          [ DeclFunction $ converted
+              { functionName = mangleName (functionNamespace f) name
+              }
+          ]
 
     DeclVar v@(VarDefinition { varName = name }) -> do
       debugLog ctx
@@ -167,7 +185,9 @@ findDefaultType ctx mod id = do
   info <- getTypeVar ctx id
   if null (typeVarConstraints info)
     then throwk $ BasicError
-      ("The type of this expression is ambiguous; not enough information to infer a type for type var #" ++ show id ++ ".\n\nTry adding a type annotation: `expression: Type`"
+      ("The type of this expression is ambiguous; not enough information to infer a type for type var #"
+      ++ show id
+      ++ ".\n\nTry adding a type annotation: `expression: Type`"
       )
       (Just $ head $ typeVarPositions info)
     else do

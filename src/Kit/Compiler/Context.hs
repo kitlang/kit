@@ -51,7 +51,8 @@ data CompileContext = CompileContext {
   ctxNoCompile :: Bool,
   ctxNoLink :: Bool,
   ctxDumpAst :: Bool,
-  ctxRecursionLimit :: Int
+  ctxRecursionLimit :: Int,
+  ctxRun :: Bool
 }
 
 instance Show CompileContext where
@@ -103,6 +104,7 @@ newCompileContext = do
     , ctxNoLink               = False
     , ctxDumpAst              = False
     , ctxRecursionLimit       = 256
+    , ctxRun                  = True
     }
 
 ctxSourceModules :: CompileContext -> IO [Module]

@@ -31,7 +31,8 @@ data Options = Options {
   optIsLibrary :: Bool,
   optNoCompile :: Bool,
   optNoLink :: Bool,
-  optDumpAst :: Bool
+  optDumpAst :: Bool,
+  optRun :: Bool
 } deriving (Eq, Show)
 
 options :: Parser Options
@@ -85,6 +86,9 @@ options =
           (long "dump-ast" <> help
             "output the typed AST after typing, for debugging purposes"
           )
+    <*> switch
+          (long "run" <> help "run the program after successful compilation")
+
 
 sourceDirParser = strOption
   (long "src" <> short 's' <> metavar "DIR" <> help "add a source directory")
@@ -142,6 +146,7 @@ main = do
             , ctxNoCompile    = optNoCompile opts
             , ctxNoLink       = optNoLink opts
             , ctxDumpAst      = optDumpAst opts
+            , ctxRun          = optRun opts
             }
 
       result  <- tryCompile ctx

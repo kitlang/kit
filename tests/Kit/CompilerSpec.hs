@@ -3,6 +3,7 @@ module Kit.CompilerSpec where
 import Control.Monad
 import System.Directory
 import System.FilePath
+import System.Process
 import Test.Hspec
 import Test.QuickCheck
 import Kit.Compiler
@@ -43,3 +44,6 @@ spec = parallel $ do
             Right ()  -> Nothing
           )
           `shouldBe` Nothing
+        out <- readProcess ("build" </> "main") [] ""
+        -- TODO: verify output
+        return ()

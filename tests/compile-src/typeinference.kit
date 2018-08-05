@@ -1,0 +1,40 @@
+/*
+Expected output:
+hello!
+5.00
+*/
+
+include "stdio.h";
+
+function voidFunc1() {
+    return;
+}
+function voidFunc2() {
+    printf("hello!\n");
+}
+function voidFunc3() {}
+function voidFunc4(): Void {}
+
+function numFunc1() {
+    return 1;
+}
+
+function numFunc2() {
+    return 1 + 2;
+}
+
+function numFunc3(): Float {
+    return numFunc1();
+}
+
+function main() {
+    voidFunc1();
+    voidFunc2();
+    voidFunc3();
+    voidFunc4();
+    var a = numFunc1();
+    var b = numFunc2();
+    var c = numFunc3();
+
+    printf("%.2f\n", a + b + c);
+}
