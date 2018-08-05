@@ -1,0 +1,16 @@
+rules MyRewriteRules {
+    (${x: Int} %% 1) => $x;
+    // (apple) => banana;
+}
+
+function main() {
+    using rules MyRewriteRules {
+        // custom operator; must be rewritten or will fail to compile
+        var x: Int = 5;
+        x %% 1;
+
+        // var doesn't exist; must be rewritten or will fail to compile
+        var banana = 1;
+        apple;
+    }
+}

@@ -674,7 +674,9 @@ typeStructUnionFieldAccess
 typeStructUnionFieldAccess ctx tctx mod fields r fieldName pos = do
   case findStructUnionField fields fieldName of
     Just field -> do
-      return $ Just $ makeExprTyped (Field r (Var fieldName)) (varType field) pos
+      return $ Just $ makeExprTyped (Field r (Var fieldName))
+                                    (varType field)
+                                    pos
     Nothing -> return Nothing
 
 findStructUnionField :: [VarDefinition a b] -> Str -> Maybe (VarDefinition a b)
@@ -693,19 +695,19 @@ typeVarBinding ctx name binding pos = do
     FunctionBinding _ ->
       return $ makeExprTyped (Identifier (Var name) namespace) t pos
     EnumConstructor (EnumVariant { variantName = discriminant, variantArgs = args })
-      ->
-      -- TODO: handle type params
-         return $ if null args
-        then makeExprTyped (EnumInit (TypeEnum tp []) discriminant [])
-                           (TypeEnum tp [])
-                           pos
-        else makeExprTyped
-          (Identifier (Var name) [])
-          (TypeEnumConstructor tp
-                               discriminant
-                               [ (argName arg, argType arg) | arg <- args ]
-          )
-          pos
+      -> do -- TODO: handle type params
+        let (TypeEnumConstructor tp _ _) = t
+        return $ if null args
+          then makeExprTyped (EnumInit (TypeEnum tp []) discriminant [])
+                             (TypeEnum tp [])
+                             pos
+          else makeExprTyped
+            (Identifier (Var name) [])
+            (TypeEnumConstructor tp
+                                 discriminant
+                                 [ (argName arg, argType arg) | arg <- args ]
+            )
+            pos
     TypeBinding _ -> return
       $ makeExprTyped (Identifier (Var name) namespace) (TypeTypeOf tp) pos
     -- TODO: in instance method context, `this`

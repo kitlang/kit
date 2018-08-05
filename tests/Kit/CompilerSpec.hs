@@ -1,30 +1,45 @@
-{-# OPTIONS_GHC -w #-}
-
 module Kit.CompilerSpec where
 
+import Control.Monad
+import System.Directory
+import System.FilePath
 import Test.Hspec
 import Test.QuickCheck
-import Kit.Ast
 import Kit.Compiler
-import Kit.Compiler.Passes
-import Kit.Error
-import Kit.HashTable
-import Kit.Parser
 import Kit.Str
 
-expectFail :: CompileContext -> IO Bool
-expectFail ctx = do
-  result <- tryCompile $ ctx
-  case result of
-    Left  errs -> return True
-    Right ()   -> return False
+isKitFile :: FilePath -> Bool
+isKitFile f = takeExtension f == ".kit"
+
+readDir :: FilePath -> IO [FilePath]
+readDir d = do
+  isDir <- doesDirectoryExist d
+  paths <- getDirectoryContents d
+  files <- forM (paths) $ \d2 -> do
+    isDir <- doesDirectoryExist (d </> d2)
+    if (head d2) /= '_'
+      then if (isDir && d2 /= "." && d2 /= "..")
+        then readDir (d </> d2)
+        else return (if isKitFile d2 then [(d </> d2)] else [])
+      else return []
+  return $ concat files
+
+testFiles = readDir "tests/compile-src"
 
 spec :: Spec
-spec = do
-  describe "tryCompile" $ do
-    it "fails when main doesn't exist" $ do
-      ctx    <- newCompileContext
-      result <- expectFail ctx
-        { ctxMainModule = ["module", "that", "doesnt", "exist"]
-        }
-      result `shouldBe` True
+spec = parallel $ do
+  describe "Successful compile tests" $ do
+    paths <- runIO testFiles
+    forM_ (paths) $ \path -> do
+      it path $ do
+        ctx    <- newCompileContext
+        result <- tryCompile
+          (ctx { ctxSourcePaths = [takeDirectory path, "std"]
+               , ctxMainModule  = [s_pack $ takeFileName path -<.> ""]
+               }
+          )
+        (case result of
+            Left  err -> Just err
+            Right ()  -> Nothing
+          )
+          `shouldBe` Nothing

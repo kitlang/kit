@@ -1,0 +1,21 @@
+struct MyStruct {
+    public static var xyz = "hi";
+
+    var a: Int = 1;
+    var b: CString = "hello";
+    var c = 5;
+    var d: Bool;
+}
+
+function main() {
+    var a = struct MyStruct {
+        c: 6,
+        d: true,
+    };
+
+    printf("%s\n", MyStruct.xyz);
+    printf("%s\n", a.b);
+
+    var b: Ptr[MyStruct] = &a;
+    var y = b.a;
+}

@@ -1,0 +1,23 @@
+enum MySimpleEnum {
+    Apple;
+    Banana;
+    Strawberry;
+}
+
+enum MyComplexEnum {
+    Apple2(i: Int);
+    Banana2(a: Float, b: CString);
+    Strawberry2;
+}
+
+function main() {
+    var a = Apple;
+    var b = Banana;
+    var c = Apple2(1);
+    var d = Banana2(5, "hello");
+    var e = Strawberry2;
+
+    if (a != b && d != e) {
+        printf("hello!\n");
+    }
+}
