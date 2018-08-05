@@ -61,6 +61,8 @@ convertTypeDefinition paramConverter t = do
   let
     (converter@(Converter { exprConverter = exprConverter, typeConverter = typeConverter }))
       = paramConverter params
+  let methodParamConverter methodParams =
+        paramConverter (methodParams ++ (map paramName $ typeParams t))
   newType <- case typeSubtype t of
     Atom                        -> return Atom
     Struct { structFields = f } -> do
@@ -70,25 +72,26 @@ convertTypeDefinition paramConverter t = do
       fields <- forM f (convertVarDefinition converter)
       return $ Union {unionFields = fields}
     Enum { enumVariants = variants, enumUnderlyingType = t' } -> do
-      variants <- forM variants (convertEnumVariant converter)
+      variants       <- forM variants (convertEnumVariant converter)
       underlyingType <- typeConverter (typePos t) t'
       return
         $ Enum {enumVariants = variants, enumUnderlyingType = underlyingType}
     Abstract{} -> return Atom -- TODO
-  rules        <- forM (typeRules t) (convertRule converter)
-  staticFields <- forM (typeStaticFields t) (convertVarDefinition converter)
-  let methodParamConverter methodParams =
-        paramConverter (methodParams ++ (map paramName $ typeParams t))
+  rules         <- forM (typeRules t) (convertRule converter)
+  staticFields  <- forM (typeStaticFields t) (convertVarDefinition converter)
+
   staticMethods <- forM (typeStaticMethods t)
                         (convertFunctionDefinition methodParamConverter)
-  return $ (newTypeDefinition (typeName t)) { typeDoc       = typeDoc t
-                                            , typeMeta      = typeMeta t
+  return $ (newTypeDefinition (typeName t)) { typeDoc           = typeDoc t
+                                            , typeMeta          = typeMeta t
                                             , typeModifiers = typeModifiers t
-                                            , typeParams    = typeParams t
+                                            , typeParams        = typeParams t
                                             , typeNamespace = typeNamespace t
-                                            , typeSubtype   = newType
-                                            , typePos       = typePos t
-                                            , typeRules     = rules
+                                            , typeSubtype       = newType
+                                            , typePos           = typePos t
+                                            , typeRules         = rules
+                                            , typeStaticFields  = staticFields
+                                            , typeStaticMethods = staticMethods
                                             }
 
 enumIsSimple enum = all variantIsSimple $ enumVariants enum

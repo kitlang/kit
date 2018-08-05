@@ -1,5 +1,6 @@
 module Kit.Compiler (
   tryCompile,
+  module Kit.Compiler.Binding,
   module Kit.Compiler.Context,
   module Kit.Compiler.Module,
   module Kit.Compiler.Passes,
@@ -15,6 +16,7 @@ import Data.List
 import System.Directory
 import System.FilePath
 import Kit.Ast
+import Kit.Compiler.Binding
 import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.Passes
@@ -75,7 +77,7 @@ compile ctx = do
   {-
     Convert typed AST to IR.
   -}
-  printLog "generating internal representation"
+  printLog "generating intermediate representation"
   ir <- generateIr ctx typed
 
   {-

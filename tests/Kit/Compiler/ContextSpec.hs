@@ -12,7 +12,14 @@ import Kit.HashTable
 import Kit.Parser
 import Kit.Str
 
-newVar s = newBinding ([], "") VarBinding (TypeBasicType BasicTypeVoid) [] NoPos
+newVar s = newBinding
+  ([], "")
+  (VarBinding
+    (newVarDefinition { varName = s, varType = TypeBasicType BasicTypeVoid })
+  )
+  (TypeBasicType BasicTypeVoid)
+  []
+  NoPos
 
 spec :: Spec
 spec = do

@@ -21,7 +21,7 @@ testHeader = do
   parseCHeader ctx mod testHeader
   return mod
 
-externVarDef s = newVarDefinition
+externVarDef s = newVarDefinition { varName = s, varMeta = [metaExtern] }
 
 externFunctionDef s =
   newFunctionDefinition { functionName = s, functionMeta = [metaExtern] }
@@ -60,44 +60,28 @@ spec = do
       True `shouldBe` True
 
     forM_
-      [ ( "Parses var declarations"
-        , "var1"
-        , VarBinding
-        , (TypeBasicType $ BasicTypeInt 16)
-        )
-      , ( "Parses var definitions"
-        , "var2"
-        , VarBinding
-        , (TypeBasicType $ BasicTypeInt 8)
-        )
+      [ let (n, t) = ("var1", (TypeBasicType $ BasicTypeInt 16))
+        in  ("Parses var declarations", "var1", t)
+      , ("Parses var definitions", "var2", (TypeBasicType $ BasicTypeInt 8))
       , ( "Parses var definitions with multiple type specifiers"
         , "var3"
-        , VarBinding
         , (TypeBasicType $ BasicTypeUint 32)
         )
       , ( "Parses struct vars"
         , "struct_var1"
-        , VarBinding
         , (TypeStruct (["c"], "Struct1") [])
         )
-      , ( "Parses enum vars"
-        , "enum_var1"
-        , VarBinding
-        , (TypeEnum (["c"], "Enum1") [])
-        )
+      , ("Parses enum vars", "enum_var1", (TypeEnum (["c"], "Enum1") []))
       , ( "Parses pointer vars"
         , "pointer_var1"
-        , VarBinding
         , (TypePtr (TypeBasicType $ BasicTypeInt 16))
         )
       , ( "Parses pointers to pointer vars"
         , "pointer_var2"
-        , VarBinding
         , (TypePtr (TypePtr (TypeBasicType $ BasicTypeInt 16)))
         )
       , ( "Parses function pointer vars"
         , "pointer_var3"
-        , VarBinding
         , (TypePtr
             (TypeFunction (TypeBasicType $ BasicTypeInt 16)
                           [("arg1", TypeBasicType $ BasicTypeInt 16)]
@@ -107,17 +91,14 @@ spec = do
         )
       , ( "Parses void functions"
         , "void_func1"
-        , FunctionBinding
         , TypeFunction (TypeBasicType $ BasicTypeVoid) [] False
         )
       , ( "Parses functions with non-void types"
         , "int_func1"
-        , FunctionBinding
         , TypeFunction (TypeBasicType $ BasicTypeInt 16) [] False
         )
       , ( "Parses functions with arguments"
         , "func_with_args"
-        , FunctionBinding
         , TypeFunction
           (TypeBasicType $ BasicTypeFloat 32)
           [ ("arg1", TypeBasicType $ BasicTypeInt 16)
@@ -127,44 +108,31 @@ spec = do
         )
       , ( "Parses functions with struct return value/arguments"
         , "struct_func"
-        , FunctionBinding
         , TypeFunction (TypeStruct (["c"], "Struct1") [])
                        [("a", TypeStruct (["c"], "Struct2") [])]
                        False
         )
       , ( "Parses functions with pointer return value/arguments"
         , "pointer_func"
-        , FunctionBinding
         , TypeFunction (TypePtr $ TypeBasicType $ BasicTypeFloat 32)
                        [("arg1", TypePtr $ TypeBasicType $ BasicTypeInt 16)]
                        False
         )
       , ( "Parses variadic functions"
         , "varargs_func"
-        , FunctionBinding
         , TypeFunction (TypeBasicType $ BasicTypeVoid)
                        [("a", TypeBasicType $ BasicTypeInt 16)]
                        True
         )
       , ( "Parses void arg functions"
         , "void_func"
-        , FunctionBinding
         , TypeFunction (TypeBasicType $ BasicTypeInt 32) [] False
         )
       ]
-      (\(label, name, b, ct) -> it label $ do
+      (\(label, name, ct) -> it label $ do
         header  <- testHeader
-        binding <- resolveLocal (modScope header) name
-        (case binding of
-            Just x  -> Just $ bindingType x
-            Nothing -> Nothing
-          )
-          `shouldBe` Just b
-        (case binding of
-            Just x  -> Just $ bindingConcrete x
-            Nothing -> Nothing
-          )
-          `shouldBe` Just ct
+        binding <- scopeGet (modScope header) name
+        bindingConcrete binding `shouldBe` ct
       )
 
     forM_
@@ -234,11 +202,13 @@ spec = do
         header <- testHeader
         x      <- resolveLocal (modScope header) name
         (case x of
-            Just (Binding { bindingType = TypeBinding, bindingConcrete = ct' })
+            Just (Binding { bindingType = TypeBinding _, bindingConcrete = ct' })
+              -> Just ct'
+            Just (Binding { bindingType = TypedefBinding, bindingConcrete = ct' })
               -> Just ct'
             _ -> Nothing
           )
           `shouldBe` Just ct
-        def' <- h_lookup (modContents header) name
-        def' `shouldBe` def
       )
+        -- def' <- h_lookup (modContents header) name
+        -- def' `shouldBe` def

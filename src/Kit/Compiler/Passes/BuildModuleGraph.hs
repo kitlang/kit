@@ -243,33 +243,30 @@ addStmtToModuleInterface ctx mod s = do
 
         subNamespace <- getSubScope (modScope mod) [name]
         forM_
-          (typeStaticFields d)
+          (typeStaticFields converted)
           (\field -> do
-            converted <- convertVarDefinition interfaceConverter field
             bindToScope
               (subNamespace)
               (varName field)
               (newBinding (modPath mod ++ [name], varName field)
-                          (VarBinding converted)
-                          (varType converted)
+                          (VarBinding field)
+                          (varType field)
                           (modPath mod ++ [name])
                           (varPos field)
               )
           )
         forM_
-          (typeStaticMethods d)
+          (typeStaticMethods converted)
           (\method -> do
-            converted <- convertFunctionDefinition (\_ -> interfaceConverter)
-                                                   method
             bindToScope
               (subNamespace)
               (functionName method)
               (newBinding
                 (modPath mod ++ [name], functionName method)
-                (FunctionBinding converted)
+                (FunctionBinding method)
                 (TypeFunction
-                  (functionType converted)
-                  [ (argName arg, argType arg) | arg <- functionArgs converted ]
+                  (functionType method)
+                  [ (argName arg, argType arg) | arg <- functionArgs method ]
                   (functionVarargs method)
                 )
                 (modPath mod ++ [name])

@@ -84,49 +84,27 @@ resolveTypesForMod ctx (mod, contents) = do
       case (bindingType binding, decl) of
         (VarBinding vi, DeclVar v) -> do
           converted <- convertVarDefinition varConverter v
-          resolveConstraint
-            ctx
-            tctx
-            mod
-            (TypeEq (varType vi)
-                    (varType converted)
-                    "Var type must match its annotation"
-                    (varPos vi)
-            )
+          mergeVarInfo ctx tctx mod vi converted
           return $ DeclVar converted
+
         (FunctionBinding fi, DeclFunction f) -> do
           converted <- convertFunctionDefinition paramConverter f
-          resolveConstraint
-            ctx
-            tctx
-            mod
-            (TypeEq (functionType fi)
-                    (functionType converted)
-                    "Function return type must match its annotation"
-                    (functionPos fi)
-            )
-          forM
-            (zip (functionArgs fi) (functionArgs converted))
-            (\(arg1, arg2) -> do
-              resolveConstraint
-                ctx
-                tctx
-                mod
-                (TypeEq (argType arg1)
-                        (argType arg2)
-                        "Function argument type must match its annotation"
-                        (argPos arg1)
-                )
-            )
+          mergeFunctionInfo ctx tctx mod fi converted
           return $ DeclFunction converted
+
         (TypeBinding ti, DeclType t) -> do
           converted <- convertTypeDefinition paramConverter t
-          -- TODO: unify
+          forM_ (zip (typeStaticFields ti) (typeStaticFields converted))
+                (\(field1, field2) -> mergeVarInfo ctx tctx mod field1 field2)
+          forM_ (zip (typeStaticMethods ti) (typeStaticMethods converted))
+                (\(method1, method2) -> mergeFunctionInfo ctx tctx mod method1 method2)
           return $ DeclType converted
+
         (TraitBinding ti, DeclTrait t) -> do
           converted <- convertTraitDefinition paramConverter t
           -- TODO: unify
           return $ DeclTrait converted
+
         (RuleSetBinding ri, DeclRuleSet r) -> do
           converted <- convertRuleSet varConverter r
           return $ DeclRuleSet converted
@@ -176,3 +154,37 @@ addImplementation ctx mod impl@(TraitImplementation { implTrait = Just (TypeSpec
               h_insert (ctxImpls ctx) tpTrait impls
       _ -> throwk $ BasicError ("Couldn't resolve trait: " ++ show tpTrait)
                                (Just posTrait)
+
+mergeVarInfo ctx tctx mod var1 var2 = resolveConstraint
+  ctx
+  tctx
+  mod
+  (TypeEq (varType var1)
+          (varType var2)
+          "Var type must match its annotation"
+          (varPos var1)
+  )
+
+mergeFunctionInfo ctx tctx mod f1 f2 = do
+  resolveConstraint
+    ctx
+    tctx
+    mod
+    (TypeEq (functionType f1)
+            (functionType f2)
+            "Function return type must match its annotation"
+            (functionPos f1)
+    )
+  forM
+    (zip (functionArgs f1) (functionArgs f2))
+    (\(arg1, arg2) -> do
+      resolveConstraint
+        ctx
+        tctx
+        mod
+        (TypeEq (argType arg1)
+                (argType arg2)
+                "Function argument type must match its annotation"
+                (argPos arg1)
+        )
+    )

@@ -167,7 +167,7 @@ findDefaultType ctx mod id = do
   info <- getTypeVar ctx id
   if null (typeVarConstraints info)
     then throwk $ BasicError
-      ("The type of this expression is ambiguous; not enough information to infer a type.\n\nTry adding a type annotation: `expression: Type`"
+      ("The type of this expression is ambiguous; not enough information to infer a type for type var #" ++ show id ++ ".\n\nTry adding a type annotation: `expression: Type`"
       )
       (Just $ head $ typeVarPositions info)
     else do
