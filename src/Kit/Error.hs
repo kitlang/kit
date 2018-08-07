@@ -87,7 +87,7 @@ logErrorTitle err = do
     [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
   hPutStrLn stderr $ take 40 (repeat '-')
   case errPos err of
-    Just pos@Span { file = f, start_line = start } -> do
+    Just pos@Span { file = f, startLine = start } -> do
       hSetSGR
         stderr
         [SetColor Foreground Vivid Red, SetConsoleIntensity BoldIntensity]
@@ -126,43 +126,47 @@ displayFileSnippet span  = do
     hPutStrLn stderr $ "\n  " ++ show span
     contents <- readFile $ fp
     let content_lines = lines contents
-    forM_ [(start_line span) .. (end_line span)] $ \n -> do
+    forM_ [(startLine span) .. (endLine span)] $ \n -> do
       hSetSGR
         stderr
         [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
-      if n == (start_line span) + 3
+      if n == (startLine span) + 3
         then do
           hPutStrLn stderr $ "\n  ...\n"
-        else unless (n > (start_line span) + 3 && n < (end_line span) - 2) $ do
+        else unless (n > (startLine span) + 3 && n < (endLine span) - 2) $ do
           let line = content_lines !! (n - 1)
           hSetSGR stderr [SetConsoleIntensity NormalIntensity]
           hPutStr stderr $ (lpad (show n) 8) ++ "    "
           hSetSGR stderr [SetConsoleIntensity FaintIntensity]
           hPutStrLn stderr $ line
           when
-              (  (start_line span)
-              <= (end_line span)
-              || (start_col span)
+              (  (startLine span)
+              <= (endLine span)
+              || (startCol span)
               >  1
-              || (end_col span)
+              || (endCol span)
               <  length line
               )
             $ do
-                let this_start_col = if n == start_line span
-                      then start_col span
+                let this_startCol = if n == startLine span
+                      then startCol span
                       else length (takeWhile ((==) ' ') line) + 1
-                let this_end_col =
-                      if n == end_line span then end_col span else length line
+                let this_endCol =
+                      if n == endLine span then endCol span else length line
                 hSetSGR stderr [Reset]
                 ePutStr
                   $  "            "
-                  ++ (take ((this_start_col) - 1) (repeat ' '))
+                  ++ (take ((this_startCol) - 1) (repeat ' '))
                 hSetSGR
                   stderr
                   [ SetColor Foreground Vivid Yellow
                   , SetConsoleIntensity BoldIntensity
                   ]
                 ePutStrLn
-                  (take ((this_end_col) - (this_start_col) + 1) $ repeat '^')
+                  (take ((this_endCol) - (this_startCol) + 1) $ repeat '^')
     hSetSGR   stderr [Reset]
-    hPutStrLn stderr ""
+    case rewrittenFrom span of
+      Just x -> do
+        hPutStrLn stderr "    ... rewritten from ..."
+        displayFileSnippet x
+      Nothing -> hPutStrLn stderr ""

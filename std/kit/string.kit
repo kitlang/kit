@@ -1,18 +1,18 @@
-// /**
-//  * A String is a collection (Vector) of bytes.
-//  *
-//  * As Vectors, Strings are length-prefixed; they are also null-terminated for
-//  * easy conversion into CStrings.
-//  */
-// abstract String: Vector[Uint8] {
-//     rules {
-//         ((v: Vector[Uint8]) as String);
-//         (this as Vector[Uint8]);
-//         // TODO
-//         ((cs: CString) as String);
-//         (this as CString);
-//     }
-// }
+/**
+ * A String is a collection (Vector) of bytes.
+ *
+ * As Vectors, Strings are length-prefixed; they are also null-terminated for
+ * easy conversion into CStrings.
+ */
+abstract String: Vector[Uint8] {
+    rules {
+        ((v: Vector[Uint8]) as String);
+        (this as Vector[Uint8]);
+        // TODO
+        ((cs: CString) as String);
+        (this as CString);
+    }
+}
 
 /**
  * Builtin trait that allows construction of a type from a string literal.
@@ -24,43 +24,43 @@ implement Stringy for CString;
 
 specialize Stringy as CString;
 
-// /**
-//  * Allows coercing values of the implementing type into a string.
-//  */
-// trait ToString {
-//     public function toString(): String;
+/**
+ * Allows coercing values of the implementing type into a string.
+ */
+trait ToString {
+    public function toString(): String;
 
-//     rules {
-//         (this as String) => (this.toString());
-//     }
-// }
+    rules {
+        (this as String) => (this.toString());
+    }
+}
 
-// implement ToString for String {
-//     public function toString(): String {
-//         return this;
-//     }
-// }
+implement ToString for String {
+    public function toString(): String {
+        return this;
+    }
+}
 
-// implement ToString for CString {
-//     public function toString() {
-//         return this as String;
-//     }
-// }
+implement ToString for CString {
+    public function toString() {
+        return this as String;
+    }
+}
 
-// /**
-//  * A StringBuffer is a dynamically resizing collection (Array) of bytes.
-//  */
-// abstract StringBuffer: Array[Uint8] {
-//     rules {
-//         (${v: Array[Uint8]} as StringBuffer);
-//         (this as Array[Uint8]);
-//         (${v: String} as StringBuffer) => (($v as Vector[Uint8]) as Array[Uint8]) as StringBuffer;
-//         (this as String) => ((this as Array[Uint8]) as Vector[Uint8]) as String;
-//     }
-// }
+/**
+ * A StringBuffer is a dynamically resizing collection (Array) of bytes.
+ */
+abstract StringBuffer: Array[Uint8] {
+    rules {
+        (${v: Array[Uint8]} as StringBuffer);
+        (this as Array[Uint8]);
+        (${v: String} as StringBuffer) => (($v as Vector[Uint8]) as Array[Uint8]) as StringBuffer;
+        (this as String) => ((this as Array[Uint8]) as Vector[Uint8]) as String;
+    }
+}
 
-// implement ToString for StringBuffer {
-//     public function toString(): String {
-//         return this as String;
-//     }
-// }
+implement ToString for StringBuffer {
+    public function toString(): String {
+        return this as String;
+    }
+}

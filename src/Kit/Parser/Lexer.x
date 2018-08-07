@@ -149,7 +149,7 @@ posnOffset (line, col) s = (line + length indices, if length indices == 0 then c
                                  l = (fromIntegral $ s_length s)
 
 -- wrapper to convert an Alex position to a Span
-pos2span (AlexPn _ line col) s = (line, col, end_line, end_col) where (end_line, end_col) = posnOffset (line, col) s
+pos2span (AlexPn _ line col) s = (line, col, endLine, endCol) where (endLine, endCol) = posnOffset (line, col) s
 
 processStringLiteral :: Str -> Str
 processStringLiteral s = s_pack (_processString (s_unpack s) False) -- FIXME: better way?

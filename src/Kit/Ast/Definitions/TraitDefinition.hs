@@ -43,7 +43,6 @@ convertTraitDefinition paramConverter t = do
   let
     converter@(Converter { exprConverter = exprConverter, typeConverter = typeConverter })
       = paramConverter params
-  rules   <- forM (traitRules t) (convertRule converter)
   methods <- forM
     (traitMethods t)
     (convertFunctionDefinition (\p -> paramConverter (p ++ (map paramName $ traitParams t))))
@@ -53,6 +52,5 @@ convertTraitDefinition paramConverter t = do
                                 , traitMeta      = traitMeta t
                                 , traitModifiers = traitModifiers t
                                 , traitParams    = traitParams t
-                                , traitRules     = rules
                                 , traitMethods   = methods
                                 }

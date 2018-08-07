@@ -41,7 +41,6 @@ typeVarDefinition
   -> VarDefinition TypedExpr ConcreteType
   -> IO (VarDefinition TypedExpr ConcreteType, Bool)
 typeVarDefinition ctx tctx mod def = do
-  -- TODO: type var default expression
   case varDefault def of
     Just x -> do
       typed <- typeExpr ctx tctx mod x

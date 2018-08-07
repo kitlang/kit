@@ -125,9 +125,9 @@ implement Iterable[T] for List[T] {
 }
 
 struct ListIterator[T] {
-    public var current: List[T];
+    public var current: Ptr[List[T]];
 
-    public static function new(list: Ref[List[T]]) {
+    public static function new(list: Ptr[List[T]]) {
         return struct Self {current: list};
     }
 }

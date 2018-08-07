@@ -17,7 +17,7 @@ trait Iterable[T] {
  * of values. Each call to `next` should return the next value, or None.
  */
 trait Iterator[T] {
-    public function next(): Null[T];
+    public function next(): Option[T];
 }
 
 specialize Iterator[T] as CArray[T];

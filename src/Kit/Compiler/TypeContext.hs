@@ -111,6 +111,11 @@ resolveModuleBinding ctx tctx mod (m, name) = do
         else (filter (\mod' -> modPath mod' == m) importedMods)
   resolveBinding (map modScope searchMods) name
 
+resolveTypeParam :: Str -> [(Str, ())] -> Maybe Str
+resolveTypeParam s (h : t) =
+  if fst h == s then Just $ fst h else resolveTypeParam s t
+resolveTypeParam s [] = Nothing
+
 {-
   Attempt to resolve a TypeSpec into a ConcreteType; fail if it isn't a known
   type.
@@ -124,31 +129,37 @@ resolveType ctx tctx mod t = do
     TypeSpec (m, s) params pos -> do
       case m of
         [] -> do
-          -- TODO: get type param if available
-          scoped <- resolveBinding (tctxScopes tctx) s
-          case scoped of
-            Just x ->
-              -- named binding exists locally; resolve and return it
-              return $ bindingConcrete x
-            Nothing -> do
-              -- search other modules
-              bound <- resolveBinding (map modScope importedMods) s
-              case bound of
-                Just (Binding { bindingType = TypeBinding _, bindingConcrete = t })
-                  -> follow ctx tctx mod t
-                _ -> do
-                  builtin <- builtinToConcreteType ctx tctx mod s params
-                  case builtin of
-                    Just t  -> follow ctx tctx mod t
-                    Nothing -> unknownType s pos
+          case (s, tctxSelf tctx) of
+            ("Self", Just selfTp) ->
+              resolveType ctx tctx mod (TypeSpec selfTp [] (typeSpecPosition t))
+            _ -> do
+              case resolveTypeParam s (tctxTypeParams tctx) of
+                Just x -> return $ TypeTypeParam x
+                _      -> do
+                  scoped <- resolveBinding (tctxScopes tctx) s
+                  case scoped of
+                    Just x ->
+                      -- named binding exists locally; resolve and return it
+                      return $ bindingConcrete x
+                    Nothing -> do
+                      -- search other modules
+                      bound <- resolveBinding (map modScope importedMods) s
+                      case bound of
+                        Just (Binding { bindingType = TypeBinding _, bindingConcrete = t })
+                          -> follow ctx tctx mod t
+                        _ -> do
+                          builtin <- builtinToConcreteType ctx tctx mod s params
+                          case builtin of
+                            Just t  -> follow ctx tctx mod t
+                            Nothing -> unknownType s pos
         m -> do
           -- search only a specific module for this type
           result <- resolveBinding (map modScope importedMods) s
           case result of
             Just (Binding { bindingType = TypeBinding _, bindingConcrete = t })
               -> follow ctx tctx mod t
-            Just (Binding { bindingType = TypedefBinding, bindingConcrete = t }) ->
-              follow ctx tctx mod t
+            Just (Binding { bindingType = TypedefBinding, bindingConcrete = t })
+              -> follow ctx tctx mod t
             _ -> unknownType (s_unpack $ showTypePath (m, s)) pos
 
     TypeFunctionSpec rt params args isVariadic -> do
@@ -186,24 +197,24 @@ addUsing
   -> Module
   -> UsingType Expr (Maybe TypeSpec)
   -> IO TypeContext
-addUsing ctx tctx mod using = --case using of
-  -- UsingRuleSet ([], n) -> do
-  --   def <- h_lookup (modContents mod) n
-  --   case def of
-  --     Just (DeclType t) -> do
-  --       -- FIXME: this is terrible...
-  --       binding <- scopeGet (modScope mod) n
-  --       return $ tctx
-  --         { tctxRules = ((typeRuleSet t)
-  --                         { ruleSetThis = Just (bindingConcrete binding)
-  --                         }
-  --                       )
-  --           : tctxRules tctx
-  --         }
-  --     Just (DeclRuleSet r) -> return $ tctx { tctxRules = r : tctxRules tctx }
-  --     _                    -> return tctx
-  -- FIXME
-  return tctx
+addUsing ctx tctx mod using = case using of
+  UsingRuleSet ([], n) -> do
+    -- TODO: better resolution
+    def <- resolveLocal (modScope mod) n
+    case def of
+      -- Just (DeclType t) -> do
+      --   -- FIXME: this is terrible...
+      --   binding <- scopeGet (modScope mod) n
+      --   return $ tctx
+      --     { tctxRules = ((typeRuleSet t)
+      --                     { ruleSetThis = Just (bindingConcrete binding)
+      --                     }
+      --                   )
+      --       : tctxRules tctx
+      --     }
+      Just (Binding { bindingType = RuleSetBinding r }) -> do
+        return $ tctx { tctxRules = r : tctxRules tctx }
+      _ -> return tctx
 
 modTypeContext :: CompileContext -> Module -> IO TypeContext
 modTypeContext ctx mod = do
@@ -248,7 +259,7 @@ builtinToConcreteType ctx tctx mod s p = do
     ("Ptr"    , [x]) -> do
       param <- resolveType ctx tctx mod x
       return $ Just $ TypePtr param
-    ("Arr", [x]) -> do
+    ("CArray", [x]) -> do
       param <- resolveType ctx tctx mod x
       return $ Just $ TypeArr param Nothing
     _ -> return Nothing

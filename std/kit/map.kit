@@ -1,6 +1,6 @@
 trait Map[K, V] {
     function exists(key: K): Bool;
-    function get(key: K): Null[V];
+    function get(key: K): V;
     function set(key: K, value: V): V;
 
     rules {

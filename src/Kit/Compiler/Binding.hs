@@ -27,7 +27,7 @@ data BindingType
   | TypeBinding (TypeDefinition TypedExpr ConcreteType)
   | TraitBinding (TraitDefinition TypedExpr ConcreteType)
   | EnumConstructor (EnumVariant TypedExpr ConcreteType)
-  | RuleSetBinding (RuleSet TypedExpr ConcreteType)
+  | RuleSetBinding (RuleSet Expr (Maybe TypeSpec))
   | TypedefBinding
   deriving (Show, Eq)
 

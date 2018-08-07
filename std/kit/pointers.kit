@@ -1,15 +1,15 @@
-/**
- * An automatically dereferencing C pointer to type T.
- */
-abstract Ptr[T] {
-    rules {
-        (this as Ptr[T]);
-        ((_: Ptr[T]) as Self);
-        (this as T) => (*this);
-        (this.$x) => (*this).$x;
-        ((x: T) as Ptr[T]) => (&x);
-    }
-}
+// /**
+//  * An automatically dereferencing C pointer to type T.
+//  */
+// abstract Ptr[T] {
+//     rules {
+//         (this as Ptr[T]);
+//         ((_: Ptr[T]) as Self);
+//         (this as T) => (*this);
+//         (this.$x) => (*this).$x;
+//         ((x: T) as Ptr[T]) => (&x);
+//     }
+// }
 
 /**
  * A typesafe nullable pointer.
@@ -76,7 +76,7 @@ abstract Unique[T]: Ptr[T] {
  * memory will be reclaimed immediately.
  */
 struct Shared[T] {
-    var rc: Ptr[Uint] = 1;
+    var rc: Ptr[Uint] = &1;
     var value: Ptr[T];
 
     rules {
@@ -89,7 +89,7 @@ struct Shared[T] {
         (*this) => (*this.value);
     }
 
-    public static function new(value: T) {
+    public static function new(value: Ptr[T]) {
         return struct Self {value};
     }
 
@@ -109,16 +109,16 @@ struct Shared[T] {
     }
 }
 
-implement Drop for Shared[T] {
-    public function drop() {
-        --rc;
-        if rc <= 0 {
-            // TODO
-            // delete rc;
-            // delete value;
-        }
-    }
-}
+// implement Drop for Shared[T] {
+//     public function drop() {
+//         --rc;
+//         if rc <= 0 {
+//             // TODO
+//             // delete rc;
+//             // delete value;
+//         }
+//     }
+// }
 
 /**
  * A weak reference to a value of type T.

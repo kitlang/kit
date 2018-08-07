@@ -56,9 +56,13 @@ rewriteExpr ctx tctx mod rule te typer = do
                   ]
                 )
                 (snd firstRule)
-      t <- typer tctx' body
-      return $ Just t
+      t <- typer tctx' (subst x body)
+      return $ Just $ t {rewrittenBy = Just rule, tPos = (tPos t) {rewrittenFrom = Just $ tPos te}}
     _ -> return Nothing
+
+-- TODO
+subst :: [RuleBinding] -> Expr -> Expr
+subst r x = x
 
 {-
   Checks whether a typed expression matches a given pattern.
@@ -66,6 +70,7 @@ rewriteExpr ctx tctx mod rule te typer = do
   Returns Nothing on no match, or Just with a list of macro variable to
   expression bindings.
 -}
+-- TODO: very incomplete
 ruleMatch
   :: Expr
   -> TypedExpr
@@ -95,6 +100,9 @@ ruleMatch pattern te thisType typeResolver = do
     (Identifier (MacroVar x Nothing) [], y) ->
       -- $var - match and bind anything
       return $ Just [(x, te)]
+    (Identifier (Var x) n, Identifier (Var y) m) ->
+      return $ if (x, n) == (y, m) then Just [] else Nothing
+    (Identifier _ _, Identifier _ _) -> return Nothing
     (Literal a, Literal b) -> return $ if a == b then Just [] else Nothing
     (a        , b        ) -> if exprDiscriminant a == exprDiscriminant b
       then

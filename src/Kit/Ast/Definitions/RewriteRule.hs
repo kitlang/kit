@@ -26,18 +26,18 @@ newRewriteRule = RewriteRule
   , rulePos     = NoPos
   }
 
-convertRule
-  :: (Monad m) => Converter m a b c d -> RewriteRule a b -> m (RewriteRule c d)
-convertRule converter r = do
-  ruleType <- (typeConverter converter) (rulePos r) (ruleType r)
-  pattern  <- (exprConverter converter) (rulePattern r)
-  body     <- maybeConvert (exprConverter converter) (ruleBody r)
-  return $ (newRewriteRule) { ruleDoc     = ruleDoc r
-                            , ruleType    = ruleType
-                            , rulePattern = pattern
-                            , ruleBody    = body
-                            , rulePos     = rulePos r
-                            }
+-- convertRule
+--   :: (Monad m) => Converter m a b c d -> RewriteRule a b -> m (RewriteRule c d)
+-- convertRule converter r = do
+--   ruleType <- (typeConverter converter) (rulePos r) (ruleType r)
+--   pattern  <- (exprConverter converter) (rulePattern r)
+--   body     <- maybeConvert (exprConverter converter) (ruleBody r)
+--   return $ (newRewriteRule) { ruleDoc     = ruleDoc r
+--                             , ruleType    = ruleType
+--                             , rulePattern = pattern
+--                             , ruleBody    = body
+--                             , rulePos     = rulePos r
+--                             }
 
 data RuleSet a b = RuleSet {
   ruleSetName :: Str,
@@ -56,13 +56,13 @@ newRuleSet = RuleSet
   }
 
 
-convertRuleSet
-  :: (Monad m) => Converter m a b c d -> RuleSet a b -> m (RuleSet c d)
-convertRuleSet converter r = do
-  rules <- forM (ruleSetRules r) (convertRule converter)
-  return $ (newRuleSet) { ruleSetName  = ruleSetName r
-                        , ruleSetPos   = ruleSetPos r
-                        , ruleSetDoc   = ruleSetDoc r
-                        , ruleSetThis  = ruleSetThis r
-                        , ruleSetRules = rules
-                        }
+-- convertRuleSet
+--   :: (Monad m) => Converter m a b c d -> RuleSet a b -> m (RuleSet c d)
+-- convertRuleSet converter r = do
+--   rules <- forM (ruleSetRules r) (convertRule converter)
+--   return $ (newRuleSet) { ruleSetName  = ruleSetName r
+--                         , ruleSetPos   = ruleSetPos r
+--                         , ruleSetDoc   = ruleSetDoc r
+--                         , ruleSetThis  = ruleSetThis r
+--                         , ruleSetRules = rules
+--                         }

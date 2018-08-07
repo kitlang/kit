@@ -142,6 +142,7 @@ dumpAst ctx indent e@(TypedExpr { texpr = texpr, inferredType = t, tPos = pos })
       RangeLiteral a b      -> i "_ ... _" [a, b]
       VectorLiteral x       -> i "[]" x
       VarDeclaration id _ a -> i ("var " ++ show id) (catMaybes [a])
+      Using u x -> i ("using " ++ show u) [x]
       _                     -> return $ f $ "??? " ++ show texpr
 
 dumpCt :: CompileContext -> ConcreteType -> IO String

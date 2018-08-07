@@ -77,11 +77,12 @@ convertTypeDefinition paramConverter t = do
       return
         $ Enum {enumVariants = variants, enumUnderlyingType = underlyingType}
     Abstract{} -> return Atom -- TODO
-  rules         <- forM (typeRules t) (convertRule converter)
   staticFields  <- forM (typeStaticFields t) (convertVarDefinition converter)
 
   staticMethods <- forM (typeStaticMethods t)
                         (convertFunctionDefinition methodParamConverter)
+
+  -- since they are untyped, rulesets will not be converted and will be lost
   return $ (newTypeDefinition (typeName t)) { typeDoc           = typeDoc t
                                             , typeMeta          = typeMeta t
                                             , typeModifiers = typeModifiers t
@@ -89,7 +90,6 @@ convertTypeDefinition paramConverter t = do
                                             , typeNamespace = typeNamespace t
                                             , typeSubtype       = newType
                                             , typePos           = typePos t
-                                            , typeRules         = rules
                                             , typeStaticFields  = staticFields
                                             , typeStaticMethods = staticMethods
                                             }

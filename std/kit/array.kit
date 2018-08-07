@@ -6,8 +6,9 @@ struct Array[T] {
     var a: Vector[T];
     var _length: Int;
 
-    public static function new(capacity: Int = 16) {
-        var a = Vector.new(capacity);
+    // public static function new(capacity: Int = 16) {
+    public static function new(capacity: Int) {
+        var a: Vector[T] = Vector.new(capacity);
         return struct Self {
             a,
             _length: 0
@@ -109,9 +110,9 @@ implement Iterable[T] for Array[T] {
 
 struct ArrayIterator[T] {
     public var index: Uint;
-    public var array: Ref[Array[T]];
+    public var array: Ptr[Array[T]];
 
-    public static function new(array: Ref[Array[T]]) {
+    public static function new(array: Ptr[Array[T]]) {
         return struct Self {
             array,
             index: 0

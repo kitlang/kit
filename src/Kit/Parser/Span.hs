@@ -5,45 +5,46 @@ import System.FilePath
 import Kit.Str
 
 data Span
-  = Span {file :: FilePath, start_line :: Int, start_col :: Int, end_line :: Int, end_col :: Int, rewritten :: Maybe Span}
+  = Span {file :: FilePath, startLine :: Int, startCol :: Int, endLine :: Int, endCol :: Int, rewrittenFrom :: Maybe Span}
   | NoPos
 
 instance Eq Span where
   (==) NoPos _ = True
   (==) _ NoPos = True
-  (==) a b = (file a == file b) && (start_line a == start_line b) && (start_col a == start_col b) && (end_line a == end_line b) && (end_col a == end_col b)
+  (==) a b = (file a == file b) && (startLine a == startLine b) && (startCol a == startCol b) && (endLine a == endLine b) && (endCol a == endCol b)
 
 instance Show Span where
   show NoPos = "@(???)"
   show span = "@" ++ file span ++
-              ":" ++ (show $ start_line span) ++ ":" ++ (show $ start_col span) ++
-              (if (start_col span /= end_col span) || (start_line span /= end_line span)
-                then "-" ++ (show $ end_line span) ++ ":" ++ (show $ end_col span)
-                else "")
+              ":" ++ (show $ startLine span) ++ ":" ++ (show $ startCol span) ++
+              (if (startCol span /= endCol span) || (startLine span /= endLine span)
+                then "-" ++ (show $ endLine span) ++ ":" ++ (show $ endCol span)
+                else "") ++ (case rewrittenFrom span of {Just x -> " <= " ++ show x; Nothing -> ""})
 
 sp :: FilePath -> Int -> Int -> Int -> Int -> Span
 sp f a b c d = Span
-  { file       = f
-  , start_line = a
-  , start_col  = b
-  , end_line   = c
-  , end_col    = d
-  , rewritten  = Nothing
+  { file          = f
+  , startLine     = a
+  , startCol      = b
+  , endLine       = c
+  , endCol        = d
+  , rewrittenFrom = Nothing
   }
 
 (<+>) span1 NoPos = span1
 (<+>) NoPos span2 = span2
 (<+>) span1 span2 = Span
-  { file       = file span1
-  , start_line = fst min
-  , start_col  = snd min
-  , end_line   = fst max
-  , end_col    = snd max
+  { file          = file span1
+  , startLine     = fst min
+  , startCol      = snd min
+  , endLine       = fst max
+  , endCol        = snd max
+  , rewrittenFrom = rewrittenFrom span1 <|> rewrittenFrom span2
   }
  where
-  a1  = (start_line span1, start_col span1)
-  a2  = (end_line span1, end_col span1)
-  b1  = (start_line span2, start_col span2)
-  b2  = (end_line span2, end_col span2)
+  a1  = (startLine span1, startCol span1)
+  a2  = (endLine span1, endCol span1)
+  b1  = (startLine span2, startCol span2)
+  b2  = (endLine span2, endCol span2)
   min = if a1 < b1 then a1 else b1
   max = if a2 > b2 then a2 else b2

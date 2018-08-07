@@ -46,7 +46,7 @@ typeTypeDefinition ctx mod def@(TypeDefinition { typeName = name }) = do
       (typed, complete) <- typeFunctionDefinition ctx tctx mod method
       return typed
     )
-  -- TODO: type methods, variable defaults, fields, enum variants...
+  -- TODO: type instance methods, enum variants...
   let s = typeSubtype def
   subtype <- case s of
     Struct { structFields = f } -> do

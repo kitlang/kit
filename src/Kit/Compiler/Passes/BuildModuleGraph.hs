@@ -315,9 +315,8 @@ addStmtToModuleInterface ctx mod s = do
           ]
 
     RuleSetDeclaration r -> do
-      converted <- convertRuleSet interfaceConverter r
       addToInterface (ruleSetName r)
-                     (RuleSetBinding converted)
+                     (RuleSetBinding r)
                      (False)
                      (TypeBasicType BasicTypeUnknown)
       return [DeclRuleSet r]

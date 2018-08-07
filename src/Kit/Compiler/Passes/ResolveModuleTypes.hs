@@ -4,6 +4,7 @@ import Control.Exception
 import Control.Monad
 import Data.IORef
 import Data.List
+import Data.Maybe
 import System.Directory
 import System.FilePath
 import Kit.Ast
@@ -75,7 +76,12 @@ resolveTypesForMod ctx (mod, contents) = do
   let varConverter =
         converter (convertExpr ctx tctx mod) (resolveMaybeType ctx tctx mod)
   -- TODO: params
-  let paramConverter params = varConverter
+  let
+    paramConverter params =
+      let tctx' = tctx
+            { tctxTypeParams = [ (p, ()) | p <- params ] ++ tctxTypeParams tctx
+            }
+      in  converter (convertExpr ctx tctx' mod) (resolveMaybeType ctx tctx' mod)
 
   converted <- forM
     contents
@@ -88,7 +94,7 @@ resolveTypesForMod ctx (mod, contents) = do
           bindToScope (modScope mod)
                       (declName decl)
                       (binding { bindingType = VarBinding converted })
-          return $ DeclVar converted
+          return $ Just $ DeclVar converted
 
         (FunctionBinding fi, DeclFunction f) -> do
           converted <- convertFunctionDefinition paramConverter f
@@ -96,9 +102,18 @@ resolveTypesForMod ctx (mod, contents) = do
           bindToScope (modScope mod)
                       (declName decl)
                       (binding { bindingType = FunctionBinding converted })
-          return $ DeclFunction converted
+          return $ Just $ DeclFunction converted
 
         (TypeBinding ti, DeclType t) -> do
+          let
+            paramConverter params =
+              let tctx' = tctx
+                    { tctxTypeParams = [ (p, ()) | p <- params ]
+                      ++ tctxTypeParams tctx
+                    , tctxSelf = Just (modPath mod, typeName t)
+                    }
+              in  converter (convertExpr ctx tctx' mod)
+                            (resolveMaybeType ctx tctx' mod)
           converted <- convertTypeDefinition paramConverter t
           forM_ (zip (typeStaticFields ti) (typeStaticFields converted))
                 (\(field1, field2) -> mergeVarInfo ctx tctx mod field1 field2)
@@ -121,7 +136,7 @@ resolveTypesForMod ctx (mod, contents) = do
           bindToScope (modScope mod)
                       (declName decl)
                       (binding { bindingType = TypeBinding converted })
-          return $ DeclType converted
+          return $ Just $ DeclType converted
 
         (TraitBinding ti, DeclTrait t) -> do
           converted <- convertTraitDefinition paramConverter t
@@ -129,17 +144,17 @@ resolveTypesForMod ctx (mod, contents) = do
           bindToScope (modScope mod)
                       (declName decl)
                       (binding { bindingType = TraitBinding converted })
-          return $ DeclTrait converted
+          return $ Just $ DeclTrait converted
 
         (RuleSetBinding ri, DeclRuleSet r) -> do
-          converted <- convertRuleSet varConverter r
+          -- RuleSets are untyped
           bindToScope (modScope mod)
                       (declName decl)
-                      (binding { bindingType = RuleSetBinding converted })
-          return $ DeclRuleSet converted
+                      (binding { bindingType = RuleSetBinding r })
+          return Nothing
     )
 
-  return (mod, converted)
+  return (mod, catMaybes converted)
 
 addSpecialization
   :: CompileContext -> Module -> ((TypeSpec, TypeSpec), Span) -> IO ()
