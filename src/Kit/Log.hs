@@ -4,6 +4,7 @@ import Control.Exception
 import Control.Monad
 import Data.Time
 import Data.Time.Format
+import Data.Time.LocalTime
 import System.Console.ANSI
 import System.IO
 import Kit.Parser.Span
@@ -39,7 +40,7 @@ logMsg lv msg = do
   hSetSGR stderr [color Yellow, normal]
   ePutStr "["
   hSetSGR stderr [color Cyan, normal]
-  t <- getCurrentTime
+  t <- getZonedTime
   ePutStr $ formatTime defaultTimeLocale "%F %T.%6q" t
   hSetSGR stderr [color Yellow, normal]
   ePutStr "]"
