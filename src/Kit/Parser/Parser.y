@@ -701,7 +701,7 @@ BaseExpr :: {Expr}
 Term :: {(ValueLiteral, Span)}
   : bool {(BoolValue $ extract_bool $ fst $1, snd $1)}
   | str {(StringValue $ extract_lit $ fst $1, snd $1)}
-  | int {(IntValue $ extract_lit $ fst $1, snd $1)}
+  | int {(IntValue $ extract_int_lit $ fst $1, snd $1)}
   | float {(FloatValue $ extract_lit $ fst $1, snd $1)}
 
 StructInitFields :: {[(B.ByteString, Expr)]}
@@ -859,7 +859,7 @@ extract_identifier (LowerIdentifier x,_) = x
 extract_macro_identifier (MacroIdentifier x,_) = x
 extract_upper_identifier (UpperIdentifier x,_) = x
 extract_bool (LiteralBool x) = x
-extract_lit (LiteralInt x) = x
+extract_int_lit (LiteralInt x) = x
 extract_lit (LiteralFloat x) = x
 extract_lit (LiteralString x) = x
 extract_assign_op (Op (AssignOp x),_) = x

@@ -52,24 +52,22 @@ spec = parallel $ do
                    , Op Inc
                    , Op $ AssignOp Add
                    , Op Assign
-                   , LiteralInt "2"
+                   , LiteralInt 2
                    , Op Add
-                   , LiteralInt "3"
-                   , LiteralInt "4"
+                   , LiteralInt 3
+                   , LiteralInt 4
                    , Semicolon
                    ]
     it "lexes custom operators" $ do
       lx "+ +-* -" `shouldBe` [Op Add, Op $ Custom ("+-*"), Op Sub]
     it "lexes int literals" $ do
-      lx "1 234 0 0x123 0b101 0o0701 -1"
-        `shouldBe` [ LiteralInt "1"
-                   , LiteralInt "234"
-                   , LiteralInt "0"
-                   , LiteralInt "0x123"
-                   , LiteralInt "0b101"
-                   , LiteralInt "0o0701"
-                   , LiteralInt ("-1")
-                   ]
+      lx "1 234 0" `shouldBe` map LiteralInt [1, 234, 0]
+    it "lexes hex int literals" $ do
+      lx "0x123abcf" `shouldBe` [LiteralInt 19114959]
+    it "lexes octal int literals" $ do
+      lx "0o701" `shouldBe` [LiteralInt 449]
+    it "lexes binary int literals" $ do
+      lx "0b101" `shouldBe` [LiteralInt 5]
     it "lexes string literals" $ do
       lx "'abc' \"def\" \"\"\"ghi\njkl\"\"\""
         `shouldBe` [ LiteralString "abc"

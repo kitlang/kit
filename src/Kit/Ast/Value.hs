@@ -4,7 +4,7 @@ import Kit.Str
 
 data ValueLiteral
   = BoolValue Bool
-  | IntValue Str
+  | IntValue Int
   | FloatValue Str
   | StringValue Str
   deriving (Eq, Show)

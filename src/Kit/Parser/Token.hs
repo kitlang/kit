@@ -69,7 +69,7 @@ data TokenClass
   | LiteralBool Bool
   | LiteralString Str
   | LiteralFloat Str
-  | LiteralInt Str
+  | LiteralInt Int
   | Op Operator
   | Lex Str
   | LowerIdentifier Str
@@ -138,11 +138,11 @@ instance Show TokenClass where
     KeywordWhile -> "while"
     LiteralBool True -> "bool `true`"
     LiteralBool False -> "bool `false`"
-    LiteralString s -> "string literal `" ++ (s_unpack s) ++ "`"
-    LiteralFloat s -> "float literal `" ++ (s_unpack s) ++ "`"
-    LiteralInt s -> "int literal `" ++ (s_unpack s) ++ "`"
+    LiteralString s -> "string literal `" ++ s_unpack s ++ "`"
+    LiteralFloat s -> "float literal `" ++ s_unpack s ++ "`"
+    LiteralInt s -> "int literal `" ++ show s ++ "`"
     Op op -> "operator " ++ show op
-    Lex s -> "lex macro `" ++ (s_unpack s) ++ "!`"
-    LowerIdentifier s -> "identifier `" ++ (s_unpack s) ++ "`"
-    MacroIdentifier s -> "macro identifier `" ++ (s_unpack s) ++ "`"
-    UpperIdentifier s -> "type constructor `" ++ (s_unpack s) ++ "`"
+    Lex s -> "lex macro `" ++ s_unpack s ++ "!`"
+    LowerIdentifier s -> "identifier `" ++ s_unpack s ++ "`"
+    MacroIdentifier s -> "macro identifier `" ++ s_unpack s ++ "`"
+    UpperIdentifier s -> "type constructor `" ++ s_unpack s ++ "`"

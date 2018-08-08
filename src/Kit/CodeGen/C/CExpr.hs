@@ -92,7 +92,7 @@ transpileExpr (IrIdentifier s) = u $ CVar $ internalIdent $ s_unpack s
 transpileExpr (IrLiteral (BoolValue b)) =
   CConst $ u $ CIntConst $ cInteger (if b then 1 else 0)
 transpileExpr (IrLiteral (IntValue i)) =
-  CConst $ u $ CIntConst $ transpileInt (s_unpack i)
+  CConst $ u $ CIntConst $ cInteger $ toInteger i
 transpileExpr (IrLiteral (FloatValue f)) =
   CConst $ u $ CFloatConst $ transpileFloat (s_unpack f)
 transpileExpr (IrLiteral (StringValue s)) =

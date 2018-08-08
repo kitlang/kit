@@ -87,8 +87,8 @@ generateDeclIr ctx mod t = do
               , functionType = BasicTypeInt 16
               , functionBody = case functionBody converted of
                 Just x ->
-                  Just $ IrBlock [x, IrReturn $ Just $ IrLiteral $ IntValue "0"]
-                Nothing -> Just (IrReturn $ Just $ IrLiteral $ IntValue "0")
+                  Just $ IrBlock [x, IrReturn $ Just $ IrLiteral $ IntValue 0]
+                Nothing -> Just (IrReturn $ Just $ IrLiteral $ IntValue 0)
               }
           ]
         else return

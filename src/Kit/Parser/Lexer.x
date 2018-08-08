@@ -3,6 +3,8 @@
 
 module Kit.Parser.Lexer where
 
+import Data.Char
+import Numeric
 import System.Exit
 import Kit.Str
 import Kit.Ast.Operator
@@ -87,10 +89,10 @@ tokens :-
   "'" (\\.|[^\'])* "'" { tok' (\s -> LiteralString $ processStringLiteral $ s_take (s_length s - 2) $ s_drop 1 s) }
   [\"]{3} ([^\"]|\"[^\"]|\"\"[^\"]|\n)* [\"]{3} { tok' (\s -> LiteralString $ processStringLiteral $ s_take (s_length s - 6) $ s_drop 3 s) }
   \-?[0-9]+ "." [0-9]* { tok' (\s -> LiteralFloat s) }
-  "0x" [0-9a-fA-F]+ { tok' (\s -> LiteralInt s) }
-  "0b" [01]+ { tok' (\s -> LiteralInt s) }
-  "0o" [0-7]+ { tok' (\s -> LiteralInt s) }
-  \-?(0|[1-9][0-9]*) { tok' (\s -> LiteralInt s) }
+  "0x" [0-9a-fA-F]+ { tok' (\s -> LiteralInt (parseInt readHex $ drop 2 $ s_unpack s)) }
+  "0o" [0-7]+ { tok' (\s -> LiteralInt (parseInt readOct $ drop 2 $ s_unpack s)) }
+  "0b" [01]+ { tok' (\s -> LiteralInt (parseInt readBin $ drop 2 $ s_unpack s)) }
+  \-?(0|[1-9][0-9]*) { tok' (\s -> LiteralInt (parseInt readDec $ s_unpack s)) }
 
   -- operators
   "+=" { tok $ Op $ AssignOp Add }
@@ -164,6 +166,9 @@ _processString ('t':t) True = '\t' : (_processString t False)
 _processString ('v':t) True = '\v' : (_processString t False)
 _processString (h:t) True = h : (_processString t False)
 _processString [] _ = ""
+
+readBin = readInt 2 (\c -> c == '0' || c == '1') digitToInt
+parseInt f s = fst ((f s) !! 0)
 
 -- token helpers
 tok' f p s = (f s, pos2span p s)
