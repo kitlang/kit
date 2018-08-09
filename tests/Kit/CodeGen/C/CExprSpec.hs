@@ -91,9 +91,9 @@ spec = do
       showexpr (IrLiteral $ BoolValue False) `shouldBe` "0"
       showexpr (IrLiteral $ BoolValue True) `shouldBe` "1"
     it "transpiles int literals" $ do
-      showexpr (IrLiteral $ IntValue 1 $ BasicTypeInt 32) `shouldBe` "1"
-      showexpr (IrLiteral $ IntValue 1234 $ BasicTypeInt 32) `shouldBe` "1234"
-      showexpr (IrLiteral $ IntValue (-50) $ BasicTypeInt 32) `shouldBe` "-50"
+      showexpr (IrLiteral $ IntValue 1 $ BasicTypeInt 16) `shouldBe` "1"
+      showexpr (IrLiteral $ IntValue 1234 $ BasicTypeInt 32) `shouldBe` "1234L"
+      showexpr (IrLiteral $ IntValue (-50) $ BasicTypeInt 8) `shouldBe` "-50"
     it "transpiles float literals" $ do
       showexpr (IrLiteral $ FloatValue "0.1" $ BasicTypeFloat 32) `shouldBe` "0.1"
     it "transpiles binary operations" $ do
