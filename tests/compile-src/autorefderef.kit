@@ -1,0 +1,29 @@
+include "stdio.h";
+
+struct MyStruct {
+    var a: Int;
+    var b: Ptr[Int];
+}
+
+function f1(x: MyStruct) {
+    printf("%li\n", x.a);
+}
+
+function f2(x: Ptr[MyStruct]) {
+    printf("%li\n", x.a);
+}
+
+function f3(x: Ptr[Ptr[MyStruct]]) {
+    printf("%li\n", x.a);
+}
+
+function main() {
+    var myVal = struct MyStruct {
+        a: 1,
+        b: 2,
+    };
+
+    f1(myVal);
+    f2(myVal);
+    f3(myVal);
+}

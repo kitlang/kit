@@ -20,7 +20,7 @@ data TypeSpec
   = TypeSpec TypePath [TypeSpec] Span
   | TypeTupleSpec [TypeSpec] Span
   | TypeFunctionSpec TypeSpec [TypeSpec] TypeSpecArgs Bool
-  | TypeSpecConstant ValueLiteral
+  -- | TypeSpecConstant ValueLiteral
   {-
     This variant can be used to force the BasicType to resolve to a specific
     ConcreteType without going through normal namespace resolution. This is

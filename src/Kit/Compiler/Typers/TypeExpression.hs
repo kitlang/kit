@@ -96,9 +96,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { texpr = et, tPos = pos }) = do
       return $ makeExprTyped (Meta m r1) (inferredType r1) pos
 
     (Literal l) -> do
-      typeVar <- makeTypeVar ctx pos
-      mapM_ resolve $ literalConstraints l typeVar pos
-      return $ makeExprTyped (Literal l) typeVar pos
+      mapM_ resolve $ literalConstraints l (inferredType ex) pos
+      return ex
 
     (This) -> do
       case tctxThis tctx of
@@ -717,12 +716,12 @@ typeVarBinding ctx name binding pos = do
     -- TODO: in any method context, static methods
     -- TODO: in any method context, static fields
 
-literalConstraints :: ValueLiteral -> ConcreteType -> Span -> [TypeConstraint]
+literalConstraints :: ValueLiteral b -> ConcreteType -> Span -> [TypeConstraint]
 literalConstraints (BoolValue _) s pos =
   [TypeEq (basicType $ BasicTypeBool) s "Bool literal must be a Bool type" pos]
-literalConstraints (IntValue _) s pos =
+literalConstraints (IntValue v _) s pos =
   [TypeEq typeClassNumeric s "Int literals must be a Numeric type" pos]
-literalConstraints (FloatValue _) s pos =
+literalConstraints (FloatValue _ _) s pos =
   [ TypeEq typeClassNumericMixed
            s
            "Float literals must be a NumericMixed type"

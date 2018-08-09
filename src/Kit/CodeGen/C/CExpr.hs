@@ -26,7 +26,8 @@ cDecl t ident body = u
     []
 
 u x = x undefNode
-cpos p x = x $ mkNodeInfoOnlyPos $ position 0 (file p) (startLine p) (startCol p) Nothing
+cpos p x =
+  x $ mkNodeInfoOnlyPos $ position 0 (file p) (startLine p) (startCol p) Nothing
 
 ctype :: BasicType -> ([CTypeSpec], [CDerivedDeclr])
 ctype BasicTypeVoid       = ([u CVoidType], [])
@@ -79,21 +80,36 @@ ctype (BasicTypeUnion name _) =
   , []
   )
 ctype (CPtr x) = (fst t, (u $ CPtrDeclr []) : snd t) where t = ctype x
-ctype (BasicTypeFunction _ _ _    ) = undefined
-ctype (CArray _ _                 ) = undefined
-ctype (BasicTypeUnknown           ) = undefined
+ctype (BasicTypeFunction _ _ _) = undefined
+ctype (CArray _ _             ) = undefined
+ctype (BasicTypeUnknown       ) = undefined
 -- TODO: CArray
 
 --transpile :: [Expr] -> [CStat]
 --transpile exprs
 
+intFlags f = foldr (\f acc -> setFlag f acc) noFlags f
+
 transpileExpr :: IrExpr -> CExpr
 transpileExpr (IrIdentifier s) = u $ CVar $ internalIdent $ s_unpack s
 transpileExpr (IrLiteral (BoolValue b)) =
   CConst $ u $ CIntConst $ cInteger (if b then 1 else 0)
-transpileExpr (IrLiteral (IntValue i)) =
-  CConst $ u $ CIntConst $ cInteger $ toInteger i
-transpileExpr (IrLiteral (FloatValue f)) =
+transpileExpr (IrLiteral (IntValue i t@(BasicTypeFloat _))) =
+  transpileExpr (IrLiteral (FloatValue (s_pack $ show i) t))
+transpileExpr (IrLiteral (IntValue i t)) =
+  CConst $ u $ CIntConst $ CInteger
+    (toInteger i)
+    DecRepr
+    (intFlags
+      (case t of
+        BasicTypeInt  32 -> [FlagLong]
+        BasicTypeInt  64 -> [FlagLongLong]
+        BasicTypeUint 32 -> [FlagUnsigned, FlagLong]
+        BasicTypeUint 64 -> [FlagUnsigned, FlagLongLong]
+        _                -> []
+      )
+    )
+transpileExpr (IrLiteral (FloatValue f t)) =
   CConst $ u $ CFloatConst $ transpileFloat (s_unpack f)
 transpileExpr (IrLiteral (StringValue s)) =
   CConst $ u $ CStrConst $ cString $ s_unpack s
@@ -190,7 +206,7 @@ transpileBlockItem (IrVarDeclaration v t varDefault) = CBlockDecl
 transpileBlockItem x = CBlockStmt $ transpileStmt x
 
 -- TODO: validate
-r1 x = fst (x !! 0)
+r1 x = fst $ head x
 
 transpileInt ('0' : 'x' : s) = cInteger $ r1 $ readHex s
 transpileInt ('0' : 'b' : s) = cInteger $ r1 $ readInt 2 isBin readBin s

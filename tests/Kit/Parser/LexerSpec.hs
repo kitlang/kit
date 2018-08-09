@@ -52,22 +52,26 @@ spec = parallel $ do
                    , Op Inc
                    , Op $ AssignOp Add
                    , Op Assign
-                   , LiteralInt 2
+                   , LiteralInt 2 Nothing
                    , Op Add
-                   , LiteralInt 3
-                   , LiteralInt 4
+                   , LiteralInt 3 Nothing
+                   , LiteralInt 4 Nothing
                    , Semicolon
                    ]
     it "lexes custom operators" $ do
       lx "+ +-* -" `shouldBe` [Op Add, Op $ Custom ("+-*"), Op Sub]
     it "lexes int literals" $ do
-      lx "1 234 0" `shouldBe` map LiteralInt [1, 234, 0]
+      lx "1 234 0" `shouldBe` map (\x -> LiteralInt x Nothing) [1, 234, 0]
+    it "lexes negative int literals" $ do
+      lx "-123 -456" `shouldBe` map (\x -> LiteralInt x Nothing) [-123, -456]
+    it "lexes suffixed int literals" $ do
+      lx "1_i64 234_u8 0_f32" `shouldBe` [LiteralInt 1 (Just Int64), LiteralInt 234 (Just Uint8), LiteralInt 0 (Just Float32)]
     it "lexes hex int literals" $ do
-      lx "0x123abcf" `shouldBe` [LiteralInt 19114959]
+      lx "0x123abcf" `shouldBe` [LiteralInt 19114959 Nothing]
     it "lexes octal int literals" $ do
-      lx "0o701" `shouldBe` [LiteralInt 449]
+      lx "0o701" `shouldBe` [LiteralInt 449 Nothing]
     it "lexes binary int literals" $ do
-      lx "0b101" `shouldBe` [LiteralInt 5]
+      lx "0b101" `shouldBe` [LiteralInt 5 Nothing]
     it "lexes string literals" $ do
       lx "'abc' \"def\" \"\"\"ghi\njkl\"\"\""
         `shouldBe` [ LiteralString "abc"
@@ -83,10 +87,10 @@ spec = parallel $ do
     it "lexes escaped characters in string literals" $ do
       lx "\"a\\\"\\Bc\"" `shouldBe` [LiteralString "a\"Bc"]
     it "lexes float literals" $ do
-      lx "0.1 0.10000 -1.0"
-        `shouldBe` [ LiteralFloat ("0.1")
-                   , LiteralFloat ("0.10000")
-                   , LiteralFloat ("-1.0")
+      lx "0.1 0.10000 -1.0_f64"
+        `shouldBe` [ LiteralFloat ("0.1") Nothing
+                   , LiteralFloat ("0.10000") Nothing
+                   , LiteralFloat ("-1.0") (Just Float64)
                    ]
     it "lexes bool literals" $ do
       lx "true false" `shouldBe` [LiteralBool True, LiteralBool False]

@@ -88,11 +88,18 @@ tokens :-
   [\"] (\\.|[^\"])* [\"] { tok' (\s -> LiteralString $ processStringLiteral $ s_take (s_length s - 2) $ s_drop 1 s) }
   "'" (\\.|[^\'])* "'" { tok' (\s -> LiteralString $ processStringLiteral $ s_take (s_length s - 2) $ s_drop 1 s) }
   [\"]{3} ([^\"]|\"[^\"]|\"\"[^\"]|\n)* [\"]{3} { tok' (\s -> LiteralString $ processStringLiteral $ s_take (s_length s - 6) $ s_drop 3 s) }
-  \-?[0-9]+ "." [0-9]* { tok' (\s -> LiteralFloat s) }
-  "0x" [0-9a-fA-F]+ { tok' (\s -> LiteralInt (parseInt readHex $ drop 2 $ s_unpack s)) }
-  "0o" [0-7]+ { tok' (\s -> LiteralInt (parseInt readOct $ drop 2 $ s_unpack s)) }
-  "0b" [01]+ { tok' (\s -> LiteralInt (parseInt readBin $ drop 2 $ s_unpack s)) }
-  \-?(0|[1-9][0-9]*) { tok' (\s -> LiteralInt (parseInt readDec $ s_unpack s)) }
+
+  \-?[0-9]+ "." [0-9]* "_" (f(32|64)) { tok' (\s -> let [p1, p2] = s_split '_' s in LiteralFloat p1 (Just $ parseNumSuffix $ s_unpack p2)) }
+  "0x" [0-9a-fA-F]+ "_" ([ui](8|16|32|64)|f(32|64)) { tok' (\s -> let [p1, p2] = map s_unpack (s_split '_' s) in LiteralInt (parseInt readHex $ drop 2 $ p1) (Just $ parseNumSuffix p2)) }
+  "0o" [0-7]+ "_" ([ui](8|16|32|64)|f(32|64)) { tok' (\s -> let [p1, p2] = map s_unpack (s_split '_' s) in LiteralInt (parseInt readOct $ drop 2 $ p1) (Just $ parseNumSuffix p2)) }
+  "0b" [01]+ "_" ([ui](8|16|32|64)|f(32|64)) { tok' (\s -> let [p1, p2] = map s_unpack (s_split '_' s) in LiteralInt (parseInt readBin $ drop 2 $ p1) (Just $ parseNumSuffix p2)) }
+  \-?(0|[1-9][0-9]*) "_" ([ui](8|16|32|64)|f(32|64)) { tok' (\s -> let [p1, p2] = map s_unpack (s_split '_' s) in LiteralInt (parseInt readDec $ p1) (Just $ parseNumSuffix p2)) }
+
+  \-?[0-9]+ "." [0-9]* { tok' (\s -> LiteralFloat s Nothing) }
+  "0x" [0-9a-fA-F]+ { tok' (\s -> LiteralInt (parseInt readHex $ drop 2 $ s_unpack s) Nothing) }
+  "0o" [0-7]+ { tok' (\s -> LiteralInt (parseInt readOct $ drop 2 $ s_unpack s) Nothing) }
+  "0b" [01]+ { tok' (\s -> LiteralInt (parseInt readBin $ drop 2 $ s_unpack s) Nothing) }
+  \-?(0|[1-9][0-9]*) { tok' (\s -> LiteralInt (parseInt readDec $ s_unpack s) Nothing) }
 
   -- operators
   "+=" { tok $ Op $ AssignOp Add }
@@ -168,7 +175,18 @@ _processString (h:t) True = h : (_processString t False)
 _processString [] _ = ""
 
 readBin = readInt 2 (\c -> c == '0' || c == '1') digitToInt
-parseInt f s = fst ((f s) !! 0)
+parseInt f ('-':s) = -(fst $ head $ f s)
+parseInt f s = fst $ head $ f s
+parseNumSuffix "u8" = Uint8
+parseNumSuffix "u16" = Uint16
+parseNumSuffix "u32" = Uint32
+parseNumSuffix "u64" = Uint64
+parseNumSuffix "i8" = Int8
+parseNumSuffix "i16" = Int16
+parseNumSuffix "i32" = Int32
+parseNumSuffix "i64" = Int64
+parseNumSuffix "f32" = Float32
+parseNumSuffix "f64" = Float64
 
 -- token helpers
 tok' f p s = (f s, pos2span p s)

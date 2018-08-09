@@ -34,8 +34,8 @@ data MatchCase a = MatchCase {match_pattern :: a, match_body :: a} deriving (Eq,
 data ExprType a b
   = Block [a]
   | Using [UsingType a b] a
-  | Meta (Metadata) a
-  | Literal ValueLiteral
+  | Meta Metadata a
+  | Literal (ValueLiteral b)
   | This
   | Self
   -- identifier, namespace

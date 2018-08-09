@@ -1,0 +1,25 @@
+/**
+ * Trait for testing equality between two types.
+ *
+ * In some cases the logic for equality relations is built in to the compiler,
+ * e.g. comparing numeric types, or tuples or structs of comparable types. A
+ * relevant Eq instance will be checked for first before applying these native
+ * comparisons.
+ */
+trait Eq[T] {
+    /**
+     * Tests for `this` and `other to be equal.
+     */
+    public function eq(other: T): Bool;
+
+    /**
+     * Doesn't need to be implemented; any manual implementation should return
+     * the inverse of `eq`.
+     */
+    public function neq(other: T) {
+        return !eq(other);
+    }
+}
+
+// FIXME: this is necessary for now to avoid a module with no declarations...
+struct Nothing { var i: Int; }

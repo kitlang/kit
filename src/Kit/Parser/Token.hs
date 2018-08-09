@@ -68,14 +68,16 @@ data TokenClass
   | KeywordWhile
   | LiteralBool Bool
   | LiteralString Str
-  | LiteralFloat Str
-  | LiteralInt Int
+  | LiteralFloat Str (Maybe NumSpec)
+  | LiteralInt Int (Maybe NumSpec)
   | Op Operator
   | Lex Str
   | LowerIdentifier Str
   | MacroIdentifier Str
   | UpperIdentifier Str
   deriving (Eq)
+
+data NumSpec = Int8 | Int16 | Int32 | Int64 | Uint8 | Uint16 | Uint32 | Uint64 | Float32 | Float64 deriving (Eq, Show)
 
 instance Show TokenClass where
   show tok = case tok of
@@ -139,8 +141,8 @@ instance Show TokenClass where
     LiteralBool True -> "bool `true`"
     LiteralBool False -> "bool `false`"
     LiteralString s -> "string literal `" ++ s_unpack s ++ "`"
-    LiteralFloat s -> "float literal `" ++ s_unpack s ++ "`"
-    LiteralInt s -> "int literal `" ++ show s ++ "`"
+    LiteralFloat s _ -> "float literal `" ++ s_unpack s ++ "`"
+    LiteralInt s _ -> "int literal `" ++ show s ++ "`"
     Op op -> "operator " ++ show op
     Lex s -> "lex macro `" ++ s_unpack s ++ "!`"
     LowerIdentifier s -> "identifier `" ++ s_unpack s ++ "`"

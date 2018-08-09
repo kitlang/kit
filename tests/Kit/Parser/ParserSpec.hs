@@ -30,7 +30,7 @@ spec = parallel $ do
                    )
 
     it "parses value literals" $ do
-      testParseExpr "1" `shouldBe` (pe (sp "" 1 1 1 1) $ Literal $ IntValue 1)
+      testParseExpr "1" `shouldBe` (pe (sp "" 1 1 1 1) $ Literal $ IntValue 1 Nothing)
 
     it "parses binops" $ do
       testParseExpr "a = 1 + 2.0 * 'abc def'"
@@ -39,9 +39,9 @@ spec = parallel $ do
                      (e $ Identifier (Var "a") [])
                      (e $ Binop
                        Add
-                       (e $ Literal $ IntValue 1)
+                       (e $ Literal $ IntValue 1 Nothing)
                        (e $ Binop Mul
-                                  (e $ Literal $ FloatValue "2.0")
+                                  (e $ Literal $ FloatValue "2.0" Nothing)
                                   (e $ Literal $ StringValue "abc def")
                        )
                      )
@@ -50,8 +50,8 @@ spec = parallel $ do
     it "parses ternary" $ do
       testParseExpr "if true then 1 else 2"
         `shouldBe` (e $ If (e $ Literal $ BoolValue True)
-                           (e $ Literal $ IntValue 1)
-                           (Just $ e $ Literal $ IntValue 2)
+                           (e $ Literal $ IntValue 1 Nothing)
+                           (Just $ e $ Literal $ IntValue 2 Nothing)
                    )
 
     it "parses vectors" $ do
@@ -81,7 +81,7 @@ spec = parallel $ do
       testParseExpr "struct Abc {a: 1, b: true}"
         `shouldBe` (e $ StructInit
                      (Just $ TypeSpec ([], "Abc") [] (sp "" 1 8 1 10))
-                     [ ("a", e $ Literal $ IntValue 1)
+                     [ ("a", e $ Literal $ IntValue 1 Nothing)
                      , ("b", e $ Literal $ BoolValue True)
                      ]
                    )
@@ -89,12 +89,11 @@ spec = parallel $ do
   describe "Parse statements" $ do
     it "parses blocks" $ do
       testParseTopLevel "{this; Self;\n break;}"
-        `shouldBe` ( pe (sp "" 1 1 2 8)
-                   $ Block
-                       [ pe (sp "" 1 2 1 6)  This
-                       , pe (sp "" 1 8 1 12) Self
-                       , pe (sp "" 2 2 2 7)  Break
-                       ]
+        `shouldBe` (pe (sp "" 1 1 2 8) $ Block
+                     [ pe (sp "" 1 2 1 6)  This
+                     , pe (sp "" 1 8 1 12) Self
+                     , pe (sp "" 2 2 2 7)  Break
+                     ]
                    )
 
     it "parses continue" $ do
@@ -160,7 +159,7 @@ spec = parallel $ do
                                                  , argDefault = Just
                                                    $ e
                                                    $ Literal
-                                                   $ IntValue 2
+                                                   $ IntValue 2 Nothing
                                                  }
                                                , newArgSpec
                                                  { argName = "c"
@@ -295,7 +294,7 @@ spec = parallel $ do
                                                   , variantMeta = []
                                                   , variantModifiers = []
                                                   , variantValue = Just
-                                                    (e $ Literal $ IntValue 1)
+                                                    (e $ Literal $ IntValue 1 Nothing)
                                                   }
                                                 ]
                          }
@@ -384,7 +383,7 @@ spec = parallel $ do
                                             , varDefault   = Just
                                               $ e
                                               $ Literal
-                                              $ IntValue 1
+                                              $ IntValue 1 Nothing
                                             }
                                           ]
                          }

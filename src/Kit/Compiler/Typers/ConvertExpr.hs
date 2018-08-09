@@ -71,10 +71,20 @@ convertExpr ctx tctx mod e = do
       children <- mapM r x
       return $ makeExprTyped (Block children) t pos'
     Using using e1 -> singleWrapper e1 (Using $ map convertUsingType using)
-    Meta  meta  e1 -> singleWrapper e1 (Meta meta)
-    Literal l      -> container0 (Literal l)
-    This           -> container0 This
-    Self           -> container0 Self
+    Meta meta e1 -> singleWrapper e1 (Meta meta)
+    Literal (IntValue v t) -> do
+      t' <- resolveMaybeType ctx tctx mod pos' t
+      return $ m (Literal (IntValue v t')) t'
+    Literal (FloatValue v t) -> do
+      t' <- resolveMaybeType ctx tctx mod pos' t
+      return $ m (Literal (FloatValue v t')) t'
+    Literal (StringValue s) -> do
+      t' <- mtv
+      return $ m (Literal (StringValue s)) t'
+    Literal (BoolValue b) ->
+      return $ m (Literal (BoolValue b)) (TypeBasicType BasicTypeBool)
+    This -> container0 This
+    Self -> container0 Self
     Identifier (Var id       ) namespace -> container0 (Identifier (Var id) namespace)
     Identifier (MacroVar id t) namespace -> do
       t <- case t of

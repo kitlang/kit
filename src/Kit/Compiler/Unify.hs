@@ -63,7 +63,7 @@ unify ctx tctx mod a' b' = do
       return $ case meetsConstraints of
         TypeConstraintSatisfied -> TypeVarIs i x
         _                       -> meetsConstraints
-    (_                    , TypeTypeVar _        ) -> unify ctx tctx mod b a
+    (_                    , TypeTypeVar _) -> unify ctx tctx mod b a
     (TypeTraitConstraint t, x                    ) -> resolveTraitConstraint ctx tctx mod t x
     (_                    , TypeTraitConstraint v) -> unify ctx tctx mod b a
     (TypeBasicType a      , TypeBasicType b      ) -> return $ unifyBasic a b

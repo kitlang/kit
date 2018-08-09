@@ -127,12 +127,11 @@ cdecl (BasicTypeComplexEnum name variants) =
       ]
   enumVariants name variants = map
     (\(variantName, variant_fields) ->
-      (cdecl
+      head (cdecl
           (BasicTypeStruct (Just $ enumVariantName name variantName)
                            (variant_fields)
           )
         )
-        !! 0
     )
     nonemptyVariants
   nonemptyVariants = filter (\(name, fields) -> fields /= []) variants

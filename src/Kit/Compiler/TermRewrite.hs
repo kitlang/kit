@@ -103,7 +103,7 @@ ruleMatch pattern te thisType typeResolver = do
     (Identifier (Var x) n, Identifier (Var y) m) ->
       return $ if (x, n) == (y, m) then Just [] else Nothing
     (Identifier _ _, Identifier _ _) -> return Nothing
-    (Literal a, Literal b) -> return $ if a == b then Just [] else Nothing
+    (Literal a, Literal b) -> return $ if valueEq a b then Just [] else Nothing
     (a        , b        ) -> if exprDiscriminant a == exprDiscriminant b
       then
         let (c1, c2) = (exprChildren a, exprChildren b)

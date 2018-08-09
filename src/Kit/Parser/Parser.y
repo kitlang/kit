@@ -7,6 +7,7 @@ import Kit.Error
 import Kit.Parser.Base
 import Kit.Parser.Span
 import Kit.Parser.Token
+import Kit.Str
 }
 
 %name parseTokens Statements
@@ -107,8 +108,8 @@ import Kit.Parser.Token
 
   bool {(LiteralBool _, _)}
   str {(LiteralString _, _)}
-  float {(LiteralFloat _, _)}
-  int {(LiteralInt _, _)}
+  float {(LiteralFloat _ _, _)}
+  int {(LiteralInt _ _, _)}
 %%
 
 Statements :: {[Statement]}
@@ -117,7 +118,7 @@ Statements_ :: {[Statement]}
   : {[]}
   | Statements_ Statement {$2 : $1}
 
-MaybeDoc :: {Maybe B.ByteString}
+MaybeDoc :: {Maybe Str}
   : {Nothing}
   | doc_comment {Just $ extract_doc_comment $1}
 
@@ -320,7 +321,7 @@ TopLevelExprs :: {[Expr]}
   : {[]}
   | TopLevelExprs TopLevelExpr {$2 : $1}
 
-ModulePath :: {([B.ByteString], Span)}
+ModulePath :: {([Str], Span)}
   : identifier {([extract_identifier $1], snd $1)}
   | ModulePath '.' identifier {(extract_identifier $3 : fst $1, snd $1 <+> p $3)}
 
@@ -349,11 +350,11 @@ MetaMods :: {(([Metadata], [Modifier]), Span)}
   | MetaMods inline {let (meta, mods) = fst $1 in (((meta, Inline : mods)), snd $1 <+> snd $2)}
   | MetaMods const {let (meta, mods) = fst $1 in ((meta, (Const : mods)), snd $1 <+> snd $2)}
 
-DocMetaMods :: {((Maybe B.ByteString, [Metadata], [Modifier]), Span)}
+DocMetaMods :: {((Maybe Str, [Metadata], [Modifier]), Span)}
   : MetaMods {((Nothing, fst $ fst $1, snd $ fst $1), p $1)}
   | doc_comment MetaMods {((Just $ extract_doc_comment $1, fst $ fst $2, snd $ fst $2), p $2)}
 
-StaticDocMetaMods :: {((Maybe B.ByteString, [Metadata], [Modifier]), Span)}
+StaticDocMetaMods :: {((Maybe Str, [Metadata], [Modifier]), Span)}
   : DocMetaMods static MetaMods {
     let ((doc, meta1, mod1), span1) = $1 in
     let ((meta2, mod2), span2) = $3 in
@@ -404,7 +405,7 @@ TypeConstraints_ :: {[TypeSpec]}
   : TypeSpec {[fst $1]}
   | TypeConstraints_ ',' TypeSpec {fst $3 : $1}
 
-UpperOrLowerIdentifier :: {(B.ByteString, Span)}
+UpperOrLowerIdentifier :: {(Str, Span)}
   : identifier {(extract_identifier $1, snd $1)}
   | upper_identifier {(extract_upper_identifier $1, snd $1)}
 
@@ -444,7 +445,7 @@ OptionalDefault :: {Maybe Expr}
   : {Nothing}
   | '=' Expr {Just $2}
 
-EnumPrefix :: {((DocMetaMod, B.ByteString), Span)}
+EnumPrefix :: {((DocMetaMod, Str), Span)}
   : DocMetaMods upper_identifier {(($1, extract_upper_identifier $2), snd $2)}
 
 EnumVariant :: {EnumVariant Expr (Maybe TypeSpec)}
@@ -698,22 +699,22 @@ BaseExpr :: {Expr}
   | '(' Expr ')' {me (p $1 <+> p $3) $2}
   | null {pe (snd $1) $ Unsafe $ pe (snd $1) $ Identifier (Var "NULL") []}
 
-Term :: {(ValueLiteral, Span)}
+Term :: {(ValueLiteral (Maybe TypeSpec), Span)}
   : bool {(BoolValue $ extract_bool $ fst $1, snd $1)}
   | str {(StringValue $ extract_lit $ fst $1, snd $1)}
-  | int {(IntValue $ extract_int_lit $ fst $1, snd $1)}
-  | float {(FloatValue $ extract_lit $ fst $1, snd $1)}
+  | int {let x = extract_int_lit $ fst $1 in (IntValue (fst x) (snd x), snd $1)}
+  | float {let x = extract_float_lit $ fst $1 in (FloatValue (fst x) (snd x), snd $1)}
 
-StructInitFields :: {[(B.ByteString, Expr)]}
+StructInitFields :: {[(Str, Expr)]}
   : {[]}
   | OneOrMoreStructInitFields ',' {reverse $1}
   | OneOrMoreStructInitFields {reverse $1}
 
-OneOrMoreStructInitFields :: {[(B.ByteString, Expr)]}
+OneOrMoreStructInitFields :: {[(Str, Expr)]}
   : StructInitField {[$1]}
   | OneOrMoreStructInitFields ',' StructInitField {$3 : $1}
 
-StructInitField :: {(B.ByteString, Expr)}
+StructInitField :: {(Str, Expr)}
   : UpperOrLowerIdentifier ':' Expr {(fst $1, $3)}
   | UpperOrLowerIdentifier {(fst $1, pe (snd $1) $ Identifier (Var $ fst $1) [])}
 
@@ -837,7 +838,7 @@ thenP = (>>=)
 returnP = return
 
 parseError [] = Err $ KitError $ ParseError ("Unexpected end of input") (Nothing)
-parseError t = Err $ KitError $ ParseError ("Unexpected " ++ (show $ fst et)) (Just $ snd et) where et = t !! 0
+parseError t = Err $ KitError $ ParseError ("Unexpected " ++ (show $ fst et)) (Just $ snd et) where et = head t
 
 data Member a b
   = RuleMember (RewriteRule a b)
@@ -859,12 +860,14 @@ extract_identifier (LowerIdentifier x,_) = x
 extract_macro_identifier (MacroIdentifier x,_) = x
 extract_upper_identifier (UpperIdentifier x,_) = x
 extract_bool (LiteralBool x) = x
-extract_int_lit (LiteralInt x) = x
-extract_lit (LiteralFloat x) = x
 extract_lit (LiteralString x) = x
+extract_int_lit (LiteralInt x y) = (x, numSpec y)
+extract_float_lit (LiteralFloat x y) = (x, numSpec y)
 extract_assign_op (Op (AssignOp x),_) = x
 extract_custom_op (Op (Custom x),_) = x
 extract_doc_comment (DocComment x,_) = x
+numSpec (Just x) = Just $ TypeSpec ([], s_pack $ show x) [] NoPos
+numSpec Nothing = Nothing
 
 tc :: [Token] -> [TokenClass]
 tc t = [fst t' | t' <- t]
@@ -874,13 +877,13 @@ p = snd
 fp :: [Span] -> Span
 fp s = foldr (<+>) NoPos s
 
-type DocMetaMod = ((Maybe B.ByteString, [Metadata], [Modifier]), Span)
+type DocMetaMod = ((Maybe Str, [Metadata], [Modifier]), Span)
 
-doc :: ((Maybe B.ByteString, [Metadata], [Modifier]), Span) -> Maybe B.ByteString
+doc :: ((Maybe Str, [Metadata], [Modifier]), Span) -> Maybe Str
 doc ((a,_,_),_) = a
-metas :: ((Maybe B.ByteString, [Metadata], [Modifier]), Span) -> [Metadata]
+metas :: ((Maybe Str, [Metadata], [Modifier]), Span) -> [Metadata]
 metas ((_,b,_),_) = b
-mods :: ((Maybe B.ByteString, [Metadata], [Modifier]), Span) -> [Modifier]
+mods :: ((Maybe Str, [Metadata], [Modifier]), Span) -> [Modifier]
 mods ((_,_,c),_) = c
 
 }

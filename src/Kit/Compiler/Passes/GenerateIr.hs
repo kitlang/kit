@@ -87,8 +87,8 @@ generateDeclIr ctx mod t = do
               , functionType = BasicTypeInt 16
               , functionBody = case functionBody converted of
                 Just x ->
-                  Just $ IrBlock [x, IrReturn $ Just $ IrLiteral $ IntValue 0]
-                Nothing -> Just (IrReturn $ Just $ IrLiteral $ IntValue 0)
+                  Just $ IrBlock [x, IrReturn $ Just $ IrLiteral $ IntValue 0 $ BasicTypeInt 16]
+                Nothing -> Just (IrReturn $ Just $ IrLiteral $ IntValue 0 $ BasicTypeInt 16)
               }
           ]
         else return
@@ -261,18 +261,19 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
       (Block children) -> do
         children' <- mapM r children
         return $ IrBlock children'
-      (Using _ e1              ) -> r e1
-      (Meta  m e1              ) -> r e1
-      (Literal (l@(IntValue _))) -> do
-        return $ IrCast (IrLiteral l) f
-      (Literal (l@(FloatValue v))) -> case f of
+      (Using _ e1            ) -> r e1
+      (Meta  m e1            ) -> r e1
+      (Literal (IntValue v _)) -> do
+        return $ IrCast (IrLiteral (IntValue v f)) f
+      (Literal (l@(FloatValue v _))) -> case f of
+        -- FIXME: this is better handled at the code generation stage now that we have literal types
         BasicTypeFloat 32 ->
-          return (IrLiteral (FloatValue (s_concat [v, "f"])))
-        _ -> return (IrLiteral l)
-      (Literal l) -> do
-        return $ IrLiteral l
-      (This) -> return $ IrIdentifier "__this"
-      (Self) -> throw $ KitError $ BasicError
+          return (IrLiteral (FloatValue (s_concat [v, "f"]) f))
+        _ -> return (IrLiteral (FloatValue v f))
+      (Literal (StringValue s)) -> return $ IrLiteral (StringValue s)
+      (Literal (BoolValue   b)) -> return $ IrLiteral (BoolValue b)
+      (This                   ) -> return $ IrIdentifier "__this"
+      (Self                   ) -> throw $ KitError $ BasicError
         ("unexpected `Self` in typed AST")
         (Just pos)
       (Identifier (Var v) namespace) -> case t of

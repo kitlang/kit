@@ -78,8 +78,8 @@ spec = do
       showstmt
           (IrFor "a"
                  (BasicTypeUint 8)
-                 (IrLiteral $ IntValue 1)
-                 (IrLiteral $ IntValue 5)
+                 (IrLiteral $ IntValue 1 $ BasicTypeInt 8)
+                 (IrLiteral $ IntValue 5 $ BasicTypeInt 8)
                  (IrContinue)
           )
         `shouldBe` "for (unsigned char a = 1; a < 5; ++a)\ncontinue;"
@@ -91,11 +91,11 @@ spec = do
       showexpr (IrLiteral $ BoolValue False) `shouldBe` "0"
       showexpr (IrLiteral $ BoolValue True) `shouldBe` "1"
     it "transpiles int literals" $ do
-      showexpr (IrLiteral $ IntValue 1) `shouldBe` "1"
-      showexpr (IrLiteral $ IntValue 1234) `shouldBe` "1234"
-      showexpr (IrLiteral $ IntValue $ -50) `shouldBe` "-50"
+      showexpr (IrLiteral $ IntValue 1 $ BasicTypeInt 32) `shouldBe` "1"
+      showexpr (IrLiteral $ IntValue 1234 $ BasicTypeInt 32) `shouldBe` "1234"
+      showexpr (IrLiteral $ IntValue (-50) $ BasicTypeInt 32) `shouldBe` "-50"
     it "transpiles float literals" $ do
-      showexpr (IrLiteral $ FloatValue "0.1") `shouldBe` "0.1"
+      showexpr (IrLiteral $ FloatValue "0.1" $ BasicTypeFloat 32) `shouldBe` "0.1"
     it "transpiles binary operations" $ do
       showexpr (IrBinop Add (IrIdentifier "a") (IrIdentifier "b"))
         `shouldBe` "a + b"
