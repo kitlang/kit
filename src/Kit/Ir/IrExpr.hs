@@ -12,7 +12,7 @@ data IrExpr
   | IrPostUnop Operator IrExpr
   | IrBinop Operator IrExpr IrExpr
   | IrFor Str BasicType IrExpr IrExpr IrExpr
-  | IrWhile IrExpr IrExpr
+  | IrWhile IrExpr IrExpr Bool
   | IrIf IrExpr IrExpr (Maybe IrExpr)
   | IrContinue
   | IrBreak

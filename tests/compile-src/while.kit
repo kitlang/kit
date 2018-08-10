@@ -1,0 +1,26 @@
+include "stdio.h";
+
+function main() {
+    var a = 1;
+    while (a < 5) {
+        printf("%hi\n", a);
+        a++;
+    }
+
+    var b = 1;
+    while (true) {
+        if b == 2 {
+            ++b;
+            continue;
+        }
+        printf("%hi\n", b);
+        if ++b == 4 {
+            break;
+        }
+    }
+
+    var c = 3;
+    do {
+        printf("at least once\n");
+    } while (c < 3);
+}

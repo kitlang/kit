@@ -260,7 +260,8 @@ StandaloneExpr :: {Expr}
   | if BinopTermOr ExprBlock else ExprBlock {pe (p $1 <+> pos $5) $ If $2 $3 (Just $5)}
   | if BinopTermOr ExprBlock {pe (p $1 <+> pos $3) $ If $2 $3 (Nothing)}
   | for Identifier in Expr ExprBlock {pe (p $1 <+> pos $5) $ For (pe (snd $2) (Identifier (fst $2) [])) $4 $5}
-  | while Expr ExprBlock {pe (p $1 <+> pos $3) $ While $2 $3}
+  | while Expr ExprBlock {pe (p $1 <+> pos $3) $ While $2 $3 False}
+  | do ExprBlock while Expr ';' {pe (p $1 <+> p $5) $ While $4 $2 True}
   | match Expr '{' MatchCases DefaultMatchCase '}' {pe (p $1 <+> p $6) $ Match $2 (reverse $4) $5}
   | Expr ';' {me (pos $1 <+> p $2) $1}
 

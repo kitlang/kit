@@ -318,10 +318,10 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
         r2 <- r e2
         return $ IrBinop op r1 r2
       (For e1 e2 e3) -> return $ undefined -- TODO
-      (While e1 e2 ) -> do
+      (While e1 e2 d) -> do
         r1 <- r e1
         r2 <- r e2
-        return $ IrWhile r1 r2
+        return $ IrWhile r1 r2 d
       (If e1 e2 e3) -> do
         r1 <- r e1
         r2 <- r e2

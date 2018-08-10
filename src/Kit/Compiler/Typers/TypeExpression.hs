@@ -238,7 +238,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { texpr = et, tPos = pos }) = do
         voidType
         pos
 
-    (While e1 e2) -> do
+    (While e1 e2 d) -> do
       r1    <- r e1
       scope <- newScope (modPath mod)
       r2    <- typeExpr
@@ -253,7 +253,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { texpr = et, tPos = pos }) = do
                        (basicType BasicTypeBool)
                        "A while condition must be a Bool"
                        (tPos r1)
-      return $ makeExprTyped (While r1 r2) voidType pos
+      return $ makeExprTyped (While r1 r2 d) voidType pos
 
     (If e1 e2 (Just e3)) -> do
       r1     <- r e1

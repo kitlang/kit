@@ -99,10 +99,10 @@ convertExpr ctx tctx mod e = do
     PostUnop op e1 -> container1 e1 (PostUnop op)
     Binop op e1 e2 -> container2 e1 e2 (Binop op)
     For   e1 e2 e3 -> container3 e1 e2 e3 (For)
-    While e1 e2    -> do
+    While e1 e2 d  -> do
       r1 <- r e1
       r2 <- r e2
-      return $ m (While r1 r2) voidType
+      return $ m (While r1 r2 d) voidType
     If e1 e2 me3 -> do
       t  <- mtv
       r1 <- r e1

@@ -184,8 +184,8 @@ transpileStmt (IrIf cond e1 (Just e2)) =
   u $ CIf (transpileExpr cond) (transpileStmt e1) (Just $ transpileStmt e2)
 transpileStmt (IrIf cond e1 Nothing) =
   u $ CIf (transpileExpr cond) (transpileStmt e1) (Nothing)
-transpileStmt (IrWhile cond e) =
-  u $ CWhile (transpileExpr cond) (transpileStmt e) False
+transpileStmt (IrWhile cond e d) =
+  u $ CWhile (transpileExpr cond) (transpileStmt e) d
 transpileStmt (IrFor v idType start end body) = u $ CFor
   (Right $ cDecl idType (Just v) (Just $ u $ CInitExpr $ transpileExpr start))
   (Just $ transpileExpr (IrBinop Lt (IrIdentifier v) (end)))

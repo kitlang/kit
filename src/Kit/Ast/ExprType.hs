@@ -47,8 +47,8 @@ data ExprType a b
   | Binop Operator a a
   -- for (e1 in e2) e3
   | For a a a
-  -- while (e1) e2
-  | While a a
+  -- while (e1) e2 (do?)
+  | While a a Bool
   -- if (e1) e2 [else e3]
   | If a a (Maybe a)
   | Continue
@@ -88,7 +88,7 @@ exprDiscriminant et =
     PostUnop _ _ -> 10
     Binop _ _ _ -> 11
     For _ _ _ -> 12
-    While _ _ -> 13
+    While _ _ _ -> 13
     If _ _ _ -> 14
     Continue -> 15
     Break -> 16
@@ -120,7 +120,7 @@ exprChildren et =
     PostUnop _ x -> [x]
     Binop _ x y -> [x, y]
     For x y z -> [x, y, z]
-    While x y -> [x, y]
+    While x y _ -> [x, y]
     If x y (Just z) -> [x, y, z]
     If x y Nothing -> [x, y]
     Throw x -> [x]

@@ -72,8 +72,11 @@ spec = do
           ]
         `shouldBe` "{\nunsigned short my_var = a;\nfloat my_var2;\n}"
     it "transpiles while loops" $ do
-      showstmt (IrWhile (IrIdentifier "a") (IrContinue))
+      showstmt (IrWhile (IrIdentifier "a") (IrContinue) False)
         `shouldBe` "while (a)\ncontinue;"
+    it "transpiles do-while loops" $ do
+      showstmt (IrWhile (IrIdentifier "a") (IrContinue) True)
+        `shouldBe` "do\ncontinue;\nwhile (a);"
     it "transpiles for loops" $ do
       showstmt
           (IrFor "a"
