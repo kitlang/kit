@@ -1,0 +1,23 @@
+include "stdio.h";
+
+function f(a: Int, b: Float, c: CString) {
+    printf("hello %s!\n", c);
+}
+
+function main() {
+    var a: Int = 1;
+    var b: Float = 2.0;
+    var c: CString = "world2";
+
+    using implicit a {
+        f(3.5, "world");
+    }
+
+    using implicit a, implicit b {
+        f("world");
+
+        using implicit c {
+            f();
+        }
+    }
+}

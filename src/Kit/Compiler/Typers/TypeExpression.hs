@@ -588,12 +588,24 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
   tryRewrite result' (return result')
 
 alignCallArgs
-  :: [ConcreteType] -> Bool -> [TypedExpr] -> [TypedExpr] -> [TypedExpr]
-alignCallArgs argTypes isVariadic implicits args = if null argTypes
-  then []
-  else case findImplicit (head argTypes) implicits of
-    Just x  -> x : (alignCallArgs (tail argTypes) isVariadic implicits args)
-    Nothing -> args
+  :: CompileContext
+  -> TypeContext
+  -> Module
+  -> [ConcreteType]
+  -> Bool
+  -> [TypedExpr]
+  -> [TypedExpr]
+  -> IO [TypedExpr]
+alignCallArgs ctx tctx mod argTypes isVariadic implicits args =
+  if null argTypes
+    then return []
+    else do
+      nextArg <- knownType ctx tctx mod (head argTypes)
+      case findImplicit nextArg implicits of
+        Just x -> do
+          rest <- alignCallArgs ctx tctx mod (tail argTypes) isVariadic implicits args
+          return $ x : rest
+        Nothing -> return $ args
 
 findImplicit :: ConcreteType -> [TypedExpr] -> Maybe TypedExpr
 findImplicit ct implicits = find (\imp -> inferredType imp == ct) implicits
@@ -608,8 +620,13 @@ typeFunctionCall
   -> IO TypedExpr
 typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = TypeFunction rt argTypes isVariadic, tPos = pos }) implicits args
   = do
-    let aligned = alignCallArgs (map snd argTypes) isVariadic implicits args
-    print (implicits, aligned)
+    aligned <- alignCallArgs ctx
+                             tctx
+                             mod
+                             (map snd argTypes)
+                             isVariadic
+                             implicits
+                             args
     when
         (if isVariadic
           then length aligned < length argTypes
