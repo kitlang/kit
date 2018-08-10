@@ -47,7 +47,7 @@ compile ctx = do
     module interfaces, which declare the set of types that exist in a module
     and map them to type variables.
   -}
-  printLog "building module graph"
+  printLog "parsing and building module graph"
   declarations <- buildModuleGraph ctx
 
   {-

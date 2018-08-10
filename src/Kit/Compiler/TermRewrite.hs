@@ -56,13 +56,11 @@ rewriteExpr ctx tctx mod rule te typer = do
                   ]
                 )
                 (snd firstRule)
-      t <- typer tctx' (subst x body)
-      return $ Just $ t {rewrittenBy = Just rule, tPos = (tPos t) {rewrittenFrom = Just $ tPos te}}
+      t <- typer tctx' body
+      return $ Just $ t { rewrittenBy = Just rule
+                        , tPos = (tPos t) { rewrittenFrom = Just $ tPos te }
+                        }
     _ -> return Nothing
-
--- TODO
-subst :: [RuleBinding] -> Expr -> Expr
-subst r x = x
 
 {-
   Checks whether a typed expression matches a given pattern.
@@ -84,6 +82,7 @@ ruleMatch pattern te thisType typeResolver = do
           _                -> return Nothing
         )
         (Just [])
+  let r x y = ruleMatch x y thisType typeResolver
   case (expr pattern, texpr te) of
     (Identifier (MacroVar x (Just t)) [], y) -> do
       -- ${var: type} - match and bind only if the type matches
@@ -104,7 +103,17 @@ ruleMatch pattern te thisType typeResolver = do
       return $ if (x, n) == (y, m) then Just [] else Nothing
     (Identifier _ _, Identifier _ _) -> return Nothing
     (Literal a, Literal b) -> return $ if valueEq a b then Just [] else Nothing
-    (a        , b        ) -> if exprDiscriminant a == exprDiscriminant b
+    (Binop op1 a b, Binop op2 c d) -> if op1 == op2
+      then do
+        x <- r a c
+        y <- r b d
+        combineResults [x, y]
+      else return Nothing
+    (PreUnop op1 x, PreUnop op2 y) ->
+      if op1 == op2 then r x y else return Nothing
+    (PostUnop op1 x, PostUnop op2 y) ->
+      if op1 == op2 then r x y else return Nothing
+    (a, b) -> if exprDiscriminant a == exprDiscriminant b
       then
         let (c1, c2) = (exprChildren a, exprChildren b)
         in

@@ -63,6 +63,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { texpr = et, tPos = pos }) = do
               x
               (\tctx ex -> do
                 body <- convertExpr ctx tctx mod ex
+                print body
                 typeExpr ctx tctx mod body
               )
           )
@@ -121,7 +122,10 @@ typeExpr ctx tctx mod ex@(TypedExpr { texpr = et, tPos = pos }) = do
               Just binding -> typeVarBinding ctx vname binding pos
               Nothing      -> failTyping
                 $ TypingError ("Unknown identifier: " ++ s_unpack vname) pos
-          MacroVar vname t -> return ex
+          MacroVar vname t -> do
+            case find (\(name, _) -> name == vname) (tctxMacroVars tctx) of
+              Just (name, expr) -> r expr
+              Nothing -> return ex
         )
 
     (TypeAnnotation e1 t) -> do
