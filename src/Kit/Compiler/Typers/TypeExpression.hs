@@ -137,20 +137,18 @@ typeExpr ctx tctx mod ex@(TypedExpr { texpr = et, tPos = pos }) = do
     (PreUnop op e1) -> do
       r1 <- r e1
       tryRewrite (unknownTyped $ PreUnop op r1) $ do
-        tv <- makeTypeVar ctx pos
-        case unopTypes op (inferredType r1) tv pos of
+        case unopTypes op (inferredType r1) (inferredType ex) pos of
           Just constraints -> mapM_ resolve constraints
           Nothing          -> return () -- TODO
-        return $ makeExprTyped (PreUnop op r1) tv pos
+        return $ makeExprTyped (PreUnop op r1) (inferredType ex) pos
 
     (PostUnop op e1) -> do
       r1 <- r e1
       tryRewrite (unknownTyped $ PostUnop op r1) $ do
-        tv <- makeTypeVar ctx pos
-        case unopTypes op (inferredType r1) tv pos of
+        case unopTypes op (inferredType r1) (inferredType ex) pos of
           Just constraints -> mapM_ resolve constraints
           Nothing          -> return () -- TODO
-        return $ makeExprTyped (PostUnop op r1) tv pos
+        return $ makeExprTyped (PostUnop op r1) (inferredType ex) pos
 
     (Binop Assign e1 e2) -> do
       r1 <- r e1
@@ -475,7 +473,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { texpr = et, tPos = pos }) = do
     (VectorLiteral items) ->
       throwk $ InternalError "Not yet implemented" (Just pos)
 
-    (VarDeclaration (Var vname) varType init) -> do
+    (VarDeclaration (Var vname) _ init) -> do
+      let varType = inferredType ex
       init' <- case init of
         Just e1 -> do
           r1 <- r e1
@@ -720,7 +719,25 @@ literalConstraints :: ValueLiteral b -> ConcreteType -> Span -> [TypeConstraint]
 literalConstraints (BoolValue _) s pos =
   [TypeEq (basicType $ BasicTypeBool) s "Bool literal must be a Bool type" pos]
 literalConstraints (IntValue v _) s pos =
-  [TypeEq typeClassNumeric s "Int literals must be a Numeric type" pos]
+  let exps = if v < 0
+        then [-63, -53, -31, -24, -15, -7, 0] :: [Int]
+        else [0, 7, 8, 15, 16, 24, 31, 32, 53, 63, 64] :: [Int]
+  in
+    let
+      t = foldr
+        (\(low, high) acc ->
+          if v
+               >= (signum low)
+               *  (2 ^ abs low)
+               && v
+               <  (signum high)
+               *  (2 ^ abs high)
+            then typeClassRange (if v < 0 then low else high)
+            else acc
+        )
+        typeClassNumeric
+        (zip exps (drop 1 exps))
+    in  [TypeEq t s "Int literals must be a Numeric type" pos]
 literalConstraints (FloatValue _ _) s pos =
   [ TypeEq typeClassNumericMixed
            s

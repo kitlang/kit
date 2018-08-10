@@ -2,6 +2,7 @@ module Kit.Compiler.Unify where
 
 import Control.Exception
 import Control.Monad
+import Data.List
 import Kit.Ast
 import Kit.Compiler.Context
 import Kit.Compiler.Module
@@ -48,6 +49,12 @@ unify ctx tctx mod a' b' = do
       return $ if elem t (map fst $ typeVarConstraints info)
         then TypeConstraintSatisfied
         else TypeVarConstraint i t
+    (TypeTypeVar a, TypeTypeVar b) -> do
+      info1 <- getTypeVar ctx a
+      info2 <- getTypeVar ctx b
+      return $ if (typeVarId info1 == typeVarId info2)
+        then TypeConstraintSatisfied
+        else TypeVarIs a (TypeTypeVar b)
     (TypeTypeVar i, x) -> do
       info <- getTypeVar ctx i
       let constraints = typeVarConstraints info
@@ -63,7 +70,7 @@ unify ctx tctx mod a' b' = do
       return $ case meetsConstraints of
         TypeConstraintSatisfied -> TypeVarIs i x
         _                       -> meetsConstraints
-    (_                    , TypeTypeVar _) -> unify ctx tctx mod b a
+    (_                    , TypeTypeVar _        ) -> unify ctx tctx mod b a
     (TypeTraitConstraint t, x                    ) -> resolveTraitConstraint ctx tctx mod t x
     (_                    , TypeTraitConstraint v) -> unify ctx tctx mod b a
     (TypeBasicType a      , TypeBasicType b      ) -> return $ unifyBasic a b
@@ -93,6 +100,18 @@ resolveConstraint ctx tctx mod constraint@(TypeEq a b reason pos) = do
     TypeVarIs a (TypeTypeVar b) | a == b -> do
       -- tautological; would cause an endless loop
       return ()
+    TypeVarIs a x@(TypeTypeVar b) -> do
+      info1 <- getTypeVar ctx a
+      info2 <- getTypeVar ctx b
+      when ((typeVarId info1) /= (typeVarId info2)) $ do
+        let constraints =
+              nub $ (typeVarConstraints info1) ++ (typeVarConstraints info2)
+        h_insert (ctxTypeVariables ctx)
+                 (typeVarId info1)
+                 (info1 { typeVarValue = Just x })
+        h_insert (ctxTypeVariables ctx)
+                 (typeVarId info2)
+                 (info2 { typeVarConstraints = constraints })
     TypeVarIs id x -> do
       info <- getTypeVar ctx id
       let constraints = typeVarConstraints info
@@ -105,11 +124,13 @@ resolveConstraint ctx tctx mod constraint@(TypeEq a b reason pos) = do
           (TypeEq x (TypeTraitConstraint constraint) reason' pos')
         )
       info <- getTypeVar ctx id
-      h_insert (ctxTypeVariables ctx) id (info { typeVarValue = Just x })
+      h_insert (ctxTypeVariables ctx)
+               (typeVarId info)
+               (info { typeVarValue = Just x })
     TypeVarConstraint id constraint -> do
       info <- getTypeVar ctx id
       h_insert (ctxTypeVariables ctx)
-               id
+               (typeVarId info)
                (addTypeVarConstraints info constraint reason pos)
     _ -> return ()
 

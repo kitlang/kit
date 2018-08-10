@@ -2,7 +2,7 @@ include "stdio.h";
 
 function main() {
     var a = 127;
-    var b = 255;
+    var b = 255_u8;
     var c = 32767;
     var d = 100000;
     var e = 127_u64;
@@ -11,7 +11,7 @@ function main() {
     if ++a == -128 {
         printf("a overflow\n");
     }
-    if ++b == -256 {
+    if ++b == 0 {
         printf("b overflow\n");
     }
     if ++c == -32768 {
@@ -20,7 +20,9 @@ function main() {
     if ++d == 100001 {
         printf("no d overflow\n");
     }
-    if ++e == -128 {
+    if ++e == 0 {
         printf("e overflow\n");
     }
+    f += 1.0;
+    printf("%.1f\n", f);
 }

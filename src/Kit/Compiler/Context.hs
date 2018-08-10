@@ -140,7 +140,7 @@ makeTypeVar ctx pos = do
   last <- readIORef (ctxLastTypeVar ctx)
   let next = last + 1
   writeIORef (ctxLastTypeVar ctx) next
-  h_insert (ctxTypeVariables ctx) next (newTypeVarInfo pos)
+  h_insert (ctxTypeVariables ctx) next (newTypeVarInfo next pos)
   return $ TypeTypeVar next
 
 getTypeVar :: CompileContext -> Int -> IO TypeVarInfo

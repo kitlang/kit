@@ -152,7 +152,7 @@ dumpCt ctx t = case t of
     let
       tv =
         "type var #"
-          ++ show i
+          ++ show (typeVarId info)
           ++ (if null $ typeVarConstraints info
                then ""
                else

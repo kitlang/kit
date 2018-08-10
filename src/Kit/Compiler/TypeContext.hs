@@ -147,6 +147,8 @@ resolveType ctx tctx mod t = do
                       case bound of
                         Just (Binding { bindingType = TypeBinding _, bindingConcrete = t })
                           -> follow ctx tctx mod t
+                        Just (Binding { bindingType = TraitBinding _, bindingConcrete = t })
+                          -> follow ctx tctx mod t
                         _ -> do
                           builtin <- builtinToConcreteType ctx tctx mod s params
                           case builtin of
@@ -183,7 +185,7 @@ knownType
 knownType ctx tctx mod t = do
   case t of
     TypeTypeVar x -> do
-      info <- h_get (ctxTypeVariables ctx) (x)
+      info <- getTypeVar ctx x
       case typeVarValue info of
         -- Specific known type
         Just t  -> knownType ctx tctx mod t

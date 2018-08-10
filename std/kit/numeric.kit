@@ -19,32 +19,87 @@
  */
 #[protected] trait Numeric;
 
-implement Integral for Uint8;
-implement Integral for Uint16;
-implement Integral for Uint32;
-implement Integral for Uint64;
+// The following traits categorize the exact numbers representable by each of
+// the builtin numeric types; they generally don't need to be directly used,
+// but will be inferred as literal constraints.
+
+trait NumericNE63;
+specialize NumericNE63 as Int64;
+trait NumericNE53;
+specialize NumericNE53 as Int64;
+trait NumericNE31;
+specialize NumericNE31 as Int32;
+trait NumericNE24;
+specialize NumericNE24 as Int32;
+trait NumericNE15;
+specialize NumericNE15 as Int16;
+trait NumericNE7;
+specialize NumericNE7 as Int8;
+trait NumericE7;
+specialize NumericE7 as Int8;
+trait NumericE8;
+specialize NumericE8 as Int16;
+trait NumericE15;
+specialize NumericE15 as Int16;
+trait NumericE16;
+specialize NumericE16 as Int32;
+trait NumericE24;
+specialize NumericE24 as Int32;
+trait NumericE31;
+specialize NumericE31 as Int32;
+trait NumericE32;
+specialize NumericE32 as Int64;
+trait NumericE53;
+specialize NumericE53 as Int64;
+trait NumericE63;
+specialize NumericE63 as Int64;
+trait NumericE64;
+specialize NumericE64 as Uint64;
+
+implement NumericNE7 for NumericNE15;
+implement NumericNE15 for NumericNE24;
+implement NumericNE24 for NumericNE31;
+implement NumericNE31 for NumericNE53;
+implement NumericNE53 for NumericNE63;
+implement NumericE7 for NumericE8;
+implement NumericE8 for NumericE15;
+implement NumericE15 for NumericE16;
+implement NumericE16 for NumericE24;
+implement NumericE24 for NumericE31;
+implement NumericE31 for NumericE32;
+implement NumericE32 for NumericE53;
+implement NumericE53 for NumericE63;
+implement NumericE63 for NumericE64;
+
 implement Integral for Int8;
+implement NumericNE7 for Int8;
+implement NumericE7 for Int8;
 implement Integral for Int16;
+implement NumericNE15 for Int16;
+implement NumericE15 for Int16;
 implement Integral for Int32;
+implement NumericNE31 for Int32;
+implement NumericE31 for Int32;
 implement Integral for Int64;
+implement NumericNE63 for Int64;
+implement NumericE63 for Int64;
+implement Integral for Uint8;
+implement NumericE8 for Uint8;
+implement Integral for Uint16;
+implement NumericE16 for Uint16;
+implement Integral for Uint32;
+implement NumericE32 for Uint32;
+implement Integral for Uint64;
+implement NumericE64 for Uint64;
+implement NumericMixed for Float32;
+implement NumericNE24 for Float32;
+implement NumericE24 for Float32;
+implement NumericMixed for Float64;
+implement NumericNE53 for Float64;
+implement NumericE53 for Float64;
 
-implement NumericMixed for Float;
-implement NumericMixed for Double;
-
-// implement Numeric for Integral;
-// implement Numeric for NumericMixed;
-
-specialize Integral as Int;
-specialize Numeric as Int;
-specialize NumericMixed as Double;
-
-implement Numeric for Uint8;
-implement Numeric for Uint16;
-implement Numeric for Uint32;
-implement Numeric for Uint64;
-implement Numeric for Int8;
-implement Numeric for Int16;
-implement Numeric for Int32;
-implement Numeric for Int64;
-implement Numeric for Float;
-implement Numeric for Double;
+implement Numeric for Integral;
+implement Numeric for NumericMixed;
+specialize Integral as Int8;
+specialize NumericMixed as Float;
+specialize Numeric as Int8;

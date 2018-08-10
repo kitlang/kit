@@ -35,7 +35,8 @@ instance Show TypeInformation where
   show (TypeVarConstraint tv constraint) = (show tv) ++ " => " ++ show constraint
 
 data TypeVarInfo = TypeVarInfo
-  { typeVarValue :: Maybe ConcreteType
+  { typeVarId :: Int
+  , typeVarValue :: Maybe ConcreteType
   , typeVarConstraints :: [(TraitConstraint, (String, Span))]
   , typeVarPositions :: [Span]
   } deriving (Eq)
@@ -45,11 +46,13 @@ instance Show TypeVarInfo where
   show (TypeVarInfo {typeVarValue = Nothing, typeVarConstraints = l}) = "Unbound type variable implementing " ++ _showConstraints l
 
 _showConstraints [] = ""
-_showConstraints l = "(" ++ intercalate ", " (map (s_unpack . _showConstraint . fst) l) ++ ")"
+_showConstraints l =
+  "(" ++ intercalate ", " (map (s_unpack . _showConstraint . fst) l) ++ ")"
 _showConstraint (tp, _) = showTypePath tp
 
-newTypeVarInfo p = TypeVarInfo
-  { typeVarValue       = Nothing
+newTypeVarInfo id p = TypeVarInfo
+  { typeVarId          = id
+  , typeVarValue       = Nothing
   , typeVarConstraints = []
   , typeVarPositions   = [p]
   }
@@ -62,6 +65,13 @@ addTypeVarConstraints info c reason pos = info
 
 typeClassNumeric = TypeTraitConstraint ((["kit", "numeric"], "Numeric"), [])
 typeClassIntegral = TypeTraitConstraint ((["kit", "numeric"], "Integral"), [])
+typeClassRange exp = TypeTraitConstraint
+  ( ( ["kit", "numeric"]
+    , s_concat
+      [if exp < 0 then "NumericNE" else "NumericE", s_pack $ show $ abs exp]
+    )
+  , []
+  )
 typeClassNumericMixed =
   TypeTraitConstraint ((["kit", "numeric"], "NumericMixed"), [])
 typeClassIterable v =

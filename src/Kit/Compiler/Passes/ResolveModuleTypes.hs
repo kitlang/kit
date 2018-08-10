@@ -46,7 +46,51 @@ resolveModuleTypes
   -> IO [(Module, [TypedDecl])]
 resolveModuleTypes ctx modContents = do
   unless (ctxIsLibrary ctx) $ validateMain ctx
-  forM modContents $ resolveTypesForMod ctx
+  results <- forM modContents $ resolveTypesForMod ctx
+  flattenSpecializations ctx
+  return results
+
+flattenSpecializations :: CompileContext -> IO ()
+flattenSpecializations ctx = do
+  impls <- h_toList $ ctxImpls ctx
+  memos <- h_new
+  forM_ impls $ \(tp, _) -> do
+    impls <- findImpls ctx memos tp
+    h_insert (ctxImpls ctx) tp impls
+
+findImpls
+  :: CompileContext
+  -> HashTable
+       TypePath
+       (HashTable ConcreteType (TraitImplementation Expr (Maybe TypeSpec)))
+  -> TypePath
+  -> IO
+       ( HashTable
+           ConcreteType
+           (TraitImplementation Expr (Maybe TypeSpec))
+       )
+findImpls ctx memos t = do
+  memoized <- h_lookup memos t
+  case memoized of
+    Just x  -> return x
+    Nothing -> do
+      impls   <- h_new
+      directs <- h_lookup (ctxImpls ctx) t
+      case directs of
+        Just x -> do
+          childList <- h_toList x
+          forM_ childList $ \(ct, impl) -> do
+            h_insert impls ct impl
+            case ct of
+              TypeTraitConstraint (tp, params) -> do
+                indirects    <- findImpls ctx memos tp
+                indirectList <- h_toList indirects
+                forM_ indirectList $ \(ct, impl) -> do
+                  h_insert impls ct impl
+              _ -> return ()
+          h_insert memos t impls
+          return impls
+        Nothing -> return impls
 
 validateMain :: CompileContext -> IO ()
 validateMain ctx = do
@@ -110,7 +154,7 @@ resolveTypesForMod ctx (mod, contents) = do
               let tctx' = tctx
                     { tctxTypeParams = [ (p, ()) | p <- params ]
                       ++ tctxTypeParams tctx
-                    , tctxSelf = Just (modPath mod, typeName t)
+                    , tctxSelf       = Just (modPath mod, typeName t)
                     }
               in  converter (convertExpr ctx tctx' mod)
                             (resolveMaybeType ctx tctx' mod)
