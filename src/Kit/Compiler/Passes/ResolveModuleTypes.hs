@@ -130,72 +130,95 @@ resolveTypesForMod ctx (mod, contents) = do
   converted <- forM
     contents
     (\decl -> do
-      binding <- scopeGet (modScope mod) (declName decl)
-      case (bindingType binding, decl) of
-        (VarBinding vi, DeclVar v) -> do
-          converted <- convertVarDefinition varConverter v
-          mergeVarInfo ctx tctx mod vi converted
-          bindToScope (modScope mod)
-                      (declName decl)
-                      (binding { bindingType = VarBinding converted })
-          return $ Just $ DeclVar converted
-
-        (FunctionBinding fi, DeclFunction f) -> do
-          converted <- convertFunctionDefinition paramConverter f
-          mergeFunctionInfo ctx tctx mod fi converted
-          bindToScope (modScope mod)
-                      (declName decl)
-                      (binding { bindingType = FunctionBinding converted })
-          return $ Just $ DeclFunction converted
-
-        (TypeBinding ti, DeclType t) -> do
-          let
-            paramConverter params =
-              let tctx' = tctx
-                    { tctxTypeParams = [ (p, ()) | p <- params ]
-                      ++ tctxTypeParams tctx
-                    , tctxSelf       = Just (modPath mod, typeName t)
-                    }
-              in  converter (convertExpr ctx tctx' mod)
-                            (resolveMaybeType ctx tctx' mod)
-          converted <- convertTypeDefinition paramConverter t
-          forM_ (zip (typeStaticFields ti) (typeStaticFields converted))
-                (\(field1, field2) -> mergeVarInfo ctx tctx mod field1 field2)
-          forM_
-            (zip (typeStaticMethods ti) (typeStaticMethods converted))
-            (\(method1, method2) ->
-              mergeFunctionInfo ctx tctx mod method1 method2
-            )
-          case (typeSubtype ti, typeSubtype converted) of
-            (Struct { structFields = fields1 }, Struct { structFields = fields2 })
-              -> forM_
-                (zip fields1 fields2)
-                (\(field1, field2) -> mergeVarInfo ctx tctx mod field1 field2)
-            (Union { unionFields = fields1 }, Union { unionFields = fields2 })
-              -> forM_
-                (zip fields1 fields2)
-                (\(field1, field2) -> mergeVarInfo ctx tctx mod field1 field2)
-            _ -> return ()
-
-          bindToScope (modScope mod)
-                      (declName decl)
-                      (binding { bindingType = TypeBinding converted })
-          return $ Just $ DeclType converted
-
-        (TraitBinding ti, DeclTrait t) -> do
-          converted <- convertTraitDefinition paramConverter t
-          -- TODO: unify
-          bindToScope (modScope mod)
-                      (declName decl)
-                      (binding { bindingType = TraitBinding converted })
-          return $ Just $ DeclTrait converted
-
-        (RuleSetBinding ri, DeclRuleSet r) -> do
-          -- RuleSets are untyped
-          bindToScope (modScope mod)
-                      (declName decl)
-                      (binding { bindingType = RuleSetBinding r })
+      case decl of
+        DeclUsing u -> do
+          addModUsing ctx tctx mod u
           return Nothing
+        _           -> do
+          binding <- scopeGet (modScope mod) (declName decl)
+          case (bindingType binding, decl) of
+            (VarBinding vi, DeclVar v) -> do
+              converted <- convertVarDefinition varConverter v
+              mergeVarInfo ctx tctx mod vi converted
+              bindToScope (modScope mod)
+                          (declName decl)
+                          (binding { bindingType = VarBinding converted })
+              return $ Just $ DeclVar converted
+
+            (FunctionBinding fi, DeclFunction f) -> do
+              converted <- convertFunctionDefinition paramConverter f
+              mergeFunctionInfo ctx tctx mod fi converted
+              bindToScope
+                (modScope mod)
+                (declName decl)
+                (binding { bindingType = FunctionBinding converted })
+              return $ Just $ DeclFunction converted
+
+            (TypeBinding ti, DeclType t) -> do
+              let
+                paramConverter params =
+                  let tctx' = tctx
+                        { tctxTypeParams = [ (p, ()) | p <- params ]
+                          ++ tctxTypeParams tctx
+                        , tctxSelf       = Just (modPath mod, typeName t)
+                        }
+                  in  converter (convertExpr ctx tctx' mod)
+                                (resolveMaybeType ctx tctx' mod)
+              converted <- do
+                c <- convertTypeDefinition paramConverter t
+                if null (typeMethods c)
+                  then return c
+                  else do
+                    thisType <- makeTypeVar ctx (typePos t)
+                    return $ implicitifyInstanceMethods thisType c
+
+              forM_
+                (zip (typeStaticFields ti) (typeStaticFields converted))
+                (\(field1, field2) -> mergeVarInfo ctx tctx mod field1 field2)
+              forM_
+                (zip (typeStaticMethods ti) (typeStaticMethods converted))
+                (\(method1, method2) ->
+                  mergeFunctionInfo ctx tctx mod method1 method2
+                )
+              forM_
+                (zip (typeMethods ti) (typeMethods converted))
+                (\(method1, method2) ->
+                  mergeFunctionInfo ctx tctx mod method1 method2
+                )
+              case (typeSubtype ti, typeSubtype converted) of
+                (Struct { structFields = fields1 }, Struct { structFields = fields2 })
+                  -> forM_
+                    (zip fields1 fields2)
+                    (\(field1, field2) ->
+                      mergeVarInfo ctx tctx mod field1 field2
+                    )
+                (Union { unionFields = fields1 }, Union { unionFields = fields2 })
+                  -> forM_
+                    (zip fields1 fields2)
+                    (\(field1, field2) ->
+                      mergeVarInfo ctx tctx mod field1 field2
+                    )
+                _ -> return ()
+
+              bindToScope (modScope mod)
+                          (declName decl)
+                          (binding { bindingType = TypeBinding converted })
+              return $ Just $ DeclType converted
+
+            (TraitBinding ti, DeclTrait t) -> do
+              converted <- convertTraitDefinition paramConverter t
+              -- TODO: unify
+              bindToScope (modScope mod)
+                          (declName decl)
+                          (binding { bindingType = TraitBinding converted })
+              return $ Just $ DeclTrait converted
+
+            (RuleSetBinding ri, DeclRuleSet r) -> do
+              -- RuleSets are untyped
+              bindToScope (modScope mod)
+                          (declName decl)
+                          (binding { bindingType = RuleSetBinding r })
+              return Nothing
     )
 
   return (mod, catMaybes converted)
@@ -242,6 +265,19 @@ addImplementation ctx mod impl@(TraitImplementation { implTrait = Just (TypeSpec
               h_insert (ctxImpls ctx) tpTrait impls
       _ -> throwk $ BasicError ("Couldn't resolve trait: " ++ show tpTrait)
                                (Just posTrait)
+
+addModUsing
+  :: CompileContext
+  -> TypeContext
+  -> Module
+  -> UsingType Expr (Maybe TypeSpec)
+  -> IO ()
+addModUsing ctx tctx mod using = do
+  converted <- convertUsingType
+    (converter (convertExpr ctx tctx mod) (resolveMaybeType ctx tctx mod))
+    NoPos
+    using
+  modifyIORef (modUsing mod) (\l -> converted : l)
 
 mergeVarInfo ctx tctx mod var1 var2 = resolveConstraint
   ctx

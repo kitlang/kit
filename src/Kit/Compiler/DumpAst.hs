@@ -15,10 +15,21 @@ import Kit.Log
 import Kit.Parser
 import Kit.Str
 
-dumpModuleDecl ctx mod decl = do
+dumpModuleDecl :: CompileContext -> Module -> Int -> TypedDecl -> IO ()
+dumpModuleDecl ctx mod indent decl = do
+  let i = take (indent * 2) (repeat ' ')
   case decl of
     DeclFunction f -> do
-      putStr $ "  function " ++ (s_unpack $ functionName f) ++ ": "
+      putStr
+        $  i
+        ++ "  "
+        ++ (foldr (++)
+                  ""
+                  [ show modifier ++ " " | modifier <- functionModifiers f ]
+           )
+        ++ "function "
+        ++ (s_unpack $ functionName f)
+        ++ ": "
       if null $ functionArgs f
         then putStr "() -> "
         else do
@@ -29,30 +40,33 @@ dumpModuleDecl ctx mod decl = do
               t <- dumpCt ctx (argType arg)
               putStrLn $ "      " ++ s_unpack (argName arg) ++ ": " ++ t
             )
-          putStr $ "    ) -> "
+          putStr $ i ++ "    ) -> "
       rt <- dumpCt ctx (functionType f)
       putStrLn rt
       case functionBody f of
         Just x -> do
-          out <- dumpAst ctx 2 x
+          out <- dumpAst ctx (indent + 2) x
           putStrLn out
         _ -> return ()
       putStrLn ""
 
     DeclVar v -> do
       t <- dumpCt ctx (varType v)
-      putStrLn $ "  var " ++ (s_unpack $ varName v) ++ ": " ++ t ++ "\n"
+      putStrLn $ i ++ "  var " ++ (s_unpack $ varName v) ++ ": " ++ t ++ "\n"
       case varDefault v of
         Just x -> do
-          out <- dumpAst ctx 2 x
+          out <- dumpAst ctx (indent + 2) x
           putStrLn out
         _ -> return ()
 
     DeclType t -> do
       putStrLn
-        $  "  type "
+        $  i
+        ++ "  type "
         ++ (s_unpack $ showTypePath (modPath mod, typeName t))
-      -- TODO: static methods
+      forM_
+        (typeStaticMethods t)
+        (\method -> dumpModuleDecl ctx mod (indent + 1) (DeclFunction method))
       forM_
         (typeStaticFields t)
         (\v -> do
@@ -60,10 +74,14 @@ dumpModuleDecl ctx mod decl = do
           putStrLn $ "    static var " ++ (s_unpack $ varName v) ++ ": " ++ t
           case varDefault v of
             Just x -> do
-              out <- dumpAst ctx 3 x
+              out <- dumpAst ctx (indent + 3) x
               putStrLn out
             _ -> return ()
         )
+      forM_
+        (typeMethods t)
+        (\method -> dumpModuleDecl ctx mod (indent + 1) (DeclFunction method))
+
       -- TODO: instance methods
       case typeSubtype t of
         Struct { structFields = f } -> do
@@ -96,7 +114,7 @@ dumpModuleDecl ctx mod decl = do
     _ -> return ()
 
 dumpAst :: CompileContext -> Int -> TypedExpr -> IO String
-dumpAst ctx indent e@(TypedExpr { texpr = texpr, inferredType = t, tPos = pos })
+dumpAst ctx indent e@(TypedExpr { tExpr = texpr, inferredType = t, tPos = pos })
   = do
     let dumpChild = dumpAst ctx (indent + 1)
     t' <- dumpCt ctx t
@@ -129,7 +147,7 @@ dumpAst ctx indent e@(TypedExpr { texpr = texpr, inferredType = t, tPos = pos })
       -- Match a [MatchCase a] (Maybe a)
       InlineCall a     -> i "inline" [a]
       Field a id       -> i ("field " ++ show id) [a]
-      StructInit (TypeStruct tp _) fields ->
+      StructInit (TypeInstance tp _) fields ->
         i ("struct " ++ s_unpack (showTypePath tp)) (map snd fields)
       EnumInit _ constructor fields ->
         i ("enum " ++ s_unpack constructor) fields

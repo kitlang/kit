@@ -38,6 +38,7 @@ data TypeContext = TypeContext {
   tctxReturnType :: Maybe ConcreteType,
   tctxThis :: Maybe ConcreteType,
   tctxSelf :: Maybe TypePath,
+  tctxImplicits :: [TypedExpr],
   tctxTypeParams :: [(Str, ())], -- TODO
   tctxLoopCount :: Int,
   tctxRewriteRecursionDepth :: Int
@@ -53,6 +54,7 @@ newTypeContext scopes = do
     , tctxReturnType            = Nothing
     , tctxThis                  = Nothing
     , tctxSelf                  = Nothing
+    , tctxImplicits             = []
     , tctxTypeParams            = []
     , tctxLoopCount             = 0
     , tctxRewriteRecursionDepth = 0
@@ -65,15 +67,9 @@ follow
   :: CompileContext -> TypeContext -> Module -> ConcreteType -> IO ConcreteType
 follow ctx tctx mod t = do
   case t of
-    TypeStruct tp params -> do
+    TypeInstance tp params -> do
       resolvedParams <- forM params (follow ctx tctx mod)
-      return $ TypeStruct tp resolvedParams
-    TypeEnum tp params -> do
-      resolvedParams <- forM params (follow ctx tctx mod)
-      return $ TypeEnum tp resolvedParams
-    TypeAbstract tp params -> do
-      resolvedParams <- forM params (follow ctx tctx mod)
-      return $ TypeAbstract tp resolvedParams
+      return $ TypeInstance tp resolvedParams
     TypeFunction t args varargs -> do
       resolved     <- follow ctx tctx mod t
       resolvedArgs <- forM
@@ -197,12 +193,12 @@ addUsing
   :: CompileContext
   -> TypeContext
   -> Module
-  -> UsingType Expr (Maybe TypeSpec)
+  -> UsingType TypedExpr ConcreteType
   -> IO TypeContext
 addUsing ctx tctx mod using = case using of
-  UsingRuleSet ([], n) -> do
-    -- TODO: better resolution
-    def <- resolveLocal (modScope mod) n
+  UsingRuleSet (TypeRuleSet (modPath, n)) -> do
+    defMod <- getMod ctx modPath
+    def <- resolveLocal (modScope defMod) n
     case def of
       -- Just (DeclType t) -> do
       --   -- FIXME: this is terrible...
@@ -217,6 +213,8 @@ addUsing ctx tctx mod using = case using of
       Just (Binding { bindingType = RuleSetBinding r }) -> do
         return $ tctx { tctxRules = r : tctxRules tctx }
       _ -> return tctx
+  UsingImplicit x -> return $ tctx { tctxImplicits = x : tctxImplicits tctx }
+  _ -> throwk $ InternalError ("Unexpected using clause: " ++ show using) Nothing
 
 modTypeContext :: CompileContext -> Module -> IO TypeContext
 modTypeContext ctx mod = do

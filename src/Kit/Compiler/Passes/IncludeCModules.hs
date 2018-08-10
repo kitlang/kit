@@ -202,9 +202,7 @@ _parseDeclSpec modPath (h : t) width signed float = case h of
   (CTypeDef (Ident x _ _) _) -> TypeTypedef (modPath, (s_pack x)) []
   -- anonymous structs/enums; TODO: need to generate a stub declaration for these
   (CSUType (CStruct tag (Just (Ident x _ _)) _ _ _) _) ->
-    (if tag == CStructTag then TypeStruct else TypeUnion)
-      (modPath, (s_pack x))
-      []
+    (TypeInstance (modPath, (s_pack x)) [])
   (CSUType (CStruct tag Nothing fields _ _) _) ->
     let fields' = case fields of
           Just f  -> f
@@ -216,7 +214,7 @@ _parseDeclSpec modPath (h : t) width signed float = case h of
           , (name, declr) <- init
           ]
   (CEnumType (CEnum (Just (Ident x _ _)) _ _ _) _) ->
-    TypeEnum (modPath, (s_pack x)) []
+    TypeInstance (modPath, (s_pack x)) []
   (CEnumType (CEnum Nothing (Just variants) _ _) _) -> TypeAnonEnum
     ([ s_pack $ case fst variant of
          Ident x _ _ -> x
@@ -296,7 +294,7 @@ defineNamedStructsEnumsUnions ctx mod pos (h : t) = do
         (s_pack name)
         (newBinding (modPath mod, s_pack name)
                     (TypeBinding typeDef)
-                    (TypeStruct (modPath mod, s_pack name) [])
+                    (TypeInstance (modPath mod, s_pack name) [])
                     []
                     pos
         )
@@ -322,7 +320,7 @@ defineNamedStructsEnumsUnions ctx mod pos (h : t) = do
               }
             }
           )
-      let ct = (TypeEnum (modPath mod, s_pack name) [])
+      let ct = (TypeInstance (modPath mod, s_pack name) [])
       bindToScope
         (modScope mod)
         (s_pack name)

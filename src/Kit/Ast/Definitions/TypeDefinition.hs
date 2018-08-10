@@ -51,6 +51,21 @@ newTypeDefinition x = TypeDefinition
   , typePos           = NoPos
   }
 
+implicitifyInstanceMethods :: b -> TypeDefinition a b -> TypeDefinition a b
+implicitifyInstanceMethods thisType def = def
+  { typeMethods = [ method
+                      { functionArgs = (newArgSpec { argName = "__this"
+                                                   , argType = thisType
+                                                   , argPos = functionPos method
+                                                   }
+                                       )
+                        : (functionArgs method)
+                      }
+                  | method <- typeMethods def
+                  ]
+  }
+
+
 convertTypeDefinition
   :: (Monad m)
   => ParameterizedConverter m a b c d
@@ -81,6 +96,8 @@ convertTypeDefinition paramConverter t = do
 
   staticMethods <- forM (typeStaticMethods t)
                         (convertFunctionDefinition methodParamConverter)
+  instanceMethods <- forM (typeMethods t)
+                          (convertFunctionDefinition methodParamConverter)
 
   -- since they are untyped, rulesets will not be converted and will be lost
   return $ (newTypeDefinition (typeName t)) { typeDoc           = typeDoc t
@@ -92,6 +109,7 @@ convertTypeDefinition paramConverter t = do
                                             , typePos           = typePos t
                                             , typeStaticFields  = staticFields
                                             , typeStaticMethods = staticMethods
+                                            , typeMethods = instanceMethods
                                             }
 
 enumIsSimple enum = all variantIsSimple $ enumVariants enum

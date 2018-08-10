@@ -54,7 +54,7 @@ typeIterative ctx input output limit = do
         input
         (\(mod, decls) -> do
           putStrLn $ show mod
-          forM_ decls (dumpModuleDecl ctx mod)
+          forM_ decls (dumpModuleDecl ctx mod 0)
           putStrLn ""
         )
     else throwk $ BasicError
@@ -95,5 +95,5 @@ typeIterative ctx input output limit = do
 dumpModuleContent :: CompileContext -> Module -> [TypedDecl] -> IO ()
 dumpModuleContent ctx mod defs = do
   putStrLn $ show mod
-  forM_ defs (dumpModuleDecl ctx mod)
+  forM_ defs (dumpModuleDecl ctx mod 0)
   putStrLn ""

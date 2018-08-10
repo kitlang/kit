@@ -69,9 +69,9 @@ spec = do
         )
       , ( "Parses struct vars"
         , "struct_var1"
-        , (TypeStruct (["c"], "Struct1") [])
+        , (TypeInstance (["c"], "Struct1") [])
         )
-      , ("Parses enum vars", "enum_var1", (TypeEnum (["c"], "Enum1") []))
+      , ("Parses enum vars", "enum_var1", (TypeInstance (["c"], "Enum1") []))
       , ( "Parses pointer vars"
         , "pointer_var1"
         , (TypePtr (TypeBasicType $ BasicTypeInt 16))
@@ -108,8 +108,8 @@ spec = do
         )
       , ( "Parses functions with struct return value/arguments"
         , "struct_func"
-        , TypeFunction (TypeStruct (["c"], "Struct1") [])
-                       [("a", TypeStruct (["c"], "Struct2") [])]
+        , TypeFunction (TypeInstance (["c"], "Struct1") [])
+                       [("a", TypeInstance (["c"], "Struct2") [])]
                        False
         )
       , ( "Parses functions with pointer return value/arguments"
@@ -138,7 +138,7 @@ spec = do
     forM_
       [ ( "Parses struct declarations"
         , "Struct1"
-        , TypeStruct (["c"], "Struct1") []
+        , TypeInstance (["c"], "Struct1") []
         , Just $ DeclType $ (newTypeDefinition "Struct1")
           { typeNamespace = []
           , typeSubtype   = Struct
@@ -172,7 +172,7 @@ spec = do
         )
       , ( "Parses empty struct typedefs"
         , "Struct3"
-        , TypeStruct (["c"], "Struct3") []
+        , TypeInstance (["c"], "Struct3") []
         , Just $ DeclType $ (newTypeDefinition "Struct3")
           { typeNamespace = []
           , typeSubtype   = Struct {structFields = []}
@@ -180,7 +180,7 @@ spec = do
         )
       , ( "Parses enum definitions"
         , "Enum1"
-        , TypeEnum (["c"], "Enum1") []
+        , TypeInstance (["c"], "Enum1") []
         , Just $ DeclType $ (newTypeDefinition "Enum1")
           { typeNamespace = []
           , typeSubtype   = Enum

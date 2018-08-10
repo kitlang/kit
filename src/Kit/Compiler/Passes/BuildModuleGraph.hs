@@ -204,16 +204,14 @@ addStmtToModuleInterface ctx mod s = do
   case stmt s of
     TypeDeclaration d@(TypeDefinition { typeName = name, typeSubtype = subtype, typeRules = rules })
       -> do
-        converted <- convertTypeDefinition (\_ -> interfaceConverter) d
-        ct        <- case subtype of
-          Atom -> return TypeAtom
-          Struct { structFields = f } ->
-            return $ TypeStruct (modPath mod, name) []
-          Union { unionFields = f } ->
-            return $ TypeUnion (modPath mod, name) []
-          Enum { enumVariants = variants } ->
-            return $ TypeEnum (modPath mod, name) []
-          Abstract{} -> return $ TypeAbstract (modPath mod, name) []
+        let ct = TypeInstance (modPath mod, name) []
+
+        converted <- do
+          c <- convertTypeDefinition (\_ -> interfaceConverter) d
+          if null (typeMethods d)
+            then return c
+            else do
+              return $ implicitifyInstanceMethods ct c
 
         let b      = TypeBinding converted
         let extern = hasMeta "extern" (typeMeta d)
@@ -235,7 +233,7 @@ addStmtToModuleInterface ctx mod s = do
               )
           )
         forM_
-          (typeStaticMethods converted)
+          (typeStaticMethods converted ++ typeMethods converted)
           (\method -> do
             bindToScope
               (subNamespace)
@@ -318,7 +316,7 @@ addStmtToModuleInterface ctx mod s = do
       addToInterface (ruleSetName r)
                      (RuleSetBinding r)
                      (False)
-                     (TypeBasicType BasicTypeUnknown)
+                     (TypeRuleSet (modPath mod, ruleSetName r))
       return [DeclRuleSet r]
 
     Specialize a b -> do
@@ -330,8 +328,7 @@ addStmtToModuleInterface ctx mod s = do
       return []
 
     ModuleUsing using -> do
-      modifyIORef (modUsing mod) (\l -> using : l)
-      return []
+      return [DeclUsing using]
 
     _ -> return []
  where

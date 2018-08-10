@@ -50,6 +50,7 @@ import Kit.Str
   function {(KeywordFunction,_)}
   if {(KeywordIf,_)}
   implement {(KeywordImplement,_)}
+  implicit {(KeywordImplicit,_)}
   import {(KeywordImport,_)}
   include {(KeywordInclude,_)}
   inline {(KeywordInline,_)}
@@ -270,7 +271,8 @@ UsingClauses :: {([UsingType Expr (Maybe TypeSpec)], Span)}
   | UsingClauses ',' UsingClause {(fst $3 : fst $1, snd $1 <+> snd $3)}
 
 UsingClause :: {(UsingType Expr (Maybe TypeSpec), Span)}
-  : rules TypePath {(UsingRuleSet $ fst $2, snd $1 <+> snd $2)}
+  : rules TypePath {(UsingRuleSet $ Just $ TypeSpec (fst $2) [] (snd $2), snd $1 <+> snd $2)}
+  | implicit UpperOrLowerIdentifier {(UsingImplicit $ pe (snd $2) (Identifier (Var $ fst $2) []), snd $1 <+> snd $2)}
 
 FunctionDecl :: {Statement}
   : DocMetaMods function identifier TypeParams '(' VarArgs ')' TypeAnnotation OptionalBody {

@@ -68,6 +68,12 @@ typeFunctionDefinition ctx tctx' mod f = do
       )
     )
   let returnType = functionType f
+  let
+    thisType =
+      if (not $ null $ functionArgs f)
+           && ((argName $ head $ functionArgs f) == "__this")
+        then Just $ argType $ head $ functionArgs f
+        else Nothing
   let ftctx =
         (tctx
           { tctxScopes     = functionScope : (tctxScopes tctx)
@@ -75,6 +81,8 @@ typeFunctionDefinition ctx tctx' mod f = do
                              | param <- functionParams f
                              ]
           , tctxReturnType = Just returnType
+          , tctxThis = thisType
+          -- TODO: , tctxSelf =
           }
         )
   body <- typeMaybeExpr ctx ftctx mod (functionBody f)

@@ -56,6 +56,7 @@ tokens :-
   function { tok KeywordFunction }
   if { tok KeywordIf }
   implement { tok KeywordImplement }
+  implicit { tok KeywordImplicit }
   import { tok KeywordImport }
   include { tok KeywordInclude }
   inline { tok KeywordInline }

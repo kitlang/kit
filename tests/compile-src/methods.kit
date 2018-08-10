@@ -1,0 +1,20 @@
+include "stdio.h";
+
+struct MyStruct {
+    public var a: Int16;
+
+    public function myMethod() {
+        printf("a = %i\n", this.a);
+    }
+}
+
+function main() {
+    var s1 = struct MyStruct {a: 1};
+    s1.myMethod();
+    var s2 = struct MyStruct {a: 2};
+    MyStruct.myMethod(s2);
+    var s3 = struct MyStruct {a: 3};
+    using implicit s3 {
+        MyStruct.myMethod();
+    }
+}

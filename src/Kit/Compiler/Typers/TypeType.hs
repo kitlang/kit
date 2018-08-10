@@ -46,7 +46,13 @@ typeTypeDefinition ctx mod def@(TypeDefinition { typeName = name }) = do
       (typed, complete) <- typeFunctionDefinition ctx tctx mod method
       return typed
     )
-  -- TODO: type instance methods, enum variants...
+  instanceMethods <- forM
+    (typeMethods def)
+    (\method -> do
+      (typed, complete) <- typeFunctionDefinition ctx tctx mod method
+      return typed
+    )
+  -- TODO: enum variants...
   let s = typeSubtype def
   subtype <- case s of
     Struct { structFields = f } -> do
@@ -73,6 +79,7 @@ typeTypeDefinition ctx mod def@(TypeDefinition { typeName = name }) = do
     $ ( Just $ DeclType
         (def { typeStaticFields  = staticFields
              , typeStaticMethods = staticMethods
+             , typeMethods       = instanceMethods
              , typeSubtype       = subtype
              }
         )

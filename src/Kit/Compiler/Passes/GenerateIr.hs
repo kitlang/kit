@@ -59,9 +59,14 @@ generateDeclIr ctx mod t = do
         (\method -> generateDeclIr ctx mod $ DeclFunction
           (method { functionNamespace = (modPath mod) ++ [name] })
         )
+      instanceMethods <- forM
+        (typeMethods def)
+        (\method -> generateDeclIr ctx mod $ DeclFunction
+          (method { functionNamespace = (modPath mod) ++ [name] })
+        )
       return
         $ (DeclType converted)
-        : (foldr (++) [] (staticFields ++ staticMethods))
+        : (foldr (++) [] (staticFields ++ staticMethods ++ instanceMethods))
 
     DeclFunction f@(FunctionDefinition { functionName = name }) -> do
       debugLog ctx
@@ -87,8 +92,17 @@ generateDeclIr ctx mod t = do
               , functionType = BasicTypeInt 16
               , functionBody = case functionBody converted of
                 Just x ->
-                  Just $ IrBlock [x, IrReturn $ Just $ IrLiteral $ IntValue 0 $ BasicTypeInt 16]
-                Nothing -> Just (IrReturn $ Just $ IrLiteral $ IntValue 0 $ BasicTypeInt 16)
+                  Just
+                    $ IrBlock
+                        [ x
+                        , IrReturn
+                        $ Just
+                        $ IrLiteral
+                        $ IntValue 0
+                        $ BasicTypeInt 16
+                        ]
+                Nothing -> Just
+                  (IrReturn $ Just $ IrLiteral $ IntValue 0 $ BasicTypeInt 16)
               }
           ]
         else return
@@ -128,34 +142,51 @@ findUnderlyingType ctx mod t = do
           return (name, t')
         )
       return $ BasicTypeStruct Nothing fields'
-    TypeStruct (modPath, name) fieldTypes -> do
+    TypeAnonUnion fields -> do
+      fields' <- forM
+        fields
+        (\(name, t) -> do
+          t' <- findUnderlyingType ctx mod t
+          return (name, t')
+        )
+      return $ BasicTypeUnion Nothing fields'
+    TypeInstance (modPath, name) params -> do
       definitionMod <- getMod ctx modPath
+      binding       <- resolveLocal (modScope definitionMod) name
+      case binding of
+        Just (Binding { bindingType = TypeBinding (TypeDefinition { typeSubtype = subtype }) })
+          -> case subtype of
+            Struct { structFields = fields } -> do
+              fields <- forM fields $ \field -> do
+                t <- findUnderlyingType ctx mod (varType field)
+                return (varName field, t)
+              return $ BasicTypeStruct (Just name) fields
+            Union { unionFields = fields } -> do
+              fields <- forM fields $ \field -> do
+                t <- findUnderlyingType ctx mod (varType field)
+                return (varName field, t)
+              return $ BasicTypeUnion (Just name) fields
+            enum@(Enum { enumVariants = variants }) -> do
+              if enumIsSimple enum
+                then return $ BasicTypeSimpleEnum (Just name) $ map
+                  variantName
+                  variants
+                else do
+                  variants' <- forM variants $ \variant -> do
+                    args <- forM (variantArgs variant) $ \arg -> do
+                      t <- findUnderlyingType ctx mod $ argType arg
+                      return (argName arg, t)
+                    return (variantName variant, args)
+                  return $ BasicTypeComplexEnum name variants'
+            Abstract{} -> do
+              throwk $ InternalError "Not yet implemented" Nothing
+        _ -> throwk $ BasicError
+          (  "Unexpected missing type definition: "
+          ++ (s_unpack $ showTypePath (modPath, name))
+          )
+          Nothing
       -- typeDef       <- h_lookup (modContents definitionMod) name
       -- TODO
-      return $ BasicTypeStruct (Just name) []
-    TypeUnion (modPath, name) fieldTypes -> do
-      definitionMod <- getMod ctx modPath
-      -- typeDef       <- h_lookup (modContents definitionMod) name
-      -- TODO
-      return $ BasicTypeUnion (Just name) []
-    TypeEnum tp@(modPath, name) argTypes -> do
-      definitionMod <- getMod ctx modPath
-      binding       <- scopeGet (modScope definitionMod) name
-      case bindingType binding of
-        TypeBinding (TypeDefinition { typeSubtype = enum@(Enum { enumVariants = variants }) })
-          -> return $ if enumIsSimple enum
-            then BasicTypeSimpleEnum (Just name) [] -- we won't care about the variants in this case
-            else BasicTypeComplexEnum
-              name
-              [ ( variantName variant
-                , [ (argName arg, BasicTypeUnknown)
-                  | arg <- variantArgs variant
-                  ]
-                )
-              | variant <- variants
-              ]
-        _ -> throwk $ InternalError "Expected enum not found" Nothing
-    -- TypeAbstract TypePath [ConcreteType]
     -- TypeTypedef TypePath [ConcreteType]
     -- TypeFunction ConcreteType ConcreteArgs Bool
     -- TypePtr ConcreteType
@@ -180,7 +211,7 @@ findUnderlyingType ctx mod t = do
       return $ BasicTypeUnknown
 
 -- TODO: finding specializations should be done as a separate step
-findDefaultType :: CompileContext -> Module -> Int -> IO (BasicType)
+findDefaultType :: CompileContext -> Module -> Int -> IO BasicType
 findDefaultType ctx mod id = do
   info <- getTypeVar ctx id
   if null (typeVarConstraints info)
@@ -248,7 +279,7 @@ maybeTypedToIr ctx mod e = case e of
   Nothing -> return Nothing
 
 typedToIr :: CompileContext -> Module -> TypedExpr -> IO IrExpr
-typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
+typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
   do
     let r x = typedToIr ctx mod x
     let maybeR x = case x of
@@ -317,8 +348,8 @@ typedToIr ctx mod e@(TypedExpr { texpr = et, tPos = pos, inferredType = t }) =
         r1 <- r e1
         r2 <- r e2
         return $ IrBinop op r1 r2
-      (For e1 e2 e3) -> return $ undefined -- TODO
-      (While e1 e2 d) -> do
+      (For   e1 e2 e3) -> return $ undefined -- TODO
+      (While e1 e2 d ) -> do
         r1 <- r e1
         r2 <- r e2
         return $ IrWhile r1 r2 d

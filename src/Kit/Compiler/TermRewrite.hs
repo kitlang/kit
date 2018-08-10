@@ -83,7 +83,7 @@ ruleMatch pattern te thisType typeResolver = do
         )
         (Just [])
   let r x y = ruleMatch x y thisType typeResolver
-  case (expr pattern, texpr te) of
+  case (expr pattern, tExpr te) of
     (Identifier (MacroVar x (Just t)) [], y) -> do
       -- ${var: type} - match and bind only if the type matches
       macroVarType <- typeResolver t

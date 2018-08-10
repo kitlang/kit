@@ -6,5 +6,11 @@ data Modifier
   | Inline
   | Const
   | Static
-  deriving (Eq, Show)
+  deriving (Eq)
 
+instance Show Modifier where
+  show Public = "public"
+  show Private = "private"
+  show Inline = "inline"
+  show Const = "const"
+  show Static = "static"

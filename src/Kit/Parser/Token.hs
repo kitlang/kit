@@ -41,6 +41,7 @@ data TokenClass
   | KeywordFunction
   | KeywordIf
   | KeywordImplement
+  | KeywordImplicit
   | KeywordImport
   | KeywordInclude
   | KeywordInline
@@ -113,6 +114,7 @@ instance Show TokenClass where
     KeywordFunction -> "function"
     KeywordIf -> "if"
     KeywordImplement -> "implement"
+    KeywordImplicit -> "implicit"
     KeywordImport -> "import"
     KeywordInclude -> "include"
     KeywordInline -> "inline"

@@ -26,7 +26,7 @@ data Module = Module {
   modScope :: Scope Binding,
   modImpls :: IORef [TraitImplementation Expr (Maybe TypeSpec)],
   modSpecializations :: IORef [((TypeSpec, TypeSpec), Span)],
-  modUsing :: IORef [UsingType Expr (Maybe TypeSpec)],
+  modUsing :: IORef [UsingType TypedExpr ConcreteType],
   modIsCModule :: Bool
 }
 

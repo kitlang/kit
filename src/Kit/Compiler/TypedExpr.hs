@@ -6,17 +6,19 @@ import Kit.Parser.Span
 
 type TypedExprType = ExprType TypedExpr ConcreteType
 data TypedExpr = TypedExpr {
-  texpr :: TypedExprType,
-  tPos :: Span,
+  tExpr :: TypedExprType,
   inferredType :: ConcreteType,
+  tImplicits :: [TypedExpr],
+  tPos :: Span,
   rewrittenBy :: Maybe (RewriteRule (Expr) (Maybe TypeSpec)),
   tError :: Maybe KitError
 } deriving (Eq, Show)
 
 makeExprTyped :: TypedExprType -> ConcreteType -> Span -> TypedExpr
 makeExprTyped et t pos = TypedExpr
-  { texpr        = et
+  { tExpr        = et
   , inferredType = t
+  , tImplicits    = []
   , tPos         = pos
   , rewrittenBy  = Nothing
   , tError       = Nothing

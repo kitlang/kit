@@ -31,7 +31,13 @@ typeMaybeExpr ctx tctx mod e = case e of
     return $ Just result
   Nothing -> return Nothing
 
-partialTyping ex et e = return $ ex { texpr = et, tError = Just $ KitError e }
+partialTyping ex et e = return $ ex { tExpr = et, tError = Just $ KitError e }
+
+-- autoRefDeref :: TypedExpr -> ConcreteType -> TypedExpr
+-- autoRefDeref ex@(TypedExpr {inferredType = TypePtr x}) (TypePtr y) = autoRefDeref (ex {inferredType = x}) y
+-- autoRefDeref ex@(TypedExpr {inferredType = TypePtr x}) y = makeExprTyped (PreUnop Deref x) x (tPos ex)
+-- autoRefDeref ex@(TypedExpr {inferredType = x}) (TypePtr y) = makeExprTyped (PreUnop Ref x) (TypePtr x) (tPos ex)
+-- autoRefDeref ex _ = ex
 
 {-
   Converts a tree of untyped AST to typed AST.
@@ -47,7 +53,7 @@ partialTyping ex et e = return $ ex { texpr = et, tError = Just $ KitError e }
   an early exit.
 -}
 typeExpr :: CompileContext -> TypeContext -> Module -> TypedExpr -> IO TypedExpr
-typeExpr ctx tctx mod ex@(TypedExpr { texpr = et, tPos = pos }) = do
+typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
   let r = typeExpr ctx tctx mod
   let resolve constraint = resolveConstraint ctx tctx mod constraint
   let unknownTyped x = makeExprTyped x (TypeBasicType BasicTypeUnknown) pos
@@ -63,7 +69,6 @@ typeExpr ctx tctx mod ex@(TypedExpr { texpr = et, tPos = pos }) = do
               x
               (\tctx ex -> do
                 body <- convertExpr ctx tctx mod ex
-                print body
                 typeExpr ctx tctx mod body
               )
           )
@@ -84,13 +89,21 @@ typeExpr ctx tctx mod ex@(TypedExpr { texpr = et, tPos = pos }) = do
         pos
 
     (Using using e1) -> do
-      tctx' <- foldM (\c use -> addUsing ctx c mod $ convertUsingType use)
-                     tctx
-                     using
+      tctx' <- foldM
+        (\c use -> do
+          using' <- case use of
+            UsingImplicit x ->
+              (do
+                x' <- r x
+                return $ UsingImplicit x'
+              )
+            _ -> return use
+          addUsing ctx c mod using'
+        )
+        tctx
+        using
       r1 <- typeExpr ctx tctx' mod e1
-      return $ makeExprTyped (Using (map convertUsingType using) r1)
-                             (inferredType $ r1)
-                             pos
+      return $ makeExprTyped (Using using r1) (inferredType $ r1) pos
 
     (Meta m e1) -> do
       r1 <- r e1
@@ -125,7 +138,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { texpr = et, tPos = pos }) = do
           MacroVar vname t -> do
             case find (\(name, _) -> name == vname) (tctxMacroVars tctx) of
               Just (name, expr) -> r expr
-              Nothing -> return ex
+              Nothing           -> return ex
         )
 
     (TypeAnnotation e1 t) -> do
@@ -218,7 +231,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { texpr = et, tPos = pos }) = do
             Nothing          -> return () -- TODO
         return $ makeExprTyped (Binop op r1 r2) tv pos
 
-    (For (TypedExpr { texpr = Identifier v _, tPos = pos1 }) e2 e3) -> do
+    (For (TypedExpr { tExpr = Identifier v _, tPos = pos1 }) e2 e3) -> do
       r2    <- r e2
       scope <- newScope (modPath mod)
       r3    <- typeExpr
@@ -230,7 +243,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { texpr = et, tPos = pos }) = do
         mod
         e3
       tv <- makeTypeVar ctx pos
-      case texpr e2 of
+      case tExpr e2 of
         RangeLiteral _ _ -> return ()
         _                -> resolve $ TypeEq
           (typeClassIterable tv)
@@ -304,6 +317,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { texpr = et, tPos = pos }) = do
       if (tctxLoopCount tctx > 0)
         then return $ makeExprTyped (Continue) voidType pos
         else failTyping $ TypingError "Can't `continue` outside of a loop" pos
+
     (Break) -> do
       if (tctxLoopCount tctx > 0)
         then return $ makeExprTyped (Break) voidType pos
@@ -328,10 +342,12 @@ typeExpr ctx tctx mod ex@(TypedExpr { texpr = et, tPos = pos }) = do
           failTyping $ TypingError "Can't `return` outside of a function" pos
 
     (Call e1 args) -> do
-      r1        <- r e1
+      r1 <- r e1
+      let implicits = tImplicits r1 ++ tctxImplicits tctx
       typedArgs <- mapM r args
       tryRewrite (unknownTyped $ Call r1 typedArgs) $ case inferredType r1 of
-        TypeFunction _ _ _ -> typeFunctionCall ctx tctx mod r1 typedArgs
+        TypeFunction _ _ _ ->
+          typeFunctionCall ctx tctx mod r1 implicits typedArgs
         TypeEnumConstructor tp discriminant argTypes -> typeEnumConstructorCall
           ctx
           tctx
@@ -352,66 +368,56 @@ typeExpr ctx tctx mod ex@(TypedExpr { texpr = et, tPos = pos }) = do
 
     (Field e1 (Var fieldName)) -> do
       r1 <- r e1
-      tryRewrite
-        (unknownTyped $ Field r1 (Var fieldName))
-        (case inferredType r1 of
-          TypeStruct (structModPath, structName) params -> do
-            structMod <- getMod ctx structModPath
-            binding   <- resolveLocal (modScope structMod) structName
+      tryRewrite (unknownTyped $ Field r1 (Var fieldName)) $ do
+          --let checkInstanceMethod def = do
+          --  type
+        case inferredType r1 of
+          TypeInstance (modPath, typeName) params -> do
+            defMod  <- getMod ctx modPath
+            binding <- resolveLocal (modScope defMod) typeName
             case binding of
-              Just (Binding { bindingType = TypeBinding (TypeDefinition { typeSubtype = Struct { structFields = fields } }) })
+              Just (Binding { bindingType = TypeBinding def@(TypeDefinition { typeSubtype = subtype }) })
                 -> do
-                  result <- typeStructUnionFieldAccess ctx
-                                                       tctx
-                                                       mod
-                                                       fields
-                                                       r1
-                                                       fieldName
-                                                       pos
-                  case result of
-                    Just x -> return x
-                    _      -> failTyping $ TypingError
-                      (  "Struct doesn't have a field called `"
-                      ++ s_unpack fieldName
-                      ++ "`"
-                      )
-                      pos
-              _ -> throwk $ InternalError
-                ("Unexpected error: variable was typed as a struct, but struct "
-                ++ s_unpack structName
-                ++ " not found in module "
-                ++ s_unpack (showModulePath structModPath)
-                )
-                (Just $ tPos r1)
+                  localScope <- getSubScope (modScope mod) [typeName]
+                  binding    <- resolveLocal localScope fieldName
+                  case binding of
+                    Just x -> do
+                      typed <- typeVarBinding ctx fieldName x pos
+                      return $ typed { tImplicits = r1 : tImplicits typed }
+                    _ -> case subtype of
+                      Struct { structFields = fields } -> do
+                        result <- typeStructUnionFieldAccess ctx
+                                                             tctx
+                                                             mod
+                                                             fields
+                                                             r1
+                                                             fieldName
+                                                             pos
+                        case result of
+                          Just x -> return x
+                          _      -> failTyping $ TypingError
+                            (  "Struct doesn't have a field called `"
+                            ++ s_unpack fieldName
+                            ++ "`"
+                            )
+                            pos
 
-          TypeUnion (unionModPath, unionName) params -> do
-            unionMod <- getMod ctx unionModPath
-            binding  <- resolveLocal (modScope unionMod) unionName
-            case binding of
-              Just (Binding { bindingType = TypeBinding (TypeDefinition { typeSubtype = Union { unionFields = fields } }) })
-                -> do
-                  result <- typeStructUnionFieldAccess ctx
-                                                       tctx
-                                                       mod
-                                                       fields
-                                                       r1
-                                                       fieldName
-                                                       pos
-                  case result of
-                    Just x -> return x
-                    _      -> failTyping $ TypingError
-                      (  "Union doesn't have a field called `"
-                      ++ s_unpack fieldName
-                      ++ "`"
-                      )
-                      pos
-              _ -> throwk $ InternalError
-                (  "Unexpected error: variable was typed as a union, but union "
-                ++ s_unpack unionName
-                ++ " not found in module "
-                ++ s_unpack (showModulePath unionModPath)
-                )
-                (Just $ tPos r1)
+                      Union { unionFields = fields } -> do
+                        result <- typeStructUnionFieldAccess ctx
+                                                             tctx
+                                                             mod
+                                                             fields
+                                                             r1
+                                                             fieldName
+                                                             pos
+                        case result of
+                          Just x -> return x
+                          _      -> failTyping $ TypingError
+                            (  "Union doesn't have a field called `"
+                            ++ s_unpack fieldName
+                            ++ "`"
+                            )
+                            pos
 
           TypePtr x ->
             -- try to auto-dereference
@@ -445,7 +451,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { texpr = et, tPos = pos }) = do
 
           x -> failTyping
             $ TypingError ("Field access is not allowed on " ++ show x) pos
-        )
+
     (Field e1 _) -> do
       throwk $ InternalError
         "Malformed AST: field access requires an identifier"
@@ -517,7 +523,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { texpr = et, tPos = pos }) = do
     (Defer e1) -> do
       throwk $ InternalError "Not yet implemented" (Just pos)
 
-    (StructInit structType@(TypeStruct tp@(mp, name) params) fields) -> do
+    (StructInit structType@(TypeInstance tp@(mp, name) params) fields) -> do
       owningModule <- getMod ctx mp
       structDef    <- resolveLocal (modScope owningModule) name
       case structDef of
@@ -581,35 +587,48 @@ typeExpr ctx tctx mod ex@(TypedExpr { texpr = et, tPos = pos }) = do
   let result' = result { inferredType = t' }
   tryRewrite result' (return result')
 
+alignCallArgs
+  :: [ConcreteType] -> Bool -> [TypedExpr] -> [TypedExpr] -> [TypedExpr]
+alignCallArgs argTypes isVariadic implicits args = if null argTypes
+  then []
+  else case findImplicit (head argTypes) implicits of
+    Just x  -> x : (alignCallArgs (tail argTypes) isVariadic implicits args)
+    Nothing -> args
+
+findImplicit :: ConcreteType -> [TypedExpr] -> Maybe TypedExpr
+findImplicit ct implicits = find (\imp -> inferredType imp == ct) implicits
+
 typeFunctionCall
   :: CompileContext
   -> TypeContext
   -> Module
   -> TypedExpr
   -> [TypedExpr]
+  -> [TypedExpr]
   -> IO TypedExpr
-typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = TypeFunction rt argTypes isVariadic, tPos = pos }) args
+typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = TypeFunction rt argTypes isVariadic, tPos = pos }) implicits args
   = do
-    -- validate number of arguments
-    if isVariadic
-      then when (length args < length argTypes) $ throwk $ TypingError
-        (  "Expected "
-        ++ (show $ length argTypes)
-        ++ " or more arguments (called with "
-        ++ (show $ length args)
-        ++ ")"
+    let aligned = alignCallArgs (map snd argTypes) isVariadic implicits args
+    print (implicits, aligned)
+    when
+        (if isVariadic
+          then length aligned < length argTypes
+          else length aligned /= length argTypes
         )
-        pos
-      else when (length args /= length argTypes) $ throwk $ TypingError
-        (  "Expected "
-        ++ (show $ length argTypes)
-        ++ " arguments (called with "
-        ++ (show $ length args)
-        ++ ")"
-        )
-        pos
+      $ throwk
+      $ TypingError
+          (  "Expected "
+          ++ (show $ length argTypes)
+          ++ (if isVariadic then " or more" else "")
+          ++ " arguments (called with "
+          ++ (show $ length args)
+          ++ " arguments and "
+          ++ (show $ length implicits)
+          ++ " implicits)"
+          )
+          pos
     forM_
-      (zip argTypes args)
+      (zip argTypes aligned)
       (\((_, argType), argValue) -> do
         t1 <- follow ctx tctx mod argType
         t2 <- knownType ctx tctx mod (inferredType argValue)
@@ -623,7 +642,7 @@ typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = TypeFunction rt argT
                   (tPos argValue)
           )
       )
-    return $ makeExprTyped (Call e args) rt pos
+    return $ makeExprTyped (Call e aligned) rt pos
 
 typeEnumConstructorCall
   :: CompileContext
@@ -660,8 +679,8 @@ typeEnumConstructorCall ctx tctx mod e args tp discriminant argTypes = do
         )
     )
                                                                   -- TODO: params
-  return $ makeExprTyped (EnumInit (TypeEnum tp []) discriminant args)
-                         (TypeEnum tp [])
+  return $ makeExprTyped (EnumInit (TypeInstance tp []) discriminant args)
+                         (TypeInstance tp [])
                          (tPos e)
 
 typeStructUnionFieldAccess
@@ -700,8 +719,8 @@ typeVarBinding ctx name binding pos = do
       -> do -- TODO: handle type params
         let (TypeEnumConstructor tp _ _) = t
         return $ if null args
-          then makeExprTyped (EnumInit (TypeEnum tp []) discriminant [])
-                             (TypeEnum tp [])
+          then makeExprTyped (EnumInit (TypeInstance tp []) discriminant [])
+                             (TypeInstance tp [])
                              pos
           else makeExprTyped
             (Identifier (Var name) [])
