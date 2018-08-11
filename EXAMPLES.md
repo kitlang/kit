@@ -52,7 +52,7 @@ enum Option[T] {
 ```kit
 /**
  * Provides convenience methods for working with colors. Variables can be
- * typed as Colors, but at runtime they'll be `unsigned long int` with zero
+ * typed as Colors, but at runtime they'll be `unsigned long` with zero
  * overhead.
  */
 abstract Color: Uint32 {
