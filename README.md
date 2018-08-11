@@ -1,3 +1,5 @@
+![Kit logo](https://raw.githubusercontent.com/kitlang/kit/master/assets/logo-512.png)
+
 ```ascii
                        ,  ,
   _,-=._              /|_/|
