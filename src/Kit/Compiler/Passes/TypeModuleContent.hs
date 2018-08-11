@@ -86,9 +86,9 @@ typeIterative ctx input output limit = do
     )
 
   let incomplete = [ (mod, y) | (mod, x) <- results, let y = catMaybes $ fst x, not $ null y ]
-  let complete   = [ (mod, y) | (mod, x) <- results, let y = catMaybes $ snd x, not $ null y ]
+  let complete   = [ (mod, y) | (mod, x) <- results, let y = catMaybes $ snd x ]
 
-  if (null incomplete)
+  if null incomplete
     then return complete
     else typeIterative ctx incomplete complete (limit - 1)
 
