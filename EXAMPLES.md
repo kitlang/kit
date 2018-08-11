@@ -210,3 +210,23 @@ enum List[T] {
     }
 }
 ```
+
+Implicits
+---------
+
+When implicit values are in scope, they'll be used as arguments in functions automatically. A function will look for matching implicit values for each of its arguments from left to right; it will stop looking as soon as it fails to find an implicit for an argument, so implicit arguments must be contiguous and must be the first arguments of the function.
+
+```kit
+function getConfigSection(config: Config, sectionName: CString) {
+    return config.get(sectionName);
+}
+
+function main() {
+    var cfg = defaultConfig();
+
+    using implicit cfg {
+        var settings = getConfigSection("settings");
+        var controls = getConfigSection("controls");
+    }
+}
+```
