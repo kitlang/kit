@@ -23,8 +23,8 @@ import Kit.Str
 compileCode :: CompileContext -> IO (Maybe FilePath)
 compileCode ctx = do
   compiler      <- findCompiler
-  compilerFlags <- getCompilerFlags
-  linkerFlags   <- getLinkerFlags
+  compilerFlags <- getCompilerFlags ctx
+  linkerFlags   <- getLinkerFlags ctx
   createDirectoryIfMissing True (buildDir ctx)
   debugLog                 ctx  ("found C compiler at " ++ compiler)
   mods <- ctxSourceModules ctx
@@ -71,21 +71,23 @@ link ctx cc args mods = do
 buildDir :: CompileContext -> FilePath
 buildDir ctx = (ctxOutputDir ctx)
 
-getCompilerFlags :: IO [String]
-getCompilerFlags = do
-  flags <- lookupEnv "COMPILER_FLAGS"
-  return $ case flags of
+getCompilerFlags :: CompileContext -> IO [String]
+getCompilerFlags ctx = do
+  let ctxFlags = ctxCompilerFlags ctx
+  envFlags <- lookupEnv "COMPILER_FLAGS"
+  return $ case envFlags of
     -- FIXME
-    Just s  -> words s
-    Nothing -> []
+    Just s  -> ctxFlags ++ words s
+    Nothing -> ctxFlags
 
-getLinkerFlags :: IO [String]
-getLinkerFlags = do
-  flags <- lookupEnv "LINKER_FLAGS"
-  return $ case flags of
+getLinkerFlags :: CompileContext -> IO [String]
+getLinkerFlags ctx = do
+  let ctxFlags = ctxLinkerFlags ctx
+  envFlags <- lookupEnv "LINKER_FLAGS"
+  return $ case envFlags of
     -- FIXME
-    Just s  -> words s
-    Nothing -> []
+    Just s  -> ctxFlags ++ words s
+    Nothing -> ctxFlags
 
 findCompiler :: IO FilePath
 findCompiler = do

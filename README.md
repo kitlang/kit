@@ -14,7 +14,7 @@
   o888o  o888o  o888o   '888'
 ```
 
-**Kit** is a programming language designed for creating high performance cross-platform applications. Kit compiles to C, so it's highly portable; it can be used in addition to or as an alternative to C, over which it provides several advantages:
+**Kit** is a programming language designed for creating high performance cross-platform applications. Kit compiles to C, so it's highly portable; it can be used in addition to or as an alternative to C, over which it provides several advantages (see [examples](https://github.com/kitlang/kit/blob/master/EXAMPLES.md)):
 
 * Modern language features such as type inference, algebraic data types, pattern matching, explicit function inlining, automatic pointer dereferencing, and generics.
 

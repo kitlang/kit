@@ -48,6 +48,8 @@ data CompileContext = CompileContext {
   ctxTraitSpecializations :: HashTable TypePath (TypeSpec, Span),
   ctxImpls :: HashTable TypePath (HashTable ConcreteType (TraitImplementation Expr (Maybe TypeSpec))),
   ctxGlobalNames :: HashTable Str Span,
+  ctxCompilerFlags :: [String],
+  ctxLinkerFlags :: [String],
   ctxNoCompile :: Bool,
   ctxNoLink :: Bool,
   ctxDumpAst :: Bool,
@@ -100,6 +102,8 @@ newCompileContext = do
     , ctxTraitSpecializations = specs
     , ctxImpls                = impls
     , ctxGlobalNames          = globals
+    , ctxCompilerFlags        = []
+    , ctxLinkerFlags          = []
     , ctxNoCompile            = False
     , ctxNoLink               = False
     , ctxDumpAst              = False

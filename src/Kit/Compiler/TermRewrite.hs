@@ -113,6 +113,8 @@ ruleMatch pattern te thisType typeResolver = do
       if op1 == op2 then r x y else return Nothing
     (PostUnop op1 x, PostUnop op2 y) ->
       if op1 == op2 then r x y else return Nothing
+    (Field x (Var a), Field y (Var b)) ->
+      if a == b then r x y else return Nothing
     (a, b) -> if exprDiscriminant a == exprDiscriminant b
       then
         let (c1, c2) = (exprChildren a, exprChildren b)
