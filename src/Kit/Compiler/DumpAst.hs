@@ -162,6 +162,7 @@ dumpAst ctx indent e@(TypedExpr { tExpr = texpr, inferredType = t, tPos = pos })
       VectorLiteral x       -> i "[]" x
       VarDeclaration id _ a -> i ("var " ++ show id) (catMaybes [a])
       Using u x             -> i ("using " ++ show u) [x]
+      TupleInit slots       -> i "tuple" slots
       _                     -> return $ f $ "??? " ++ show texpr
 
 dumpCt :: CompileContext -> ConcreteType -> IO String

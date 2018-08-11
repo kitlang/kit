@@ -122,6 +122,9 @@ resolveType ctx tctx mod t = do
   importedMods <- getModImports ctx mod
   case t of
     ConcreteType ct            -> follow ctx tctx mod ct
+    TupleTypeSpec t pos -> do
+      slots <- forM t (resolveType ctx tctx mod)
+      return $ TypeTuple slots
     TypeSpec (m, s) params pos -> do
       case m of
         [] -> do
@@ -160,7 +163,7 @@ resolveType ctx tctx mod t = do
               -> follow ctx tctx mod t
             _ -> unknownType (s_unpack $ showTypePath (m, s)) pos
 
-    TypeFunctionSpec rt params args isVariadic -> do
+    FunctionTypeSpec rt params args isVariadic -> do
       -- TODO
       unknownType "TODO" NoPos
 

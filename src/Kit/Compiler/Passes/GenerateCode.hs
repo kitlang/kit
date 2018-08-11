@@ -55,6 +55,7 @@ generateHeader ctx mod decls = do
     (\imp -> do
       hPutStrLn handle $ "#include \"" ++ (relativeLibPath imp -<.> "h") ++ "\""
     )
+
   hPutStrLn handle "\n/* forward declarations */\n"
   forM_     decls  (generateHeaderForwardDecl ctx mod handle)
   hPutStrLn handle "\n/* type and function declarations */\n"
@@ -85,6 +86,9 @@ generateHeaderForwardDecl
   :: CompileContext -> Module -> Handle -> IrDecl -> IO ()
 generateHeaderForwardDecl ctx mod headerFile decl = do
   case decl of
+    DeclTuple t@(BasicTypeTuple name _) -> do
+      hPutStrLn headerFile (render $ pretty $ CDeclExt $ cDecl (BasicTypeTuple name []) Nothing Nothing)
+
     DeclType def@(TypeDefinition { typeSubtype = Atom }) -> return ()
 
     DeclType def@(TypeDefinition { typeName = name }   ) -> do
@@ -97,11 +101,18 @@ generateHeaderForwardDecl ctx mod headerFile decl = do
 generateHeaderDecl :: CompileContext -> Module -> Handle -> IrDecl -> IO ()
 generateHeaderDecl ctx mod headerFile decl = do
   case decl of
+    DeclTuple t@(BasicTypeTuple name _) -> do
+      hPutStrLn headerFile $ "#ifndef KIT_TUPLE__" ++ s_unpack name
+      hPutStrLn headerFile $ "#define KIT_TUPLE__" ++ s_unpack name
+      let decls = cdecl t
+      mapM_ (\d -> hPutStrLn headerFile (render $ pretty $ CDeclExt d)) decls
+      hPutStrLn headerFile $ "#endif"
+
     DeclType def@(TypeDefinition { typeSubtype = Atom }) -> return ()
 
     DeclType def@(TypeDefinition{}                     ) -> do
       let decls = cdecl (typeBasicType def)
-      mapM_ (\d -> hPutStrLn headerFile (render $ pretty $ CDeclExt $ d)) decls
+      mapM_ (\d -> hPutStrLn headerFile (render $ pretty $ CDeclExt d)) decls
 
     DeclFunction def@(FunctionDefinition { functionName = name, functionType = t, functionArgs = args, functionVarargs = varargs })
       -> do

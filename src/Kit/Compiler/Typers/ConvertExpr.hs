@@ -71,9 +71,11 @@ convertExpr ctx tctx mod e = do
       children <- mapM r x
       return $ makeExprTyped (Block children) t pos'
     Using using e1 -> do
-      using' <- mapM (convertUsingType (converter r (\_ -> typeOrTypeVar)) pos') using
+      using' <- mapM
+        (convertUsingType (converter r (\_ -> typeOrTypeVar)) pos')
+        using
       singleWrapper e1 (Using using')
-    Meta meta e1 -> singleWrapper e1 (Meta meta)
+    Meta meta e1           -> singleWrapper e1 (Meta meta)
     Literal (IntValue v t) -> do
       t' <- resolveMaybeType ctx tctx mod pos' t
       return $ m (Literal (IntValue v t')) t'
@@ -154,6 +156,9 @@ convertExpr ctx tctx mod e = do
       t    <- mtv
       args <- mapM r args
       return $ m (VectorLiteral args) t
+    TupleInit args -> do
+      args <- mapM r args
+      return $ m (TupleInit args) (TypeTuple (map inferredType args))
     VarDeclaration id t e1 -> do
       id <- convertIdentifier typeOrTypeVar id
       t  <- resolveMaybeType ctx tctx mod pos' t

@@ -12,12 +12,6 @@ import Kit.Ir
 import Kit.Parser.Span
 import Kit.Str
 
-data ModuleInterfaceType
-  = ModuleType
-  | ModuleVar
-  | ModuleFunction
-  | ModuleTrait
-
 data Module = Module {
   modPath :: ModulePath,
   modSourcePath :: FilePath,
@@ -27,6 +21,7 @@ data Module = Module {
   modImpls :: IORef [TraitImplementation Expr (Maybe TypeSpec)],
   modSpecializations :: IORef [((TypeSpec, TypeSpec), Span)],
   modUsing :: IORef [UsingType TypedExpr ConcreteType],
+  modTuples :: HashTable String BasicType,
   modIsCModule :: Bool
 }
 
@@ -35,11 +30,12 @@ instance Show Module where
 
 newMod :: ModulePath -> FilePath -> IO Module
 newMod path fp = do
-  scope         <- newScope path
-  impls         <- newIORef []
-  specs         <- newIORef []
-  includes      <- newIORef []
-  using         <- newIORef []
+  scope    <- newScope path
+  impls    <- newIORef []
+  specs    <- newIORef []
+  includes <- newIORef []
+  using    <- newIORef []
+  tuples   <- h_new
   return $ Module
     { modPath            = path
     , modSourcePath      = fp
@@ -49,6 +45,7 @@ newMod path fp = do
     , modImpls           = impls
     , modSpecializations = specs
     , modUsing           = using
+    , modTuples          = tuples
     , modIsCModule       = False
     }
 

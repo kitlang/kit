@@ -370,6 +370,11 @@ TypeAnnotation :: {(Maybe TypeSpec, Span)}
 
 TypeSpec :: {(TypeSpec, Span)}
   : TypePath TypeSpecParams {(TypeSpec (fst $1) (reverse $ fst $2) (p $1 <+> p $2), p $1 <+> p $2)}
+  | '(' TupleTypes ')' {let p = snd $1 <+> snd $3 in (TupleTypeSpec (reverse $2) p, p)}
+
+TupleTypes :: {[TypeSpec]}
+  : TypeSpec ',' TypeSpec {[fst $3, fst $1]}
+  | TupleTypes ',' TypeSpec {fst $3 : $1}
 
 OptionalBody :: {(Maybe Expr, Span)}
   : ';' {(Nothing, NoPos)}
@@ -388,8 +393,7 @@ TypeParams_ :: {[TypeParam]}
   | TypeParams_ ',' TypeParam {$3 : $1}
 
 TypeParam :: {TypeParam}
-  : upper_identifier {TypeParam {paramName = (extract_upper_identifier $1), constraints = []}}
-  | upper_identifier ':' TypeConstraints {TypeParam {paramName = (extract_upper_identifier $1), constraints = $3}}
+  : upper_identifier TypeConstraints {TypeParam {paramName = (extract_upper_identifier $1), constraints = $2}}
 
 TypeSpecParams :: {([TypeSpec], Span)}
   : {([], NoPos)}
@@ -400,13 +404,13 @@ TypeSpecParams_ :: {[TypeSpec]}
   | TypeSpecParams_ ',' TypeSpec {(fst $3) : $1}
 
 TypeConstraints :: {[TypeSpec]}
-  : TypeSpec {[fst $1]}
-  | '(' ')' {[]}
-  | '(' TypeConstraints_ ')' {reverse $2}
+  : {[]}
+  | ':' TypeSpec {[fst $2]}
+  | "::" TypeConstraints_ {reverse $2}
 
 TypeConstraints_ :: {[TypeSpec]}
   : TypeSpec {[fst $1]}
-  | TypeConstraints_ ',' TypeSpec {fst $3 : $1}
+  | TypeConstraints_ '|' TypeSpec {fst $3 : $1}
 
 UpperOrLowerIdentifier :: {(Str, Span)}
   : identifier {(extract_identifier $1, snd $1)}
@@ -687,10 +691,6 @@ FieldExpr :: {Expr}
 
 TypeAnnotatedExpr :: {Expr}
   : TypeAnnotatedExpr ':' TypeSpec {pe (pos $1 <+> snd $3) $ TypeAnnotation $1 (Just $ fst $3)}
-  | InlineStructExpr {$1}
-
-InlineStructExpr :: {Expr}
-  : struct TypeSpec '{' StructInitFields '}' {pe (p $1 <+> p $5) $ StructInit (Just $ fst $2) $4}
   | BaseExpr {$1}
 
 BaseExpr :: {Expr}
@@ -699,8 +699,13 @@ BaseExpr :: {Expr}
   | Self {pe (snd $1) Self}
   | Identifier {pe (snd $1) $ Identifier (fst $1) []}
   | unsafe Expr {pe (p $1 <+> pos $2) (Unsafe $2)}
-  | '(' Expr ')' {me (p $1 <+> p $3) $2}
+  | '(' Expr ParenthesizedExprs ')' {if null $3 then $2 else pe (snd $1 <+> snd $4) (TupleInit ($2 : reverse $3)) }
   | null {pe (snd $1) $ Unsafe $ pe (snd $1) $ Identifier (Var "NULL") []}
+  | struct TypeSpec '{' StructInitFields '}' {pe (p $1 <+> p $5) $ StructInit (Just $ fst $2) $4}
+
+ParenthesizedExprs :: {[Expr]}
+  : {[]}
+  | ParenthesizedExprs ',' Expr {$3 : $1}
 
 Term :: {(ValueLiteral (Maybe TypeSpec), Span)}
   : bool {(BoolValue $ extract_bool $ fst $1, snd $1)}

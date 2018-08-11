@@ -39,64 +39,72 @@ unify
   -> Module
   -> ConcreteType
   -> ConcreteType
-  -> IO TypeInformation
+  -> IO (Maybe [TypeInformation])
 unify ctx tctx mod a' b' = do
+  let checkResults x = foldr
+        (\result acc -> case acc of
+          Just x -> case result of
+            Just y  -> Just (x ++ y)
+            Nothing -> Nothing
+          Nothing -> Nothing
+        )
+        (Just [])
+        x
   a <- knownType ctx tctx mod a'
   b <- knownType ctx tctx mod b'
   case (a, b) of
     (TypeTypeVar i, TypeTraitConstraint t) -> do
       info <- getTypeVar ctx i
       return $ if elem t (map fst $ typeVarConstraints info)
-        then TypeConstraintSatisfied
-        else TypeVarConstraint i t
+        then Just []
+        else Just [TypeVarConstraint i t]
     (TypeTypeVar a, TypeTypeVar b) -> do
       info1 <- getTypeVar ctx a
       info2 <- getTypeVar ctx b
       return $ if (typeVarId info1 == typeVarId info2)
-        then TypeConstraintSatisfied
-        else TypeVarIs a (TypeTypeVar b)
+        then Just []
+        else Just [TypeVarIs a (TypeTypeVar b)]
     (TypeTypeVar i, x) -> do
       info <- getTypeVar ctx i
       let constraints = typeVarConstraints info
-      meetsConstraints <- foldM
-        (\acc ((tp, params), (reason, pos)) -> do
-          case acc of
-            TypeConstraintSatisfied ->
-              unify ctx tctx mod (TypeTraitConstraint (tp, params)) x
-            _ -> return acc
-        )
-        TypeConstraintSatisfied
+      results <- forM
         constraints
-      return $ case meetsConstraints of
-        TypeConstraintSatisfied -> TypeVarIs i x
-        _                       -> meetsConstraints
-    (_                    , TypeTypeVar _        ) -> unify ctx tctx mod b a
-    (TypeTraitConstraint t, x                    ) -> resolveTraitConstraint ctx tctx mod t x
-    (_                    , TypeTraitConstraint v) -> unify ctx tctx mod b a
-    (TypeBasicType a      , TypeBasicType b      ) -> return $ unifyBasic a b
-    (TypePtr       a      , TypePtr b            ) -> unify ctx tctx mod a b
-    _ -> return
-      $ if a == b then TypeConstraintSatisfied else TypeConstraintNotSatisfied
+        (\((tp, params), _) ->
+          unify ctx tctx mod (TypeTraitConstraint (tp, params)) x
+        )
+      return $ case checkResults results of
+        Just results  -> Just $ (TypeVarIs i x) : results
+        Nothing -> Nothing
+    (_                    , TypeTypeVar _) -> unify ctx tctx mod b a
+    (TypeTraitConstraint t, x            ) -> do
+      impl <- resolveTraitConstraint ctx tctx mod t x
+      return $ if impl then Just [] else Nothing
+    (_, TypeTraitConstraint v) -> unify ctx tctx mod b a
+    (TypeBasicType a, TypeBasicType b) -> return $ unifyBasic a b
+    (TypePtr a, TypePtr b) -> unify ctx tctx mod a b
+    (TypeTuple a, TypeTuple b) | length a == length b -> do
+      vals <- forM (zip a b) (\(a, b) -> unify ctx tctx mod a b)
+      return $ checkResults vals
+    _ -> return $ if a == b then Just [] else Nothing
 
-unifyBasic :: BasicType -> BasicType -> TypeInformation
-unifyBasic (BasicTypeVoid)    _                  = TypeConstraintNotSatisfied
-unifyBasic _                  (BasicTypeVoid   ) = TypeConstraintNotSatisfied
-unifyBasic (BasicTypeInt  _ ) (BasicTypeInt   _) = TypeConstraintSatisfied
-unifyBasic (BasicTypeUint _ ) (BasicTypeInt   _) = TypeConstraintSatisfied
-unifyBasic (BasicTypeInt  _ ) (BasicTypeUint  _) = TypeConstraintSatisfied
-unifyBasic (BasicTypeUint _ ) (BasicTypeUint  _) = TypeConstraintSatisfied
-unifyBasic (BasicTypeInt  _ ) (BasicTypeFloat _) = TypeConstraintSatisfied
-unifyBasic (BasicTypeUint _ ) (BasicTypeFloat _) = TypeConstraintSatisfied
-unifyBasic (BasicTypeUnknown) (_               ) = TypeConstraintNotSatisfied
+unifyBasic :: BasicType -> BasicType -> Maybe [TypeInformation]
+unifyBasic (BasicTypeVoid)    _                  = Nothing
+unifyBasic _                  (BasicTypeVoid   ) = Nothing
+unifyBasic (BasicTypeInt  _ ) (BasicTypeInt   _) = Just []
+unifyBasic (BasicTypeUint _ ) (BasicTypeInt   _) = Just []
+unifyBasic (BasicTypeInt  _ ) (BasicTypeUint  _) = Just []
+unifyBasic (BasicTypeUint _ ) (BasicTypeUint  _) = Just []
+unifyBasic (BasicTypeInt  _ ) (BasicTypeFloat _) = Just []
+unifyBasic (BasicTypeUint _ ) (BasicTypeFloat _) = Just []
+unifyBasic (BasicTypeUnknown) (_               ) = Nothing
 unifyBasic (CPtr a          ) (CPtr b          ) = unifyBasic a b
-unifyBasic a b =
-  if a == b then TypeConstraintSatisfied else TypeConstraintNotSatisfied
+unifyBasic a b = if a == b then Just [] else Nothing
 
 resolveConstraint
   :: CompileContext -> TypeContext -> Module -> TypeConstraint -> IO ()
 resolveConstraint ctx tctx mod constraint@(TypeEq a b reason pos) = do
-  result <- resolveConstraintOrThrow ctx tctx mod constraint
-  case result of
+  results <- resolveConstraintOrThrow ctx tctx mod constraint
+  forM_ results $ \result -> case result of
     TypeVarIs a (TypeTypeVar b) | a == b -> do
       -- tautological; would cause an endless loop
       return ()
@@ -139,14 +147,14 @@ resolveConstraintOrThrow
   -> TypeContext
   -> Module
   -> TypeConstraint
-  -> IO TypeInformation
+  -> IO [TypeInformation]
 resolveConstraintOrThrow ctx tctx mod t@(TypeEq a' b' reason pos) = do
   a      <- knownType ctx tctx mod a'
   b      <- knownType ctx tctx mod b'
   result <- unify ctx tctx mod a b
   case result of
-    TypeConstraintNotSatisfied -> throw $ KitError $ UnificationError ctx t
-    x                          -> return $ x
+    Just x  -> return $ x
+    Nothing -> throw $ KitError $ UnificationError ctx t
 
 resolveTraitConstraint
   :: CompileContext
@@ -154,9 +162,9 @@ resolveTraitConstraint
   -> Module
   -> TraitConstraint
   -> ConcreteType
-  -> IO TypeInformation
+  -> IO Bool
 resolveTraitConstraint ctx tctx mod (tp, params) ct = do
   impl <- getTraitImpl ctx tp ct
   return $ case impl of
-    Just _ -> TypeConstraintSatisfied
-    _      -> TypeConstraintNotSatisfied
+    Just _ -> True
+    _      -> False

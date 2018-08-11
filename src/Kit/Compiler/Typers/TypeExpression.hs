@@ -223,8 +223,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                        (inferredType r1)
                        (inferredType r2)
                        tv
-                       (lMixed == TypeConstraintSatisfied)
-                       (rMixed == TypeConstraintSatisfied)
+                       (lMixed /= Nothing)
+                       (rMixed /= Nothing)
                        pos
           of
             Just constraints -> mapM_ resolve constraints
@@ -580,6 +580,10 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
             return $ makeExprTyped (StructInit structType typedFields)
                                    structType
                                    pos
+
+    (TupleInit slots) -> do
+      slots' <- forM slots r
+      return $ makeExprTyped (TupleInit slots') (TypeTuple (map inferredType slots')) pos
 
     _ -> return $ ex
 

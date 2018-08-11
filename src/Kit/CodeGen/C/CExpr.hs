@@ -79,6 +79,15 @@ ctype (BasicTypeUnion name _) =
     ]
   , []
   )
+ctype (BasicTypeTuple name t) =
+  ( [ u $ CSUType $ u $ CStruct
+        CStructTag
+        (Just (internalIdent $ s_unpack name))
+        Nothing
+        []
+    ]
+  , []
+  )
 ctype (CPtr x) = (fst t, (u $ CPtrDeclr []) : snd t) where t = ctype x
 ctype (BasicTypeFunction _ _ _) = undefined
 ctype (CArray _ _             ) = undefined
@@ -96,19 +105,18 @@ transpileExpr (IrLiteral (BoolValue b)) =
   CConst $ u $ CIntConst $ cInteger (if b then 1 else 0)
 transpileExpr (IrLiteral (IntValue i t@(BasicTypeFloat _))) =
   transpileExpr (IrLiteral (FloatValue (s_pack $ show i) t))
-transpileExpr (IrLiteral (IntValue i t)) =
-  CConst $ u $ CIntConst $ CInteger
-    (toInteger i)
-    DecRepr
-    (intFlags
-      (case t of
-        BasicTypeInt  32 -> [FlagLong]
-        BasicTypeInt  64 -> [FlagLongLong]
-        BasicTypeUint 32 -> [FlagUnsigned, FlagLong]
-        BasicTypeUint 64 -> [FlagUnsigned, FlagLongLong]
-        _                -> []
-      )
+transpileExpr (IrLiteral (IntValue i t)) = CConst $ u $ CIntConst $ CInteger
+  (toInteger i)
+  DecRepr
+  (intFlags
+    (case t of
+      BasicTypeInt  32 -> [FlagLong]
+      BasicTypeInt  64 -> [FlagLongLong]
+      BasicTypeUint 32 -> [FlagUnsigned, FlagLong]
+      BasicTypeUint 64 -> [FlagUnsigned, FlagLongLong]
+      _                -> []
     )
+  )
 transpileExpr (IrLiteral (FloatValue f t)) =
   CConst $ u $ CFloatConst $ transpileFloat (s_unpack f)
 transpileExpr (IrLiteral (StringValue s)) =
@@ -168,6 +176,13 @@ transpileExpr (IrEnumInit t@(BasicTypeComplexEnum name variants) discriminant fi
         )
       )
     ]
+transpileExpr (IrTupleInit t vals) = u $ CCompoundLit
+  (cDecl t Nothing Nothing)
+  [ ( [u $ CMemberDesig (internalIdent $ "__slot" ++ (show i))]
+    , u $ CInitExpr (transpileExpr e)
+    )
+  | (i, e) <- zip [0 ..] vals
+  ]
 
 getVariantFieldNames variants discriminant =
   case find (\(name, _) -> name == discriminant) variants of

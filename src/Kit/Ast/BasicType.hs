@@ -32,11 +32,27 @@ data BasicType
   | BasicTypeComplexEnum Str [(Str, BasicArgs)]
   | BasicTypeAtom
   | BasicTypeFunction BasicType BasicArgs Bool
-  | BasicTypeTuple [BasicType]
+  | BasicTypeTuple Str [BasicType]
   -- If for some reason we can't parse type specifiers into a meaningful
   -- BasicType, the value isn't usable from Kit without casting.
   | BasicTypeUnknown
   deriving (Eq, Generic)
+
+basicTypeAbbreviation (CArray t _) = "a" ++ basicTypeAbbreviation t
+basicTypeAbbreviation (CPtr t) = "p" ++ basicTypeAbbreviation t
+basicTypeAbbreviation (BasicTypeVoid) = "v"
+basicTypeAbbreviation (BasicTypeBool) = "b"
+basicTypeAbbreviation (BasicTypeInt i) = "i" ++ show i
+basicTypeAbbreviation (BasicTypeUint i) = "u" ++ show i
+basicTypeAbbreviation (BasicTypeFloat f) = "f" ++ show f
+basicTypeAbbreviation (BasicTypeStruct n args) = "s" ++ (case n of {Just x -> s_unpack x; _ -> ""}) ++ (foldr (++) "" [s_unpack n ++ basicTypeAbbreviation t | (n, t) <- args])
+basicTypeAbbreviation (BasicTypeUnion n args) = "u" ++ (case n of {Just x -> s_unpack x; _ -> ""}) ++ (foldr (++) "" [s_unpack n ++ basicTypeAbbreviation t | (n, t) <- args])
+-- basicTypeAbbreviation (BasicTypeSimpleEnum n variants)
+-- basicTypeAbbreviation (BasicTypeComplexEnum n args)
+basicTypeAbbreviation (BasicTypeAtom) = "a"
+-- basicTypeAbbreviation (BasicTypeFunction rt args v)
+basicTypeAbbreviation (BasicTypeTuple _ t) = "t" ++ show (length t) ++ foldr (++) "" (map basicTypeAbbreviation t)
+basicTypeAbbreviation (BasicTypeUnknown) = "q"
 
 instance Hashable BasicType
 

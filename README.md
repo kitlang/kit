@@ -22,9 +22,11 @@
 
 * A powerful type system, including polymorphism via traits and abstract types, which provide custom compile-time behavioral and type checking semantics to existing types with no runtime cost.
 
-* Seamless interoperability with existing C libraries. Kit compiles to C and its type system exposes C types directly. You can call C functions from Kit or Kit functions from C, by directly including header files; no bindings or wrappers are required.
+* Metaprogramming via a typed term rewriting system; use rules to transform arbitrary expressions at compile time based on their type information.
 
 * A simple but powerful build tool, written in Kit: manage your project via a simple YAML configuration file and `kit build`, `kit test`, or `kit run`. (coming soon...)
+
+Kit also has seamless interoperability with existing C libraries; you can call C functions from Kit or Kit functions from C by directly including header files; no bindings or wrappers are required.
 
 Kit is licensed under the GNU Lesser General Public License; see the accompanying [LICENSE.md](https://github.com/kitlang/kit/blob/master/LICENSE.md) file. This applies to modifications to the compiler source itself; any code you write and compile with Kit is yours to license however you choose.
 

@@ -11,7 +11,7 @@ testUnify ctx a b c = do
   tctx <- newTypeContext []
   mod <- newMod [] ""
   unification <- unify ctx tctx mod a b
-  unification `shouldBe` c
+  unification `shouldBe` Just [c]
 
 spec :: Spec
 spec = do
@@ -35,16 +35,16 @@ spec = do
   describe "Basic type unifiation" $ do
     it "unifies numeric types" $ do
       unifyBasic (BasicTypeInt 32) (BasicTypeInt 64)
-        `shouldBe` TypeConstraintSatisfied
+        `shouldBe` Just []
       unifyBasic (BasicTypeInt 64) (BasicTypeInt 32)
-        `shouldBe` TypeConstraintSatisfied
+        `shouldBe` Just []
       unifyBasic (BasicTypeInt 32) (BasicTypeUint 64)
-        `shouldBe` TypeConstraintSatisfied
+        `shouldBe` Just []
       unifyBasic (BasicTypeUint 32) (BasicTypeUint 64)
-        `shouldBe` TypeConstraintSatisfied
+        `shouldBe` Just []
       unifyBasic (BasicTypeUint 32) (BasicTypeFloat 64)
-        `shouldBe` TypeConstraintSatisfied
+        `shouldBe` Just []
       unifyBasic (BasicTypeInt 32) (BasicTypeFloat 64)
-        `shouldBe` TypeConstraintSatisfied
+        `shouldBe` Just []
       unifyBasic (BasicTypeFloat 32) (BasicTypeUint 64)
-        `shouldBe` TypeConstraintNotSatisfied
+        `shouldBe` Nothing

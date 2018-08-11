@@ -94,7 +94,7 @@ typeFunctionDefinition ctx tctx' mod f = do
       -- Try to unify with void; if unification doesn't fail, we didn't encounter a return statement, so the function is void.
       unification <- unify ctx ftctx mod returnType voidType
       case unification of
-        TypeVarIs _ (TypeBasicType BasicTypeVoid) -> do
+        Just _ -> do
           resolveConstraint
             ctx
             tctx

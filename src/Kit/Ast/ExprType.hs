@@ -60,6 +60,7 @@ data ExprType a b
   | Field a (Identifier b)
   | StructInit b [(Str, a)]
   | EnumInit b Str [a]
+  | TupleInit [a]
   | ArrayAccess a a
   | Call a [a]
   | Cast a b

@@ -118,7 +118,7 @@ spec = parallel $ do
 
     it "parses functions" $ do
       testParse
-          "/**test*/ #[meta] inline function abc[A, B: Int, C: (ToString, ToInt)](a: A, b: B = 2, c: C, ...): Something { print(a); print(b); print(c); }"
+          "/**test*/ #[meta] inline function abc[A, B: Int, C :: ToString | ToInt](a: A, b: B = 2, c: C, ...): Something { print(a); print(b); print(c); }"
         `shouldBe` [ ( ps (sp "" 1 26 1 37)
                      $ FunctionDeclaration
                      $ (newFunctionDefinition :: FunctionDefinition

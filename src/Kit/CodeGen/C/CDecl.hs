@@ -136,6 +136,17 @@ cdecl (BasicTypeComplexEnum name variants) =
     nonemptyVariants
   nonemptyVariants = filter (\(name, fields) -> fields /= []) variants
 
+cdecl (BasicTypeTuple name slots) =
+  [ u $ CDecl
+      [ CTypeSpec $ u $ CSUType $ u $ CStruct
+          CStructTag
+          (Just $ internalIdent $ s_unpack name)
+          (Just $ makeSUFields [(s_pack $ "__slot" ++ show i, slot) | (i, slot) <- zip [0..] slots])
+          []
+      ]
+      []
+  ]
+
 enumDiscriminant name variantNames = u $ CDecl
   [ CTypeSpec $ u $ CEnumType $ u $ CEnum
       (case name of

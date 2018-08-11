@@ -18,20 +18,14 @@ data TypeConstraint
 data TypeInformation
   = TypeVarIs TypeVar ConcreteType
   | TypeVarConstraint TypeVar TraitConstraint
-  | TypeConstraintSatisfied
-  | TypeConstraintNotSatisfied
 
 instance Eq TypeInformation where
   (==) (TypeVarIs a b) (TypeVarIs c d) = (a == c) && (b == d)
   (==) (TypeVarConstraint a b) (TypeVarConstraint c d) = (a == c) && (b == d)
-  (==) TypeConstraintSatisfied TypeConstraintSatisfied = True
-  (==) TypeConstraintNotSatisfied TypeConstraintNotSatisfied = True
   (==) a b = False
 
 instance Show TypeInformation where
   show (TypeVarIs a b) = (show a) ++ " := " ++ (show b)
-  show TypeConstraintSatisfied = "satisfied"
-  show TypeConstraintNotSatisfied = "not satisfied"
   show (TypeVarConstraint tv constraint) = (show tv) ++ " => " ++ show constraint
 
 data TypeVarInfo = TypeVarInfo

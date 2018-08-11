@@ -34,8 +34,9 @@ generateModuleIr
   :: CompileContext -> (Module, [TypedDecl]) -> IO (Module, [IrDecl])
 generateModuleIr ctx (mod, decls) = do
   debugLog ctx $ "generating IR for " ++ show mod
-  decls <- forM decls (generateDeclIr ctx mod)
-  return (mod, foldr (++) [] decls)
+  decls  <- forM decls (generateDeclIr ctx mod)
+  tuples <- h_toList (modTuples mod)
+  return (mod, [ DeclTuple t | (_, t) <- tuples ] ++ (foldr (++) [] decls))
 
 generateDeclIr :: CompileContext -> Module -> TypedDecl -> IO [IrDecl]
 generateDeclIr ctx mod t = do
@@ -131,7 +132,7 @@ generateDeclIr ctx mod t = do
 -}
 findUnderlyingType :: CompileContext -> Module -> ConcreteType -> IO BasicType
 findUnderlyingType ctx mod t = do
-  case t of
+  x <- case t of
     TypeBasicType b       -> return b
     TypeAtom              -> return $ BasicTypeAtom
     TypeAnonStruct fields -> do
@@ -206,9 +207,20 @@ findUnderlyingType ctx mod t = do
           then findDefaultType ctx mod id
           else findUnderlyingType ctx mod known
         _ -> findUnderlyingType ctx mod known
+    TypeTuple t -> do
+      slots <- forM t (findUnderlyingType ctx mod)
+      return $ BasicTypeTuple
+        (s_pack (basicTypeAbbreviation $ BasicTypeTuple "" slots))
+        slots
     _ -> do
       -- TODO: REMOVE
       return $ BasicTypeUnknown
+
+  case x of
+    BasicTypeTuple name t -> h_insert (modTuples mod) (s_unpack name) x
+    _                     -> return ()
+
+  return x
 
 -- TODO: finding specializations should be done as a separate step
 findDefaultType :: CompileContext -> Module -> Int -> IO BasicType
@@ -243,8 +255,8 @@ findDefaultType ctx mod id = do
                                     spec
                                     (TypeTraitConstraint (c, []))
                     return $ case result of
-                      TypeConstraintSatisfied -> acc'
-                      _                       -> Nothing
+                      Just _ -> acc'
+                      _      -> Nothing
                   Nothing -> do
                     return acc'
                 )
@@ -412,6 +424,14 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
       (EnumInit t d args) -> do
         resolvedArgs <- forM args r
         return $ IrEnumInit f d resolvedArgs
+      (TupleInit slots) -> do
+        resolvedSlots <- forM
+          slots
+          (\s -> do
+            r1 <- r s
+            return r1
+          )
+        return $ IrTupleInit f resolvedSlots
 
 addHeader :: Module -> FilePath -> Span -> IO ()
 addHeader mod fp pos = do
