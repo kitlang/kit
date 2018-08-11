@@ -26,7 +26,7 @@
 
 * A simple but powerful build tool, written in Kit: manage your project via a simple YAML configuration file and `kit build`, `kit test`, or `kit run`. (coming soon...)
 
-Kit is licensed under the GNU Lesser General Public License; see the accompanying LICENSE.md file. This applies to modifications to the compiler source itself; any code you write and compile with Kit is yours to license however you choose.
+Kit is licensed under the GNU Lesser General Public License; see the accompanying [LICENSE.md](https://github.com/kitlang/kit/blob/master/LICENSE.md) file. This applies to modifications to the compiler source itself; any code you write and compile with Kit is yours to license however you choose.
 
 Kit is pre-alpha and not all features are fully implemented; see the [roadmap on Trello](https://trello.com/b/Bn9H0fzk/kit).
 
@@ -53,3 +53,9 @@ This will install all other dependencies locally, including a local GHC binary, 
 To run the compiler unit tests:
 
     stack test
+
+
+Copyright
+---------
+
+Copyright (C) 2018 Ben Morris. (See the [LICENSE](https://github.com/kitlang/kit/blob/master/LICENSE.md).)
