@@ -2,7 +2,9 @@ include "stdio.h";
 
 struct MyStruct {
     var a: Int;
-    var b: Ptr[Int];
+    // refderef for struct fields/assignment not yet implemented
+    // var b: Ptr[Int];
+    var b: Int;
 }
 
 function f1(x: MyStruct) {
@@ -23,7 +25,11 @@ function main() {
         b: 2,
     };
 
+    var p: Ptr[MyStruct] = &myVal;
+    printf("%li\n", p.a);
+
     f1(myVal);
-    f2(myVal);
-    f3(myVal);
+    // not yet implemented
+    // f2(myVal);
+    // f3(myVal);
 }
