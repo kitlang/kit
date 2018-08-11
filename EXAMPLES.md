@@ -182,7 +182,7 @@ enum List[T] {
     Cons(head: T, tail: List[T]);
     Empty;
 
-    public rules {
+    rules {
         // Replace iteration over lists with an optimized version to avoid
         // creating an unnecessary ListIterator struct.
         (for $x in $this {$e}) => {
