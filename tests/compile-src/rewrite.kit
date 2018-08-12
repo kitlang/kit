@@ -2,6 +2,7 @@ include "stdio.h";
 include "math.h";
 
 rules MyRewriteRules {
+    ("a specific string") => printf("%s\n", "got replaced");
     (5) => 6;
     (${x: Int} %% 1) => $x + 1;
     (apple) => true;
@@ -34,6 +35,9 @@ function main() {
     printf("%li\n", 5_i32);
 
     using rules MyRewriteRules {
+        var a = "a specific string";
+        var b = "some other string";
+
         // custom operator; must be rewritten or will fail to compile
         var x: Int = 5;
         // var x = 5_i32;

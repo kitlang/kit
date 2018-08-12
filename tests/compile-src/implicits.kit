@@ -13,9 +13,11 @@ function main() {
         f(3.5, "world");
     }
 
-    using implicit a, implicit b {
+    // implicit order shouldn't matter
+    using implicit b, implicit a {
         f("world");
 
+        // nested implicit
         using implicit c {
             f();
         }
