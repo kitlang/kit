@@ -1,0 +1,26 @@
+{
+    "name": "kitlang",
+    "displayName": "Kit",
+    "description": "Kit programming language support",
+    "version": "0.0.1",
+    "publisher": "kitlang",
+    "engines": {
+        "vscode": "^1.25.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [{
+            "id": "kit",
+            "aliases": ["Kit", "kit"],
+            "extensions": [".kit"],
+            "configuration": "./language-configuration.json"
+        }],
+        "grammars": [{
+            "language": "kit",
+            "scopeName": "source.kit",
+            "path": "./syntaxes/kit.tmLanguage"
+        }]
+    }
+}

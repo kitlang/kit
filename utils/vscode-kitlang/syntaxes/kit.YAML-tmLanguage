@@ -1,0 +1,60 @@
+fileTypes: ["kit"]
+name: Kit
+scopeName: source.kit
+uuid: 4fc8848b-af63-4ac5-850f-8e6b00a45004
+
+patterns:
+- match: \b(import|include|function|implement|specialize|var|using)\b
+  name: keyword.control.kit
+- match: \b(private|public|static|const|inline)\b
+  name: storage.modifier.kit
+- match: \b(return|throw|for|as|in|if|then|else|do|while|match|default|unsafe|null|implicit)\b
+  name: keyword.other.kit
+- match: \b(struct|enum|union|abstract|rule|rules|typedef|trait)\b
+  name: storage.type.kit
+
+- name: keyword.control.arrow.kit
+  match: =\>
+
+- name: support.type.kit
+  match: '\b[A-Z][a-zA-Z0-9_]*\b'
+- name: variable.language.kit
+  match: \b(this|Self)\b
+- name: invalid.illegal.macro.kit
+  match: '\$[A-Za-z0-9_]+\b'
+- name: invalid.illegal.macro.kit
+  begin: '\$\{'
+  end: '\}'
+
+- name: constant.numeric.decimal.kit
+  match: \b-?[0-9](\.[0-9+])?+(_([ui](8|16|32|64)|f(32|64)))?\b
+- name: constant.numeric.octal.kit
+  match: \b-?0o[0-7]+(_([ui](8|16|32|64)|f(32|64)))?\b
+- name: constant.numeric.hex.kit
+  match: \b-?0x[0-9a-f]+(_([ui](8|16|32|64)|f(32|64)))?\b
+- name: constant.numeric.bin.kit
+  match: \b-?0b[01]+(_([ui](8|16|32|64)|f(32|64)))?\b
+
+- name: string.quoted.double.kit
+  match: '"(\.|[^"])*"'
+- name: string.quoted.single.kit
+  match: '''(\.|[^\''])*'''
+- name: string.quoted.block.kit
+  begin: '"""'
+  end: '"""'
+
+- name: comment.line.double-slash.kit
+  match: "(//).*$\n?"
+- name: comment.block.kit
+  begin: '/\*'
+  end: '\*/'
+
+- name: constant.language.kit
+  match: \b(true|false|null)\b
+
+- name: markup.heading.metadata.kit
+  begin: '\#\['
+  end: '\]'
+
+- name: variable.parameter.kit
+  match: \b[a-z_][A-Za-z0-9_]*\b
