@@ -34,6 +34,7 @@ import Kit.Str
   -- '#' {(Hash,_)}
   '$' {(Dollar,_)}
   "=>" {(Arrow,_)}
+  "->" {(FunctionArrow,_)}
   -- '?' {(Question,_)}
   abstract {(KeywordAbstract,_)}
   as {(KeywordAs,_)}
@@ -246,7 +247,7 @@ Statement :: {Statement}
 
 TopLevelExpr :: {Expr}
   : StandaloneExpr {$1}
-  | var Identifier TypeAnnotation OptionalDefault ';' {pe (p $1 <+> p $5) $ VarDeclaration (fst $2) (fst $3) $4}
+  | var Identifier TypeAnnotation OptionalStandaloneDefault {pe (p $1 <+> p $4) $ VarDeclaration (fst $2) (fst $3) (fst $4)}
   | return TopLevelExpr {pe (p $1 <+> pos $2) $ Return $ Just $2}
   | return ';' {pe (p $1 <+> p $2) $ Return $ Nothing}
   | defer TopLevelExpr {pe (p $1 <+> pos $2) $ Defer $ $2}
@@ -370,11 +371,20 @@ TypeAnnotation :: {(Maybe TypeSpec, Span)}
 
 TypeSpec :: {(TypeSpec, Span)}
   : TypePath TypeSpecParams {(TypeSpec (fst $1) (reverse $ fst $2) (p $1 <+> p $2), p $1 <+> p $2)}
-  | '(' TupleTypes ')' {let p = snd $1 <+> snd $3 in (TupleTypeSpec (reverse $2) p, p)}
+  | function FunctionTypeSpec {$2}
+  | TupleTypeSpec {$1}
 
-TupleTypes :: {[TypeSpec]}
-  : TypeSpec ',' TypeSpec {[fst $3, fst $1]}
-  | TupleTypes ',' TypeSpec {fst $3 : $1}
+TupleTypeSpec :: {(TypeSpec, Span)}
+  : '(' TypeSpec ',' CommaDelimitedTypes ')' {let p = snd $1 <+> snd $5 in (TupleTypeSpec ((fst $2) : (reverse $4)) p, p)}
+
+FunctionTypeSpec :: {(TypeSpec, Span)}
+  : '(' ')' "->" TypeSpec {let p = snd $1 <+> snd $4 in (FunctionTypeSpec (fst $4) [] False p, p)}
+  | '(' CommaDelimitedTypes ',' "..." ')' "->" TypeSpec {let p = snd $1 <+> snd $6 in (FunctionTypeSpec (fst $7) (reverse $2) True p, p)}
+  | '(' CommaDelimitedTypes ')' "->" TypeSpec {let p = snd $1 <+> snd $5 in (FunctionTypeSpec (fst $5) (reverse $2) False p, p)}
+
+CommaDelimitedTypes :: {[TypeSpec]}
+  : TypeSpec {[fst $1]}
+  | CommaDelimitedTypes ',' TypeSpec {fst $3 : $1}
 
 OptionalBody :: {(Maybe Expr, Span)}
   : ';' {(Nothing, NoPos)}
@@ -447,6 +457,10 @@ StaticVarDefinition :: {VarDefinition Expr (Maybe TypeSpec)}
       varPos = p $2 <+> p $3
     }
   }
+
+OptionalStandaloneDefault :: {(Maybe Expr, Span)}
+  : ';' {(Nothing, snd $1)}
+  | '=' StandaloneExpr {(Just $2, snd $1 <+> pos $2)}
 
 OptionalDefault :: {Maybe Expr}
   : {Nothing}

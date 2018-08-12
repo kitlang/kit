@@ -30,7 +30,8 @@ spec = parallel $ do
                    )
 
     it "parses value literals" $ do
-      testParseExpr "1" `shouldBe` (pe (sp "" 1 1 1 1) $ Literal $ IntValue 1 Nothing)
+      testParseExpr "1"
+        `shouldBe` (pe (sp "" 1 1 1 1) $ Literal $ IntValue 1 Nothing)
 
     it "parses binops" $ do
       testParseExpr "a = 1 + 2.0 * 'abc def'"
@@ -84,6 +85,99 @@ spec = parallel $ do
                      [ ("a", e $ Literal $ IntValue 1 Nothing)
                      , ("b", e $ Literal $ BoolValue True)
                      ]
+                   )
+
+    it "parses tuple type specs" $ do
+      testParseExpr "_: (A, B, C)"
+        `shouldBe` (pe (sp "" 1 1 1 12) $ TypeAnnotation
+                     (pe (sp "" 1 1 1 1) $ Identifier (Var "_") [])
+                     (Just
+                       (TupleTypeSpec
+                         [ TypeSpec ([], "A") [] (sp "" 1 5 1 5)
+                         , TypeSpec ([], "B") [] (sp "" 1 8 1 8)
+                         , TypeSpec ([], "C") [] (sp "" 1 11 1 11)
+                         ]
+                         (sp "" 1 4 1 12)
+                       )
+                     )
+                   )
+
+    it "parses function type specs with no args" $ do
+      testParseExpr "_: function () -> A"
+        `shouldBe` (e $ TypeAnnotation
+                     (e $ Identifier (Var "_") [])
+                     (Just
+                       (FunctionTypeSpec (TypeSpec ([], "A") [] NoPos)
+                                         []
+                                         False
+                                         NoPos
+                       )
+                     )
+                   )
+
+    it "parses function type specs with one arg" $ do
+      testParseExpr "_: function (Int) -> A"
+        `shouldBe` (e $ TypeAnnotation
+                     (e $ Identifier (Var "_") [])
+                     (Just
+                       (FunctionTypeSpec (TypeSpec ([], "A") [] NoPos)
+                                         [(TypeSpec ([], "Int") [] NoPos)]
+                                         False
+                                         NoPos
+                       )
+                     )
+                   )
+
+    it "parses function type specs with args" $ do
+      testParseExpr "_: function (Int, Float) -> A"
+        `shouldBe` (e $ TypeAnnotation
+                     (e $ Identifier (Var "_") [])
+                     (Just
+                       (FunctionTypeSpec
+                         (TypeSpec ([], "A") [] NoPos)
+                         [ (TypeSpec ([], "Int") [] NoPos)
+                         , (TypeSpec ([], "Float") [] NoPos)
+                         ]
+                         False
+                         NoPos
+                       )
+                     )
+                   )
+
+    it "parses nested function type specs" $ do
+      testParseExpr "_: function (function (A, B) -> C, Float) -> A"
+        `shouldBe` (e $ TypeAnnotation
+                     (e $ Identifier (Var "_") [])
+                     (Just
+                       (FunctionTypeSpec
+                         (TypeSpec ([], "A") [] NoPos)
+                         [ (FunctionTypeSpec
+                             (TypeSpec ([], "C") [] NoPos)
+                             [ (TypeSpec ([], "A") [] NoPos)
+                             , (TypeSpec ([], "B") [] NoPos)
+                             ]
+                             False
+                             NoPos
+                           )
+                         , (TypeSpec ([], "Float") [] NoPos)
+                         ]
+                         False
+                         NoPos
+                       )
+                     )
+                   )
+
+    it "parses variadic function type specs" $ do
+      testParseExpr "_: function (Int, ...) -> A"
+        `shouldBe` (e $ TypeAnnotation
+                     (e $ Identifier (Var "_") [])
+                     (Just
+                       (FunctionTypeSpec (TypeSpec ([], "A") [] NoPos)
+                                         [(TypeSpec ([], "Int") [] NoPos)]
+                                         True
+                                         NoPos
+                       )
+                     )
                    )
 
   describe "Parse statements" $ do

@@ -24,6 +24,7 @@ data TokenClass
   | Hash
   | Dollar
   | Arrow
+  | FunctionArrow
   | Question
   | DocComment Str
   | KeywordAbstract
@@ -97,6 +98,7 @@ instance Show TokenClass where
     Hash -> "#"
     Dollar -> "$"
     Arrow -> "=>"
+    FunctionArrow -> "->"
     Question -> "?"
     DocComment _ -> "/** doc comment */"
     KeywordAbstract -> "abstract"

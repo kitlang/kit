@@ -72,22 +72,28 @@ unify ctx tctx mod a' b' = do
         (\((tp, params), _) ->
           unify ctx tctx mod (TypeTraitConstraint (tp, params)) x
         )
-      return $ case checkResults results of
-        Just results  -> Just $ (TypeVarIs i x) : results
-        Nothing -> Nothing
+      return $ checkResults ((Just $ [TypeVarIs i x]) : results)
     (_                    , TypeTypeVar _) -> unify ctx tctx mod b a
     (TypeTraitConstraint t, x            ) -> do
       impl <- resolveTraitConstraint ctx tctx mod t x
       return $ if impl then Just [] else Nothing
     (_, TypeTraitConstraint v) -> unify ctx tctx mod b a
     (TypeBasicType a, TypeBasicType b) -> return $ unifyBasic a b
+    (TypePtr (TypeBasicType BasicTypeVoid), TypePtr _) -> return $ Just []
+    (TypePtr _, (TypeBasicType BasicTypeVoid)) -> return $ Just []
     (TypePtr a, TypePtr b) -> unify ctx tctx mod a b
     (TypeTuple a, TypeTuple b) | length a == length b -> do
       vals <- forM (zip a b) (\(a, b) -> unify ctx tctx mod a b)
       return $ checkResults vals
+    (TypeFunction rt1 args1 v1, TypeFunction rt2 args2 v2) | v1 == v2 -> do
+      rt   <- unify ctx tctx mod rt1 rt2
+      args <- forM (zip args1 args2)
+                   (\((_, a), (_, b)) -> unify ctx tctx mod a b)
+      return $ checkResults $ rt : args
     _ -> return $ if a == b then Just [] else Nothing
 
 unifyBasic :: BasicType -> BasicType -> Maybe [TypeInformation]
+unifyBasic (BasicTypeVoid)    (BasicTypeVoid)    = Just []
 unifyBasic (BasicTypeVoid)    _                  = Nothing
 unifyBasic _                  (BasicTypeVoid   ) = Nothing
 unifyBasic (BasicTypeInt  _ ) (BasicTypeInt   _) = Just []
@@ -140,7 +146,6 @@ resolveConstraint ctx tctx mod constraint@(TypeEq a b reason pos) = do
       h_insert (ctxTypeVariables ctx)
                (typeVarId info)
                (addTypeVarConstraints info constraint reason pos)
-    _ -> return ()
 
 resolveConstraintOrThrow
   :: CompileContext

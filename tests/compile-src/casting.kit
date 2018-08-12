@@ -1,0 +1,15 @@
+struct MyStruct {
+    var a: Int = 0;
+}
+
+function main() {
+    var a: Int = 1;
+    var b: Float = 2.5;
+
+    printf("%li\n", b as Int);
+    printf("%.1f\n", a as Float);
+
+    var x = malloc(4) as Ptr[MyStruct];
+    x.a = 5;
+    printf("%li\n", x.a);
+}

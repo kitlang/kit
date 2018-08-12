@@ -89,7 +89,9 @@ ctype (BasicTypeTuple name t) =
   , []
   )
 ctype (CPtr x) = (fst t, (u $ CPtrDeclr []) : snd t) where t = ctype x
-ctype (BasicTypeFunction _ _ _) = undefined
+ctype (BasicTypeFunction rt args var) =
+  let (rta, rtb) = ctype rt in
+  (rta, [u $ CFunDeclr (Right ([cDecl t Nothing Nothing| (name, t) <- args], var)) []] ++ rtb)
 ctype (CArray _ _             ) = undefined
 ctype (BasicTypeUnknown       ) = undefined
 -- TODO: CArray

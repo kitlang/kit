@@ -73,6 +73,8 @@ function main() {
 Traits
 ------
 
+Traits (typeclasses) enable open polymorphism in Kit:
+
 ```kit
 trait Writer {
     function write(s: String): Void;
@@ -85,7 +87,28 @@ implement Writer for File {
 }
 ```
 
-Traits can also be specialized to provide a default implementation when none is specified.
+Traits enable both compile-time and runtime polymorphism; a generic function can be constrained to types implementing a trait:
+
+```kit
+function greet[W: Writer](w: W) {
+    w.write("hello");
+}
+```
+
+Values can also be implicitly or explicitly cast to traits they implement, creating a "fat pointer" capable of calling the type's trait methods:
+
+```kit
+function greet(w: Writer) {
+    w.write("hello!");
+}
+
+function main() {
+    var f = File.write("/tmp/greeting");
+    greet(f);
+}
+```
+
+Traits can be "specialized" to provide a default implementation when none is specified.
 
 ```kit
 trait Map[K, V] {
@@ -211,6 +234,18 @@ enum List[T] {
 }
 ```
 
+Rules can also be brought into module scope:
+
+```kit
+using rules Reduce;
+
+function main() {
+    var a = 3;
+    var b = 4;
+    var c = pow(a + b, 2);
+}
+```
+
 Implicits
 ---------
 
@@ -228,5 +263,27 @@ function main() {
         var settings = getConfigSection("settings");
         var controls = getConfigSection("controls");
     }
+}
+```
+
+Values can also be implicit at the module level; this can allow using global state as an overrideable default:
+
+```kit
+var x: Config = defaultConfig();
+using implicit x;
+
+function main() {
+    var settings = getConfigSection("settings");
+    // override the default temporarily
+    var controls = using implicit otherConfig (getConfigSection("controls"));
+}
+```
+
+```kit
+using implicit malloc;
+
+function main() {
+    // allocate an object on the heap; MyObject's "constructor" takes an allocator as argument
+    var myObject = MyObject.new();
 }
 ```

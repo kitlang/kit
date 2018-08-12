@@ -1,5 +1,3 @@
-include "stdio.h";
-
 function f(a: Int, b: Float, c: CString) {
     printf("hello %s!\n", c);
 }
@@ -18,8 +16,6 @@ function main() {
         f("world");
 
         // nested implicit
-        using implicit c {
-            f();
-        }
+        using implicit c (f());
     }
 }

@@ -327,8 +327,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       r1 <- typeMaybeExpr ctx tctx mod e1
       case (tctxReturnType tctx, r1) of
         (Just rt, Just r1) -> do
-          resolve $ TypeEq (rt)
-                           (inferredType r1)
+          resolve $ TypeEq (inferredType r1)
+                           (rt)
                            "Return type should match function return type"
                            (tPos r1)
           return $ makeExprTyped (Return $ Just r1) voidType pos
@@ -452,6 +452,9 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           x -> failTyping
             $ TypingError ("Field access is not allowed on " ++ show x) pos
 
+        -- TODO: if we have a funcion called `fieldName` that takes e1 as the first argument,
+        -- fall back to that
+
     (Field e1 _) -> do
       throwk $ InternalError
         "Malformed AST: field access requires an identifier"
@@ -462,10 +465,20 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
     (Cast e1 t) -> do
       r1 <- r e1
-      tryRewrite (unknownTyped $ Cast r1 t) $ return $ makeExprTyped
-        (Cast r1 t)
-        t
-        pos
+      tryRewrite (unknownTyped $ Cast r1 t) $ do
+        let cast = return $ makeExprTyped (Cast r1 t) t pos
+        case (inferredType r1, t) of
+          (TypePtr (TypeBasicType BasicTypeVoid), TypePtr _) -> cast
+          (x, y        ) -> do
+            t' <- unify ctx tctx mod x y
+            x' <- unify ctx tctx mod x (typeClassNumeric)
+            y' <- unify ctx tctx mod y (typeClassNumeric)
+            case (t', x', y') of
+              (Just _, _     , _     ) -> cast
+              (_     , Just _, Just _) -> cast
+              _                        -> throwk $ TypingError
+                ("Invalid cast: " ++ show x ++ " as " ++ show y)
+                pos
 
     (RangeLiteral e1 e2) -> do
       r1 <- r e1
@@ -583,7 +596,9 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
     (TupleInit slots) -> do
       slots' <- forM slots r
-      return $ makeExprTyped (TupleInit slots') (TypeTuple (map inferredType slots')) pos
+      return $ makeExprTyped (TupleInit slots')
+                             (TypeTuple (map inferredType slots'))
+                             pos
 
     _ -> return $ ex
 
@@ -605,14 +620,32 @@ alignCallArgs ctx tctx mod argTypes isVariadic implicits args =
     then return []
     else do
       nextArg <- knownType ctx tctx mod (head argTypes)
-      case findImplicit nextArg implicits of
+      found   <- findImplicit ctx tctx mod nextArg implicits
+      case found of
         Just x -> do
-          rest <- alignCallArgs ctx tctx mod (tail argTypes) isVariadic implicits args
+          rest <- alignCallArgs ctx
+                                tctx
+                                mod
+                                (tail argTypes)
+                                isVariadic
+                                implicits
+                                args
           return $ x : rest
         Nothing -> return $ args
 
-findImplicit :: ConcreteType -> [TypedExpr] -> Maybe TypedExpr
-findImplicit ct implicits = find (\imp -> inferredType imp == ct) implicits
+findImplicit
+  :: CompileContext
+  -> TypeContext
+  -> Module
+  -> ConcreteType
+  -> [TypedExpr]
+  -> IO (Maybe TypedExpr)
+findImplicit ctx tctx mod ct []      = return Nothing
+findImplicit ctx tctx mod ct (h : t) = do
+  match <- unify ctx tctx mod ct (inferredType h)
+  case match of
+    Just _  -> return $ Just h
+    Nothing -> findImplicit ctx tctx mod ct t
 
 typeFunctionCall
   :: CompileContext

@@ -1,0 +1,15 @@
+struct MyStruct {
+    var a: Int;
+    var b: Float;
+
+    public static function new(allocator: function (Uint32) -> Ptr[Void]): Ptr[MyStruct] {
+        return allocator(8) as Ptr[MyStruct];
+    }
+}
+
+function main() {
+    var s = using implicit malloc MyStruct.new();
+    s.b = 2.5;
+
+    printf("%.1f\n", s.b);
+}

@@ -33,6 +33,7 @@ tokens :-
   "#" { tok Hash }
   "$" { tok Dollar }
   "=>" { tok Arrow }
+  "->" { tok FunctionArrow }
   "?" { tok Question }
 
   -- comments

@@ -163,9 +163,11 @@ resolveType ctx tctx mod t = do
               -> follow ctx tctx mod t
             _ -> unknownType (s_unpack $ showTypePath (m, s)) pos
 
-    FunctionTypeSpec rt params args isVariadic -> do
-      -- TODO
-      unknownType "TODO" NoPos
+    FunctionTypeSpec rt args isVariadic pos -> do
+      rt' <- resolveType ctx tctx mod rt
+      -- FIXME: arg names
+      args' <- forM (args) (\arg -> do t <- resolveType ctx tctx mod arg; return ("_", t))
+      return $ TypeFunction rt' args' isVariadic
 
 resolveMaybeType
   :: CompileContext

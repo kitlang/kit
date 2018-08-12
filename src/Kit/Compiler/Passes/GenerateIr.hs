@@ -212,9 +212,13 @@ findUnderlyingType ctx mod t = do
       return $ BasicTypeTuple
         (s_pack (basicTypeAbbreviation $ BasicTypeTuple "" slots))
         slots
+    TypeFunction rt args var -> do
+      rt' <- findUnderlyingType ctx mod rt
+      args' <- forM args (\(name, t) -> do t' <- findUnderlyingType ctx mod t; return (name, t'))
+      return $ BasicTypeFunction rt' args' var
     _ -> do
       -- TODO: REMOVE
-      return $ BasicTypeUnknown
+      throwk $ InternalError ("Couldn't find underlying type for" ++ show t) Nothing
 
   case x of
     BasicTypeTuple name t -> h_insert (modTuples mod) (s_unpack name) x

@@ -20,7 +20,14 @@ spec = parallel $ do
                    , (MacroIdentifier "macro_var2", sp "" 1 25 1 37)
                    ]
     it "lexes parens" $ do
-      lx2 "()" `shouldBe` [(ParenOpen, sp "" 1 1 1 1), (ParenClose, sp "" 1 2 1 2)]
+      lx2 "()"
+        `shouldBe` [(ParenOpen, sp "" 1 1 1 1), (ParenClose, sp "" 1 2 1 2)]
+      lx2 "(...) ->"
+        `shouldBe` [ (ParenOpen    , sp "" 1 1 1 1)
+                   , (TripleDot    , sp "" 1 2 1 4)
+                   , (ParenClose   , sp "" 1 5 1 5)
+                   , (FunctionArrow, sp "" 1 7 1 8)
+                   ]
     it "lexes keywords" $ do
       lx "abstract inline for in atom public rule rules"
         `shouldBe` [ KeywordAbstract
@@ -65,7 +72,11 @@ spec = parallel $ do
     it "lexes negative int literals" $ do
       lx "-123 -456" `shouldBe` map (\x -> LiteralInt x Nothing) [-123, -456]
     it "lexes suffixed int literals" $ do
-      lx "1_i64 234_u8 0_f32" `shouldBe` [LiteralInt 1 (Just Int64), LiteralInt 234 (Just Uint8), LiteralInt 0 (Just Float32)]
+      lx "1_i64 234_u8 0_f32"
+        `shouldBe` [ LiteralInt 1   (Just Int64)
+                   , LiteralInt 234 (Just Uint8)
+                   , LiteralInt 0   (Just Float32)
+                   ]
     it "lexes hex int literals" $ do
       lx "0x123abcf" `shouldBe` [LiteralInt 19114959 Nothing]
     it "lexes octal int literals" $ do
@@ -88,9 +99,9 @@ spec = parallel $ do
       lx "\"a\\\"\\Bc\"" `shouldBe` [LiteralString "a\"Bc"]
     it "lexes float literals" $ do
       lx "0.1 0.10000 -1.0_f64"
-        `shouldBe` [ LiteralFloat ("0.1") Nothing
+        `shouldBe` [ LiteralFloat ("0.1")     Nothing
                    , LiteralFloat ("0.10000") Nothing
-                   , LiteralFloat ("-1.0") (Just Float64)
+                   , LiteralFloat ("-1.0")    (Just Float64)
                    ]
     it "lexes bool literals" $ do
       lx "true false" `shouldBe` [LiteralBool True, LiteralBool False]
