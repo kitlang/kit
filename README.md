@@ -1,4 +1,4 @@
-[![Build Status](https://img.shields.io/travis/kitlang/kit/dev.svg?style=flat)](https://travis-ci.org/kitlang/kit)
+[![Build Status](https://img.shields.io/travis/kitlang/kit/master.svg?style=flat)](https://travis-ci.org/kitlang/kit)
 [![License: LGPL v3](https://img.shields.io/badge/License-LGPL%20v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
 
 ![Kit logo](https://raw.githubusercontent.com/kitlang/kit/master/assets/logo-128.png)
