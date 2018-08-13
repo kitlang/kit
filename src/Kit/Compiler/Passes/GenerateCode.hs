@@ -87,13 +87,21 @@ generateHeaderForwardDecl
 generateHeaderForwardDecl ctx mod headerFile decl = do
   case decl of
     DeclTuple t@(BasicTypeTuple name _) -> do
-      hPutStrLn headerFile (render $ pretty $ CDeclExt $ cDecl (BasicTypeTuple name []) Nothing Nothing)
+      hPutStrLn
+        headerFile
+        (render $ pretty $ CDeclExt $ cDecl (BasicTypeTuple name [])
+                                            Nothing
+                                            Nothing
+        )
 
     DeclType def@(TypeDefinition { typeSubtype = Atom }) -> return ()
 
     DeclType def@(TypeDefinition { typeName = name }   ) -> do
-      let decl = cDecl (typeBasicType def) Nothing Nothing
-      hPutStrLn headerFile (render $ pretty $ CDeclExt $ decl)
+      case typeBasicType def of
+        Just x ->
+          let decl = cDecl x Nothing Nothing
+          in  hPutStrLn headerFile (render $ pretty $ CDeclExt $ decl)
+        _ -> return ()
 
     _ -> do
       return ()
@@ -111,8 +119,11 @@ generateHeaderDecl ctx mod headerFile decl = do
     DeclType def@(TypeDefinition { typeSubtype = Atom }) -> return ()
 
     DeclType def@(TypeDefinition{}                     ) -> do
-      let decls = cdecl (typeBasicType def)
-      mapM_ (\d -> hPutStrLn headerFile (render $ pretty $ CDeclExt d)) decls
+      case typeBasicType def of
+        Just x ->
+          let decls = cdecl x in
+          mapM_ (\d -> hPutStrLn headerFile (render $ pretty $ CDeclExt d)) decls
+        _ -> return ()
 
     DeclFunction def@(FunctionDefinition { functionName = name, functionType = t, functionArgs = args, functionVarargs = varargs })
       -> do
@@ -158,19 +169,21 @@ functionBasicType (FunctionDefinition { functionType = t, functionArgs = args, f
   = (BasicTypeFunction t (map (\arg -> (argName arg, argType arg)) args) varargs
     )
 
-typeBasicType :: TypeDefinition IrExpr BasicType -> BasicType
+typeBasicType :: TypeDefinition IrExpr BasicType -> Maybe BasicType
 typeBasicType def@(TypeDefinition { typeName = name }) =
   case typeSubtype def of
-    Struct { structFields = fields } -> BasicTypeStruct
+    Struct { structFields = fields } -> Just $ BasicTypeStruct
       (Just name)
       [ (varName field, varType field) | field <- fields ]
-    Union { unionFields = fields } -> BasicTypeUnion
+    Union { unionFields = fields } -> Just $ BasicTypeUnion
       (Just name)
       [ (varName field, varType field) | field <- fields ]
     Enum { enumVariants = variants } -> if all variantIsSimple variants
-      then BasicTypeSimpleEnum (Just name) [ variantName v | v <- variants ]
-      else BasicTypeComplexEnum
+      then Just
+        $ BasicTypeSimpleEnum (Just name) [ variantName v | v <- variants ]
+      else Just $ BasicTypeComplexEnum
         name
         [ (variantName v, [ (argName a, argType a) | a <- variantArgs v ])
         | v <- variants
         ]
+    _ -> Nothing

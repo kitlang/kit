@@ -91,7 +91,9 @@ convertTypeDefinition paramConverter t = do
       underlyingType <- typeConverter (typePos t) t'
       return
         $ Enum {enumVariants = variants, enumUnderlyingType = underlyingType}
-    Abstract{} -> return Atom -- TODO
+    Abstract { abstractUnderlyingType = ut } -> do
+      u <- typeConverter (typePos t) ut
+      return $ Abstract {abstractUnderlyingType = u}
   staticFields  <- forM (typeStaticFields t) (convertVarDefinition converter)
 
   staticMethods <- forM (typeStaticMethods t)

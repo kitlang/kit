@@ -327,8 +327,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       r1 <- typeMaybeExpr ctx tctx mod e1
       case (tctxReturnType tctx, r1) of
         (Just rt, Just r1) -> do
-          resolve $ TypeEq (inferredType r1)
-                           (rt)
+          resolve $ TypeEq (rt)
+                           (inferredType r1)
                            "Return type should match function return type"
                            (tPos r1)
           return $ makeExprTyped (Return $ Just r1) voidType pos
@@ -628,7 +628,7 @@ alignCallArgs ctx tctx mod argTypes isVariadic implicits args =
                                 mod
                                 (tail argTypes)
                                 isVariadic
-                                implicits
+                                (delete x implicits)
                                 args
           return $ x : rest
         Nothing -> return $ args

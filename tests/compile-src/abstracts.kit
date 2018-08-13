@@ -1,0 +1,39 @@
+abstract Color: Uint32 {
+    public static var Black: Color = 0x000000_u32;
+    public static var White: Color = 0xffffff_u32;
+    public static var Red: Color = 0xff0000_u32;
+    public static var Green: Color = 0x00ff00_u32;
+    public static var Blue: Color = 0x0000ff_u32;
+
+    public function r(): Uint8 {
+        return ((this & Color.Red) >> 16) as Uint8;
+    }
+
+    public function g(): Uint8 {
+        return ((this & Color.Green) >> 8) as Uint8;
+    }
+
+    public function b(): Uint8 {
+        return ((this & Color.Blue)) as Uint8;
+    }
+
+    public function getRed(): Float {
+        return this.r() / 0xff_f32;
+    }
+
+    public function getGreen(): Float {
+        return this.g() / 0xff_f32;
+    }
+
+    public function getBlue(): Float {
+        return this.b() / 0xff_f32;
+    }
+}
+
+function main() {
+    var myColor: Color = 0x123456;
+    printf("%hu\n", myColor.r());
+    printf("%hu\n", myColor.g());
+    printf("%hu\n", myColor.b());
+    printf("%.2f\n", myColor.getRed());
+}

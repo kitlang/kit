@@ -121,7 +121,7 @@ resolveType
 resolveType ctx tctx mod t = do
   importedMods <- getModImports ctx mod
   case t of
-    ConcreteType ct            -> follow ctx tctx mod ct
+    ConcreteType ct     -> follow ctx tctx mod ct
     TupleTypeSpec t pos -> do
       slots <- forM t (resolveType ctx tctx mod)
       return $ TypeTuple slots
@@ -164,9 +164,14 @@ resolveType ctx tctx mod t = do
             _ -> unknownType (s_unpack $ showTypePath (m, s)) pos
 
     FunctionTypeSpec rt args isVariadic pos -> do
-      rt' <- resolveType ctx tctx mod rt
+      rt'   <- resolveType ctx tctx mod rt
       -- FIXME: arg names
-      args' <- forM (args) (\arg -> do t <- resolveType ctx tctx mod arg; return ("_", t))
+      args' <- forM
+        (args)
+        (\arg -> do
+          t <- resolveType ctx tctx mod arg
+          return ("_", t)
+        )
       return $ TypeFunction rt' args' isVariadic
 
 resolveMaybeType
@@ -203,7 +208,7 @@ addUsing
 addUsing ctx tctx mod using = case using of
   UsingRuleSet (TypeRuleSet (modPath, n)) -> do
     defMod <- getMod ctx modPath
-    def <- resolveLocal (modScope defMod) n
+    def    <- resolveLocal (modScope defMod) n
     case def of
       -- Just (DeclType t) -> do
       --   -- FIXME: this is terrible...
@@ -219,7 +224,8 @@ addUsing ctx tctx mod using = case using of
         return $ tctx { tctxRules = r : tctxRules tctx }
       _ -> return tctx
   UsingImplicit x -> return $ tctx { tctxImplicits = x : tctxImplicits tctx }
-  _ -> throwk $ InternalError ("Unexpected using clause: " ++ show using) Nothing
+  _ ->
+    throwk $ InternalError ("Unexpected using clause: " ++ show using) Nothing
 
 modTypeContext :: CompileContext -> Module -> IO TypeContext
 modTypeContext ctx mod = do

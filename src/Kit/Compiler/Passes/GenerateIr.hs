@@ -152,35 +152,32 @@ findUnderlyingType ctx mod t = do
         )
       return $ BasicTypeUnion Nothing fields'
     TypeInstance (modPath, name) params -> do
-      definitionMod <- getMod ctx modPath
-      binding       <- resolveLocal (modScope definitionMod) name
-      case binding of
-        Just (Binding { bindingType = TypeBinding (TypeDefinition { typeSubtype = subtype }) })
-          -> case subtype of
-            Struct { structFields = fields } -> do
-              fields <- forM fields $ \field -> do
-                t <- findUnderlyingType ctx mod (varType field)
-                return (varName field, t)
-              return $ BasicTypeStruct (Just name) fields
-            Union { unionFields = fields } -> do
-              fields <- forM fields $ \field -> do
-                t <- findUnderlyingType ctx mod (varType field)
-                return (varName field, t)
-              return $ BasicTypeUnion (Just name) fields
-            enum@(Enum { enumVariants = variants }) -> do
-              if enumIsSimple enum
-                then return $ BasicTypeSimpleEnum (Just name) $ map
-                  variantName
-                  variants
-                else do
-                  variants' <- forM variants $ \variant -> do
-                    args <- forM (variantArgs variant) $ \arg -> do
-                      t <- findUnderlyingType ctx mod $ argType arg
-                      return (argName arg, t)
-                    return (variantName variant, args)
-                  return $ BasicTypeComplexEnum name variants'
-            Abstract{} -> do
-              throwk $ InternalError "Not yet implemented" Nothing
+      def <- getTypeDefinition ctx mod modPath name
+      case def of
+        Just (TypeDefinition { typeSubtype = subtype }) -> case subtype of
+          Struct { structFields = fields } -> do
+            fields <- forM fields $ \field -> do
+              t <- findUnderlyingType ctx mod (varType field)
+              return (varName field, t)
+            return $ BasicTypeStruct (Just name) fields
+          Union { unionFields = fields } -> do
+            fields <- forM fields $ \field -> do
+              t <- findUnderlyingType ctx mod (varType field)
+              return (varName field, t)
+            return $ BasicTypeUnion (Just name) fields
+          enum@(Enum { enumVariants = variants }) -> do
+            if enumIsSimple enum
+              then return $ BasicTypeSimpleEnum (Just name) $ map variantName
+                                                                  variants
+              else do
+                variants' <- forM variants $ \variant -> do
+                  args <- forM (variantArgs variant) $ \arg -> do
+                    t <- findUnderlyingType ctx mod $ argType arg
+                    return (argName arg, t)
+                  return (variantName variant, args)
+                return $ BasicTypeComplexEnum name variants'
+          Abstract { abstractUnderlyingType = u } ->
+            findUnderlyingType ctx mod u
         _ -> throwk $ BasicError
           (  "Unexpected missing type definition: "
           ++ (s_unpack $ showTypePath (modPath, name))
@@ -213,12 +210,18 @@ findUnderlyingType ctx mod t = do
         (s_pack (basicTypeAbbreviation $ BasicTypeTuple "" slots))
         slots
     TypeFunction rt args var -> do
-      rt' <- findUnderlyingType ctx mod rt
-      args' <- forM args (\(name, t) -> do t' <- findUnderlyingType ctx mod t; return (name, t'))
+      rt'   <- findUnderlyingType ctx mod rt
+      args' <- forM
+        args
+        (\(name, t) -> do
+          t' <- findUnderlyingType ctx mod t
+          return (name, t')
+        )
       return $ BasicTypeFunction rt' args' var
     _ -> do
       -- TODO: REMOVE
-      throwk $ InternalError ("Couldn't find underlying type for" ++ show t) Nothing
+      throwk $ InternalError ("Couldn't find underlying type for" ++ show t)
+                             Nothing
 
   case x of
     BasicTypeTuple name t -> h_insert (modTuples mod) (s_unpack name) x

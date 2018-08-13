@@ -273,7 +273,7 @@ UsingClauses :: {([UsingType Expr (Maybe TypeSpec)], Span)}
 
 UsingClause :: {(UsingType Expr (Maybe TypeSpec), Span)}
   : rules TypePath {(UsingRuleSet $ Just $ TypeSpec (fst $2) [] (snd $2), snd $1 <+> snd $2)}
-  | implicit UpperOrLowerIdentifier {(UsingImplicit $ pe (snd $2) (Identifier (Var $ fst $2) []), snd $1 <+> snd $2)}
+  | implicit Expr {(UsingImplicit $ $2, snd $1 <+> pos $2)}
 
 FunctionDecl :: {Statement}
   : DocMetaMods function identifier TypeParams '(' VarArgs ')' TypeAnnotation OptionalBody {

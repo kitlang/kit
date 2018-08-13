@@ -1,3 +1,7 @@
+function calloc_alloc(size: Uint32) {
+    return calloc(1, size);
+}
+
 struct MyStruct {
     var a: Int;
     var b: Float;
@@ -8,8 +12,11 @@ struct MyStruct {
 }
 
 function main() {
-    var s = using implicit malloc MyStruct.new();
-    s.b = 2.5;
+    var s1 = using implicit malloc MyStruct.new();
+    s1.b = 2.5;
+    printf("%.1f\n", s1.b);
 
-    printf("%.1f\n", s.b);
+    var s2 = using implicit calloc_alloc MyStruct.new();
+    s2.b = 4.1;
+    printf("%.1f\n", s2.b);
 }

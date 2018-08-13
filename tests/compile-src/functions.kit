@@ -1,11 +1,20 @@
+/**
+ * Trivial function, casts an Int to a Float.
+ */
 function f(i: Int): Float {
     return i;
 }
 
+/**
+ * Takes f + its arg and applies.
+ */
 function g(func: function (Int) -> Float, i: Int): Float {
     return func(i);
 }
 
+/**
+ * Varargs test.
+ */
 function k(func: function (CString, ...) -> Void, s: CString) {
     func(s, 1, 2, 3);
 }
@@ -17,11 +26,17 @@ function l(s: CString, ...) {
 struct MyStruct {
     var a: Int;
 
+    /**
+     * Nested function types on a static method. Calls g, which calls f.
+     */
     public static function h(func: function (function (Int) -> Float, Int) -> Float, func2: function (Int) -> Float, i: Int): Float {
         return func(func2, i);
     }
 
-    public static function j(func, func2: function (Int) -> Float, i: Int): Float {
+    /**
+     * Same as above but inferring the function types.
+     */
+    public static function j(func, func2, i: Int): Float {
         return func(func2, i);
     }
 }

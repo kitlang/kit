@@ -49,8 +49,8 @@ typeVarDefinition ctx tctx mod def = do
         tctx
         mod
         (TypeEq
-          (inferredType typed)
           (varType def)
+          (inferredType typed)
           "Variable and field default values must match the variable's type"
           (varPos def)
         )

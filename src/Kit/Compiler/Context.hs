@@ -13,6 +13,7 @@ import Kit.Compiler.Binding
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TypedDecl
+import Kit.Compiler.TypedExpr
 import Kit.Error
 import Kit.HashTable
 import Kit.Ir
@@ -185,6 +186,20 @@ getTraitImpl ctx trait impl = do
         Just y -> return $ Just y
         _      -> return Nothing
     Nothing -> return Nothing
+
+
+getTypeDefinition
+  :: CompileContext
+  -> Module
+  -> ModulePath
+  -> Str
+  -> IO (Maybe (TypeDefinition TypedExpr ConcreteType))
+getTypeDefinition ctx mod modPath typeName = do
+  defMod  <- getMod ctx modPath
+  binding <- resolveLocal (modScope defMod) typeName
+  case binding of
+    Just (Binding { bindingType = TypeBinding def }) -> return $ Just def
+    _ -> return Nothing
 
 addGlobalName :: CompileContext -> Module -> Span -> Str -> IO ()
 addGlobalName ctx mod pos name = do

@@ -4,8 +4,10 @@ import Control.Exception
 import Control.Monad
 import Data.List
 import Kit.Ast
+import Kit.Compiler.Binding
 import Kit.Compiler.Context
 import Kit.Compiler.Module
+import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
 import Kit.Error
 import Kit.HashTable
@@ -31,8 +33,29 @@ instance Errable UnificationError where
 instance Eq UnificationError where
   (==) (UnificationError _ c1) (UnificationError _ c2) = c1 == c2
 
--- Check whether type a unifies with b; i.e., can a value of type A be
--- assigned to a variable of type B?
+getAbstractParents
+  :: CompileContext
+  -> Module
+  -> ConcreteType
+  -> IO [ConcreteType]
+getAbstractParents ctx mod t = do
+  case t of
+    TypeInstance (modPath, typeName) params -> do
+      -- TODO: factor this out
+      def <- getTypeDefinition ctx mod modPath typeName
+      case def of
+        Just (TypeDefinition { typeSubtype = Abstract { abstractUnderlyingType = t' } })
+          -> do
+            parents <- getAbstractParents ctx mod t'
+            return $ t' : parents
+        _ -> return []
+    _ -> return []
+
+{-
+  Check whether type a unifies with b.
+  LHS: variable type; RHS: value type
+  i.e. trying to use RHS as a LHS
+-}
 unify
   :: CompileContext
   -> TypeContext
@@ -75,7 +98,7 @@ unify ctx tctx mod a' b' = do
       return $ checkResults ((Just $ [TypeVarIs i x]) : results)
     (_                    , TypeTypeVar _) -> unify ctx tctx mod b a
     (TypeTraitConstraint t, x            ) -> do
-      impl <- resolveTraitConstraint ctx tctx mod t x
+      impl <- resolveTraitConstraint ctx mod t x
       return $ if impl then Just [] else Nothing
     (_, TypeTraitConstraint v) -> unify ctx tctx mod b a
     (TypeBasicType a, TypeBasicType b) -> return $ unifyBasic a b
@@ -90,20 +113,30 @@ unify ctx tctx mod a' b' = do
       args <- forM (zip args1 args2)
                    (\((_, a), (_, b)) -> unify ctx tctx mod a b)
       return $ checkResults $ rt : args
-    _ -> return $ if a == b then Just [] else Nothing
+    (TypeInstance tp1 params1, _) -> do
+      if a == b
+        then return $ Just []
+        else do
+          parents <- getAbstractParents ctx mod a
+          print parents
+          case find ((==) b) parents of
+            Just _ -> return $ Just []
+            _      -> return Nothing
+    (a, b) | a == b -> return $ Just []
+    _               -> return Nothing
 
 unifyBasic :: BasicType -> BasicType -> Maybe [TypeInformation]
-unifyBasic (BasicTypeVoid)    (BasicTypeVoid)    = Just []
-unifyBasic (BasicTypeVoid)    _                  = Nothing
-unifyBasic _                  (BasicTypeVoid   ) = Nothing
-unifyBasic (BasicTypeInt  _ ) (BasicTypeInt   _) = Just []
-unifyBasic (BasicTypeUint _ ) (BasicTypeInt   _) = Just []
-unifyBasic (BasicTypeInt  _ ) (BasicTypeUint  _) = Just []
-unifyBasic (BasicTypeUint _ ) (BasicTypeUint  _) = Just []
-unifyBasic (BasicTypeInt  _ ) (BasicTypeFloat _) = Just []
-unifyBasic (BasicTypeUint _ ) (BasicTypeFloat _) = Just []
-unifyBasic (BasicTypeUnknown) (_               ) = Nothing
-unifyBasic (CPtr a          ) (CPtr b          ) = unifyBasic a b
+unifyBasic (BasicTypeVoid)    (BasicTypeVoid)   = Just []
+unifyBasic (BasicTypeVoid)    _                 = Nothing
+unifyBasic _                  (BasicTypeVoid  ) = Nothing
+unifyBasic (BasicTypeInt   _) (BasicTypeInt  _) = Just []
+unifyBasic (BasicTypeUint  _) (BasicTypeInt  _) = Just []
+unifyBasic (BasicTypeFloat _) (BasicTypeInt  _) = Just []
+unifyBasic (BasicTypeInt   _) (BasicTypeUint _) = Just []
+unifyBasic (BasicTypeUint  _) (BasicTypeUint _) = Just []
+unifyBasic (BasicTypeFloat _) (BasicTypeUint _) = Just []
+unifyBasic (BasicTypeUnknown) (_              ) = Nothing
+unifyBasic (CPtr a          ) (CPtr b         ) = unifyBasic a b
 unifyBasic a b = if a == b then Just [] else Nothing
 
 resolveConstraint
@@ -163,13 +196,20 @@ resolveConstraintOrThrow ctx tctx mod t@(TypeEq a' b' reason pos) = do
 
 resolveTraitConstraint
   :: CompileContext
-  -> TypeContext
   -> Module
   -> TraitConstraint
   -> ConcreteType
   -> IO Bool
-resolveTraitConstraint ctx tctx mod (tp, params) ct = do
+resolveTraitConstraint ctx mod (tp, params) ct = do
   impl <- getTraitImpl ctx tp ct
-  return $ case impl of
-    Just _ -> True
-    _      -> False
+  case impl of
+    Just _ -> return True
+    _      -> do
+      case ct of
+        TypeInstance (modPath, name) params -> do
+          def <- getTypeDefinition ctx mod modPath name
+          case def of
+            Just (TypeDefinition { typeSubtype = Abstract { abstractUnderlyingType = u } })
+              -> resolveTraitConstraint ctx mod (tp, params) u
+            _ -> return False
+        _ -> return False
