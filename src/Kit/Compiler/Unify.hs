@@ -34,10 +34,7 @@ instance Eq UnificationError where
   (==) (UnificationError _ c1) (UnificationError _ c2) = c1 == c2
 
 getAbstractParents
-  :: CompileContext
-  -> Module
-  -> ConcreteType
-  -> IO [ConcreteType]
+  :: CompileContext -> Module -> ConcreteType -> IO [ConcreteType]
 getAbstractParents ctx mod t = do
   case t of
     TypeInstance (modPath, typeName) params -> do
@@ -113,13 +110,13 @@ unify ctx tctx mod a' b' = do
       args <- forM (zip args1 args2)
                    (\((_, a), (_, b)) -> unify ctx tctx mod a b)
       return $ checkResults $ rt : args
-    (TypeInstance tp1 params1, _) -> do
+    (_, TypeInstance tp1 params1) -> do
       if a == b
         then return $ Just []
         else do
-          parents <- getAbstractParents ctx mod a
+          parents <- getAbstractParents ctx mod b
           print parents
-          case find ((==) b) parents of
+          case find ((==) a) parents of
             Just _ -> return $ Just []
             _      -> return Nothing
     (a, b) | a == b -> return $ Just []
@@ -195,11 +192,7 @@ resolveConstraintOrThrow ctx tctx mod t@(TypeEq a' b' reason pos) = do
     Nothing -> throw $ KitError $ UnificationError ctx t
 
 resolveTraitConstraint
-  :: CompileContext
-  -> Module
-  -> TraitConstraint
-  -> ConcreteType
-  -> IO Bool
+  :: CompileContext -> Module -> TraitConstraint -> ConcreteType -> IO Bool
 resolveTraitConstraint ctx mod (tp, params) ct = do
   impl <- getTraitImpl ctx tp ct
   case impl of

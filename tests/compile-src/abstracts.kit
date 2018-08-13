@@ -1,9 +1,12 @@
 abstract Color: Uint32 {
-    public static var Black: Color = 0x000000_u32;
-    public static var White: Color = 0xffffff_u32;
-    public static var Red: Color = 0xff0000_u32;
-    public static var Green: Color = 0x00ff00_u32;
-    public static var Blue: Color = 0x0000ff_u32;
+    public static var Black: Color = 0x000000;
+    public static var White: Color = 0xffffff;
+    public static var Gray25: Color = 0x404040;
+    public static var Gray50: Color = 0x808080;
+    public static var Gray75: Color = 0xc0c0c0;
+    public static var Red: Color = 0xff0000;
+    public static var Green: Color = 0x00ff00;
+    public static var Blue: Color = 0x0000ff;
 
     public function r(): Uint8 {
         return ((this & Color.Red) >> 16) as Uint8;
@@ -28,6 +31,20 @@ abstract Color: Uint32 {
     public function getBlue(): Float {
         return this.b() / 0xff_f32;
     }
+
+    public function rgb(): (Uint8, Uint8, Uint8) {
+        return (this.r(), this.g(), this.b());
+    }
+}
+
+abstract ColorWithAlpha: Color {
+    public function a(): Uint8 {
+        return ((this & 0xff000000) >> 24) as Uint8;
+    }
+
+    public function getAlpha(): Float {
+        return this.a() / 0xff_f32;
+    }
 }
 
 function main() {
@@ -36,4 +53,12 @@ function main() {
     printf("%hu\n", myColor.g());
     printf("%hu\n", myColor.b());
     printf("%.2f\n", myColor.getRed());
+    printf("%.2f\n", Color.Gray25.getGreen());
+    printf("%.2f\n", Color.Gray50.getBlue());
+    printf("%.2f\n", Color.Gray75.getRed());
+    var rgb = myColor.rgb();
+
+    var c: ColorWithAlpha = 0xff000000 | Color.Gray50;
+    printf("%.2f\n", c.getBlue());
+    printf("%.2f\n", c.getAlpha());
 }

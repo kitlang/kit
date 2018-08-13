@@ -78,6 +78,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           Just x  -> return x
           Nothing -> y
   let failTyping e = partialTyping ex et e
+
   result <- case et of
     (Block children) -> do
       blockScope <- newScope (scopeNamespace $ head $ tctxScopes tctx)
@@ -369,91 +370,99 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
     (Field e1 (Var fieldName)) -> do
       r1 <- r e1
       tryRewrite (unknownTyped $ Field r1 (Var fieldName)) $ do
-          --let checkInstanceMethod def = do
-          --  type
-        case inferredType r1 of
-          TypeInstance (modPath, typeName) params -> do
-            defMod  <- getMod ctx modPath
-            binding <- resolveLocal (modScope defMod) typeName
-            case binding of
-              Just (Binding { bindingType = TypeBinding def@(TypeDefinition { typeSubtype = subtype }) })
-                -> do
-                  localScope <- getSubScope (modScope mod) [typeName]
-                  binding    <- resolveLocal localScope fieldName
-                  case binding of
-                    Just x -> do
-                      typed <- typeVarBinding ctx fieldName x pos
-                      return $ typed { tImplicits = r1 : tImplicits typed }
-                    _ -> case subtype of
-                      Struct { structFields = fields } -> do
-                        result <- typeStructUnionFieldAccess ctx
-                                                             tctx
-                                                             mod
-                                                             fields
-                                                             r1
-                                                             fieldName
-                                                             pos
-                        case result of
-                          Just x -> return x
-                          _      -> failTyping $ TypingError
-                            (  "Struct doesn't have a field called `"
-                            ++ s_unpack fieldName
-                            ++ "`"
-                            )
-                            pos
+        let
+          typeFieldAccess t fieldName = do
+            case t of
+              TypeInstance (modPath, typeName) params -> do
+                defMod  <- getMod ctx modPath
+                binding <- resolveLocal (modScope defMod) typeName
+                case binding of
+                  Just (Binding { bindingType = TypeBinding def@(TypeDefinition { typeSubtype = subtype }) })
+                    -> do
+                      localScope <- getSubScope (modScope mod) [typeName]
+                      binding    <- resolveLocal localScope fieldName
+                      case binding of
+                        Just x -> do
+                          typed <- typeVarBinding ctx fieldName x pos
+                          return $ typed { tImplicits = r1 : tImplicits typed }
+                        _ -> case subtype of
+                          Struct { structFields = fields } -> do
+                            result <- typeStructUnionFieldAccess ctx
+                                                                 tctx
+                                                                 mod
+                                                                 fields
+                                                                 r1
+                                                                 fieldName
+                                                                 pos
+                            case result of
+                              Just x -> return x
+                              _      -> failTyping $ TypingError
+                                (  "Struct doesn't have a field called `"
+                                ++ s_unpack fieldName
+                                ++ "`"
+                                )
+                                pos
 
-                      Union { unionFields = fields } -> do
-                        result <- typeStructUnionFieldAccess ctx
-                                                             tctx
-                                                             mod
-                                                             fields
-                                                             r1
-                                                             fieldName
-                                                             pos
-                        case result of
-                          Just x -> return x
-                          _      -> failTyping $ TypingError
-                            (  "Union doesn't have a field called `"
-                            ++ s_unpack fieldName
-                            ++ "`"
-                            )
-                            pos
+                          Union { unionFields = fields } -> do
+                            result <- typeStructUnionFieldAccess ctx
+                                                                 tctx
+                                                                 mod
+                                                                 fields
+                                                                 r1
+                                                                 fieldName
+                                                                 pos
+                            case result of
+                              Just x -> return x
+                              _      -> failTyping $ TypingError
+                                (  "Union doesn't have a field called `"
+                                ++ s_unpack fieldName
+                                ++ "`"
+                                )
+                                pos
 
-          TypePtr x ->
-            -- try to auto-dereference
-                       r $ makeExprTyped
-            (Field (makeExprTyped (PreUnop Deref r1) x (tPos r1))
-                   (Var fieldName)
-            )
-            (inferredType ex)
-            pos
+                          Abstract { abstractUnderlyingType = u } ->
+                            -- forward to parent
+                            typeFieldAccess u fieldName
 
-          TypeTypeOf x@(mp, name) -> do
-            -- look for a static method or field
-            definitionMod <- getMod ctx mp
-            subScope      <- getSubScope (modScope definitionMod) [name]
-            findStatic    <- resolveLocal subScope fieldName
-            case findStatic of
-              Just binding -> do
-                x <- typeVarBinding ctx fieldName binding pos
-                resolve $ TypeEq (bindingConcrete binding)
-                                 (inferredType x)
-                                 "Field access must match the field's type"
-                                 (tPos x)
-                return x
-              Nothing -> failTyping $ TypingError
-                (  "Type "
-                ++ (s_unpack $ showTypePath x)
-                ++ " has no static field "
-                ++ s_unpack fieldName
+              TypePtr x ->
+                -- try to auto-dereference
+                           r $ makeExprTyped
+                (Field (makeExprTyped (PreUnop Deref r1) x (tPos r1))
+                       (Var fieldName)
                 )
+                (inferredType ex)
                 pos
 
-          x -> failTyping
-            $ TypingError ("Field access is not allowed on " ++ show x) pos
+              TypeTypeOf x@(mp, name) -> do
+                -- look for a static method or field
+                definitionMod <- getMod ctx mp
+                subScope      <- getSubScope (modScope definitionMod) [name]
+                findStatic    <- resolveLocal subScope fieldName
+                case findStatic of
+                  Just binding -> do
+                    x <- typeVarBinding ctx fieldName binding pos
+                    resolve $ TypeEq
+                      (bindingConcrete binding)
+                      (inferredType x)
+                      "Field access must match the field's type"
+                      (tPos x)
+                    return x
+                  Nothing -> failTyping $ TypingError
+                    (  "Type "
+                    ++ (s_unpack $ showTypePath x)
+                    ++ " has no static field "
+                    ++ s_unpack fieldName
+                    )
+                    pos
 
-        -- TODO: if we have a funcion called `fieldName` that takes e1 as the first argument,
-        -- fall back to that
+              x -> failTyping $ TypingError
+                ("Field access is not allowed on " ++ show x)
+                pos
+
+                  -- TODO: if we have a module function called `fieldName` that
+                  -- takes e1 as the first argument, fall back to that
+
+        typeFieldAccess (inferredType r1) fieldName
 
     (Field e1 _) -> do
       throwk $ InternalError

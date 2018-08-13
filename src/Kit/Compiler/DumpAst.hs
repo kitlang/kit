@@ -189,5 +189,18 @@ dumpCt ctx t = case t of
         t' <- dumpCt ctx t
         return $ tv ++ " => " ++ t'
       Nothing -> return tv
+  TypeTuple t -> do
+    parts <- forM t $ dumpCt ctx
+    return $ "(" ++ intercalate ", " parts ++ ")"
+  TypeFunction rt args var -> do
+    args <- forM args $ \(name, t) -> do
+      t' <- dumpCt ctx t
+      return (name, t')
+    rt <- dumpCt ctx rt
+    return
+      $  "("
+      ++ intercalate ", " [ s_unpack name ++ ": " ++ t | (name, t) <- args ]
+      ++ ") -> "
+      ++ rt
   _ -> return $ show t
 
