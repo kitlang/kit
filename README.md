@@ -1,5 +1,6 @@
 [![Build Status](https://img.shields.io/travis/kitlang/kit/master.svg?style=flat)](https://travis-ci.org/kitlang/kit)
 [![License: LGPL v3](https://img.shields.io/badge/License-LGPL%20v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
+[![Join the chat at https://gitter.im/kitlang/kit](https://badges.gitter.im/kitlang/kit.svg)](https://gitter.im/kitlang/kit?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 ![Kit logo](https://raw.githubusercontent.com/kitlang/kit/master/assets/logo-128.png)
 
@@ -19,7 +20,7 @@
   o888o  o888o  o888o   '888'
 ```
 
-**Kit** is a programming language designed for creating high performance cross-platform applications. Kit compiles to C, so it's highly portable; it can be used in addition to or as an alternative to C, over which it provides several advantages (see [examples](https://github.com/kitlang/kit/blob/master/EXAMPLES.md)):
+**Kit** is a programming language designed for creating concise, high performance cross-platform applications. Kit compiles to C, so it's highly portable; it can be used in addition to or as an alternative to C, over which it provides several advantages (see [examples](https://github.com/kitlang/kit/blob/master/EXAMPLES.md)):
 
 * Modern language features such as type inference, algebraic data types, pattern matching, explicit function inlining, automatic pointer dereferencing, and generics.
 
@@ -27,7 +28,7 @@
 
 * Metaprogramming via a typed term rewriting system; use rules to transform arbitrary expressions at compile time based on their type information.
 
-* A simple but powerful build tool, written in Kit: manage your project via a simple YAML configuration file and `kit build`, `kit test`, or `kit run`. (coming soon...)
+* Modules/imports and a simple but powerful build tool, written in Kit: manage your project via a simple YAML configuration file and `kit build`, `kit test`, or `kit run`. (coming soon...)
 
 Kit also has seamless interoperability with existing C libraries; you can call C functions from Kit or Kit functions from C by directly including header files; no bindings or wrappers are required.
 
@@ -41,9 +42,9 @@ Design goals and philosophy
 
 - Kit prefers "magic" and expressiveness over boilerplate and code that maps 1:1 to its runtime semantics. Using syntax transformation, developers should write the most concise and declarative version of their code, and it should compile to what a performance-conscious developer would've written by hand.
 
-- Expose enough low-level details to write high performance code, but their usage should be wrapped by higher-level abstractions. Memory management in Kit is manual, but optional features like smart pointers exist (and can be defined in user space) to make it less painful.
+- Expose enough low-level details to write high performance code, but make it possible to abstract them away. Memory management in Kit is manual, but optional features like smart pointers exist (and can be defined in user space) to make it less painful.
 
-- Verify that the program is safe at compile time, but balance safety with ergonomics.
+- Verify that the program is safe at compile time, but not at the expense of ergonomics.
 
 
 Building from source
