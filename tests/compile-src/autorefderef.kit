@@ -1,8 +1,7 @@
 struct MyStruct {
     var a: Int;
-    // refderef for struct fields/assignment not yet implemented
-    // var b: Ptr[Int];
     var b: Int;
+    var c: Ptr[Int];
 }
 
 function f1(x: MyStruct) {
@@ -10,24 +9,37 @@ function f1(x: MyStruct) {
 }
 
 function f2(x: Ptr[MyStruct]) {
-    printf("%li\n", x.a);
+    printf("%li\n", x.b);
 }
 
 function f3(x: Ptr[Ptr[MyStruct]]) {
-    printf("%li\n", x.a);
+    printf("%li\n", *(x.c));
 }
 
 function main() {
+    var myInt: Int = 3;
     var myVal = struct MyStruct {
         a: 1,
         b: 2,
+        // auto-reference
+        c: myInt,
     };
 
-    var p: Ptr[MyStruct] = &myVal;
-    printf("%li\n", p.a);
+    // field access on pointers
+    var p1: Ptr[MyStruct] = &myVal;
+    printf("%li\n", p1.a);
+    var p2: Ptr[Ptr[MyStruct]] = &p1;
+    printf("%li\n", p2.b);
+
+    var p3: MyStruct = p1;
+    printf("%li\n", *(p3.c));
 
     f1(myVal);
-    // not yet implemented
-    // f2(myVal);
-    // f3(myVal);
+    f1(p1);
+    f1(p2);
+    f2(myVal);
+    f2(p1);
+    f2(p2);
+    f3(p1);
+    f3(p2);
 }

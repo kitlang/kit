@@ -33,11 +33,28 @@ typeMaybeExpr ctx tctx mod e = case e of
 
 partialTyping ex et e = return $ ex { tExpr = et, tError = Just $ KitError e }
 
--- autoRefDeref :: TypedExpr -> ConcreteType -> TypedExpr
--- autoRefDeref ex@(TypedExpr {inferredType = TypePtr x}) (TypePtr y) = autoRefDeref (ex {inferredType = x}) y
--- autoRefDeref ex@(TypedExpr {inferredType = TypePtr x}) y = makeExprTyped (PreUnop Deref x) x (tPos ex)
--- autoRefDeref ex@(TypedExpr {inferredType = x}) (TypePtr y) = makeExprTyped (PreUnop Ref x) (TypePtr x) (tPos ex)
--- autoRefDeref ex _ = ex
+autoRefDeref
+  :: CompileContext
+  -> TypeContext
+  -> Module
+  -> ConcreteType
+  -> ConcreteType
+  -> TypedExpr
+  -> IO TypedExpr
+autoRefDeref ctx tctx mod toType fromType ex = do
+  toType   <- knownType ctx tctx mod toType
+  fromType <- knownType ctx tctx mod fromType
+  result   <- unify ctx tctx mod toType fromType
+  case result of
+    Just _ -> return ex
+    _      -> case (toType, fromType) of
+      (TypePtr a, TypePtr b) -> autoRefDeref ctx tctx mod a b ex
+      (TypePtr a, b        ) -> case tExpr ex of
+        Identifier _ _ -> autoRefDeref ctx tctx mod a b (addRef ex)
+        _              -> return ex
+      (a, TypePtr b) -> autoRefDeref ctx tctx mod a b (addDeref ex)
+      -- TODO: box conversion
+      _              -> return ex
 
 {-
   Converts a tree of untyped AST to typed AST.
@@ -150,7 +167,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           t
           "Annotated expressions must match their type annotation"
           (tPos r1)
-        return r1 { inferredType = t }
+        return $ r1 { inferredType = t }
 
     (PreUnop op e1) -> do
       r1 <- r e1
@@ -172,11 +189,17 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       r1 <- r e1
       r2 <- r e2
       tryRewrite (unknownTyped $ Binop Assign r1 r2) $ do
+        converted <- autoRefDeref ctx
+                                  tctx
+                                  mod
+                                  (inferredType r1)
+                                  (inferredType r2)
+                                  r2
         resolve $ TypeEq (inferredType r1)
-                         (inferredType r2)
+                         (inferredType converted)
                          "Both sides of an assignment must unify"
                          pos
-        return $ makeExprTyped (Binop Assign r1 r2) (inferredType r1) pos
+        return $ makeExprTyped (Binop Assign r1 converted) (inferredType r1) pos
     (Binop (AssignOp op) e1 e2) | (op == And) || (op == Or) -> do
       r1 <- r e1
       r2 <- r e2
@@ -510,12 +533,13 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       init' <- case init of
         Just e1 -> do
           r1 <- r e1
+          converted <- autoRefDeref ctx tctx mod varType (inferredType r1) r1
           resolve $ TypeEq
-            (inferredType r1)
-            (varType)
+            varType
+            (inferredType converted)
             "A variable's initial value must match the variable's type"
             (tPos r1)
-          return $ Just r1
+          return $ Just converted
         Nothing -> return Nothing
       existing <- resolveLocal (head $ tctxScopes tctx) vname
       case existing of
@@ -592,12 +616,14 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
               typedFields
               (\((name, expr), fieldType) -> do
                 r1 <- r expr
+                converted <- autoRefDeref ctx tctx mod fieldType (inferredType r1) r1
+                print converted
                 resolve $ TypeEq
-                  (inferredType r1)
                   fieldType
+                  (inferredType converted)
                   "Provided struct field values must match the declared struct field type"
                   (tPos r1)
-                return (name, r1)
+                return (name, converted)
               )
             return $ makeExprTyped (StructInit structType typedFields)
                                    structType
@@ -651,9 +677,10 @@ findImplicit
   -> IO (Maybe TypedExpr)
 findImplicit ctx tctx mod ct []      = return Nothing
 findImplicit ctx tctx mod ct (h : t) = do
-  match <- unify ctx tctx mod ct (inferredType h)
+  converted <- autoRefDeref ctx tctx mod ct (inferredType h) h
+  match     <- unify ctx tctx mod ct (inferredType converted)
   case match of
-    Just _  -> return $ Just h
+    Just _  -> return $ Just converted
     Nothing -> findImplicit ctx tctx mod ct t
 
 typeFunctionCall
@@ -690,8 +717,15 @@ typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = TypeFunction rt argT
           ++ " implicits)"
           )
           pos
+    converted <- forM
+      (zip (map Just argTypes ++ repeat Nothing) aligned)
+      (\(arg, argValue) -> case arg of
+        Just (_, argType) ->
+          autoRefDeref ctx tctx mod argType (inferredType argValue) argValue
+        Nothing -> return argValue
+      )
     forM_
-      (zip argTypes aligned)
+      (zip argTypes converted)
       (\((_, argType), argValue) -> do
         t1 <- follow ctx tctx mod argType
         t2 <- knownType ctx tctx mod (inferredType argValue)
@@ -705,7 +739,7 @@ typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = TypeFunction rt argT
                   (tPos argValue)
           )
       )
-    return $ makeExprTyped (Call e aligned) rt pos
+    return $ makeExprTyped (Call e converted) rt pos
 
 typeEnumConstructorCall
   :: CompileContext

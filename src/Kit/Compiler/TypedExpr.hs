@@ -18,8 +18,15 @@ makeExprTyped :: TypedExprType -> ConcreteType -> Span -> TypedExpr
 makeExprTyped et t pos = TypedExpr
   { tExpr        = et
   , inferredType = t
-  , tImplicits    = []
+  , tImplicits   = []
   , tPos         = pos
   , rewrittenBy  = Nothing
   , tError       = Nothing
   }
+
+addRef :: TypedExpr -> TypedExpr
+addRef ex =
+  makeExprTyped (PreUnop Ref ex) (TypePtr $ inferredType ex) (tPos ex)
+addDeref :: TypedExpr -> TypedExpr
+addDeref ex = case inferredType ex of
+  TypePtr x -> makeExprTyped (PreUnop Deref ex) x (tPos ex)

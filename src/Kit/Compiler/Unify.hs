@@ -115,7 +115,6 @@ unify ctx tctx mod a' b' = do
         then return $ Just []
         else do
           parents <- getAbstractParents ctx mod b
-          print parents
           case find ((==) a) parents of
             Just _ -> return $ Just []
             _      -> return Nothing
