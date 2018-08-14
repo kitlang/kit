@@ -32,6 +32,7 @@ data Options = Options {
   optNoCompile :: Bool,
   optNoLink :: Bool,
   optDumpAst :: Bool,
+  optNoCcache :: Bool,
   optRun :: Bool
 } deriving (Eq, Show)
 
@@ -85,6 +86,11 @@ options =
     <*> switch
           (long "dump-ast" <> help
             "output the typed AST after typing, for debugging purposes"
+          )
+    <*> switch
+          (  long "no-ccache"
+          <> help
+               "don't use ccache for compilation, even if it is available on your path"
           )
     <*> switch
           (long "run" <> help "run the program after successful compilation")
@@ -146,6 +152,7 @@ main = do
             , ctxNoCompile    = optNoCompile opts
             , ctxNoLink       = optNoLink opts
             , ctxDumpAst      = optDumpAst opts
+            , ctxNoCcache     = optNoCcache opts
             , ctxRun          = optRun opts
             }
 

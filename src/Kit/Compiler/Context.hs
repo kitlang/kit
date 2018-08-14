@@ -54,6 +54,7 @@ data CompileContext = CompileContext {
   ctxNoCompile :: Bool,
   ctxNoLink :: Bool,
   ctxDumpAst :: Bool,
+  ctxNoCcache :: Bool,
   ctxRecursionLimit :: Int,
   ctxRun :: Bool
 }
@@ -68,7 +69,8 @@ instance Show CompileContext where
       "defines" .= object [T.pack key .= value | (key, value) <- ctxDefines ctx],
       "verbose" .= ctxVerbose ctx,
       "no-compile" .= ctxNoCompile ctx,
-      "no-link" .= ctxNoLink ctx
+      "no-link" .= ctxNoLink ctx,
+      "no-ccache" .= ctxNoCcache ctx
     ]
 
 newCompileContext :: IO CompileContext
@@ -108,6 +110,7 @@ newCompileContext = do
     , ctxNoCompile            = False
     , ctxNoLink               = False
     , ctxDumpAst              = False
+    , ctxNoCcache             = False
     , ctxRecursionLimit       = 256
     , ctxRun                  = True
     }

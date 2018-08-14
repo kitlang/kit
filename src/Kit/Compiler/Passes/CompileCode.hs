@@ -23,20 +23,22 @@ import Kit.Str
 compileCode :: CompileContext -> IO (Maybe FilePath)
 compileCode ctx = do
   compiler      <- findCompiler
+  ccache        <- findCcache ctx
   compilerFlags <- getCompilerFlags ctx
   linkerFlags   <- getLinkerFlags ctx
   createDirectoryIfMissing True (buildDir ctx)
   debugLog                 ctx  ("found C compiler at " ++ compiler)
   mods <- ctxSourceModules ctx
-  forM_ mods (compileModule ctx compiler compilerFlags)
+  forM_ mods (compileModule ctx ccache compiler compilerFlags)
   if ctxNoLink ctx
     then return Nothing
     else do
       binPath <- link ctx compiler linkerFlags mods
       return $ Just binPath
 
-compileModule :: CompileContext -> FilePath -> [String] -> Module -> IO ()
-compileModule ctx cc args mod = do
+compileModule
+  :: CompileContext -> Maybe FilePath -> FilePath -> [String] -> Module -> IO ()
+compileModule ctx ccache cc' args mod = do
   let objFilePath = objPath ctx (modPath mod)
   createDirectoryIfMissing True (takeDirectory objFilePath)
   let args' =
@@ -49,8 +51,11 @@ compileModule ctx cc args mod = do
              ]
           ++ (if (ctxIsLibrary ctx) then ["-fPIC"] else [])
   printLog $ "compiling " ++ show mod
-  traceLog $ showCommandForUser cc args'
-  callProcess cc args'
+  let (cc, args) = case ccache of
+        Just x  -> (x, cc' : args')
+        Nothing -> (cc', args')
+  traceLog $ showCommandForUser cc args
+  callProcess cc args
 
 link :: CompileContext -> FilePath -> [String] -> [Module] -> IO FilePath
 link ctx cc args mods = do
@@ -105,3 +110,7 @@ findCompiler = do
           ++ "\n\nYou can set the compiler path explicitly using the CC environment variable"
           )
           Nothing
+
+findCcache :: CompileContext -> IO (Maybe FilePath)
+findCcache ctx =
+  if ctxNoCcache ctx then return Nothing else findExecutable "ccache"
