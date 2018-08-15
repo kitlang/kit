@@ -6,7 +6,7 @@ cache:
 addons:
   apt:
     packages:
-      - libgmp-dev
+    - libgmp-dev
 
 before_install:
 - mkdir -p ~/.local/bin
@@ -20,3 +20,14 @@ script:
 - stack build kitlang:kitc
 - stack exec kitc -- -h
 - stack test
+
+notifications:
+  webhooks:
+    urls:
+    - https://webhooks.gitter.im/e/4e660c1b0cf9bd4610bd
+    on_success: change
+    on_failure: always
+    on_start: never
+  email:
+    on_success: change
+    on_failure: change
