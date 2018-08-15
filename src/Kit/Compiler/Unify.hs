@@ -34,16 +34,16 @@ instance Eq UnificationError where
   (==) (UnificationError _ c1) (UnificationError _ c2) = c1 == c2
 
 getAbstractParents
-  :: CompileContext -> Module -> ConcreteType -> IO [ConcreteType]
-getAbstractParents ctx mod t = do
+  :: CompileContext -> ConcreteType -> IO [ConcreteType]
+getAbstractParents ctx t = do
   case t of
     TypeInstance (modPath, typeName) params -> do
       -- TODO: factor this out
-      def <- getTypeDefinition ctx mod modPath typeName
+      def <- getTypeDefinition ctx modPath typeName
       case def of
         Just (TypeDefinition { typeSubtype = Abstract { abstractUnderlyingType = t' } })
           -> do
-            parents <- getAbstractParents ctx mod t'
+            parents <- getAbstractParents ctx t'
             return $ t' : parents
         _ -> return []
     _ -> return []
@@ -95,7 +95,7 @@ unify ctx tctx mod a' b' = do
       return $ checkResults ((Just $ [TypeVarIs i x]) : results)
     (_                    , TypeTypeVar _) -> unify ctx tctx mod b a
     (TypeTraitConstraint t, x            ) -> do
-      impl <- resolveTraitConstraint ctx mod t x
+      impl <- resolveTraitConstraint ctx t x
       return $ if impl then Just [] else Nothing
     (_, TypeTraitConstraint v) -> unify ctx tctx mod b a
     (TypeBasicType a, TypeBasicType b) -> return $ unifyBasic a b
@@ -114,7 +114,7 @@ unify ctx tctx mod a' b' = do
       if a == b
         then return $ Just []
         else do
-          parents <- getAbstractParents ctx mod b
+          parents <- getAbstractParents ctx b
           case find ((==) a) parents of
             Just _ -> return $ Just []
             _      -> return Nothing
@@ -191,17 +191,7 @@ resolveConstraintOrThrow ctx tctx mod t@(TypeEq a' b' reason pos) = do
     Nothing -> throw $ KitError $ UnificationError ctx t
 
 resolveTraitConstraint
-  :: CompileContext -> Module -> TraitConstraint -> ConcreteType -> IO Bool
-resolveTraitConstraint ctx mod (tp, params) ct = do
+  :: CompileContext -> TraitConstraint -> ConcreteType -> IO Bool
+resolveTraitConstraint ctx (tp, params) ct = do
   impl <- getTraitImpl ctx tp ct
-  case impl of
-    Just _ -> return True
-    _      -> do
-      case ct of
-        TypeInstance (modPath, name) params -> do
-          def <- getTypeDefinition ctx mod modPath name
-          case def of
-            Just (TypeDefinition { typeSubtype = Abstract { abstractUnderlyingType = u } })
-              -> resolveTraitConstraint ctx mod (tp, params) u
-            _ -> return False
-        _ -> return False
+  return $ impl /= Nothing

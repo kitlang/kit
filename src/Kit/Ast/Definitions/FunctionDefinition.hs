@@ -96,3 +96,13 @@ convertArgSpec (Converter { exprConverter = exprConverter, typeConverter = typeC
                         , argDefault = newDefault
                         , argPos     = argPos a
                         }
+
+implicitifyMethod :: b -> Str -> FunctionDefinition a b -> FunctionDefinition a b
+implicitifyMethod thisType thisName method = method
+  { functionArgs = (newArgSpec { argName = thisName
+                               , argType = thisType
+                               , argPos  = functionPos method
+                               }
+                   )
+    : (functionArgs method)
+  }

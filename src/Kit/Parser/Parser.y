@@ -132,7 +132,8 @@ Statement :: {Statement}
     ps (fp [p $1, p $2, p $6]) $ Typedef (extract_upper_identifier $3) (fst $5)
   }
   | DocMetaMods atom upper_identifier ';' {
-    ps (fp [p $1, p $2, p $4]) $ TypeDeclaration $ (newTypeDefinition $ extract_upper_identifier $3) {
+    ps (fp [p $1, p $2, p $4]) $ TypeDeclaration $ (newTypeDefinition) {
+      typeName = extract_upper_identifier $3,
       typeDoc = doc $1,
       typeMeta = reverse $ metas $1,
       typeModifiers = reverse $ mods $1,
@@ -146,7 +147,8 @@ Statement :: {Statement}
     }
   }
   | DocMetaMods enum upper_identifier TypeParams TypeAnnotation '{' RulesMethodsVariants '}' {
-    ps (fp [p $1, p $2, p $8]) $ TypeDeclaration $ (newTypeDefinition $ extract_upper_identifier $3) {
+    ps (fp [p $1, p $2, p $8]) $ TypeDeclaration $ (newTypeDefinition) {
+      typeName = extract_upper_identifier $3,
       typeDoc = doc $1,
       typeMeta = reverse $ metas $1,
       typeModifiers = reverse $ mods $1,
@@ -163,7 +165,8 @@ Statement :: {Statement}
     }
   }
   | DocMetaMods struct upper_identifier TypeParams RulesMethodsFieldsBody {
-    ps (fp [p $1, p $2, p $5]) $ TypeDeclaration $ (newTypeDefinition $ extract_upper_identifier $3) {
+    ps (fp [p $1, p $2, p $5]) $ TypeDeclaration $ (newTypeDefinition) {
+      typeName = extract_upper_identifier $3,
       typeDoc = doc $1,
       typeMeta = reverse $ metas $1,
       typeModifiers = reverse $ mods $1,
@@ -179,7 +182,8 @@ Statement :: {Statement}
     }
   }
   | DocMetaMods union upper_identifier TypeParams RulesMethodsFieldsBody {
-    ps (fp [p $1, p $2, p $5]) $ TypeDeclaration $ (newTypeDefinition $ extract_upper_identifier $3) {
+    ps (fp [p $1, p $2, p $5]) $ TypeDeclaration $ (newTypeDefinition) {
+      typeName = extract_upper_identifier $3,
       typeDoc = doc $1,
       typeMeta = reverse $ metas $1,
       typeModifiers = reverse $ mods $1,
@@ -195,7 +199,8 @@ Statement :: {Statement}
     }
   }
   | DocMetaMods abstract upper_identifier TypeParams TypeAnnotation RulesMethodsBody {
-    ps (fp [p $1, p $2, p $6]) $ TypeDeclaration $ (newTypeDefinition $ extract_upper_identifier $3) {
+    ps (fp [p $1, p $2, p $6]) $ TypeDeclaration $ (newTypeDefinition) {
+      typeName = extract_upper_identifier $3,
       typeDoc = doc $1,
       typeMeta = reverse $ metas $1,
       typeModifiers = reverse $ mods $1,

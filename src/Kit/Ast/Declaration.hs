@@ -10,6 +10,7 @@ data Declaration a b
   | DeclFunction (FunctionDefinition a b)
   | DeclType (TypeDefinition a b)
   | DeclTrait (TraitDefinition a b)
+  | DeclImpl (TraitImplementation a b)
   | DeclRuleSet (RuleSet a b)
   | DeclUsing (UsingType a b)
   | DeclTuple b
@@ -21,6 +22,7 @@ declName (DeclVar v) = varName v
 declName (DeclFunction v) = functionName v
 declName (DeclType v) = typeName v
 declName (DeclTrait v) = traitName v
+declName (DeclImpl v) = "()"
 declName (DeclRuleSet v) = ruleSetName v
 declName (DeclTuple b) = s_pack $ show b
 declName (DeclUsing v) = "()"

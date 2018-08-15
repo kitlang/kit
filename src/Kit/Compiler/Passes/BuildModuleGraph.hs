@@ -275,7 +275,27 @@ addStmtToModuleInterface ctx mod s = do
           [DeclType $ d { typeNamespace = if extern then [] else modPath mod }]
 
     TraitDeclaration d@(TraitDefinition { traitName = name }) -> do
-      converted <- convertTraitDefinition (\_ -> interfaceConverter) d
+      subNamespace <- getSubScope (modScope mod) [name]
+      converted    <- convertTraitDefinition (\_ -> interfaceConverter) d
+      forM_
+        (traitMethods converted)
+        (\method' ->
+          let method = implicitifyMethod (TypePtr $ TypeBasicType BasicTypeVoid) (vThisArgName) method' in
+          bindToScope
+            (subNamespace)
+            (functionName method)
+            (newBinding
+              (modPath mod ++ [name], functionName method)
+              (FunctionBinding method)
+              (TypeFunction
+                (functionType method)
+                [ (argName arg, argType arg) | arg <- functionArgs method ]
+                (functionVarargs method)
+              )
+              (modPath mod ++ [name])
+              (functionPos method)
+            )
+        )
       addToInterface name
                      (TraitBinding converted)
                      (False)
@@ -323,9 +343,9 @@ addStmtToModuleInterface ctx mod s = do
       modifyIORef (modSpecializations mod) (\l -> ((a, b), stmtPos s) : l)
       return []
 
-    Implement t -> do
-      modifyIORef (modImpls mod) (\l -> t : l)
-      return []
+    Implement i -> do
+      modifyIORef (modImpls mod) (\l -> i : l)
+      return [DeclImpl (i { implMod = modPath mod })]
 
     ModuleUsing using -> do
       return [DeclUsing using]

@@ -62,12 +62,12 @@ findImpls
   :: CompileContext
   -> HashTable
        TypePath
-       (HashTable ConcreteType (TraitImplementation Expr (Maybe TypeSpec)))
+       (HashTable ConcreteType (TraitImplementation TypedExpr ConcreteType))
   -> TypePath
   -> IO
        ( HashTable
            ConcreteType
-           (TraitImplementation Expr (Maybe TypeSpec))
+           (TraitImplementation TypedExpr ConcreteType)
        )
 findImpls ctx memos t = do
   memoized <- h_lookup memos t
@@ -134,7 +134,10 @@ resolveTypesForMod ctx (mod, contents) = do
         DeclUsing u -> do
           addModUsing ctx tctx mod u
           return Nothing
-        _           -> do
+        DeclImpl i -> do
+          converted <- convertTraitImplementation varConverter i
+          return $ Just $ DeclImpl converted
+        _ -> do
           binding <- scopeGet (modScope mod) (declName decl)
           case (bindingType binding, decl) of
             (VarBinding vi, DeclVar v) -> do
@@ -207,7 +210,11 @@ resolveTypesForMod ctx (mod, contents) = do
 
             (TraitBinding ti, DeclTrait t) -> do
               converted <- convertTraitDefinition paramConverter t
-              -- TODO: unify
+              forM_
+                (zip (traitMethods ti) (traitMethods converted))
+                (\(method1, method2) ->
+                  mergeFunctionInfo ctx tctx mod method1 method2
+                )
               bindToScope (modScope mod)
                           (declName decl)
                           (binding { bindingType = TraitBinding converted })
@@ -257,6 +264,13 @@ addImplementation ctx mod impl@(TraitImplementation { implTrait = Just (TypeSpec
         -> do
           ct       <- resolveType ctx tctx mod implFor
           existing <- h_lookup (ctxImpls ctx) tpTrait
+          impl'    <- convertTraitImplementation
+            (converter (convertExpr ctx tctx mod)
+                       (resolveMaybeType ctx tctx mod)
+            )
+            impl
+          let impl = impl' { implMod = modPath mod }
+
           case existing of
             Just ht -> h_insert ht ct impl
             Nothing -> do

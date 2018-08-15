@@ -11,7 +11,8 @@ data TypedExpr = TypedExpr {
   tImplicits :: [TypedExpr],
   tPos :: Span,
   rewrittenBy :: Maybe (RewriteRule (Expr) (Maybe TypeSpec)),
-  tError :: Maybe KitError
+  tError :: Maybe KitError,
+  tIsLvalue :: Bool
 } deriving (Eq, Show)
 
 makeExprTyped :: TypedExprType -> ConcreteType -> Span -> TypedExpr
@@ -22,11 +23,13 @@ makeExprTyped et t pos = TypedExpr
   , tPos         = pos
   , rewrittenBy  = Nothing
   , tError       = Nothing
+  , tIsLvalue    = False
   }
 
 addRef :: TypedExpr -> TypedExpr
 addRef ex =
   makeExprTyped (PreUnop Ref ex) (TypePtr $ inferredType ex) (tPos ex)
+
 addDeref :: TypedExpr -> TypedExpr
 addDeref ex = case inferredType ex of
   TypePtr x -> makeExprTyped (PreUnop Deref ex) x (tPos ex)

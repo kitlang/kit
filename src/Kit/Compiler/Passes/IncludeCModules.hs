@@ -282,8 +282,9 @@ defineNamedStructsEnumsUnions ctx mod pos (h : t) = do
             , (fieldName, fieldType) <- decomposeStructField (modPath mod) field
             ]
       let typeDef =
-            ((newTypeDefinition (s_pack name))
-              { typeNamespace = []
+            ((newTypeDefinition)
+              { typeName      = s_pack name
+              , typeNamespace = []
               , typeSubtype   = if tag == CStructTag
                 then Struct {structFields = fields}
                 else Union {unionFields = fields}
@@ -305,11 +306,9 @@ defineNamedStructsEnumsUnions ctx mod pos (h : t) = do
             Nothing -> []
       let
         typeDef =
-          (((newTypeDefinition (s_pack name)) :: TypeDefinition
-               TypedExpr
-               ConcreteType
-           )
-            { typeNamespace = []
+          (((newTypeDefinition) :: TypeDefinition TypedExpr ConcreteType)
+            { typeName      = s_pack name
+            , typeNamespace = []
             , typeSubtype   = Enum
               { enumUnderlyingType = TypeBasicType BasicTypeVoid
               , enumVariants       = [ newEnumVariant

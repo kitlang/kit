@@ -1,6 +1,7 @@
 module Kit.Ast.ExprType where
 
 import Kit.Ast.ConcreteType
+import Kit.Ast.Definitions
 import Kit.Ast.Identifier
 import Kit.Ast.Metadata
 import Kit.Ast.Modifier
@@ -72,6 +73,7 @@ data ExprType a b
   -- var id[: type] [= default];
   | VarDeclaration (Identifier b) b (Maybe a)
   | Defer a
+  | Box (TraitImplementation a b) a
   deriving (Eq, Show)
 
 exprDiscriminant :: ExprType a b -> Int
@@ -109,6 +111,7 @@ exprDiscriminant et =
     VectorLiteral _ -> 30
     VarDeclaration _ _ _ -> 31
     Defer _ -> 32
+    Box _ _ -> 33
 
 exprChildren :: ExprType a b -> [a]
 exprChildren et =
@@ -138,4 +141,5 @@ exprChildren et =
     VectorLiteral x -> x
     VarDeclaration _ _ (Just x) -> [x]
     Defer x -> [x]
+    Box _ x -> [x]
     _ -> []

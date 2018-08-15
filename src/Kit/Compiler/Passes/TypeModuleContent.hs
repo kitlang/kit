@@ -73,6 +73,7 @@ typeIterative ctx input output limit = do
             DeclVar      v  -> typeVar ctx mod v
             DeclType     t  -> typeTypeDefinition ctx mod t
             DeclTrait    t  -> typeTrait ctx mod t
+            DeclImpl     i  -> typeImpl ctx mod i
             DeclRuleSet  rs -> return (Nothing, True)
           return (x, complete)
         )
@@ -85,8 +86,13 @@ typeIterative ctx input output limit = do
       return (mod, (incompleteResults, completeResults))
     )
 
-  let incomplete = [ (mod, y) | (mod, x) <- results, let y = catMaybes $ fst x, not $ null y ]
-  let complete   = [ (mod, y) | (mod, x) <- results, let y = catMaybes $ snd x ]
+  let incomplete =
+        [ (mod, y)
+        | (mod, x) <- results
+        , let y = catMaybes $ fst x
+        , not $ null y
+        ]
+  let complete = [ (mod, y) | (mod, x) <- results, let y = catMaybes $ snd x ]
 
   if null incomplete
     then return complete

@@ -36,8 +36,8 @@ data TypeDefinitionType a b
   | Abstract {abstractUnderlyingType :: b}
   deriving (Eq, Show)
 
-newTypeDefinition x = TypeDefinition
-  { typeName          = x
+newTypeDefinition = TypeDefinition
+  { typeName          = undefined
   , typeDoc           = Nothing
   , typeMeta          = []
   , typeModifiers     = []
@@ -53,18 +53,10 @@ newTypeDefinition x = TypeDefinition
 
 implicitifyInstanceMethods :: b -> TypeDefinition a b -> TypeDefinition a b
 implicitifyInstanceMethods thisType def = def
-  { typeMethods = [ method
-                      { functionArgs = (newArgSpec { argName = "__this"
-                                                   , argType = thisType
-                                                   , argPos = functionPos method
-                                                   }
-                                       )
-                        : (functionArgs method)
-                      }
+  { typeMethods = [ implicitifyMethod thisType thisArgName method
                   | method <- typeMethods def
                   ]
   }
-
 
 convertTypeDefinition
   :: (Monad m)
@@ -102,17 +94,18 @@ convertTypeDefinition paramConverter t = do
                           (convertFunctionDefinition methodParamConverter)
 
   -- since they are untyped, rulesets will not be converted and will be lost
-  return $ (newTypeDefinition (typeName t)) { typeDoc           = typeDoc t
-                                            , typeMeta          = typeMeta t
-                                            , typeModifiers = typeModifiers t
-                                            , typeParams        = typeParams t
-                                            , typeNamespace = typeNamespace t
-                                            , typeSubtype       = newType
-                                            , typePos           = typePos t
-                                            , typeStaticFields  = staticFields
-                                            , typeStaticMethods = staticMethods
-                                            , typeMethods = instanceMethods
-                                            }
+  return $ (newTypeDefinition) { typeName          = typeName t
+                               , typeDoc           = typeDoc t
+                               , typeMeta          = typeMeta t
+                               , typeModifiers     = typeModifiers t
+                               , typeParams        = typeParams t
+                               , typeNamespace     = typeNamespace t
+                               , typeSubtype       = newType
+                               , typePos           = typePos t
+                               , typeStaticFields  = staticFields
+                               , typeStaticMethods = staticMethods
+                               , typeMethods       = instanceMethods
+                               }
 
 enumIsSimple enum = all variantIsSimple $ enumVariants enum
 
@@ -120,3 +113,6 @@ typeRuleSet t = newRuleSet { ruleSetName  = typeName t
                            , ruleSetPos   = typePos t
                            , ruleSetRules = typeRules t
                            }
+
+thisArgName :: Str
+thisArgName = "__this"

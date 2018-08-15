@@ -1,0 +1,69 @@
+struct MyStruct {
+    public var a: Int;
+    public var b: Float;
+}
+
+trait Greeter {
+    public function greet(): Void;
+}
+
+implement Greeter for Int32 {
+    public function greet() {
+        printf("Hello from Int %li\n", this);
+    }
+}
+
+implement Greeter for Int64 {
+    public function greet() {
+        printf("Hellooo from Int64 %lli\n", this);
+    }
+}
+
+implement Greeter for Float32 {
+    public function greet() {
+        printf("Howdy from Float %.2f\n", this);
+    }
+}
+
+implement Greeter for MyStruct {
+    public function greet() {
+        printf("Hey from MyStruct\n");
+        greet(this.a);
+        greet(this.b);
+    }
+}
+
+implement Greeter for Bool {
+    public function greet() {
+        if this {
+            printf("yep\n");
+        } else {
+            printf("nope\n");
+        }
+    }
+}
+
+function greet(x: Box[Greeter]) {
+    x.greet();
+}
+
+function main() {
+    var a: Int32 = 1;
+    var x: Box[Greeter] = a;
+    greet(x);
+
+    var b = 7_i32;
+    greet(b);
+    var c = 5_f32;
+    greet(c);
+    var d = 10000000000000_i64;
+    greet(d);
+
+    var e = struct MyStruct {a: 100, b: 3.14};
+    greet(e);
+
+    var f = true;
+    var g = false;
+    greet(f);
+    greet(g);
+}

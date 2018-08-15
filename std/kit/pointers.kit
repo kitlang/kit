@@ -1,16 +1,3 @@
-// /**
-//  * An automatically dereferencing C pointer to type T.
-//  */
-// abstract Ptr[T] {
-//     rules {
-//         (this as Ptr[T]);
-//         ((_: Ptr[T]) as Self);
-//         (this as T) => (*this);
-//         (this.$x) => (*this).$x;
-//         ((x: T) as Ptr[T]) => (&x);
-//     }
-// }
-
 /**
  * A typesafe nullable pointer.
  */
@@ -19,7 +6,7 @@ abstract Null[T]: Ptr[T] {
         (this as Ptr[T]);
         ((x: T) as Null[T]) => (&x);
 
-        (this.isNull()) => (this as CPtr[T]) == 0;
+        (this.isNull()) => (this as Ptr[T]) == 0;
         (null : Null[T]) => 0;
 
         (*this): T => if this.isNull() {
@@ -61,13 +48,13 @@ abstract Unique[T]: Ptr[T] {
 
     public function delete();
 
-    /**
-     * Obtain a weak reference to the underlying value. When the unique pointer
-     * is destroyed, this reference will no longer be valid.
-     */
-    public function weak(): Weak[T] {
-        return (this as Ptr[T]) as Weak[T];
-    }
+    // /**
+    //  * Obtain a weak reference to the underlying value. When the unique pointer
+    //  * is destroyed, this reference will no longer be valid.
+    //  */
+    // public function weak(): Weak[T] {
+    //     return (this as Ptr[T]) as Weak[T];
+    // }
 }
 
 /**

@@ -47,7 +47,7 @@ data CompileContext = CompileContext {
   ctxTypeVariables :: HashTable Int TypeVarInfo,
   ctxTypedDecls :: HashTable TypePath TypedDecl,
   ctxTraitSpecializations :: HashTable TypePath (TypeSpec, Span),
-  ctxImpls :: HashTable TypePath (HashTable ConcreteType (TraitImplementation Expr (Maybe TypeSpec))),
+  ctxImpls :: HashTable TypePath (HashTable ConcreteType (TraitImplementation TypedExpr ConcreteType)),
   ctxGlobalNames :: HashTable Str Span,
   ctxCompilerFlags :: [String],
   ctxLinkerFlags :: [String],
@@ -179,25 +179,47 @@ getTraitImpl
   :: CompileContext
   -> TypePath
   -> ConcreteType
-  -> IO (Maybe (TraitImplementation Expr (Maybe TypeSpec)))
-getTraitImpl ctx trait impl = do
+  -> IO (Maybe (TraitImplementation TypedExpr ConcreteType))
+getTraitImpl ctx trait ct = do
   traitImpls <- h_lookup (ctxImpls ctx) trait
-  case traitImpls of
+  result     <- case traitImpls of
     Just x -> do
-      lookup <- h_lookup x impl
+      lookup <- h_lookup x ct
       case lookup of
         Just y -> return $ Just y
         _      -> return Nothing
     Nothing -> return Nothing
+  case result of
+    Just impl -> return $ Just impl
+    Nothing   -> do
+      case ct of
+        TypeInstance (modPath, name) params -> do
+          def <- getTypeDefinition ctx modPath name
+          case def of
+            Just (TypeDefinition { typeSubtype = Abstract { abstractUnderlyingType = u } })
+              -> getTraitImpl ctx trait u
+            _ -> return Nothing
+        _ -> return Nothing
 
+makeBox :: CompileContext -> TypePath -> TypedExpr -> IO (Maybe TypedExpr)
+makeBox ctx tp ex = do
+  if tIsLvalue ex
+    then do
+      impl <- getTraitImpl ctx tp (inferredType ex)
+      case impl of
+        Just impl -> do
+          -- TODO params
+          let t' = TypeBox $ TypeTraitConstraint (tp, [])
+          return $ Just $ ex { tExpr = Box impl ex, inferredType = t' }
+        Nothing -> return Nothing
+    else return Nothing
 
 getTypeDefinition
   :: CompileContext
-  -> Module
   -> ModulePath
   -> Str
   -> IO (Maybe (TypeDefinition TypedExpr ConcreteType))
-getTypeDefinition ctx mod modPath typeName = do
+getTypeDefinition ctx modPath typeName = do
   defMod  <- getMod ctx modPath
   binding <- resolveLocal (modScope defMod) typeName
   case binding of

@@ -163,23 +163,42 @@ function helloSDL() {
 Term rewriting
 --------------
 
-Term rewriting rules allow compile-time syntax transformation:
+Term rewriting rules allow compile-time syntax transformation, which lets you define optimizations:
 
 ```kit
-rules Reduce {
-    (pow($x + $y, 2)) => pow($x, 2) + 2 * $x * $y + pow($y, 2);
+import kit.math;
+
+rules FastMath {
+    (sin(pi/2)) => 1;
+    (sin(pi)) => 0;
+    (sin(1.5*pi)) => -1;
+    (sin(2*pi)) => 0;
+
+    (cos(pi/2)) => 0;
+    (cos(pi)) => -1;
+    (cos(1.5*pi)) => 0;
+    (cos(2*pi)) => 1;
 }
 
 function main() {
-    using rules Reduce {
-        var a = 3;
-        var b = 4;
-        var c = pow(a + b, 2);
+    using rules FastMath {
+        // this triggers a function call...
+        var a = sin(pi * 0.75);
+        // ...but this avoids one thanks to the rewrite rule
+        var b = sin(pi / 2);
     }
 }
 ```
 
-Rules can match based on both the AST struture and value type information:
+as well as custom semantics:
+
+```kit
+rules VectorMath {
+    (${a: Vector} + ${n: Numeric}) => // TODO: fill in example
+}
+```
+
+Rules can match based on both the AST structure and value type information:
 
 ```kit
 struct MyStruct {

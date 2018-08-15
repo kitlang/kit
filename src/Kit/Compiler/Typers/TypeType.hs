@@ -4,6 +4,7 @@ import Control.Monad
 import Data.IORef
 import Data.List
 import Kit.Ast
+import Kit.Compiler.Binding
 import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
@@ -11,7 +12,6 @@ import Kit.Compiler.TypeContext
 import Kit.Compiler.TypedDecl
 import Kit.Compiler.TypedExpr
 import Kit.Compiler.Typers.Base
-import Kit.Compiler.Typers.ConvertExpr
 import Kit.Compiler.Typers.TypeExpression
 import Kit.Compiler.Typers.TypeFunction
 import Kit.Compiler.Typers.TypeVar
@@ -30,8 +30,10 @@ typeTypeDefinition ctx mod def@(TypeDefinition { typeName = name }) = do
   debugLog ctx $ "typing " ++ s_unpack name ++ " in " ++ show mod
   -- TODO: handle params here
   tctx' <- modTypeContext ctx mod
+  binding <- scopeGet (modScope mod) name
   let tctx = tctx'
         { tctxTypeParams = [ (paramName param, ()) | param <- typeParams def ]
+        -- , tctxSelf = Just $ TypeTypeOf (bindingConcrete binding)
         }
   let r = typeExpr ctx tctx mod
   staticFields <- forM
@@ -49,7 +51,10 @@ typeTypeDefinition ctx mod def@(TypeDefinition { typeName = name }) = do
   instanceMethods <- forM
     (typeMethods def)
     (\method -> do
-      (typed, complete) <- typeFunctionDefinition ctx tctx mod method
+      let tctx' = tctx {
+        tctxThis = Just (bindingConcrete binding)
+      }
+      (typed, complete) <- typeFunctionDefinition ctx tctx' mod method
       return typed
     )
   -- TODO: enum variants...

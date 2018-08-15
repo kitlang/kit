@@ -54,3 +54,8 @@ convertTraitDefinition paramConverter t = do
                                 , traitParams    = traitParams t
                                 , traitMethods   = methods
                                 }
+
+valuePointerName :: Str
+valuePointerName = "__this"
+vtablePointerName :: Str
+vtablePointerName = "__vtable"

@@ -49,12 +49,16 @@ autoRefDeref ctx tctx mod toType fromType ex = do
     Just _ -> return ex
     _      -> case (toType, fromType) of
       (TypePtr a, TypePtr b) -> autoRefDeref ctx tctx mod a b ex
-      (TypePtr a, b        ) -> case tExpr ex of
-        Identifier _ _ -> autoRefDeref ctx tctx mod a b (addRef ex)
-        _              -> return ex
+      (TypePtr a, b        ) -> if tIsLvalue ex
+        then autoRefDeref ctx tctx mod a b (addRef ex)
+        else return ex
       (a, TypePtr b) -> autoRefDeref ctx tctx mod a b (addDeref ex)
-      -- TODO: box conversion
-      _              -> return ex
+      (TypeBox (TypeTraitConstraint (tp, params)), b) -> do
+        box <- makeBox ctx tp ex
+        case box of
+          Just x  -> return x
+          Nothing -> return ex
+      _ -> return ex
 
 {-
   Converts a tree of untyped AST to typed AST.
@@ -150,8 +154,10 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           Var vname -> do
             binding <- resolveVar ctx (tctxScopes tctx) mod vname
             case binding of
-              Just binding -> typeVarBinding ctx vname binding pos
-              Nothing      -> failTyping
+              Just binding -> do
+                x <- typeVarBinding ctx vname binding pos
+                return $ x { tIsLvalue = True }
+              Nothing -> failTyping
                 $ TypingError ("Unknown identifier: " ++ s_unpack vname) pos
           MacroVar vname t -> do
             case find (\(name, _) -> name == vname) (tctxMacroVars tctx) of
@@ -418,7 +424,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                                                                  fieldName
                                                                  pos
                             case result of
-                              Just x -> return x
+                              Just x -> return $ x { tIsLvalue = True }
                               _      -> failTyping $ TypingError
                                 (  "Struct doesn't have a field called `"
                                 ++ s_unpack fieldName
@@ -435,7 +441,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                                                                  fieldName
                                                                  pos
                             case result of
-                              Just x -> return x
+                              Just x -> return $ x { tIsLvalue = True }
                               _      -> failTyping $ TypingError
                                 (  "Union doesn't have a field called `"
                                 ++ s_unpack fieldName
@@ -478,6 +484,49 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                     )
                     pos
 
+              TypeBox (TypeTraitConstraint ((defMod, traitName), params)) -> do
+                definitionMod <- getMod ctx defMod
+                subScope <- getSubScope (modScope definitionMod) [traitName]
+                method <- resolveLocal subScope fieldName
+                case method of
+                  Just binding -> do
+                    x <- typeVarBinding ctx fieldName binding pos
+                    resolve $ TypeEq
+                      (bindingConcrete binding)
+                      (inferredType x)
+                      "Box field access must match the field's type"
+                      (tPos x)
+                    let
+                      typed = makeExprTyped
+                        (Field
+                          (makeExprTyped
+                            (PreUnop
+                              Deref
+                              (makeExprTyped
+                                (Field r1 (Var vtablePointerName))
+                                (inferredType r1)
+                                (tPos r1)
+                              )
+                            )
+                            (inferredType r1)
+                            (tPos r1)
+                          )
+                          (Var fieldName)
+                        )
+                        (inferredType x)
+                        pos
+                    return $ typed
+                      { tImplicits = (makeExprTyped
+                                       (Field r1 (Var valuePointerName))
+                                       (TypePtr $ TypeBasicType BasicTypeVoid)
+                                       pos
+                                     )
+                        : tImplicits typed
+                      }
+                  Nothing -> failTyping $ TypingError
+                    ((show t) ++ " has no field " ++ s_unpack fieldName)
+                    pos
+
               x -> failTyping $ TypingError
                 ("Field access is not allowed on " ++ show x)
                 pos
@@ -505,6 +554,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
             t' <- unify ctx tctx mod x y
             x' <- unify ctx tctx mod x (typeClassNumeric)
             y' <- unify ctx tctx mod y (typeClassNumeric)
+            -- TODO: allow cast from abstract parent to child
+            -- TODO: allow cast from value to box
             case (t', x', y') of
               (Just _, _     , _     ) -> cast
               (_     , Just _, Just _) -> cast
@@ -532,7 +583,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       let varType = inferredType ex
       init' <- case init of
         Just e1 -> do
-          r1 <- r e1
+          r1        <- r e1
           converted <- autoRefDeref ctx tctx mod varType (inferredType r1) r1
           resolve $ TypeEq
             varType
@@ -615,9 +666,13 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
             typedFields <- forM
               typedFields
               (\((name, expr), fieldType) -> do
-                r1 <- r expr
-                converted <- autoRefDeref ctx tctx mod fieldType (inferredType r1) r1
-                print converted
+                r1        <- r expr
+                converted <- autoRefDeref ctx
+                                          tctx
+                                          mod
+                                          fieldType
+                                          (inferredType r1)
+                                          r1
                 resolve $ TypeEq
                   fieldType
                   (inferredType converted)

@@ -139,8 +139,9 @@ spec = do
       [ ( "Parses struct declarations"
         , "Struct1"
         , TypeInstance (["c"], "Struct1") []
-        , Just $ DeclType $ (newTypeDefinition "Struct1")
-          { typeNamespace = []
+        , Just $ DeclType $ (newTypeDefinition)
+          { typeName      = "Struct1"
+          , typeNamespace = []
           , typeSubtype   = Struct
             { structFields = [ newVarDefinition
                                { varName      = "field1"
@@ -173,16 +174,18 @@ spec = do
       , ( "Parses empty struct typedefs"
         , "Struct3"
         , TypeInstance (["c"], "Struct3") []
-        , Just $ DeclType $ (newTypeDefinition "Struct3")
-          { typeNamespace = []
+        , Just $ DeclType $ (newTypeDefinition)
+          { typeName      = "Struct3"
+          , typeNamespace = []
           , typeSubtype   = Struct {structFields = []}
           }
         )
       , ( "Parses enum definitions"
         , "Enum1"
         , TypeInstance (["c"], "Enum1") []
-        , Just $ DeclType $ (newTypeDefinition "Enum1")
-          { typeNamespace = []
+        , Just $ DeclType $ (newTypeDefinition)
+          { typeName      = "Enum1"
+          , typeNamespace = []
           , typeSubtype   = Enum
             { enumVariants       = [ newEnumVariant { variantName = "apple" }
                                    , newEnumVariant { variantName = "banana" }

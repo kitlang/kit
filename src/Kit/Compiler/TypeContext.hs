@@ -267,7 +267,10 @@ builtinToConcreteType ctx tctx mod s p = do
     ("Double" , [] ) -> builtinToConcreteType ctx tctx mod "Float64" []
     ("Void"   , [] ) -> return $ Just $ TypeBasicType BasicTypeVoid
     -- compound
-    ("Ptr"    , [x]) -> do
+    ("Box"    , [x]) -> do
+      param <- resolveType ctx tctx mod x
+      return $ Just $ TypeBox param
+    ("Ptr", [x]) -> do
       param <- resolveType ctx tctx mod x
       return $ Just $ TypePtr param
     ("CArray", [x]) -> do

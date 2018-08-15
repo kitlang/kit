@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 
 module Kit.Ast.BasicType where
 

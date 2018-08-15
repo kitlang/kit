@@ -1,4 +1,4 @@
-module Kit.Compiler.Typers.TypeTrait where
+module Kit.Compiler.Typers.TypeImpl where
 
 import Control.Monad
 import Data.List
@@ -16,20 +16,23 @@ import Kit.Error
 import Kit.Parser
 import Kit.Str
 
-typeTrait
+typeImpl
   :: CompileContext
   -> Module
-  -> TraitDefinition TypedExpr ConcreteType
+  -> TraitImplementation TypedExpr ConcreteType
   -> IO (Maybe TypedDecl, Bool)
-typeTrait ctx mod def = do
+typeImpl ctx mod def = do
   tctx' <- modTypeContext ctx mod
   let tctx = tctx'
-        { tctxTypeParams = [ (paramName param, ()) | param <- traitParams def ]
+        { tctxThis       = Just $ implFor def
+        -- , tctxTypeParams = [ (paramName param, ()) | param <- traitParams def ]
         }
   methods <- forM
-    (traitMethods def)
+    (implMethods def)
     (\method -> do
       (typed, complete) <- typeFunctionDefinition ctx tctx mod method
       return typed
     )
-  return (Just $ DeclTrait $ def { traitMethods = methods }, True)
+
+  -- TODO
+  return (Just $ DeclImpl $ def { implMethods = methods }, True)

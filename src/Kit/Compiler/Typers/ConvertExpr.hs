@@ -165,3 +165,7 @@ convertExpr ctx tctx mod e = do
       r1 <- maybeR e1
       return $ m (VarDeclaration id t r1) t
     Defer e1 -> singleWrapper e1 Defer
+    Box impl e1 -> do
+      impl' <- convertTraitImplementation (converter r (\_ -> typeOrTypeVar)) impl
+      r1 <- r e1
+      return $ m (Box impl' r1) (TypeBox (implTrait impl'))

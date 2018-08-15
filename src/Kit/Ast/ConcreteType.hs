@@ -31,6 +31,7 @@ data ConcreteType
   | TypeFunction ConcreteType ConcreteArgs Bool
   | TypeBasicType BasicType
   | TypePtr ConcreteType
+  | TypeBox ConcreteType
   | TypeArr ConcreteType (Maybe Int)
   | TypeEnumConstructor TypePath Str ConcreteArgs
   | TypeIdentifier ConcreteType
@@ -58,6 +59,7 @@ instance Show ConcreteType where
   show (TypeBasicType t) = show t
   show (TypePtr (TypeBasicType (BasicTypeInt 8))) = "CString"
   show (TypePtr t) = "Ptr[" ++ (show t) ++ "]"
+  show (TypeBox t) = "Box[" ++ (show t) ++ "]"
   show (TypeArr t (Just i)) = "Arr[" ++ (show t) ++ "] of length " ++ (show i)
   show (TypeArr t Nothing) = "Arr[" ++ (show t) ++ "]"
   show (TypeEnumConstructor tp d _) = "enum " ++ (show tp) ++ " constructor " ++ (s_unpack d)

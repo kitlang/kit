@@ -1,6 +1,8 @@
 # Contributor Guidelines
 
-Thanks for contributing! Open source projects can only exist with support from contributors like you.
+Thanks for considering contributing to Kit! Open source projects can only exist with support from contributors like you.
+
+Please remember that there are a lot of ways to contribute: in addition to code changes, we can always use better documentation, more tests, issue reports, feature suggestions, etc.
 
 ## General guidelines
 
@@ -25,4 +27,4 @@ Thanks for contributing! Open source projects can only exist with support from c
 
 ## Making a feature request
 
-TODO
+For now, please reach out on [Gitter](https://gitter.im/kitlang/kit) with questions, ideas or suggestions.

@@ -11,7 +11,6 @@ import Kit.Compiler.TypeContext
 import Kit.Compiler.TypedDecl
 import Kit.Compiler.TypedExpr
 import Kit.Compiler.Typers.Base
-import Kit.Compiler.Typers.ConvertExpr
 import Kit.Compiler.Typers.TypeExpression
 import Kit.Compiler.Unify
 import Kit.Compiler.Utils
@@ -68,12 +67,6 @@ typeFunctionDefinition ctx tctx' mod f = do
       )
     )
   let returnType = functionType f
-  let
-    thisType =
-      if (not $ null $ functionArgs f)
-           && ((argName $ head $ functionArgs f) == "__this")
-        then Just $ argType $ head $ functionArgs f
-        else Nothing
   let ftctx =
         (tctx
           { tctxScopes     = functionScope : (tctxScopes tctx)
@@ -81,7 +74,6 @@ typeFunctionDefinition ctx tctx' mod f = do
                              | param <- functionParams f
                              ]
           , tctxReturnType = Just returnType
-          , tctxThis = thisType
           -- TODO: , tctxSelf =
           }
         )

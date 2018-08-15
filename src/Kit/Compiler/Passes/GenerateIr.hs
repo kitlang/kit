@@ -40,15 +40,14 @@ generateModuleIr ctx (mod, decls) = do
 
 generateDeclIr :: CompileContext -> Module -> TypedDecl -> IO [IrDecl]
 generateDeclIr ctx mod t = do
-  let exprConverter = (typedToIr ctx mod)
-  let typeConverter = (\pos -> findUnderlyingType ctx mod)
+  let converter' =
+        converter (typedToIr ctx mod) (\pos -> findUnderlyingType ctx mod)
+  let paramConverter = \p -> converter'
   case t of
     DeclType def@(TypeDefinition { typeName = name }) -> do
       debugLog ctx $ "generating IR for " ++ s_unpack name ++ " in " ++ show mod
       -- TODO: params
-      converted <- convertTypeDefinition
-        (\_ -> converter exprConverter typeConverter)
-        def
+      converted    <- convertTypeDefinition paramConverter def
       -- TODO: add declarations for instance methods
       staticFields <- forM
         (typeStaticFields def)
@@ -82,9 +81,7 @@ generateDeclIr ctx mod t = do
               && not (ctxIsLibrary ctx)
 
       -- FIXME: params
-      converted <- convertFunctionDefinition
-        (\params -> converter exprConverter typeConverter)
-        f
+      converted <- convertFunctionDefinition paramConverter f
 
       if (isMain && functionType converted == BasicTypeVoid)
         then return
@@ -119,11 +116,101 @@ generateDeclIr ctx mod t = do
         ++ " in "
         ++ show mod
 
-      converted <- convertVarDefinition
-        (converter exprConverter typeConverter)
-        v
+      converted <- convertVarDefinition converter' v
       return
         [DeclVar $ converted { varName = mangleName (varNamespace v) name }]
+
+    DeclTrait (      TraitDefinition { traitMethods = [] }) -> return []
+    DeclTrait trait@(TraitDefinition { traitName = name } ) -> do
+      -- FIXME: params
+      converted <- convertTraitDefinition paramConverter trait
+      -- trait declarations become struct definitions for the box/vtable
+      let boxName    = mangleName ((modPath mod) ++ [name]) "box"
+      let vtableName = mangleName ((modPath mod) ++ [name]) "vtable"
+      let
+        traitBox = newTypeDefinition
+          { typeName    = boxName
+          , typeSubtype = Struct
+            { structFields = [ newVarDefinition { varName = valuePointerName
+                                                , varType = CPtr BasicTypeVoid
+                                                }
+                             , newVarDefinition
+                               { varName = "__vtable"
+                               , varType = CPtr
+                                 $ BasicTypeStruct (Just vtableName) []
+                               }
+                             ]
+            }
+          }
+      let
+        vtable = newTypeDefinition
+          { typeName    = vtableName
+          , typeSubtype = Struct
+            { structFields = [ newVarDefinition
+                                 { varName = functionName f
+                                 , varType = CPtr $ BasicTypeFunction
+                                   (functionType f)
+                                   ( (vThisArgName, CPtr BasicTypeVoid)
+                                   : [ (argName arg, argType arg)
+                                     | arg <- functionArgs f
+                                     ]
+                                   )
+                                   (functionVarargs f)
+                                 }
+                             | f <- traitMethods converted
+                             ]
+            }
+          }
+      return [DeclType $ traitBox, DeclType $ vtable]
+
+    DeclImpl (TraitImplementation { implMethods = [] }) -> return []
+    DeclImpl i@(TraitImplementation { implTrait = TypeTraitConstraint ((mp, name), params), implFor = ct, implMod = implMod })
+      -> do
+      -- FIXME: for now we're indexing trait implementations by basic type, but
+      -- different concrete types of the same basic type could each have their own
+        for <- findUnderlyingType ctx mod ct
+        let implName =
+              (mangleName (mp ++ [name, "impl"] ++ implMod)
+                          (s_pack $ basicTypeAbbreviation for)
+              )
+        let vtableName = mangleName ((modPath mod) ++ [name]) "vtable"
+        methods <- forM (implMethods i) $ \method -> do
+          f' <- convertFunctionDefinition paramConverter method
+          let f = implicitifyMethod (CPtr BasicTypeVoid) vThisArgName f'
+          let name' =
+                (mangleName
+                  (  mp
+                  ++ [name, "impl"]
+                  ++ implMod
+                  ++ [s_pack $ basicTypeAbbreviation for]
+                  )
+                  (functionName f)
+                )
+          return
+            ( name'
+            , DeclFunction $ f
+              { functionName = name'
+              , functionBody = let
+                                 v = IrVarDeclaration
+                                   thisArgName
+                                   for
+                                   (Just $ IrPreUnop Deref (IrCast (IrIdentifier vThisArgName) (CPtr for)))
+                               in  case functionBody f of
+                                     Just (IrBlock x) -> Just (IrBlock (v : x))
+                                     Just x           -> Just $ IrBlock [v, x]
+                                     _                -> Nothing
+              }
+            )
+        let impl = newVarDefinition
+              { varName    = implName
+              , varType    = BasicTypeStruct (Just vtableName) []
+              , varDefault = Just $ IrStructInit
+                (BasicTypeStruct (Just vtableName) [])
+                [ (functionName method, IrIdentifier mangledName)
+                | ((mangledName, _), method) <- zip methods (implMethods i)
+                ]
+              }
+        return $ (map snd methods) ++ [DeclVar $ impl]
 
     _ -> return [] -- TODO
 
@@ -152,7 +239,7 @@ findUnderlyingType ctx mod t = do
         )
       return $ BasicTypeUnion Nothing fields'
     TypeInstance (modPath, name) params -> do
-      def <- getTypeDefinition ctx mod modPath name
+      def <- getTypeDefinition ctx modPath name
       case def of
         Just (TypeDefinition { typeSubtype = subtype }) -> case subtype of
           Struct { structFields = fields } -> do
@@ -218,9 +305,12 @@ findUnderlyingType ctx mod t = do
           return (name, t')
         )
       return $ BasicTypeFunction rt' args' var
+    TypeBox (TypeTraitConstraint ((modPath, name), params)) -> do
+      let name' = (mangleName (modPath ++ [name]) "box")
+      return $ BasicTypeStruct (Just name') []
     _ -> do
       -- TODO: REMOVE
-      throwk $ InternalError ("Couldn't find underlying type for" ++ show t)
+      throwk $ InternalError ("Couldn't find underlying type for " ++ show t)
                              Nothing
 
   case x of
@@ -300,6 +390,9 @@ maybeTypedToIr ctx mod e = case e of
 typedToIr :: CompileContext -> Module -> TypedExpr -> IO IrExpr
 typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
   do
+    let converter' =
+          converter (typedToIr ctx mod) (\pos -> findUnderlyingType ctx mod)
+    let paramConverter = \p -> converter'
     let r x = typedToIr ctx mod x
     let maybeR x = case x of
           Just x -> do
@@ -439,6 +532,24 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
             return r1
           )
         return $ IrTupleInit f resolvedSlots
+      (Box (TraitImplementation { implTrait = TypeTraitConstraint ((modPath, name), params), implFor = for, implMod = implMod }) e1)
+        -> do
+          r1  <- r e1
+          for <- findUnderlyingType ctx mod for
+          let structName = (mangleName (modPath ++ [name]) "box")
+          -- TODO: fix name
+          let implName =
+                (mangleName (modPath ++ [name, "impl"] ++ implMod)
+                            (s_pack $ basicTypeAbbreviation for)
+                )
+          return $ IrStructInit
+            (BasicTypeStruct (Just structName) [])
+            [ (valuePointerName , (IrPreUnop Ref r1))
+            , (vtablePointerName, IrPreUnop Ref (IrIdentifier implName))
+            ]
+      (Box t _) -> throwk $ InternalError
+        ("Invalid boxed implementation: " ++ show t)
+        (Just pos)
 
 addHeader :: Module -> FilePath -> Span -> IO ()
 addHeader mod fp pos = do

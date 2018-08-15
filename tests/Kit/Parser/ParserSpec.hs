@@ -299,8 +299,9 @@ spec = parallel $ do
 
     it "parses atoms" $ do
       testParse "atom MyAtom;"
-        `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition "MyAtom")
-                       { typeSubtype   = Atom
+        `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition)
+                       { typeName      = "MyAtom"
+                       , typeSubtype   = Atom
                        , typeDoc       = Nothing
                        , typeMeta      = []
                        , typeModifiers = []
@@ -309,8 +310,9 @@ spec = parallel $ do
                        }
                    ]
       testParse "public atom MyAtom;"
-        `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition "MyAtom")
-                       { typeSubtype   = Atom
+        `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition)
+                       { typeName      = "MyAtom"
+                       , typeSubtype   = Atom
                        , typeDoc       = Nothing
                        , typeMeta      = []
                        , typeModifiers = [Public]
@@ -319,8 +321,9 @@ spec = parallel $ do
                        }
                    ]
       testParse "/** Doc*/ atom MyAtom;"
-        `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition "MyAtom")
-                       { typeSubtype   = Atom
+        `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition)
+                       { typeName      = "MyAtom"
+                       , typeSubtype   = Atom
                        , typeDoc       = Just "Doc"
                        , typeMeta      = []
                        , typeModifiers = []
@@ -329,8 +332,9 @@ spec = parallel $ do
                        }
                    ]
       testParse "/** Doc*/ #[meta] public atom MyAtom;"
-        `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition "MyAtom")
-                       { typeSubtype   = Atom
+        `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition)
+                       { typeName      = "MyAtom"
+                       , typeSubtype   = Atom
                        , typeDoc       = Just "Doc"
                        , typeMeta      = [ Metadata
                                              { metaName = "meta"
@@ -350,8 +354,9 @@ spec = parallel $ do
             \    Banana(i: Int);\n\
             \    /**Abc*/ Strawberry = 1;\n\
             \}"
-        `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition "MyEnum")
-                       { typeDoc       = Nothing
+        `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition)
+                       { typeName      = "MyEnum"
+                       , typeDoc       = Nothing
                        , typeMeta      = []
                        , typeModifiers = []
                        , typeRules     = []
@@ -405,8 +410,9 @@ spec = parallel $ do
             \    static var ghi;\n\
             \    static function jkl() {}\n\
             \}"
-        `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition "MyStruct")
-                       { typeDoc           = Nothing
+        `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition)
+                       { typeName          = "MyStruct"
+                       , typeDoc           = Nothing
                        , typeMeta          = []
                        , typeModifiers     = []
                        , typeRules         = []
