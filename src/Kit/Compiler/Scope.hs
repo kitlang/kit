@@ -10,7 +10,8 @@ data Scope a = Scope {
   -- bound names in this scope
   scopeBindings :: HashTable Str a,
   -- child namespaces within this scope
-  subScopes :: HashTable Str (Scope a)
+  subScopes :: HashTable Str (Scope a),
+  lastTmpVar :: IORef (Int)
 }
 
 -- Create a new scope.
@@ -18,10 +19,12 @@ newScope :: [Str] -> IO (Scope a)
 newScope n = do
   bindings  <- h_new
   subScopes <- h_new
+  tmp       <- newIORef 0
   return $ Scope
     { scopeNamespace = n
     , scopeBindings  = bindings
     , subScopes      = subScopes
+    , lastTmpVar     = tmp
     }
 
 getSubScope :: Scope a -> [Str] -> IO (Scope a)
@@ -53,6 +56,13 @@ scopeHas scope s = h_exists (scopeBindings scope) s
 
 scopeGet :: Scope a -> Str -> IO a
 scopeGet scope s = h_get (scopeBindings scope) s
+
+makeTmpVar :: Scope a -> IO Str
+makeTmpVar scope = do
+  last <- readIORef (lastTmpVar scope)
+  let next = last + 1
+  writeIORef (lastTmpVar scope) next
+  return $ s_concat ["__tmp", s_pack $ show next]
 
 {-
   Look up a binding in a set of scopes. Prefers scopes earlier in the list.

@@ -197,6 +197,7 @@ transpileStmt IrContinue          = u CCont
 transpileStmt (IrReturn (Just r)) = u $ CReturn $ Just $ transpileExpr r
 transpileStmt (IrReturn Nothing ) = u $ CReturn Nothing
 transpileStmt (IrBlock e) = u $ CCompound [] [ transpileBlockItem x | x <- e ]
+transpileStmt (IrCompound e) = transpileStmt (IrBlock e)
 transpileStmt (IrIf cond e1 (Just e2)) =
   u $ CIf (transpileExpr cond) (transpileStmt e1) (Just $ transpileStmt e2)
 transpileStmt (IrIf cond e1 Nothing) =

@@ -194,7 +194,10 @@ generateDeclIr ctx mod t = do
                                  v = IrVarDeclaration
                                    thisArgName
                                    for
-                                   (Just $ IrPreUnop Deref (IrCast (IrIdentifier vThisArgName) (CPtr for)))
+                                   (Just $ IrPreUnop
+                                     Deref
+                                     (IrCast (IrIdentifier vThisArgName) (CPtr for))
+                                   )
                                in  case functionBody f of
                                      Just (IrBlock x) -> Just (IrBlock (v : x))
                                      Just x           -> Just $ IrBlock [v, x]
@@ -400,10 +403,14 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
             return $ Just r'
           Nothing -> return Nothing
     f <- findUnderlyingType ctx mod t
+
     case et of
       (Block children) -> do
-        children' <- mapM r children
-        return $ IrBlock children'
+        children' <- forM children $ \child -> do
+          temps <- mapM r $ tTemps child
+          result <- r child
+          return $ temps ++ [result]
+        return $ IrBlock $ foldr (++) [] children'
       (Using _ e1            ) -> r e1
       (Meta  m e1            ) -> r e1
       (Literal (IntValue v _)) -> do
@@ -557,7 +564,9 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
         box <- r x
         return $ IrPreUnop Deref (IrField box vtablePointerName)
       t -> do
-        throwk $ InternalError ("Unexpected expression in typed AST:\n\n" ++ show t) (Just pos)
+        throwk $ InternalError
+          ("Unexpected expression in typed AST:\n\n" ++ show t)
+          (Just pos)
 
 addHeader :: Module -> FilePath -> Span -> IO ()
 addHeader mod fp pos = do

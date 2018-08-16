@@ -12,7 +12,8 @@ data TypedExpr = TypedExpr {
   tPos :: Span,
   rewrittenBy :: Maybe (RewriteRule (Expr) (Maybe TypeSpec)),
   tError :: Maybe KitError,
-  tIsLvalue :: Bool
+  tIsLvalue :: Bool,
+  tTemps :: [TypedExpr]
 } deriving (Eq, Show)
 
 makeExprTyped :: TypedExprType -> ConcreteType -> Span -> TypedExpr
@@ -24,6 +25,7 @@ makeExprTyped et t pos = TypedExpr
   , rewrittenBy  = Nothing
   , tError       = Nothing
   , tIsLvalue    = False
+  , tTemps       = []
   }
 
 addRef :: TypedExpr -> TypedExpr

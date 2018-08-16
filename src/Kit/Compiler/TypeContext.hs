@@ -42,6 +42,7 @@ data TypeContext = TypeContext {
   tctxTypeParams :: [(Str, ())], -- TODO
   tctxLoopCount :: Int,
   tctxRewriteRecursionDepth :: Int
+  , tctxTemps :: Maybe (IORef [TypedExpr])
 }
 
 newTypeContext :: [Scope Binding] -> IO TypeContext
@@ -58,6 +59,7 @@ newTypeContext scopes = do
     , tctxTypeParams            = []
     , tctxLoopCount             = 0
     , tctxRewriteRecursionDepth = 0
+    , tctxTemps                 = Nothing
     }
 
 unknownType t pos = do

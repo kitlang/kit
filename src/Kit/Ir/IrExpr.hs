@@ -6,6 +6,7 @@ import Kit.Parser.Span
 
 data IrExpr
   = IrBlock [IrExpr]
+  | IrCompound [IrExpr]
   | IrLiteral (ValueLiteral BasicType)
   | IrIdentifier Str
   | IrPreUnop Operator IrExpr

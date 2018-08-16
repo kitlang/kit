@@ -52,20 +52,13 @@ function main() {
     var x: Box[Greeter] = a;
     greet(x);
 
-    // current limitation: boxes can only be implicitly coerced from lvalues,
-    // so passing the literal directly won't work
     var b = 7_i32;
     greet(b);
-    var c = 5_f32;
-    greet(c);
-    var d = 10000000000000_i64;
-    greet(d);
+    greet(5_f32);
+    greet(10000000000000_i64);
 
-    var e = struct MyStruct {a: 100, b: 3.14};
-    greet(e);
+    greet(struct MyStruct {a: 100, b: 3.14});
 
-    var f = true;
-    var g = false;
-    greet(f);
-    greet(g);
+    greet(true);
+    greet(false);
 }

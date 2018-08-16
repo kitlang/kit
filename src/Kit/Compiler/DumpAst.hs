@@ -125,7 +125,7 @@ dumpAst ctx indent e@(TypedExpr { tExpr = texpr, inferredType = t, tPos = pos })
             children' <- mapM dumpChild children
             return $ intercalate "\n" $ (f x) : children'
           )
-    case texpr of
+    result <- case texpr of
       Block   x      -> i "{}" x
       Literal v      -> return $ f $ show v
       This           -> return $ f "this"
@@ -164,7 +164,13 @@ dumpAst ctx indent e@(TypedExpr { tExpr = texpr, inferredType = t, tPos = pos })
       Using u x             -> i ("using " ++ show u) [x]
       TupleInit slots       -> i "tuple" slots
       Box _ x               -> i "box" [x]
+      BoxedVtable _ x               -> i "box vtable" [x]
+      BoxedValue _ x               -> i "box value" [x]
       _                     -> return $ f $ "??? " ++ show texpr
+
+    return $ result ++ if null (tTemps e)
+      then ""
+      else " [" ++ show (length $ tTemps e) ++ " temp values]"
 
 dumpCt :: CompileContext -> ConcreteType -> IO String
 dumpCt ctx t = case t of

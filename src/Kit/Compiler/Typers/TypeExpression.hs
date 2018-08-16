@@ -2,6 +2,7 @@ module Kit.Compiler.Typers.TypeExpression where
 
 import Control.Applicative
 import Control.Monad
+import Data.IORef
 import Data.List
 import Kit.Ast
 import Kit.Compiler.Binding
@@ -40,25 +41,59 @@ autoRefDeref
   -> ConcreteType
   -> ConcreteType
   -> TypedExpr
+  -> [TypedExpr]
+  -> TypedExpr
   -> IO TypedExpr
-autoRefDeref ctx tctx mod toType fromType ex = do
+autoRefDeref ctx tctx mod toType fromType original temps ex = do
+  let
+    tryLvalue a b = do
+      case tctxTemps tctx of
+        Just v -> do
+          tmp <- makeTmpVar (head $ tctxScopes tctx)
+          let temp =
+                (makeExprTyped
+                  (VarDeclaration (Var tmp)
+                                  (inferredType ex)
+                                  (Just $ ex { tTemps = [] })
+                  )
+                  (inferredType ex)
+                  (tPos ex)
+                )
+          autoRefDeref ctx tctx mod a b original (temp : temps)
+            $ (makeExprTyped (Identifier (Var tmp) [])
+                             (inferredType ex)
+                             (tPos ex)
+              ) { tIsLvalue = True
+                }
+  let finalizeResult ex = do
+        case tctxTemps tctx of
+          Just v -> do
+            modifyIORef v (\val -> val ++ reverse temps)
+        return ex
   toType   <- knownType ctx tctx mod toType
   fromType <- knownType ctx tctx mod fromType
   result   <- unify ctx tctx mod toType fromType
   case result of
-    Just _ -> return ex
+    Just _ -> finalizeResult ex
     _      -> case (toType, fromType) of
-      (TypePtr a, TypePtr b) -> autoRefDeref ctx tctx mod a b ex
+      (TypePtr a, TypePtr b) -> autoRefDeref ctx tctx mod a b original temps ex
       (TypePtr a, b        ) -> if tIsLvalue ex
-        then autoRefDeref ctx tctx mod a b (addRef ex)
-        else return ex
-      (a, TypePtr b) -> autoRefDeref ctx tctx mod a b (addDeref ex)
+        then autoRefDeref ctx tctx mod a b original temps (addRef ex)
+        else tryLvalue toType fromType
+      (a, TypePtr (TypeBasicType BasicTypeVoid)) ->
+        -- don't try to deref a void pointer
+        return original
+      (a, TypePtr b) ->
+        autoRefDeref ctx tctx mod a b original temps (addDeref ex)
       (TypeBox tp params, b) -> do
-        box <- makeBox ctx tp ex
-        case box of
-          Just x  -> return x
-          Nothing -> return ex
-      _ -> return ex
+        if tIsLvalue ex
+          then do
+            box <- makeBox ctx tp ex
+            case box of
+              Just x  -> finalizeResult x
+              Nothing -> return original
+          else tryLvalue toType fromType
+      _ -> return original
 
 {-
   Converts a tree of untyped AST to typed AST.
@@ -104,7 +139,11 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
     (Block children) -> do
       blockScope <- newScope (scopeNamespace $ head $ tctxScopes tctx)
       let tctx' = tctx { tctxScopes = blockScope : tctxScopes tctx }
-      typedChildren <- mapM (typeExpr ctx tctx' mod) children
+      typedChildren <- forM children $ \child -> do
+        tmp    <- newIORef []
+        result <- typeExpr ctx (tctx' { tctxTemps = Just tmp }) mod child
+        temps  <- readIORef tmp
+        return $ result { tTemps = temps }
       return $ makeExprTyped
         (Block typedChildren)
         (if children == [] then voidType else inferredType $ last typedChildren)
@@ -200,6 +239,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                                   mod
                                   (inferredType r1)
                                   (inferredType r2)
+                                  r2
+                                  []
                                   r2
         resolve $ TypeEq (inferredType r1)
                          (inferredType converted)
@@ -582,7 +623,14 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       init' <- case init of
         Just e1 -> do
           r1        <- r e1
-          converted <- autoRefDeref ctx tctx mod varType (inferredType r1) r1
+          converted <- autoRefDeref ctx
+                                    tctx
+                                    mod
+                                    varType
+                                    (inferredType r1)
+                                    r1
+                                    []
+                                    r1
           resolve $ TypeEq
             varType
             (inferredType converted)
@@ -671,6 +719,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                                           fieldType
                                           (inferredType r1)
                                           r1
+                                          []
+                                          r1
                 resolve $ TypeEq
                   fieldType
                   (inferredType converted)
@@ -730,7 +780,7 @@ findImplicit
   -> IO (Maybe TypedExpr)
 findImplicit ctx tctx mod ct []      = return Nothing
 findImplicit ctx tctx mod ct (h : t) = do
-  converted <- autoRefDeref ctx tctx mod ct (inferredType h) h
+  converted <- autoRefDeref ctx tctx mod ct (inferredType h) h [] h
   match     <- unify ctx tctx mod ct (inferredType converted)
   case match of
     Just _  -> return $ Just converted
@@ -773,8 +823,14 @@ typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = TypeFunction rt argT
     converted <- forM
       (zip (map Just argTypes ++ repeat Nothing) aligned)
       (\(arg, argValue) -> case arg of
-        Just (_, argType) ->
-          autoRefDeref ctx tctx mod argType (inferredType argValue) argValue
+        Just (_, argType) -> autoRefDeref ctx
+                                          tctx
+                                          mod
+                                          argType
+                                          (inferredType argValue)
+                                          argValue
+                                          []
+                                          argValue
         Nothing -> return argValue
       )
     forM_
