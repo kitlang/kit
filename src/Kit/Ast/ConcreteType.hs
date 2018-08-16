@@ -42,8 +42,6 @@ data ConcreteType
   | TypeTypeParam Str
   | TypeRuleSet TypePath
   | TypeBox TypePath [ConcreteType]
-  | TypeBoxedValue TypePath [ConcreteType]
-  | TypeBoxedVtable TypePath [ConcreteType]
   deriving (Eq, Generic)
 
 instance Hashable ConcreteType
@@ -73,8 +71,6 @@ instance Show ConcreteType where
   show (TypeTypeParam s) = "type param " ++ s_unpack s
   show (TypeRuleSet tp) = "rules " ++ (s_unpack $ showTypePath tp)
   show (TypeBox tp params) = "box: " ++ (s_unpack $ showTypePath tp)
-  show (TypeBoxedValue tp params) = "boxed value: " ++ (s_unpack $ showTypePath tp)
-  show (TypeBoxedVtable tp params) = "boxed vtable: " ++ (s_unpack $ showTypePath tp)
 
 type TypeVar = Int
 

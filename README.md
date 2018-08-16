@@ -20,17 +20,26 @@
   o888o  o888o  o888o   '888'
 ```
 
-**Kit** is a programming language designed for creating concise, high performance cross-platform applications. Kit compiles to C, so it's highly portable; it can be used in addition to or as an alternative to C, over which it provides several advantages (see [examples](https://github.com/kitlang/kit/blob/master/EXAMPLES.md)):
+**Kit** is a programming language designed for creating concise, high performance cross-platform applications. Kit compiles to C, so it's highly portable; it can be used in addition to or as an alternative to C, and was designed with game development in mind.
 
-* Modern language features such as type inference, algebraic data types, pattern matching, explicit function inlining, automatic pointer dereferencing, and generics.
+Why you should use Kit in place of:
 
-* A powerful type system, including polymorphism via traits and abstract types, which provide custom compile-time behavioral and type checking semantics to existing types with no runtime cost.
+| C/C++ | a higher level language |
+| --- | --- |
+| Modern language features: type inference, algebraic data types, pattern matching, explicit function inlining, automatic pointer dereferencing, generics, implicits. | Full control over performance: pointers, manual memory management, no GC (unless you introduce it yourself, which is easy!) |
+| A more expressive type system, including traits for polymorphism, and abstract types, which provide custom compile-time behavioral and type checking semantics to existing types with no runtime cost. | Metaprogramming via a typed term rewriting system; use rules to transform arbitrary expressions at compile time based on their type information. Create your own interface or DSL. |
+| A sane, easy to use build system. Kit features modules, imports, and standard package structure, plus a simple but powerful build tool: manage your project via a simple YAML configuration file and `kit build`, `kit test`, or `kit run`. (coming soon...) | Take advantage of existing C libraries without any wrappers; just include the header and directly use types/functions/variables. |
 
-* Metaprogramming via a typed term rewriting system; use rules to transform arbitrary expressions at compile time based on their type information.
+```kit
+include "stdio.h";
 
-* Modules/imports and a simple but powerful build tool, written in Kit: manage your project via a simple YAML configuration file and `kit build`, `kit test`, or `kit run`. (coming soon...)
+function main() {
+    var s: CString = "Hello from Kit!");
+    printf("%s\n", s);
+}
+```
 
-Kit also has seamless interoperability with existing C libraries; you can call C functions from Kit or Kit functions from C by directly including header files; no bindings or wrappers are required.
+**[See more code examples here](https://github.com/kitlang/kit/blob/master/EXAMPLES.md)**
 
 Kit is licensed under the GNU Lesser General Public License; see the accompanying [LICENSE.md](https://github.com/kitlang/kit/blob/master/LICENSE.md) file. This applies to modifications to the compiler source itself; any code you write and compile with Kit is yours to license however you choose.
 
