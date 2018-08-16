@@ -268,8 +268,10 @@ builtinToConcreteType ctx tctx mod s p = do
     ("Void"   , [] ) -> return $ Just $ TypeBasicType BasicTypeVoid
     -- compound
     ("Box"    , [x]) -> do
-      param <- resolveType ctx tctx mod x
-      return $ Just $ TypeBox param
+      trait <- resolveType ctx tctx mod x
+      case trait of
+        TypeTraitConstraint (tp, params) -> return $ Just $ TypeBox tp params
+        _ -> return Nothing
     ("Ptr", [x]) -> do
       param <- resolveType ctx tctx mod x
       return $ Just $ TypePtr param

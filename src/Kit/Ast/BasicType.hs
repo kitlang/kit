@@ -46,8 +46,10 @@ basicTypeAbbreviation (BasicTypeBool) = "b"
 basicTypeAbbreviation (BasicTypeInt i) = "i" ++ show i
 basicTypeAbbreviation (BasicTypeUint i) = "u" ++ show i
 basicTypeAbbreviation (BasicTypeFloat f) = "f" ++ show f
-basicTypeAbbreviation (BasicTypeStruct n args) = "s" ++ (case n of {Just x -> s_unpack x; _ -> ""}) ++ (foldr (++) "" [s_unpack n ++ basicTypeAbbreviation t | (n, t) <- args])
-basicTypeAbbreviation (BasicTypeUnion n args) = "u" ++ (case n of {Just x -> s_unpack x; _ -> ""}) ++ (foldr (++) "" [s_unpack n ++ basicTypeAbbreviation t | (n, t) <- args])
+basicTypeAbbreviation (BasicTypeStruct (Just x) _) = "s" ++ s_unpack x
+basicTypeAbbreviation (BasicTypeStruct Nothing args) = "s" ++ show (length args) ++ (foldr (++) "" [s_unpack n ++ basicTypeAbbreviation t | (n, t) <- args])
+basicTypeAbbreviation (BasicTypeUnion (Just x) args) = "u" ++ s_unpack x
+basicTypeAbbreviation (BasicTypeUnion Nothing args) = "u" ++ show (length args) ++ (foldr (++) "" [s_unpack n ++ basicTypeAbbreviation t | (n, t) <- args])
 -- basicTypeAbbreviation (BasicTypeSimpleEnum n variants)
 -- basicTypeAbbreviation (BasicTypeComplexEnum n args)
 basicTypeAbbreviation (BasicTypeAtom) = "a"

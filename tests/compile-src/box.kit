@@ -52,6 +52,8 @@ function main() {
     var x: Box[Greeter] = a;
     greet(x);
 
+    // current limitation: boxes can only be implicitly coerced from lvalues,
+    // so passing the literal directly won't work
     var b = 7_i32;
     greet(b);
     var c = 5_f32;

@@ -19,10 +19,10 @@
  */
 #[protected] trait Numeric;
 
-// The following traits categorize the exact numbers representable by each of
-// the builtin numeric types; they generally don't need to be directly used,
-// but will be inferred as literal constraints.
-
+// The following traits classify whether specific numbers are representable by
+// each of the builtin numeric types. They generally don't need to be directly
+// used, but will be inferred as literal constraints to let us default to the
+// smallest acceptable type for a given literal.
 trait NumericNE63;
 specialize NumericNE63 as Int64;
 trait NumericNE53;
@@ -56,6 +56,7 @@ specialize NumericE63 as Int64;
 trait NumericE64;
 specialize NumericE64 as Uint64;
 
+// By-definition implementations; E8 must be able to represent [0,2e8), etc.
 implement NumericNE7 for NumericNE15;
 implement NumericNE15 for NumericNE24;
 implement NumericNE24 for NumericNE31;
@@ -71,6 +72,7 @@ implement NumericE32 for NumericE53;
 implement NumericE53 for NumericE63;
 implement NumericE63 for NumericE64;
 
+// Slot our existing numeric types into the appropriate size classes.
 implement Integral for Int8;
 implement NumericNE7 for Int8;
 implement NumericE7 for Int8;
@@ -100,6 +102,11 @@ implement NumericE53 for Float64;
 
 implement Numeric for Integral;
 implement Numeric for NumericMixed;
+
+// For literals one of the above specializations will take precedence; these
+// would only be used when we know nothing else about the value, and this are
+// pretty arbitrary. Erring toward smaller size at the cost of possible more
+// frequent overflow issues.
 specialize Integral as Int8;
 specialize NumericMixed as Float;
 specialize Numeric as Int8;

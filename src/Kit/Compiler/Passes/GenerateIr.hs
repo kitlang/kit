@@ -305,7 +305,7 @@ findUnderlyingType ctx mod t = do
           return (name, t')
         )
       return $ BasicTypeFunction rt' args' var
-    TypeBox (TypeTraitConstraint ((modPath, name), params)) -> do
+    TypeBox (modPath, name) params -> do
       let name' = (mangleName (modPath ++ [name]) "box")
       return $ BasicTypeStruct (Just name') []
     _ -> do
@@ -550,6 +550,14 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
       (Box t _) -> throwk $ InternalError
         ("Invalid boxed implementation: " ++ show t)
         (Just pos)
+      (BoxedValue trait x) -> do
+        box <- r x
+        return $ IrField box valuePointerName
+      (BoxedVtable trait x) -> do
+        box <- r x
+        return $ IrPreUnop Deref (IrField box vtablePointerName)
+      t -> do
+        throwk $ InternalError ("Unexpected expression in typed AST:\n\n" ++ show t) (Just pos)
 
 addHeader :: Module -> FilePath -> Span -> IO ()
 addHeader mod fp pos = do

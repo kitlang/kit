@@ -164,8 +164,11 @@ convertExpr ctx tctx mod e = do
       t  <- resolveMaybeType ctx tctx mod pos' t
       r1 <- maybeR e1
       return $ m (VarDeclaration id t r1) t
-    Defer e1 -> singleWrapper e1 Defer
+    Defer e1    -> singleWrapper e1 Defer
     Box impl e1 -> do
-      impl' <- convertTraitImplementation (converter r (\_ -> typeOrTypeVar)) impl
+      impl' <- convertTraitImplementation (converter r (\_ -> typeOrTypeVar))
+                                          impl
+      let (tp, params) = case implTrait impl' of
+            TypeTraitConstraint (tp, params) -> (tp, params)
       r1 <- r e1
-      return $ m (Box impl' r1) (TypeBox (implTrait impl'))
+      return $ m (Box impl' r1) (TypeBox tp params)

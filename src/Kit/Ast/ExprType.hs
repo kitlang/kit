@@ -74,6 +74,8 @@ data ExprType a b
   | VarDeclaration (Identifier b) b (Maybe a)
   | Defer a
   | Box (TraitImplementation a b) a
+  | BoxedValue (TraitDefinition a b) a
+  | BoxedVtable (TraitDefinition a b) a
   deriving (Eq, Show)
 
 exprDiscriminant :: ExprType a b -> Int
@@ -112,6 +114,8 @@ exprDiscriminant et =
     VarDeclaration _ _ _ -> 31
     Defer _ -> 32
     Box _ _ -> 33
+    BoxedValue _ _ -> 34
+    BoxedVtable _ _ -> 35
 
 exprChildren :: ExprType a b -> [a]
 exprChildren et =
@@ -142,4 +146,6 @@ exprChildren et =
     VarDeclaration _ _ (Just x) -> [x]
     Defer x -> [x]
     Box _ x -> [x]
+    BoxedValue _ x -> [x]
+    BoxedVtable _ x -> [x]
     _ -> []

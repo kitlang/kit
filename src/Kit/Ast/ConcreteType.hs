@@ -31,7 +31,6 @@ data ConcreteType
   | TypeFunction ConcreteType ConcreteArgs Bool
   | TypeBasicType BasicType
   | TypePtr ConcreteType
-  | TypeBox ConcreteType
   | TypeArr ConcreteType (Maybe Int)
   | TypeEnumConstructor TypePath Str ConcreteArgs
   | TypeIdentifier ConcreteType
@@ -42,6 +41,9 @@ data ConcreteType
   | TypeTypeVar TypeVar
   | TypeTypeParam Str
   | TypeRuleSet TypePath
+  | TypeBox TypePath [ConcreteType]
+  | TypeBoxedValue TypePath [ConcreteType]
+  | TypeBoxedVtable TypePath [ConcreteType]
   deriving (Eq, Generic)
 
 instance Hashable ConcreteType
@@ -59,7 +61,6 @@ instance Show ConcreteType where
   show (TypeBasicType t) = show t
   show (TypePtr (TypeBasicType (BasicTypeInt 8))) = "CString"
   show (TypePtr t) = "Ptr[" ++ (show t) ++ "]"
-  show (TypeBox t) = "Box[" ++ (show t) ++ "]"
   show (TypeArr t (Just i)) = "Arr[" ++ (show t) ++ "] of length " ++ (show i)
   show (TypeArr t Nothing) = "Arr[" ++ (show t) ++ "]"
   show (TypeEnumConstructor tp d _) = "enum " ++ (show tp) ++ " constructor " ++ (s_unpack d)
@@ -71,6 +72,9 @@ instance Show ConcreteType where
   show (TypeTypeVar i) = "type var #" ++ show i
   show (TypeTypeParam s) = "type param " ++ s_unpack s
   show (TypeRuleSet tp) = "rules " ++ (s_unpack $ showTypePath tp)
+  show (TypeBox tp params) = "box: " ++ (s_unpack $ showTypePath tp)
+  show (TypeBoxedValue tp params) = "boxed value: " ++ (s_unpack $ showTypePath tp)
+  show (TypeBoxedVtable tp params) = "boxed vtable: " ++ (s_unpack $ showTypePath tp)
 
 type TypeVar = Int
 

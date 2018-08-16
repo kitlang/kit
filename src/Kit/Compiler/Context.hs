@@ -209,7 +209,7 @@ makeBox ctx tp ex = do
       case impl of
         Just impl -> do
           -- TODO params
-          let t' = TypeBox $ TypeTraitConstraint (tp, [])
+          let t' = TypeBox tp []
           return $ Just $ ex { tExpr = Box impl ex, inferredType = t' }
         Nothing -> return Nothing
     else return Nothing

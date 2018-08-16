@@ -53,7 +53,7 @@ autoRefDeref ctx tctx mod toType fromType ex = do
         then autoRefDeref ctx tctx mod a b (addRef ex)
         else return ex
       (a, TypePtr b) -> autoRefDeref ctx tctx mod a b (addDeref ex)
-      (TypeBox (TypeTraitConstraint (tp, params)), b) -> do
+      (TypeBox tp params, b) -> do
         box <- makeBox ctx tp ex
         case box of
           Just x  -> return x
@@ -484,9 +484,15 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                     )
                     pos
 
-              TypeBox (TypeTraitConstraint ((defMod, traitName), params)) -> do
+              TypeBox tp@(defMod, traitName) params -> do
                 definitionMod <- getMod ctx defMod
                 subScope <- getSubScope (modScope definitionMod) [traitName]
+                trait         <- resolveLocal (modScope definitionMod) traitName
+                traitDef      <- case trait of
+                  Just (Binding { bindingType = TraitBinding t }) -> return t
+                  _ -> throwk $ TypingError
+                    ("Couldn't find trait: " ++ s_unpack (showTypePath tp))
+                    pos
                 method <- resolveLocal subScope fieldName
                 case method of
                   Just binding -> do
@@ -499,25 +505,17 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                     let
                       typed = makeExprTyped
                         (Field
-                          (makeExprTyped
-                            (PreUnop
-                              Deref
-                              (makeExprTyped
-                                (Field r1 (Var vtablePointerName))
-                                (inferredType r1)
-                                (tPos r1)
-                              )
-                            )
-                            (inferredType r1)
-                            (tPos r1)
+                          (makeExprTyped (BoxedVtable traitDef r1)
+                                         (inferredType r1)
+                                         (tPos r1)
                           )
                           (Var fieldName)
                         )
                         (inferredType x)
-                        pos
+                        (pos)
                     return $ typed
                       { tImplicits = (makeExprTyped
-                                       (Field r1 (Var valuePointerName))
+                                       (BoxedValue traitDef r1)
                                        (TypePtr $ TypeBasicType BasicTypeVoid)
                                        pos
                                      )
