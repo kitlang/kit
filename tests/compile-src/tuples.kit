@@ -1,3 +1,8 @@
+rules TupleMath {
+    // add tuples componentwise
+    (${a: (Int, Int)} + ${n: (Int, Int)}) => ($a[0] + $n[0], $a[1] + $n[1]);
+}
+
 function main() {
     var x: (Int, CString, CString) = (1, "second value", "third value");
     var y: (CString, Int) = ("something", 2);
@@ -36,6 +41,11 @@ function main() {
     var b2: Int;
     (b2, _, _) = a2;
     printf("%.2f\n", a2[1]);
+
+    using rules TupleMath {
+        var a = (1_i32, 2_i32) + (3_i32, 4_i32);
+        printf("(%i, %i)\n", a[0], a[1]);
+    }
 
     // TODO: tuple equality
 }

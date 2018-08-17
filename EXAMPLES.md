@@ -205,8 +205,15 @@ function main() {
 as well as custom semantics:
 
 ```kit
-rules VectorMath {
-    (${a: Vector} + ${n: Numeric}) => // TODO: fill in example
+rules TupleMath {
+    // add tuples componentwise
+    (${a: (Int, Int)} + ${n: (Int, Int)}) => ($a[0] + $n[0], $a[1] + $n[1]);
+}
+
+function main() {
+    using rules TupleMath {
+        var a = (1_i32, 2_i32) + (3_i32, 4_i32);
+    }
 }
 ```
 
