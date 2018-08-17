@@ -32,5 +32,10 @@ function main() {
     printf("%i\n", j);
     printf("%i\n", i[1][2][2]);
 
+    var a2: (Int, Float, CString) = (1, 2, "hello!");
+    var b2: Int;
+    (b2, _, _) = a2;
+    printf("%.2f\n", a2[1]);
+
     // TODO: tuple equality
 }

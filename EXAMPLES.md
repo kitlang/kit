@@ -47,6 +47,18 @@ enum Option[T] {
 }
 ```
 
+### Tuples
+
+```kit
+// tuples are like structs, but are nameless and don't require a declaration
+var a: (Int, Float, CString) = (1, 2, "hello!");
+// destructure tuples via assignment
+var b: Int;
+(b, _, _) = a;
+// or access fields directly using numeric constants
+printf("%.2f", a[2]);
+```
+
 ### Abstracts
 
 ```kit
