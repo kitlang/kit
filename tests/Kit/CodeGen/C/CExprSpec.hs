@@ -24,15 +24,15 @@ spec = do
     it "transpiles bool types" $ do
       showctype (BasicTypeBool) `shouldBe` "_Bool"
     it "transpiles int types" $ do
-      showctype (BasicTypeInt 8) `shouldBe` "signed char"
-      showctype (BasicTypeInt 16) `shouldBe` "signed short"
-      showctype (BasicTypeInt 32) `shouldBe` "signed long"
-      showctype (BasicTypeInt 64) `shouldBe` "signed long long"
+      showctype (BasicTypeInt 8) `shouldBe` "int8_t"
+      showctype (BasicTypeInt 16) `shouldBe` "int16_t"
+      showctype (BasicTypeInt 32) `shouldBe` "int32_t"
+      showctype (BasicTypeInt 64) `shouldBe` "int64_t"
     it "transpiles unsigned int types" $ do
-      showctype (BasicTypeUint 8) `shouldBe` "unsigned char"
-      showctype (BasicTypeUint 16) `shouldBe` "unsigned short"
-      showctype (BasicTypeUint 32) `shouldBe` "unsigned long"
-      showctype (BasicTypeUint 64) `shouldBe` "unsigned long long"
+      showctype (BasicTypeUint 8) `shouldBe` "uint8_t"
+      showctype (BasicTypeUint 16) `shouldBe` "uint16_t"
+      showctype (BasicTypeUint 32) `shouldBe` "uint32_t"
+      showctype (BasicTypeUint 64) `shouldBe` "uint64_t"
     it "transpiles float types" $ do
       showctype (BasicTypeFloat 32) `shouldBe` "float"
       showctype (BasicTypeFloat 64) `shouldBe` "double"
@@ -70,7 +70,7 @@ spec = do
                              (Just $ IrIdentifier "a")
           , IrVarDeclaration "my_var2" (BasicTypeFloat 32) Nothing
           ]
-        `shouldBe` "{\nunsigned short my_var = a;\nfloat my_var2;\n}"
+        `shouldBe` "{\nuint16_t my_var = a;\nfloat my_var2;\n}"
     it "transpiles while loops" $ do
       showstmt (IrWhile (IrIdentifier "a") (IrContinue) False)
         `shouldBe` "while (a)\ncontinue;"
@@ -85,7 +85,7 @@ spec = do
                  (IrLiteral $ IntValue 5 $ BasicTypeInt 8)
                  (IrContinue)
           )
-        `shouldBe` "for (unsigned char a = 1; a < 5; ++a)\ncontinue;"
+        `shouldBe` "for (uint8_t a = 1; a < 5; ++a)\ncontinue;"
 
   describe "Transpile expressions" $ do
     it "transpiles identifiers" $ do
@@ -135,7 +135,7 @@ spec = do
     it "transpiles casts" $ do
       showexpr (IrCast (IrIdentifier "a") BasicTypeVoid) `shouldBe` "(void) a"
       showexpr (IrCast (IrIdentifier "abc") (BasicTypeInt 8))
-        `shouldBe` "(signed char) abc"
+        `shouldBe` "(int8_t) abc"
     {-it "transpiles vector literals" $ do
       showexpr (VectorLiteral [(IrIdentifier "b"), (IrIdentifier "c")]) `shouldBe` "[b, c]"-}
 

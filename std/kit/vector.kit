@@ -6,7 +6,7 @@ struct Vector[T] {
     public var a: CArray[T];
 
     public static function new(length: Int): Vector[T] {
-        var a = malloc(sizeof(T) * capacity);
+        var a = malloc(sizeof T * capacity);
         return struct Vector[T] {
             length,
             a
