@@ -563,6 +563,9 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
       (BoxedVtable trait x) -> do
         box <- r x
         return $ IrPreUnop Deref (IrField box vtablePointerName)
+      (SizeOf t) -> do
+        t' <- findUnderlyingType ctx mod t
+        return $ IrSizeOf t'
       t -> do
         throwk $ InternalError
           ("Unexpected expression in typed AST:\n\n" ++ show t)

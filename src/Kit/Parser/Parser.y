@@ -64,6 +64,7 @@ import Kit.Str
   rule {(KeywordRule,_)}
   rules {(KeywordRules,_)}
   Self {(KeywordSelf,_)}
+  sizeof {(KeywordSizeof,_)}
   specialize {(KeywordSpecialize,_)}
   static {(KeywordStatic,_)}
   struct {(KeywordStruct,_)}
@@ -718,6 +719,7 @@ BaseExpr :: {Expr}
   | Self {pe (snd $1) Self}
   | Identifier {pe (snd $1) $ Identifier (fst $1) []}
   | unsafe Expr {pe (p $1 <+> pos $2) (Unsafe $2)}
+  | sizeof TypeSpec {pe (snd $1 <+> snd $2) (SizeOf $ Just $ fst $2)}
   | '(' Expr ParenthesizedExprs ')' {if null $3 then $2 else pe (snd $1 <+> snd $4) (TupleInit ($2 : reverse $3)) }
   | null {pe (snd $1) $ Unsafe $ pe (snd $1) $ Identifier (Var "NULL") []}
   | struct TypeSpec '{' StructInitFields '}' {pe (p $1 <+> p $5) $ StructInit (Just $ fst $2) $4}
@@ -811,6 +813,7 @@ MacroIdentifier :: {(Identifier (Maybe TypeSpec), Span)}
 --   | rule {$1}
 --   | rules {$1}
 --   | Self {$1}
+--   | sizeof {$1}
 --   | static {$1}
 --   | struct {$1}
 --   | super {$1}

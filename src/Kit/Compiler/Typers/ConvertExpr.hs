@@ -172,3 +172,8 @@ convertExpr ctx tctx mod e = do
             TypeTraitConstraint (tp, params) -> (tp, params)
       r1 <- r e1
       return $ m (Box impl' r1) (TypeBox tp params)
+    SizeOf (Just t) -> do
+      t' <- resolveType ctx tctx mod t
+      return $ m (SizeOf t') (TypeBasicType $ BasicTypeUint 16)
+    SizeOf Nothing -> do
+      throwk $ BasicError "sizeof keyword requires a type" (Just pos')

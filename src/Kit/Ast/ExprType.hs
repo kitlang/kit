@@ -76,6 +76,7 @@ data ExprType a b
   | Box (TraitImplementation a b) a
   | BoxedValue (TraitDefinition a b) a
   | BoxedVtable (TraitDefinition a b) a
+  | SizeOf b
   deriving (Eq, Show)
 
 exprDiscriminant :: ExprType a b -> Int
@@ -115,6 +116,7 @@ exprDiscriminant et = case et of
   Box         _ _      -> 33
   BoxedValue  _ _      -> 34
   BoxedVtable _ _      -> 35
+  SizeOf _             -> 36
 
 exprChildren :: ExprType a b -> [a]
 exprChildren et = case et of

@@ -55,6 +55,7 @@ data TokenClass
   | KeywordRule
   | KeywordRules
   | KeywordSelf
+  | KeywordSizeof
   | KeywordSpecialize
   | KeywordStatic
   | KeywordStruct
@@ -129,6 +130,7 @@ instance Show TokenClass where
     KeywordRule -> "rule"
     KeywordRules -> "rules"
     KeywordSelf -> "self"
+    KeywordSizeof -> "sizeof"
     KeywordSpecialize -> "specialize"
     KeywordStatic -> "static"
     KeywordStruct -> "struct"

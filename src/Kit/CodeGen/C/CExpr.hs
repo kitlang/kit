@@ -185,6 +185,7 @@ transpileExpr (IrTupleInit t vals) = u $ CCompoundLit
     )
   | (i, e) <- zip [0 ..] vals
   ]
+transpileExpr (IrSizeOf t) = u $ CSizeofType (cDecl t Nothing Nothing)
 
 getVariantFieldNames variants discriminant =
   case find (\(name, _) -> name == discriminant) variants of

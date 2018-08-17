@@ -70,6 +70,7 @@ tokens :-
   rule { tok KeywordRule }
   rules { tok KeywordRules }
   Self { tok KeywordSelf }
+  sizeof { tok KeywordSizeof }
   specialise { tok KeywordSpecialize } -- common typo in the UK
   specialize { tok KeywordSpecialize }
   static { tok KeywordStatic }
