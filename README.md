@@ -34,7 +34,7 @@ Why you should use Kit in place of:
 include "stdio.h";
 
 function main() {
-    var s: CString = "Hello from Kit!");
+    var s: CString = "Hello from Kit!";
     printf("%s\n", s);
 }
 ```
