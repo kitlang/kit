@@ -25,7 +25,12 @@ function main() {
     printf("%s\n", g);
     printf("%s\n", h);
 
-    // if y == z {
-    //     printf("equal\n");
-    // }
+    // let's go nuts here
+    var i: (Int, (Int, (Int, Int), (Int, Int, Int), (Int, (Int, Int), (Int, Int)))) = (1, (1, (1, 1), (1, 1, 2), (1, (1, 1), (1, 1))));
+    var j: Int;
+    (_, (_, (_, _), (_, _, j), (_, (_, _), (_, _)))) = i;
+    printf("%i\n", j);
+    printf("%i\n", i[1][2][2]);
+
+    // TODO: tuple equality
 }

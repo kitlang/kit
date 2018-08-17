@@ -588,7 +588,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         (TypeTuple t, Literal (IntValue i _)) ->
           -- compile-time tuple slot access
           if (i >= 0) && (i < length t)
-            then r (r1 {tExpr = TupleSlot r1 i, tPos = tPos r1 <+> tPos e2})
+            then r (r1 {tExpr = TupleSlot r1 i, inferredType = t !! i, tPos = tPos r1 <+> tPos e2})
             else throwk $ TypingError ("Access to invalid tuple slot (tuple has " ++ show (length t) ++ " slots)") pos
         (TypeTuple t, _) ->
           throwk $ TypingError "Array access on tuples is only allowed using int literals" pos
