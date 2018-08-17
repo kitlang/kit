@@ -110,7 +110,7 @@ function greet[W: Writer](w: W) {
 Values can also be implicitly or explicitly cast to traits they implement, creating a "fat pointer" capable of calling the type's trait methods:
 
 ```kit
-function greet(w: Writer) {
+function greet(w: Box[Writer]) {
     w.write("hello!");
 }
 
