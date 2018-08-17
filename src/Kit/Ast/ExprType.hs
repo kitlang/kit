@@ -62,6 +62,7 @@ data ExprType a b
   | StructInit b [(Str, a)]
   | EnumInit b Str [a]
   | TupleInit [a]
+  | TupleSlot a Int
   | ArrayAccess a a
   | Call a [a]
   | Cast a b
@@ -116,7 +117,9 @@ exprDiscriminant et = case et of
   Box         _ _      -> 33
   BoxedValue  _ _      -> 34
   BoxedVtable _ _      -> 35
-  SizeOf _             -> 36
+  SizeOf    _          -> 36
+  TupleInit _          -> 37
+  TupleSlot _ _        -> 38
 
 exprChildren :: ExprType a b -> [a]
 exprChildren et = case et of
@@ -148,6 +151,8 @@ exprChildren et = case et of
   Box         _ x             -> [x]
   BoxedValue  _ x             -> [x]
   BoxedVtable _ x             -> [x]
+  TupleInit x                 -> x
+  TupleSlot x _               -> [x]
   _                           -> []
 
 exprMapReduce :: (a -> c) -> (c -> d -> d) -> (a -> ExprType a b) -> d -> a -> d

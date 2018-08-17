@@ -9,15 +9,18 @@ data Identifier b
   -- A macro variable with optional type annotation:
   -- `$abc` or `${abc: Int}`
   | MacroVar Str b
+  | Hole
   deriving (Eq)
 
 instance Show (Identifier b) where
   show (Var s) = s_unpack s
   show (MacroVar s _) = "$" ++ s_unpack s
+  show Hole = "_"
 
 identifierName x = case x of
   Var s        -> s
   MacroVar s _ -> s
+  Hole         -> "_"
 
 convertIdentifier :: (Monad m) => (b -> m d) -> Identifier b -> m (Identifier d)
 convertIdentifier typeConverter id = case id of
@@ -25,3 +28,4 @@ convertIdentifier typeConverter id = case id of
   MacroVar s t -> do
     t <- typeConverter t
     return $ MacroVar s t
+  Hole -> return Hole

@@ -12,6 +12,7 @@ import Kit.Compiler.Scope
 import Kit.Compiler.TermRewrite
 import Kit.Compiler.TypeContext
 import Kit.Compiler.TypedExpr
+import Kit.Compiler.Typers.AutoRefDeref
 import Kit.Compiler.Typers.Base
 import Kit.Compiler.Typers.ConvertExpr
 import Kit.Compiler.Unify
@@ -33,67 +34,6 @@ typeMaybeExpr ctx tctx mod e = case e of
   Nothing -> return Nothing
 
 partialTyping ex et e = return $ ex { tExpr = et, tError = Just $ KitError e }
-
-autoRefDeref
-  :: CompileContext
-  -> TypeContext
-  -> Module
-  -> ConcreteType
-  -> ConcreteType
-  -> TypedExpr
-  -> [TypedExpr]
-  -> TypedExpr
-  -> IO TypedExpr
-autoRefDeref ctx tctx mod toType fromType original temps ex = do
-  let
-    tryLvalue a b = do
-      case tctxTemps tctx of
-        Just v -> do
-          tmp <- makeTmpVar (head $ tctxScopes tctx)
-          let temp =
-                (makeExprTyped
-                  (VarDeclaration (Var tmp)
-                                  (inferredType ex)
-                                  (Just $ ex { tTemps = [] })
-                  )
-                  (inferredType ex)
-                  (tPos ex)
-                )
-          autoRefDeref ctx tctx mod a b original (temp : temps)
-            $ (makeExprTyped (Identifier (Var tmp) [])
-                             (inferredType ex)
-                             (tPos ex)
-              ) { tIsLvalue = True
-                }
-  let finalizeResult ex = do
-        case tctxTemps tctx of
-          Just v -> do
-            modifyIORef v (\val -> val ++ reverse temps)
-        return ex
-  toType   <- knownType ctx tctx mod toType
-  fromType <- knownType ctx tctx mod fromType
-  result   <- unify ctx tctx mod toType fromType
-  case result of
-    Just _ -> finalizeResult ex
-    _      -> case (toType, fromType) of
-      (TypePtr a, TypePtr b) -> autoRefDeref ctx tctx mod a b original temps ex
-      (TypePtr a, b        ) -> if tIsLvalue ex
-        then autoRefDeref ctx tctx mod a b original temps (addRef ex)
-        else tryLvalue toType fromType
-      (a, TypePtr (TypeBasicType BasicTypeVoid)) ->
-        -- don't try to deref a void pointer
-        return original
-      (a, TypePtr b) ->
-        autoRefDeref ctx tctx mod a b original temps (addDeref ex)
-      (TypeBox tp params, b) -> do
-        if tIsLvalue ex
-          then do
-            box <- makeBox ctx tp ex
-            case box of
-              Just x  -> finalizeResult x
-              Nothing -> return original
-          else tryLvalue toType fromType
-      _ -> return original
 
 {-
   Converts a tree of untyped AST to typed AST.
@@ -231,22 +171,84 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         return $ makeExprTyped (PostUnop op r1) (inferredType ex) pos
 
     (Binop Assign e1 e2) -> do
-      r1 <- r e1
       r2 <- r e2
-      tryRewrite (unknownTyped $ Binop Assign r1 r2) $ do
-        converted <- autoRefDeref ctx
-                                  tctx
-                                  mod
-                                  (inferredType r1)
-                                  (inferredType r2)
-                                  r2
-                                  []
-                                  r2
-        resolve $ TypeEq (inferredType r1)
-                         (inferredType converted)
-                         "Both sides of an assignment must unify"
-                         pos
-        return $ makeExprTyped (Binop Assign r1 converted) (inferredType r1) pos
+      tryRewrite (unknownTyped $ Binop Assign e1 r2) $ do
+        case tExpr e1 of
+          TupleInit t -> do
+            case inferredType r2 of
+              TypeTuple t2 -> if length t == length t2
+                then do
+                  forM_ (zip t t2) $ \(a, b) -> do
+                    resolve $ TypeEq
+                      (inferredType a)
+                      b
+                      "Tuple contents must match variables in tuple assignment"
+                      pos
+
+                  tupleExpr <- if tIsLvalue r2
+                    then return r2
+                    else do
+                      tmp <- makeTmpVar (head $ tctxScopes tctx)
+                      let tmpAssignment = makeExprTyped
+                            (VarDeclaration (Var tmp)
+                                            (inferredType r2)
+                                            (Just r2)
+                            )
+                            (inferredType r2)
+                            (tPos r2)
+                      case tctxTemps tctx of
+                        Just v -> do
+                          modifyIORef v (\val -> val ++ [tmpAssignment])
+                      return
+                        $ (makeExprTyped (Identifier (Var tmp) [])
+                                         (inferredType r2)
+                                         pos
+                          )
+
+                  let boundSlots = filter (\(i, (a, b)) -> tExpr a /= Identifier Hole []) (zip [0 ..] (zip t t2))
+                  slots <- forM boundSlots $ \(i, (a, b)) -> do
+                    let e1 = makeExprTyped
+                                                  (Binop
+                                                    Assign
+                                                    a
+                                                    (makeExprTyped (TupleSlot tupleExpr i) b pos)
+                                                  )
+                                                  b
+                                                  (tPos a)
+                    case tExpr a of
+                      Identifier _ _ -> return e1
+                      _ -> r e1
+
+                  return
+                    $ (makeExprTyped
+                        (Block slots
+                        )
+                        (inferredType r2)
+                        pos
+                      )
+                else failTyping $ TypingError
+                  "Tuples can only be assigned to tuples of the same size"
+                  pos
+              _ -> failTyping $ TypingError
+                "Tuples can only be assigned to matching tuples"
+                pos
+          _ -> do
+            r1        <- r e1
+            converted <- autoRefDeref ctx
+                                      tctx
+                                      mod
+                                      (inferredType r1)
+                                      (inferredType r2)
+                                      r2
+                                      []
+                                      r2
+            resolve $ TypeEq (inferredType r1)
+                             (inferredType converted)
+                             "Both sides of an assignment must unify"
+                             pos
+            return $ makeExprTyped (Binop Assign r1 converted)
+                                   (inferredType r1)
+                                   pos
     (Binop (AssignOp op) e1 e2) | (op == And) || (op == Or) -> do
       r1 <- r e1
       r2 <- r e2

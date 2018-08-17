@@ -3,6 +3,27 @@ function main() {
     var y: (CString, Int) = ("something", 2);
     var z: (CString, Int) = ("something", 2);
 
+    var a: Int;
+    var b: CString;
+    (a, b) = x;
+    printf("%i\n", a);
+    printf("%s\n", b);
+
+    var c: CString;
+    var d: Int;
+    (c, d) = ("something", 3);
+    printf("%s\n", c);
+    printf("%hi\n", d);
+
+    var e = (1, ("inner slot 1", "inner slot 2"));
+    var f: Int;
+    var g: CString;
+    var h: CString;
+    (f, (g, h)) = e;
+    printf("%hi\n", f);
+    printf("%s\n", g);
+    printf("%s\n", h);
+
     // if y == z {
     //     printf("equal\n");
     // }

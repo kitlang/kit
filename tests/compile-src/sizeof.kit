@@ -1,12 +1,24 @@
-struct MyStruct {
-    var a: Int64;
+struct MyStruct1 {
+    var a: Int32;
     var b: Int32;
 }
 
+struct MyStruct2 {
+    var a: Int32;
+    var b: Int64;
+}
+
+struct MyStruct3 {
+    var a: Int64;
+    var b: Int64;
+}
+
 function main() {
-    var x = sizeof Ptr[MyStruct];
+    var x = sizeof Ptr[MyStruct1];
     printf("%lu\n", x);
-    printf("%lu\n", sizeof MyStruct);
+    printf("%lu\n", sizeof MyStruct1);
+    printf("%lu\n", sizeof MyStruct2);
+    printf("%lu\n", sizeof MyStruct3);
     printf("%lu\n", sizeof Bool);
     printf("%lu\n", sizeof Int8);
     printf("%lu\n", sizeof Uint8);

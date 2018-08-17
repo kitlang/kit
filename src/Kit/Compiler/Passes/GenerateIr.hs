@@ -539,6 +539,9 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
             return r1
           )
         return $ IrTupleInit f resolvedSlots
+      (TupleSlot x slot) -> do
+        r1 <- r x
+        return $ IrField r1 (s_pack $ "__slot" ++ show slot)
       (Box (TraitImplementation { implTrait = TypeTraitConstraint ((modPath, name), params), implFor = for, implMod = implMod }) e1)
         -> do
           r1  <- r e1

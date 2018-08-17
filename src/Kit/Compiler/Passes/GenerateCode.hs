@@ -59,7 +59,8 @@ generateHeader ctx mod decls = do
   hPutStrLn handle "\n/* forward declarations */\n"
   forM_     decls  (generateHeaderForwardDecl ctx mod handle)
   hPutStrLn handle "\n/* type and function declarations */\n"
-  forM_     decls  (generateHeaderDecl ctx mod handle)
+  sorted <- sortHeaderDefs decls
+  forM_     sorted (generateHeaderDecl ctx mod handle)
   hPutStrLn handle "#endif"
   hClose handle
 
@@ -106,6 +107,46 @@ generateHeaderForwardDecl ctx mod headerFile decl = do
     _ -> do
       return ()
 
+sortHeaderDefs :: [IrDecl] -> IO [IrDecl]
+sortHeaderDefs decls = do
+  memos  <- h_newSized (length decls)
+  scored <- forM decls $ \decl -> do
+    score <- btOrder memos (declToBt decl)
+    return (score, decl)
+  return $ map snd $ sortBy
+    (\(a, _) (b, _) ->
+      if a == b then EQ else if (a == -1) || a > b then GT else LT
+    )
+    scored
+
+declToBt :: IrDecl -> BasicType
+declToBt (DeclTuple t) = t
+declToBt (DeclType  t) = case typeBasicType t of
+  Just x  -> x
+  Nothing -> BasicTypeUnknown
+declToBt t = BasicTypeUnknown
+
+btOrder :: HashTable BasicType Int -> BasicType -> IO Int
+btOrder memos t = do
+  let depScore deps = (foldr max (-1) deps) + 1
+  existing <- h_lookup memos t
+  case existing of
+    Just x -> return x
+    _      -> do
+      score <- case t of
+        BasicTypeTuple _ fields -> do
+          deps <- forM fields $ btOrder memos
+          return $ depScore deps
+        BasicTypeStruct _ args -> do
+          deps <- forM (map snd args) $ btOrder memos
+          return $ depScore deps
+        BasicTypeUnion _ args -> do
+          deps <- forM (map snd args) $ btOrder memos
+          return $ depScore deps
+        _ -> return (-1)
+      h_insert memos t score
+      return score
+
 generateHeaderDecl :: CompileContext -> Module -> Handle -> IrDecl -> IO ()
 generateHeaderDecl ctx mod headerFile decl = do
   case decl of
@@ -121,8 +162,10 @@ generateHeaderDecl ctx mod headerFile decl = do
     DeclType def@(TypeDefinition{}                     ) -> do
       case typeBasicType def of
         Just x ->
-          let decls = cdecl x in
-          mapM_ (\d -> hPutStrLn headerFile (render $ pretty $ CDeclExt d)) decls
+          let decls = cdecl x
+          in  mapM_
+                (\d -> hPutStrLn headerFile (render $ pretty $ CDeclExt d))
+                decls
         _ -> return ()
 
     DeclFunction def@(FunctionDefinition { functionName = name, functionType = t, functionArgs = args, functionVarargs = varargs })
