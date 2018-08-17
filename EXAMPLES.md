@@ -56,7 +56,7 @@ var a: (Int, Float, CString) = (1, 2, "hello!");
 var b: Int;
 (b, _, _) = a;
 // or access fields directly using numeric constants
-printf("%.2f", a[2]);
+printf("%.2f", a[1]);
 ```
 
 ### Abstracts
