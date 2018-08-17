@@ -26,6 +26,7 @@ data TokenClass
   | Arrow
   | FunctionArrow
   | Question
+  | Underscore
   | DocComment Str
   | KeywordAbstract
   | KeywordAs
@@ -101,6 +102,7 @@ instance Show TokenClass where
     Arrow -> "=>"
     FunctionArrow -> "->"
     Question -> "?"
+    Underscore -> "_"
     DocComment _ -> "/** doc comment */"
     KeywordAbstract -> "abstract"
     KeywordAs -> "as"

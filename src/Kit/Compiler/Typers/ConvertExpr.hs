@@ -89,6 +89,7 @@ convertExpr ctx tctx mod e = do
       return $ m (Literal (BoolValue b)) (TypeBasicType BasicTypeBool)
     This -> container0 This
     Self -> container0 Self
+    Identifier Hole namespace -> container0 (Identifier Hole namespace)
     Identifier (Var id       ) namespace -> container0 (Identifier (Var id) namespace)
     Identifier (MacroVar id t) namespace -> do
       t <- case t of

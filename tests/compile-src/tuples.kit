@@ -1,13 +1,14 @@
 function main() {
-    var x: (Int, CString) = (1, "something");
+    var x: (Int, CString, CString) = (1, "second value", "third value");
     var y: (CString, Int) = ("something", 2);
     var z: (CString, Int) = ("something", 2);
 
     var a: Int;
     var b: CString;
-    (a, b) = x;
+    (a, b, _) = x;
     printf("%i\n", a);
     printf("%s\n", b);
+    printf("%s\n", x[2]);
 
     var c: CString;
     var d: Int;

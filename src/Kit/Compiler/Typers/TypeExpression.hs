@@ -582,8 +582,19 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         "Malformed AST: field access requires an identifier"
         (Just pos)
 
-    (ArrayAccess e1 e2) ->
-      throwk $ InternalError "Not yet implemented" (Just pos)
+    (ArrayAccess e1 e2) -> do
+      r1 <- r e1
+      case (inferredType r1, tExpr e2) of
+        (TypeTuple t, Literal (IntValue i _)) ->
+          -- compile-time tuple slot access
+          if (i >= 0) && (i < length t)
+            then r (r1 {tExpr = TupleSlot r1 i, tPos = tPos r1 <+> tPos e2})
+            else throwk $ TypingError ("Access to invalid tuple slot (tuple has " ++ show (length t) ++ " slots)") pos
+        (TypeTuple t, _) ->
+          throwk $ TypingError "Array access on tuples is only allowed using int literals" pos
+        _ -> do
+          r2 <- r e2
+          throwk $ InternalError "Not yet implemented" (Just pos)
 
     (Cast e1 t) -> do
       r1 <- r e1

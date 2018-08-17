@@ -88,24 +88,24 @@ spec = parallel $ do
                    )
 
     it "parses tuple type specs" $ do
-      testParseExpr "_: (A, B, C)"
-        `shouldBe` (pe (sp "" 1 1 1 12) $ TypeAnnotation
-                     (pe (sp "" 1 1 1 1) $ Identifier (Var "_") [])
+      testParseExpr "__: (A, B, C)"
+        `shouldBe` (pe (sp "" 1 1 1 13) $ TypeAnnotation
+                     (pe (sp "" 1 1 1 2) $ Identifier (Var "__") [])
                      (Just
                        (TupleTypeSpec
                          [ TypeSpec ([], "A") [] (sp "" 1 5 1 5)
                          , TypeSpec ([], "B") [] (sp "" 1 8 1 8)
                          , TypeSpec ([], "C") [] (sp "" 1 11 1 11)
                          ]
-                         (sp "" 1 4 1 12)
+                         (sp "" 1 4 1 13)
                        )
                      )
                    )
 
     it "parses function type specs with no args" $ do
-      testParseExpr "_: function () -> A"
+      testParseExpr "__: function () -> A"
         `shouldBe` (e $ TypeAnnotation
-                     (e $ Identifier (Var "_") [])
+                     (e $ Identifier (Var "__") [])
                      (Just
                        (FunctionTypeSpec (TypeSpec ([], "A") [] NoPos)
                                          []
@@ -116,9 +116,9 @@ spec = parallel $ do
                    )
 
     it "parses function type specs with one arg" $ do
-      testParseExpr "_: function (Int) -> A"
+      testParseExpr "__: function (Int) -> A"
         `shouldBe` (e $ TypeAnnotation
-                     (e $ Identifier (Var "_") [])
+                     (e $ Identifier (Var "__") [])
                      (Just
                        (FunctionTypeSpec (TypeSpec ([], "A") [] NoPos)
                                          [(TypeSpec ([], "Int") [] NoPos)]
@@ -129,9 +129,9 @@ spec = parallel $ do
                    )
 
     it "parses function type specs with args" $ do
-      testParseExpr "_: function (Int, Float) -> A"
+      testParseExpr "__: function (Int, Float) -> A"
         `shouldBe` (e $ TypeAnnotation
-                     (e $ Identifier (Var "_") [])
+                     (e $ Identifier (Var "__") [])
                      (Just
                        (FunctionTypeSpec
                          (TypeSpec ([], "A") [] NoPos)
@@ -145,9 +145,9 @@ spec = parallel $ do
                    )
 
     it "parses nested function type specs" $ do
-      testParseExpr "_: function (function (A, B) -> C, Float) -> A"
+      testParseExpr "__: function (function (A, B) -> C, Float) -> A"
         `shouldBe` (e $ TypeAnnotation
-                     (e $ Identifier (Var "_") [])
+                     (e $ Identifier (Var "__") [])
                      (Just
                        (FunctionTypeSpec
                          (TypeSpec ([], "A") [] NoPos)
@@ -168,9 +168,9 @@ spec = parallel $ do
                    )
 
     it "parses variadic function type specs" $ do
-      testParseExpr "_: function (Int, ...) -> A"
+      testParseExpr "__: function (Int, ...) -> A"
         `shouldBe` (e $ TypeAnnotation
-                     (e $ Identifier (Var "_") [])
+                     (e $ Identifier (Var "__") [])
                      (Just
                        (FunctionTypeSpec (TypeSpec ([], "A") [] NoPos)
                                          [(TypeSpec ([], "Int") [] NoPos)]

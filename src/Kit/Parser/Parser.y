@@ -36,6 +36,7 @@ import Kit.Str
   "=>" {(Arrow,_)}
   "->" {(FunctionArrow,_)}
   -- '?' {(Question,_)}
+  '_' {(Underscore,_)}
   abstract {(KeywordAbstract,_)}
   as {(KeywordAs,_)}
   atom {(KeywordAtom,_)}
@@ -750,10 +751,12 @@ StructInitField :: {(Str, Expr)}
 Identifier :: {(Identifier (Maybe TypeSpec), Span)}
   : UpperOrLowerIdentifier {(Var $ fst $1, snd $1)}
   | MacroIdentifier {$1}
+  | '_' {(Hole, snd $1)}
 
 MacroIdentifier :: {(Identifier (Maybe TypeSpec), Span)}
   : macro_identifier {(MacroVar (extract_macro_identifier $1) Nothing, snd $1)}
   | '$' '{' UpperOrLowerIdentifier TypeAnnotation '}' {(MacroVar (fst $3) (fst $4), (p $1 <+> p $5))}
+  | '$' '{' '_' TypeAnnotation '}' {(MacroVar "_" (fst $4), (p $1 <+> p $5))}
 
 -- LexMacroTokenBlock :: {([Token], Span)}
 --   : '{' LexMacroTokensInsideBlock '}' {(reverse $2, snd $1 <+> snd $3)}

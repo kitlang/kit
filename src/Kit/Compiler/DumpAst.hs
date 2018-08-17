@@ -163,9 +163,10 @@ dumpAst ctx indent e@(TypedExpr { tExpr = texpr, inferredType = t, tPos = pos })
       VarDeclaration id _ a -> i ("var " ++ show id) (catMaybes [a])
       Using u x             -> i ("using " ++ show u) [x]
       TupleInit slots       -> i "tuple" slots
-      Box _ x               -> i "box" [x]
-      BoxedVtable _ x               -> i "box vtable" [x]
-      BoxedValue _ x               -> i "box value" [x]
+      TupleSlot   x n       -> i ("tuple." ++ show n) [x]
+      Box         _ x       -> i "box" [x]
+      BoxedVtable _ x       -> i "box vtable" [x]
+      BoxedValue  _ x       -> i "box value" [x]
       _                     -> return $ f $ "??? " ++ show texpr
 
     return $ result ++ if null (tTemps e)
