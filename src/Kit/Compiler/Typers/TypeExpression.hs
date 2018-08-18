@@ -205,27 +205,23 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                                          pos
                           )
 
-                  let boundSlots = filter (\(i, (a, b)) -> tExpr a /= Identifier Hole []) (zip [0 ..] (zip t t2))
+                  let boundSlots = filter
+                        (\(i, (a, b)) -> tExpr a /= Identifier Hole [])
+                        (zip [0 ..] (zip t t2))
                   slots <- forM boundSlots $ \(i, (a, b)) -> do
-                    let e1 = makeExprTyped
-                                                  (Binop
-                                                    Assign
-                                                    a
-                                                    (makeExprTyped (TupleSlot tupleExpr i) b pos)
-                                                  )
-                                                  b
-                                                  (tPos a)
+                    let
+                      e1 = makeExprTyped
+                        (Binop Assign
+                               a
+                               (makeExprTyped (TupleSlot tupleExpr i) b pos)
+                        )
+                        b
+                        (tPos a)
                     case tExpr a of
                       Identifier _ _ -> return e1
-                      _ -> r e1
+                      _              -> r e1
 
-                  return
-                    $ (makeExprTyped
-                        (Block slots
-                        )
-                        (inferredType r2)
-                        pos
-                      )
+                  return $ (makeExprTyped (Block slots) (inferredType r2) pos)
                 else failTyping $ TypingError
                   "Tuples can only be assigned to tuples of the same size"
                   pos
@@ -587,11 +583,22 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       case (inferredType r1, tExpr e2) of
         (TypeTuple t, Literal (IntValue i _)) ->
           -- compile-time tuple slot access
-          if (i >= 0) && (i < length t)
-            then r (r1 {tExpr = TupleSlot r1 i, inferredType = t !! i, tPos = tPos r1 <+> tPos e2})
-            else throwk $ TypingError ("Access to invalid tuple slot (tuple has " ++ show (length t) ++ " slots)") pos
-        (TypeTuple t, _) ->
-          throwk $ TypingError "Array access on tuples is only allowed using int literals" pos
+                                                 if (i >= 0) && (i < length t)
+          then r
+            (r1 { tExpr        = TupleSlot r1 i
+                , inferredType = t !! i
+                , tPos         = tPos r1 <+> tPos e2
+                }
+            )
+          else throwk $ TypingError
+            (  "Access to invalid tuple slot (tuple has "
+            ++ show (length t)
+            ++ " slots)"
+            )
+            pos
+        (TypeTuple t, _) -> throwk $ TypingError
+          "Array access on tuples is only allowed using int literals"
+          pos
         _ -> do
           r2 <- r e2
           throwk $ InternalError "Not yet implemented" (Just pos)
@@ -914,9 +921,11 @@ typeStructUnionFieldAccess
 typeStructUnionFieldAccess ctx tctx mod fields r fieldName pos = do
   case findStructUnionField fields fieldName of
     Just field -> do
-      return $ Just $ makeExprTyped (Field r (Var fieldName))
-                                    (varType field)
-                                    pos
+      return
+        $ (Just $ (makeExprTyped (Field r (Var fieldName)) (varType field) pos) { tIsLvalue = True
+                                                                                }
+          )
+
     Nothing -> return Nothing
 
 findStructUnionField :: [VarDefinition a b] -> Str -> Maybe (VarDefinition a b)

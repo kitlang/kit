@@ -5,13 +5,19 @@ struct MyStruct {
     var b: CString = "hello";
     var c = 5;
     var d: Bool;
+    var e: Ptr[Float];
 }
 
 function main() {
+    var f = 5_f32;
     var a = struct MyStruct {
         c: 6,
         d: true,
+        e: f,
     };
+    // autorefderef of struct pointer field
+    var g: Float = a.e;
+    printf("%.1f\n", g);
 
     printf("%s\n", MyStruct.xyz);
     printf("%s\n", a.b);
