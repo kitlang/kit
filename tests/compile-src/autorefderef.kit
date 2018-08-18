@@ -5,15 +5,15 @@ struct MyStruct {
 }
 
 function f1(x: MyStruct) {
-    printf("%li\n", x.a);
+    printf("%i\n", x.a);
 }
 
 function f2(x: Ptr[MyStruct]) {
-    printf("%li\n", x.b);
+    printf("%i\n", x.b);
 }
 
 function f3(x: Ptr[Ptr[MyStruct]]) {
-    printf("%li\n", *(x.c));
+    printf("%i\n", *(x.c));
 }
 
 function main() {
@@ -27,14 +27,14 @@ function main() {
 
     // field access on pointers
     var p1: Ptr[MyStruct] = &myVal;
-    printf("%li\n", p1.a);
+    printf("%i\n", p1.a);
     var p2: Ptr[Ptr[MyStruct]] = &p1;
-    printf("%li\n", p2.b);
+    printf("%i\n", p2.b);
     var p3: MyStruct = p1;
-    printf("%li\n", *(p3.c));
+    printf("%i\n", *(p3.c));
     // let's get crazy
     var p4: Ptr[Ptr[Ptr[Ptr[Ptr[MyStruct]]]]] = myVal;
-    printf("%li\n", *(p4.c));
+    printf("%i\n", *(p4.c));
 
     f1(myVal);
     f1(p1);

@@ -37,7 +37,8 @@ spec = parallel $ do
         result <- tryCompile
           (ctx { ctxSourcePaths = [takeDirectory path, "std"]
                , ctxMainModule  = [s_pack $ takeFileName path -<.> ""]
-               , ctxLinkerFlags  = ["-lm"]
+               , ctxCompilerFlags = ["-Werror"]
+               , ctxLinkerFlags  = ["-lm", "-Werror"]
                }
           )
         (case result of

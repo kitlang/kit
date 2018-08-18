@@ -31,7 +31,7 @@ rules StructRules {
 }
 
 function main() {
-    printf("%li\n", 5_i32);
+    printf("%i\n", 5_i32);
 
     using rules MyRewriteRules {
         var a = "a specific string";
@@ -40,8 +40,8 @@ function main() {
         // custom operator; must be rewritten or will fail to compile
         var x: Int = 5;
         // var x = 5_i32;
-        printf("%li\n", x);
-        printf("%li\n", x %% 1);
+        printf("%i\n", x);
+        printf("%i\n", x %% 1);
 
         // var doesn't exist; must be rewritten or will fail to compile
         if (apple) {
@@ -61,6 +61,6 @@ function main() {
 
     var s = struct MyStruct {myField: 5};
     using rules StructRules {
-        printf("%li\n", s.property);
+        printf("%i\n", s.property);
     }
 }

@@ -14,8 +14,8 @@ struct MyStruct3 {
 }
 
 function main() {
-    var x = sizeof Ptr[MyStruct1];
-    printf("%lu\n", x);
+    var x: Int = sizeof Ptr[MyStruct1];
+    printf("%i\n", x);
     printf("%lu\n", sizeof MyStruct1);
     printf("%lu\n", sizeof MyStruct2);
     printf("%lu\n", sizeof MyStruct3);
