@@ -1,0 +1,105 @@
+function matchInt(v) {
+    match v {
+        1 => printf("%s\n", "one");
+        2 => printf("%s\n", "two");
+        3 => printf("%s\n", "three");
+        default => printf("%s\n", "default");
+    }
+}
+
+function matchBool(b) {
+    match b {
+        true => printf("%s\n", "true");
+        false => printf("%s\n", "false");
+    }
+}
+
+function matchNoDefault(v) {
+    match v {
+        1 => printf("%s\n", "one");
+        2 => printf("%s\n", "two");
+    }
+}
+
+enum Fruit {
+    Apple;
+    Banana;
+    Strawberry;
+}
+
+function matchEnumSimple(e) {
+    match e {
+        Apple => printf("%s\n", "apple");
+        Banana => printf("%s\n", "banana");
+        default => printf("%s\n", "something else");
+    }
+}
+
+function matchString(s) {
+    match s {
+        "apple" => printf("%s\n", "APPLE");
+        "banana" => printf("%s\n", "BANANA");
+        default => printf("%s\n", "something else");
+    }
+}
+
+function matchFloat(v) {
+    match v {
+        1.5 => printf("%s\n", "1.5");
+        2.5 => printf("%s\n", "2.5");
+        default => printf("%s\n", "something else");
+    }
+}
+
+function main() {
+    matchInt(0);
+    matchInt(1);
+    matchInt(2);
+    matchInt(3);
+    matchInt(4);
+
+    matchBool(true);
+    matchBool(false);
+
+    match true {
+        true => printf("%s\n", "match true: correct");
+    }
+
+    match false {
+        false => printf("%s\n", "match false: correct");
+    }
+
+    match true {
+        false => printf("%s\n", "match true: wrong");
+    }
+
+    match false {
+        true => printf("%s\n", "match false: wrong");
+    }
+
+    match true {
+        false => printf("%s\n", "wrong");
+        default => printf("%s\n", "bool match: default");
+    }
+
+    match false {
+        true => printf("%s\n", "wrong");
+        default => printf("%s\n", "bool match: default");
+    }
+
+    matchNoDefault(1);
+    matchNoDefault(2);
+    matchNoDefault(3);
+
+    matchEnumSimple(Apple);
+    matchEnumSimple(Banana);
+    matchEnumSimple(Strawberry);
+
+    matchString("apple");
+    matchString("banana");
+    matchString("strawberry");
+
+    matchFloat(1.5);
+    matchFloat(2.5);
+    matchFloat(2.6);
+}

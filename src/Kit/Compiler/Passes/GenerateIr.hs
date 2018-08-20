@@ -484,22 +484,57 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
         return $ IrReturn r1
       (Throw e1         ) -> return $ undefined -- TODO
       (Match e1 cases e2) -> do
-        case f of
+        r1        <- r e1
+        r2        <- maybeR e2
+        matchType <- findUnderlyingType ctx mod (inferredType e1)
+        case matchType of
           BasicTypeComplexEnum _ _ -> do
             -- complex match with ADT
             throwk $ InternalError "Not yet implemented" (Just pos)
           BasicTypeTuple _ _ -> do
             -- complex match with tuples
             throwk $ InternalError "Not yet implemented" (Just pos)
+          BasicTypeBool -> do
+            -- transform into an if statement
+            let branchOrDefault b = case b of
+                  Just x -> do
+                    rx <- r $ matchBody x
+                    return $ Just rx
+                  Nothing -> return r2
+            trueBranch <- branchOrDefault $ find
+              (\c -> (tExpr $ matchPattern c) /= (Literal $ BoolValue False))
+              cases
+            falseBranch <- branchOrDefault $ find
+              (\c -> (tExpr $ matchPattern c) /= (Literal $ BoolValue True))
+              cases
+            case (trueBranch, falseBranch) of
+              (Just a, Just b) | a == b -> return $ a
+              (Just a, b     )          -> return $ IrIf r1 a b
+              (Nothing, Just b) ->
+                return $ IrIf (IrPreUnop Invert r1) b Nothing
+              (Nothing, Nothing) -> throwk $ InternalError
+                "Boolean match with no true or false branches"
+                (Just pos)
           _ -> do
-            -- simple match (switch)
-            r1     <- r e1
+            -- simple match
             cases' <- forM cases $ \c -> do
               pattern <- r $ matchPattern c
               body    <- r $ matchBody c
               return (pattern, body)
             def <- maybeR e2
-            return $ IrSwitch r1 cases' def
+            let canSwitch = case matchType of
+                  BasicTypeInt  _         -> True
+                  BasicTypeUint _         -> True
+                  BasicTypeSimpleEnum _ _ -> True
+                  _                       -> False
+            if canSwitch
+              then return $ IrSwitch r1 cases' def
+              else
+                let ifX ((a, b) : t) = IrIf
+                      (IrBinop Eq r1 a)
+                      b
+                      (if null t then r2 else Just $ ifX t)
+                in  return $ ifX cases'
 
       (InlineCall e1   ) -> return $ undefined -- TODO
       (Field e1 (Var v)) -> do

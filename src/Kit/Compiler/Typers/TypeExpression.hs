@@ -51,6 +51,11 @@ partialTyping ex et e = return $ ex { tExpr = et, tError = Just $ KitError e }
 typeExpr :: CompileContext -> TypeContext -> Module -> TypedExpr -> IO TypedExpr
 typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
   let r = typeExpr ctx tctx mod
+  let maybeR x = case x of
+        Just x -> do
+          x' <- r x
+          return $ Just x'
+        Nothing -> return Nothing
   let resolve constraint = resolveConstraint ctx tctx mod constraint
   let unknownTyped x = makeExprTyped x (TypeBasicType BasicTypeUnknown) pos
   let tryRewrite x y = do
@@ -431,8 +436,36 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
     (Throw e1) -> do
       throwk $ InternalError "Not yet implemented" (Just pos)
-    (Match e1 cases (e2)) ->
-      throwk $ InternalError "Not yet implemented" (Just pos)
+
+    (Match e1 cases (e2)) -> do
+      r1      <- r e1
+      complex <- case inferredType r1 of
+        TypeInstance tp params -> do
+          -- if this is a complex enum, it's a complex match
+          -- TODO: match and destructure
+          throwk $ InternalError "Not yet implemented" (Just pos)
+        TypeTuple t -> do
+          -- TODO: match and destructure
+          throwk $ InternalError "Not yet implemented" (Just pos)
+        _ -> return Nothing
+      case complex of
+        Just x -> return x
+        _      -> do
+          cases' <- forM cases $ \c -> do
+            pattern <- r $ matchPattern c
+            body    <- r $ matchBody c
+            resolve $ TypeEq
+              (inferredType r1)
+              (inferredType pattern)
+              "Match pattern must match the type of the matched value"
+              (tPos pattern)
+            return $ MatchCase {matchPattern = pattern, matchBody = body}
+          r2 <- maybeR e2
+          -- TODO: allow use of match as expression
+          -- TODO: check for pattern overlap
+          -- TODO: check for pattern exhaustiveness
+          return $ makeExprTyped (Match r1 cases' r2) (voidType) pos
+
     (InlineCall e1) -> throwk $ InternalError "Not yet implemented" (Just pos)
 
     (Field e1 (Var fieldName)) -> do

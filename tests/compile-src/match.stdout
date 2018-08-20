@@ -1,0 +1,22 @@
+default
+one
+two
+three
+default
+true
+false
+match true: correct
+match false: correct
+bool match: default
+bool match: default
+one
+two
+apple
+banana
+something else
+APPLE
+BANANA
+something else
+1.5
+2.5
+something else
