@@ -9,7 +9,7 @@ enum List[T] {
      * Returns a new list which combines two other lists. Requires iterating
      * over both lists, which is O(n).
      */
-    public function concat(other: Self[T]): Self[T] {
+    public function concat(other: Self): Self {
         var list = Empty;
         for i in this {
             list = i :: list;
@@ -24,7 +24,7 @@ enum List[T] {
      * Returns a new list, with the provided value added to the front of this
      * list.
      */
-    public function cons(value: T): Self[T] {
+    public function cons(value: T): Self {
         return Cons(value, this);
     }
 
@@ -32,7 +32,7 @@ enum List[T] {
      * Return a new list, which is this list in reverse order. Requires O(n)
      * time. This does not modify the current list.
      */
-    public function reverse(): Self[T] {
+    public function reverse(): Self {
         var list = Empty;
         for i in this {
             list = i :: list;
@@ -87,7 +87,7 @@ enum List[T] {
             default => false;
         }
 
-        ((it: Iterable[T]) as Self[T]) => {
+        ((it: Iterable[T]) as Self) => {
             var list = Empty;
             for i in it {
                 list = i :: list;
@@ -104,14 +104,14 @@ enum List[T] {
          *
          *     var mList = 1 :: (2 :: (3 :: Empty));
          */
-        ((head: T)::(tail: Self[T])) => Cons(head, tail);
+        ((head: T)::(tail: Self)) => Cons(head, tail);
 
         // optimize List iteration at compile time when the type is known
-        (for $ident in this {$e;}) => {
+        (for $ident in this {$e}) => {
             var __rest = this;
             while !__rest.empty {
                 var $ident = __rest.head;
-                $e;
+                {$e}
                 __rest = __rest.tail;
             }
         }

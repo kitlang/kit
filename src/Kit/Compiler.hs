@@ -67,6 +67,10 @@ compile ctx = do
   resolved <- resolveModuleTypes ctx declarations
 
   {-
+    TODO: expand procedural macros here
+  -}
+
+  {-
     Main checking of program semantics happens here. Takes and returns typed
     AST, but the return value should have all necessary type information. This
     step is iterative and repeats until successful convergence, or throws an

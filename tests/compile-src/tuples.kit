@@ -47,5 +47,10 @@ function main() {
         printf("(%i, %i)\n", a[0], a[1]);
     }
 
+    // this could probably be cleaned up by supporting tuples in autorefderef
+    var d2 = (2, "hello");
+    var c2: (Int, Ptr[(Int, CString)]) = (1, &d2);
+    printf("%s\n", (*c2[1])[1]);
+
     // TODO: tuple equality
 }

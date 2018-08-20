@@ -2,7 +2,7 @@
 syntax "kit" "\.kit$"
 color magenta "\<(import|include)\>"
 color brightgreen "\<(struct|enum|union|abstract|function|implement|specialize|trait|typedef|var|private|public|static|const|inline|using)\>"
-color brightred "\<(return|throw|for|as|in|if|then|else|do|while|match|default|unsafe|rule|rules|implicit)\>"
+color brightred "\<(return|throw|for|as|in|if|then|else|do|while|match|default|unsafe|rule|rules|implicit|sizeof)\>"
 color brightred "=>"
 color brightcyan "\<[A-Z][a-zA-Z0-9_]*\>"
 color brightyellow ""[^"]*""

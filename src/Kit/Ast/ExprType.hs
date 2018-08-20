@@ -13,7 +13,9 @@ import Kit.Ast.Value
 import Kit.Parser.Span
 import Kit.Str
 
-data MatchCase a = MatchCase {match_pattern :: a, match_body :: a} deriving (Eq, Show)
+data MatchCase a = MatchCase {matchPattern :: a, matchBody :: a} deriving (Eq, Show)
+
+newMatchCase = MatchCase {matchPattern = undefined, matchBody = undefined}
 
 {-
   All AST structures use the convention of two type parameters, a and b.
@@ -61,6 +63,8 @@ data ExprType a b
   | Field a (Identifier b)
   | StructInit b [(Str, a)]
   | EnumInit b Str [a]
+  | EnumDiscriminant a
+  | EnumField a Str Str
   | TupleInit [a]
   | TupleSlot a Int
   | ArrayAccess a a
@@ -105,6 +109,8 @@ exprDiscriminant et = case et of
   Field      _ _       -> 21
   StructInit _ _       -> 22
   EnumInit _ _ _       -> 23
+  EnumDiscriminant _   -> 39
+  EnumField _ _ _      -> 40
   ArrayAccess _ _      -> 24
   Call        _ _      -> 25
   Cast        _ _      -> 26
@@ -140,6 +146,8 @@ exprChildren et = case et of
   Field      x _              -> [x]
   StructInit _ fields         -> map snd fields
   EnumInit _ _ x              -> x
+  EnumDiscriminant x          -> [x]
+  EnumField x _ _             -> [x]
   ArrayAccess x y             -> [x, y]
   Call        x args          -> x : args
   Cast        x _             -> [x]

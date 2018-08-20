@@ -89,7 +89,7 @@ convertExpr ctx tctx mod e = do
       return $ m (Literal (BoolValue b)) (TypeBasicType BasicTypeBool)
     This -> container0 This
     Self -> container0 Self
-    Identifier Hole namespace -> container0 (Identifier Hole namespace)
+    Identifier Hole            namespace -> container0 (Identifier Hole namespace)
     Identifier (Var id       ) namespace -> container0 (Identifier (Var id) namespace)
     Identifier (MacroVar id t) namespace -> do
       t <- case t of
@@ -122,7 +122,15 @@ convertExpr ctx tctx mod e = do
     Throw e1 -> do
       r1 <- r e1
       return $ m (Throw r1) voidType
-    -- Match a [MatchCase a] (Maybe a) -> do
+    Match e1 cases def -> do
+      t      <- mtv
+      r1     <- r e1
+      cases' <- forM cases $ \c -> do
+        pattern <- r $ matchPattern c
+        body    <- r $ matchBody c
+        return $ newMatchCase { matchPattern = pattern, matchBody = body }
+      def' <- maybeR def
+      return $ m (Match r1 cases' def') t
     InlineCall e1 -> singleWrapper e1 InlineCall
     Field e1 id   -> do
       id <- convertIdentifier typeOrTypeVar id

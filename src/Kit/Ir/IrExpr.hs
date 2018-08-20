@@ -28,4 +28,5 @@ data IrExpr
   | IrEnumInit BasicType Str [IrExpr]
   | IrTupleInit BasicType [IrExpr]
   | IrSizeOf BasicType
+  | IrSwitch IrExpr [(IrExpr, IrExpr)] (Maybe IrExpr)
   deriving (Eq, Show)

@@ -8,7 +8,7 @@ patterns:
   name: keyword.control.kit
 - match: \b(private|public|static|const|inline)\b
   name: storage.modifier.kit
-- match: \b(return|throw|for|as|in|if|then|else|do|while|match|default|unsafe|null|implicit)\b
+- match: \b(return|throw|for|as|in|if|then|else|do|while|match|default|unsafe|implicit|sizeof)\b
   name: keyword.other.kit
 - match: \b(struct|enum|union|abstract|rule|rules|typedef|trait)\b
   name: storage.type.kit

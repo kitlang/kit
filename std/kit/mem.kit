@@ -1,14 +1,18 @@
-// trait Allocator[T] {
-//     function alloc[U: T](): Ptr[U];
-//     function free[U: T](ptr: Ptr[U]): Void;
-// }
+trait Allocator[T] {
+    function alloc[U: T](): Ptr[U];
+    function free[U: T](ptr: Ptr[U]): Void;
+}
 
-// implement static Allocator[T] {
-//     public function alloc[U: T]() {
-//         return malloc(sizeof U);
-//     }
+implement Allocator[Ptr[Void]] for (function (Uint64) -> Ptr[Void], function (Ptr[Void]) -> Void) {
+    public function alloc[U: T]() {
+        return (this[0])(sizeof U);
+    }
 
-//     public function free[U: T](ptr: Ptr[U]) {
-//         free(ptr);
-//     }
-// }
+    public function free[U: T](ptr: Ptr[U]) {
+        (this[1])(ptr);
+    }
+}
+
+// everything that takes an allocator argument will default to malloc
+var mallocator: Box[Allocator] = (malloc, free);
+using implicit mallocator;

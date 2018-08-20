@@ -41,7 +41,8 @@ spec = do
     it "transpiles atom types" $ do
       showctype BasicTypeAtom `shouldBe` "unsigned long"
     it "transpiles basic enum types" $ do
-      showctype (BasicTypeSimpleEnum (Just "MyEnum") []) `shouldBe` "enum MyEnum"
+      showctype (BasicTypeSimpleEnum (Just "MyEnum") [])
+        `shouldBe` "enum MyEnum"
     it "transpiles complex enum types" $ do
       showctype (BasicTypeComplexEnum "MyEnum2" []) `shouldBe` "struct MyEnum2"
     it "transpiles struct types" $ do
@@ -58,8 +59,7 @@ spec = do
       showstmt (IrBlock [IrContinue, IrBreak])
         `shouldBe` "{\ncontinue;\nbreak;\n}"
     it "transpiles if statements" $ do
-      showstmt
-          (IrIf (IrLiteral $ BoolValue True) (IrContinue) (Just $ IrBreak))
+      showstmt (IrIf (IrLiteral $ BoolValue True) (IrContinue) (Just $ IrBreak))
         `shouldBe` "if (1)\n{\ncontinue;\n}\nelse\n{\nbreak;\n}"
       showstmt (IrIf (IrLiteral $ BoolValue True) (IrContinue) (Nothing))
         `shouldBe` "if (1)\n{\ncontinue;\n}"
@@ -87,6 +87,29 @@ spec = do
           )
         `shouldBe` "for (uint8_t a = 1; a < 5; ++a)\ncontinue;"
 
+    it "transpiles switch statements" $ do
+      showstmt
+          (IrSwitch
+            (IrIdentifier "a")
+            [ (IrLiteral $ IntValue 1 $ BasicTypeInt 16, IrContinue)
+            , (IrLiteral $ IntValue 2 $ BasicTypeInt 16, IrContinue)
+            ]
+            Nothing
+          )
+        `shouldBe` "switch (a)\n{\ncase 1:\ncontinue;\nbreak;\ncase 2:\ncontinue;\nbreak;\n}"
+
+    it "transpiles switch statements with a default" $ do
+      showstmt
+          (IrSwitch
+            (IrIdentifier "a")
+            [ (IrLiteral $ IntValue 1 $ BasicTypeInt 16, IrContinue)
+            , (IrLiteral $ IntValue 2 $ BasicTypeInt 16, IrContinue)
+            ]
+            (Just (IrIdentifier "b"))
+          )
+        `shouldBe` "switch (a)\n{\ncase 1:\ncontinue;\nbreak;\ncase 2:\ncontinue;\nbreak;\ndefault:\n{\nb;\nbreak;\n}\n}"
+
+
   describe "Transpile expressions" $ do
     it "transpiles identifiers" $ do
       showexpr (IrIdentifier "apple_banana") `shouldBe` "apple_banana"
@@ -98,7 +121,8 @@ spec = do
       showexpr (IrLiteral $ IntValue 1234 $ BasicTypeInt 32) `shouldBe` "1234L"
       showexpr (IrLiteral $ IntValue (-50) $ BasicTypeInt 8) `shouldBe` "-50"
     it "transpiles float literals" $ do
-      showexpr (IrLiteral $ FloatValue "0.1" $ BasicTypeFloat 32) `shouldBe` "0.1"
+      showexpr (IrLiteral $ FloatValue "0.1" $ BasicTypeFloat 32)
+        `shouldBe` "0.1"
     it "transpiles binary operations" $ do
       showexpr (IrBinop Add (IrIdentifier "a") (IrIdentifier "b"))
         `shouldBe` "a + b"

@@ -30,21 +30,49 @@ cpos p x =
   x $ mkNodeInfoOnlyPos $ position 0 (file p) (startLine p) (startCol p) Nothing
 
 ctype :: BasicType -> ([CTypeSpec], [CDerivedDeclr])
-ctype BasicTypeVoid       = ([u CVoidType], [])
-ctype BasicTypeBool       = ([u CBoolType], [])
-ctype (BasicTypeInt   n ) = ([u $ CTypeDef (internalIdent $ "int" ++ show n ++ "_t")], [])
-ctype (BasicTypeUint   n ) = ([u $ CTypeDef (internalIdent $ "uint" ++ show n ++ "_t")], [])
+ctype BasicTypeVoid = ([u CVoidType], [])
+ctype BasicTypeBool = ([u CBoolType], [])
+ctype (BasicTypeInt n) =
+  ([u $ CTypeDef (internalIdent $ "int" ++ show n ++ "_t")], [])
+ctype (BasicTypeUint n) =
+  ([u $ CTypeDef (internalIdent $ "uint" ++ show n ++ "_t")], [])
 ctype (BasicTypeFloat 32) = ([u CFloatType], [])
 ctype (BasicTypeFloat 64) = ([u CDoubleType], [])
 ctype (BasicTypeAtom    ) = ([u CUnsigType, u CLongType], [])
-ctype (BasicTypeStruct name _) =
+ctype (BasicTypeStruct name args) =
   ( [ u $ CSUType $ u $ CStruct
         CStructTag
         (case name of
           Just name -> Just $ internalIdent $ s_unpack name
           Nothing   -> Nothing
         )
-        Nothing
+        (case name of
+          Just name -> Nothing
+          Nothing -> -- anonymous
+            Just
+              [ cDecl argType (Just argName) Nothing
+              | (argName, argType) <- args
+              ]
+        )
+        []
+    ]
+  , []
+  )
+ctype (BasicTypeUnion name args) =
+  ( [ u $ CSUType $ u $ CStruct
+        CUnionTag
+        (case name of
+          Just name -> Just $ internalIdent $ s_unpack name
+          Nothing   -> Nothing
+        )
+        (case name of
+          Just name -> Nothing
+          Nothing -> -- anonymous
+            Just
+              [ cDecl argType (Just argName) Nothing
+              | (argName, argType) <- args
+              ]
+        )
         []
     ]
   , []
@@ -61,37 +89,27 @@ ctype (BasicTypeSimpleEnum name _) =
   , []
   )
 ctype (BasicTypeComplexEnum name _) = ctype (BasicTypeStruct (Just name) [])
-ctype (BasicTypeUnion name _) =
-  ( [ u $ CSUType $ u $ CStruct
-        CUnionTag
-        (case name of
-          Just name -> Just $ internalIdent $ s_unpack name
-          Nothing   -> Nothing
-        )
-        Nothing
-        []
-    ]
-  , []
-  )
 ctype (BasicTypeTuple name t) =
-  ( [ u $ CSUType $ u $ CStruct
-        CStructTag
-        (Just (internalIdent $ s_unpack name))
-        Nothing
-        []
+  ( [ u $ CSUType $ u $ CStruct CStructTag
+                                (Just (internalIdent $ s_unpack name))
+                                Nothing
+                                []
     ]
   , []
   )
 ctype (CPtr x) = (fst t, (u $ CPtrDeclr []) : snd t) where t = ctype x
 ctype (BasicTypeFunction rt args var) =
-  let (rta, rtb) = ctype rt in
-  (rta, [u $ CFunDeclr (Right ([cDecl t Nothing Nothing| (name, t) <- args], var)) []] ++ rtb)
-ctype (CArray _ _             ) = undefined
-ctype (BasicTypeUnknown       ) = undefined
+  let (rta, rtb) = ctype rt
+  in  ( rta
+      , [ u $ CFunDeclr
+            (Right ([ cDecl t Nothing Nothing | (name, t) <- args ], var))
+            []
+        ]
+        ++ rtb
+      )
 -- TODO: CArray
-
---transpile :: [Expr] -> [CStat]
---transpile exprs
+ctype (CArray _ _      ) = undefined
+ctype (BasicTypeUnknown) = undefined
 
 intFlags f = foldr (\f acc -> setFlag f acc) noFlags f
 
@@ -187,12 +205,12 @@ getVariantFieldNames variants discriminant =
     _              -> []
 
 transpileStmt :: IrExpr -> CStat
-transpileStmt IrBreak             = u CBreak
-transpileStmt IrContinue          = u CCont
-transpileStmt (IrReturn (Just r)) = u $ CReturn $ Just $ transpileExpr r
-transpileStmt (IrReturn Nothing ) = u $ CReturn Nothing
+transpileStmt IrBreak               = u CBreak
+transpileStmt IrContinue            = u CCont
+transpileStmt (IrReturn   (Just r)) = u $ CReturn $ Just $ transpileExpr r
+transpileStmt (IrReturn   Nothing ) = u $ CReturn Nothing
 transpileStmt (IrBlock e) = u $ CCompound [] [ transpileBlockItem x | x <- e ]
-transpileStmt (IrCompound e) = transpileStmt (IrBlock e)
+transpileStmt (IrCompound e       ) = transpileStmt (IrBlock e)
 transpileStmt (IrIf cond e1 (Just e2)) =
   u $ CIf (transpileExpr cond) (transpileStmt e1) (Just $ transpileStmt e2)
 transpileStmt (IrIf cond e1 Nothing) =
@@ -204,6 +222,33 @@ transpileStmt (IrFor v idType start end body) = u $ CFor
   (Just $ transpileExpr (IrBinop Lt (IrIdentifier v) (end)))
   (Just $ transpileExpr (IrPreUnop Inc (IrIdentifier v)))
   (transpileStmt body)
+transpileStmt (IrSwitch val cases def) = u $ CSwitch
+  (transpileExpr val)
+  (u $ CCompound
+    []
+    (  (foldr
+         (++)
+         []
+         [ [ CBlockStmt $ u $ CCase (transpileExpr val) (transpileStmt body)
+           , transpileBlockItem IrBreak
+           ]
+         | (val, body) <- cases
+         ]
+       )
+    ++ (case def of
+         Just x ->
+           [ CBlockStmt
+               $ u
+               $ CDefault
+                   (u $ CCompound
+                     []
+                     [transpileBlockItem x, transpileBlockItem IrBreak]
+                   )
+           ]
+         Nothing -> []
+       )
+    )
+  )
 transpileStmt e = u $ CExpr $ Just $ transpileExpr e
 
 var_to_cdeclr x =

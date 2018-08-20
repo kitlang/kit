@@ -319,14 +319,15 @@ MatchCases :: {[MatchCase Expr]}
   | MatchCases MatchCase {$2 : $1}
 
 MatchCase :: {MatchCase Expr}
-  : Expr "=>" TopLevelExpr {MatchCase {match_pattern = $1, match_body = $3}}
+  : Expr "=>" TopLevelExpr {MatchCase {matchPattern = $1, matchBody = $3}}
 
 DefaultMatchCase :: {Maybe Expr}
   : {Nothing}
   | default "=>" TopLevelExpr {Just $3}
 
 ExprBlock :: {Expr}
-  : '{' TopLevelExprs '}' {pe (p $1 <+> p $3) $ Block $ reverse $2}
+  : '{' MacroIdentifier '}' {pe (snd $1 <+> snd $3) $ Identifier (fst $2) []}
+  | '{' TopLevelExprs '}' {pe (p $1 <+> p $3) $ Block $ reverse $2}
 
 TopLevelExprs :: {[Expr]}
   : {[]}

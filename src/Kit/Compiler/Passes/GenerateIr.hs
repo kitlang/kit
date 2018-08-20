@@ -407,7 +407,7 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
     case et of
       (Block children) -> do
         children' <- forM children $ \child -> do
-          temps <- mapM r $ tTemps child
+          temps  <- mapM r $ tTemps child
           result <- r child
           return $ temps ++ [result]
         return $ IrBlock $ foldr (++) [] children'
@@ -482,11 +482,24 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
       (Return e1) -> do
         r1 <- maybeR e1
         return $ IrReturn r1
-      (Throw e1           ) -> return $ undefined -- TODO
-      (Match e1 cases (e2)) -> do
-        -- TODO
-        throwk $ InternalError "Not yet implemented" (Just pos)
-        -- r1 <- r e1
+      (Throw e1         ) -> return $ undefined -- TODO
+      (Match e1 cases e2) -> do
+        case f of
+          BasicTypeComplexEnum _ _ -> do
+            -- complex match with ADT
+            throwk $ InternalError "Not yet implemented" (Just pos)
+          BasicTypeTuple _ _ -> do
+            -- complex match with tuples
+            throwk $ InternalError "Not yet implemented" (Just pos)
+          _ -> do
+            -- simple match (switch)
+            r1     <- r e1
+            cases' <- forM cases $ \c -> do
+              pattern <- r $ matchPattern c
+              body    <- r $ matchBody c
+              return (pattern, body)
+            def <- maybeR e2
+            return $ IrSwitch r1 cases' def
 
       (InlineCall e1   ) -> return $ undefined -- TODO
       (Field e1 (Var v)) -> do
@@ -531,6 +544,21 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
       (EnumInit t d args) -> do
         resolvedArgs <- forM args r
         return $ IrEnumInit f d resolvedArgs
+      (EnumDiscriminant x) -> do
+        r1       <- r x
+        enumType <- findUnderlyingType ctx mod (inferredType x)
+        case enumType of
+          BasicTypeSimpleEnum _ _ -> return r1
+          BasicTypeComplexEnum _ _ ->
+            return $ IrField r1 $ s_pack "__discriminant"
+      (EnumField x variantName fieldName) -> do
+        r1 <- r x
+        return
+          $ IrField
+              ( IrField (IrField r1 $ s_pack "__variant")
+              $ s_concat ["variant_", variantName]
+              )
+          $ fieldName
       (TupleInit slots) -> do
         resolvedSlots <- forM
           slots
