@@ -451,75 +451,41 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       throwk $ InternalError "Not yet implemented" (Just pos)
 
     (Match e1 cases (e2)) -> do
-      r1      <- r e1
-      r2      <- maybeR e2
-      complex <- case inferredType r1 of
-        TypeInstance (modPath, typeName) params -> do
-          def <- getTypeDefinition ctx modPath typeName
-          case def of
-            Just (TypeDefinition { typeSubtype = enum@(Enum{}) })
-              | not (enumIsSimple enum) -> do
-                cases' <- forM cases $ \c -> do
-                  let tctx' = tctx { tctxState = TypingPattern }
-                  pattern <- typeExpr ctx tctx' mod $ matchPattern c
-                  resolve $ TypeEq
-                    (inferredType r1)
-                    (inferredType pattern)
-                    "Match pattern must match the type of the matched value"
-                    (tPos pattern)
-                  patternScope <- newScope []
-                  let ids = exprMapReduce
-                        (\x -> case tExpr x of
-                          Identifier (Var v) [] ->
-                            Just (v, inferredType x, tPos x)
-                          _ -> Nothing
-                        )
-                        (\x acc -> case x of
-                          Just x  -> x : acc
-                          Nothing -> acc
-                        )
-                        tExpr
-                        []
-                        pattern
-                  forM_ ids $ \(id, t, pos) -> do
-                    bindToScope patternScope id $ newBinding
-                      ([], id)
-                      (VarBinding
-                        (newVarDefinition { varName = id, varType = t })
-                      )
-                      t
-                      []
-                      pos
-                  -- TODO: find pattern variables, bind them before typing body
-                  let tctx' =
-                        tctx { tctxScopes = patternScope : (tctxScopes tctx) }
-                  body <- typeExpr ctx tctx' mod $ matchBody c
-                  return $ MatchCase {matchPattern = pattern, matchBody = body}
-                return $ Just $ makeExprTyped (Match r1 cases' r2)
-                                              (voidType)
-                                              pos
-
-            _ -> return Nothing
-        TypeTuple t -> do
-          -- TODO: match and destructure
-          throwk $ InternalError "Not yet implemented" (Just pos)
-        _ -> return Nothing
-      case complex of
-        Just x -> return x
-        _      -> do
-          cases' <- forM cases $ \c -> do
-            pattern <- r $ matchPattern c
-            body    <- r $ matchBody c
-            resolve $ TypeEq
-              (inferredType r1)
-              (inferredType pattern)
-              "Match pattern must match the type of the matched value"
-              (tPos pattern)
-            return $ MatchCase {matchPattern = pattern, matchBody = body}
-          -- TODO: allow use of match as expression
-          -- TODO: check for pattern overlap
-          -- TODO: check for pattern exhaustiveness
-          return $ makeExprTyped (Match r1 cases' r2) (voidType) pos
+      r1 <- r e1
+      r2 <- maybeR e2
+      let tctx' = tctx { tctxState = TypingPattern }
+      cases' <- forM cases $ \c -> do
+        let tctx' = tctx { tctxState = TypingPattern }
+        pattern <- typeExpr ctx tctx' mod $ matchPattern c
+        resolve $ TypeEq
+          (inferredType r1)
+          (inferredType pattern)
+          "Match pattern must match the type of the matched value"
+          (tPos pattern)
+        patternScope <- newScope []
+        let ids = exprMapReduce
+              (\x -> case tExpr x of
+                Identifier (Var v) [] -> Just (v, inferredType x, tPos x)
+                _                     -> Nothing
+              )
+              (\x acc -> case x of
+                Just x  -> x : acc
+                Nothing -> acc
+              )
+              tExpr
+              []
+              pattern
+        forM_ ids $ \(id, t, pos) -> do
+          bindToScope patternScope id $ newBinding
+            ([], id)
+            (VarBinding (newVarDefinition { varName = id, varType = t }))
+            t
+            []
+            pos
+        let tctx' = tctx { tctxScopes = patternScope : (tctxScopes tctx) }
+        body <- typeExpr ctx tctx' mod $ matchBody c
+        return $ MatchCase {matchPattern = pattern, matchBody = body}
+      return $ makeExprTyped (Match r1 cases' r2) (voidType) pos
 
     (InlineCall e1) -> throwk $ InternalError "Not yet implemented" (Just pos)
 
