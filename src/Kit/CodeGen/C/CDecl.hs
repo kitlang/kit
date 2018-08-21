@@ -82,7 +82,7 @@ cdecl (BasicTypeComplexEnum name variants) =
             Nothing
             []
         ]
-        [ ( Just $ u $ CDeclr (Just $ internalIdent "__discriminant")
+        [ ( Just $ u $ CDeclr (Just $ internalIdent $ s_unpack discriminantFieldName)
                               []
                               Nothing
                               []
@@ -96,7 +96,7 @@ cdecl (BasicTypeComplexEnum name variants) =
                                                 (Just variant_fields)
                                                 []
         ]
-        [ ( Just $ u $ CDeclr (Just $ internalIdent "__variant") [] Nothing []
+        [ ( Just $ u $ CDeclr (Just $ internalIdent $ s_unpack variantFieldName) [] Nothing []
           , Nothing
           , Nothing
           )

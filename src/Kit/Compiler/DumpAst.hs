@@ -133,20 +133,22 @@ dumpAst ctx indent e@(TypedExpr { tExpr = texpr, inferredType = t, tPos = pos })
       Identifier x n -> return $ f $ "identifier " ++ intercalate
         "."
         (map s_unpack n ++ [show x])
-      PreUnop  op a    -> i ("pre " ++ show op) [a]
-      PostUnop op a    -> i ("post " ++ show op) [a]
-      Binop op a b     -> i ("binary " ++ show op) [a, b]
-      For   a  b c     -> i ("for") [a, b, c]
-      While a  b False -> i ("while") [a, b]
-      While a  b True  -> i ("do") [a, b]
-      If    a  b c     -> i ("if") (catMaybes [Just a, Just b, c])
-      Continue         -> return $ f "continue"
-      Break            -> return $ f "break"
-      Return     x     -> i "return" (catMaybes [x])
+      PreUnop  op a     -> i ("pre " ++ show op) [a]
+      PostUnop op a     -> i ("post " ++ show op) [a]
+      Binop op a b      -> i ("binary " ++ show op) [a, b]
+      For   a  b c      -> i ("for") [a, b, c]
+      While a  b False  -> i ("while") [a, b]
+      While a  b True   -> i ("do") [a, b]
+      If    a  b c      -> i ("if") (catMaybes [Just a, Just b, c])
+      Continue          -> return $ f "continue"
+      Break             -> return $ f "break"
+      Return x          -> i "return" (catMaybes [x])
       -- Throw a
-      -- Match a [MatchCase a] (Maybe a)
-      InlineCall a     -> i "inline" [a]
-      Field a id       -> i ("field " ++ show id) [a]
+      Match x cases def -> i
+        "match"
+        (x : (foldr (++) [] [ [matchPattern c, matchBody c] | c <- cases ]))
+      InlineCall a -> i "inline" [a]
+      Field a id   -> i ("field " ++ show id) [a]
       StructInit (TypeInstance tp _) fields ->
         i ("struct " ++ s_unpack (showTypePath tp)) (map snd fields)
       EnumInit _ constructor fields ->

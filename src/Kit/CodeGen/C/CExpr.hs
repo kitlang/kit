@@ -134,7 +134,7 @@ transpileExpr (IrLiteral (IntValue i t)) = CConst $ u $ CIntConst $ CInteger
 transpileExpr (IrLiteral (FloatValue f t)) =
   CConst $ u $ CFloatConst $ transpileFloat (s_unpack f)
 transpileExpr (IrLiteral (StringValue s)) =
-  CConst $ u $ CStrConst $ cString $ s_unpack s
+  u $ CCast (cDecl (CPtr $ BasicTypeInt 8) Nothing Nothing) $ CConst $ u $ CStrConst $ cString $ s_unpack s
 transpileExpr (IrBinop Assign e1 e2) =
   u $ CAssign (CAssignOp) (transpileExpr e1) (transpileExpr e2)
 transpileExpr (IrBinop (AssignOp op) e1 e2) =
@@ -165,14 +165,14 @@ transpileExpr (IrEnumInit (BasicTypeSimpleEnum _ _) discriminant []) =
   transpileExpr (IrIdentifier discriminant)
 transpileExpr (IrEnumInit t discriminant []) = u $ CCompoundLit
   (cDecl t Nothing Nothing)
-  [ ( [u $ CMemberDesig (internalIdent "__discriminant")]
+  [ ( [u $ CMemberDesig (internalIdent $ s_unpack discriminantFieldName)]
     , u $ CInitExpr $ transpileExpr (IrIdentifier discriminant)
     )
   ]
 transpileExpr (IrEnumInit t@(BasicTypeComplexEnum name variants) discriminant fields)
   = u $ CCompoundLit
     (cDecl t Nothing Nothing)
-    [ ( [u $ CMemberDesig (internalIdent "__discriminant")]
+    [ ( [u $ CMemberDesig (internalIdent $ s_unpack discriminantFieldName)]
       , u $ CInitExpr $ transpileExpr (IrIdentifier discriminant)
       )
     , ( [ u

@@ -3,11 +3,11 @@ enum MySimpleEnum {
     Banana;
     Strawberry;
 
-    public function toString(): CString {
-        return match this {
-            Apple => "apple";
-            Banana => "banana";
-            Strawberry => "strawberry";
+    public function print(): CString {
+        match this {
+            Apple => printf("%s\n", "apple");
+            Banana => printf("%s\n", "banana");
+            Strawberry => printf("%s\n", "strawberry");
         }
     }
 }
@@ -16,18 +16,18 @@ enum MyComplexEnum {
     Apple2(i: Int);
     Banana2(a: Float, b: CString);
     Strawberry2;
-}
 
-function f(x: MyComplexEnum) {
-    match d {
-        Apple2(i) => {
-            printf("Apple2: %i\n", i);
-        }
-        Banana2(a, b) => {
-            printf("Banana2: %.1f, %s\n", a, b);
-        }
-        Strawberry2 => {
-            printf("Strawberry2\n");
+    public function print(): CString {
+        match this {
+            Apple2(i) => {
+                printf("Apple2: %i\n", i);
+            }
+            Banana2(a, b) => {
+                printf("Banana2: %.1f, %s\n", a, b);
+            }
+            Strawberry2 => {
+                printf("Strawberry2\n");
+            }
         }
     }
 }
@@ -54,11 +54,11 @@ function main() {
     // TODO: complex enum equality (not yet implemented)
 
     // simple enum methods + match
-    printf("%s\n", a.toString());
-    printf("%s\n", b.toString());
+    a.print();
+    b.print();
 
     // complex enum match with destructuring
-    f(c);
-    f(d);
-    f(e);
+    c.print();
+    d.print();
+    e.print();
 }

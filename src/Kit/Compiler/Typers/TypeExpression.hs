@@ -4,6 +4,7 @@ import Control.Applicative
 import Control.Monad
 import Data.IORef
 import Data.List
+import Data.Maybe
 import Kit.Ast
 import Kit.Compiler.Binding
 import Kit.Compiler.Context
@@ -132,22 +133,34 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           failTyping $ TypingError ("`Self` can only be used in methods") pos
 
     (Identifier v namespace) -> do
-      tryRewrite
-        (unknownTyped $ Identifier v namespace)
-        (case v of
-          Var vname -> do
-            binding <- resolveVar ctx (tctxScopes tctx) mod vname
-            case binding of
-              Just binding -> do
-                x <- typeVarBinding ctx vname binding pos
-                return $ x { tIsLvalue = True }
-              Nothing -> failTyping
-                $ TypingError ("Unknown identifier: " ++ s_unpack vname) pos
-          MacroVar vname t -> do
-            case find (\(name, _) -> name == vname) (tctxMacroVars tctx) of
-              Just (name, expr) -> r expr
-              Nothing           -> return ex
-        )
+      case (tctxState tctx, v) of
+        (TypingPattern, Var vname) -> do
+          binding <- resolveVar ctx (tctxScopes tctx) mod vname
+          case binding of
+            Just binding@(Binding { bindingType = EnumConstructor _ }) -> do
+              x <- typeVarBinding ctx vname binding pos
+              return $ x { tIsLvalue = True }
+            _ -> return ex
+        (_, Var vname) -> do
+          tryRewrite
+            (unknownTyped $ Identifier v namespace)
+            (do
+              binding <- resolveVar ctx (tctxScopes tctx) mod vname
+              case binding of
+                Just binding -> do
+                  x <- typeVarBinding ctx vname binding pos
+                  return $ x { tIsLvalue = True }
+                Nothing -> failTyping
+                  $ TypingError ("Unknown identifier: " ++ s_unpack vname) pos
+            )
+        (_, MacroVar vname t) -> do
+          tryRewrite
+            (unknownTyped $ Identifier v namespace)
+            (do
+              case find (\(name, _) -> name == vname) (tctxMacroVars tctx) of
+                Just (name, expr) -> r expr
+                Nothing           -> return ex
+            )
 
     (TypeAnnotation e1 t) -> do
       r1 <- r e1
@@ -439,11 +452,54 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
     (Match e1 cases (e2)) -> do
       r1      <- r e1
+      r2      <- maybeR e2
       complex <- case inferredType r1 of
-        TypeInstance tp params -> do
-          -- if this is a complex enum, it's a complex match
-          -- TODO: match and destructure
-          throwk $ InternalError "Not yet implemented" (Just pos)
+        TypeInstance (modPath, typeName) params -> do
+          def <- getTypeDefinition ctx modPath typeName
+          case def of
+            Just (TypeDefinition { typeSubtype = enum@(Enum{}) })
+              | not (enumIsSimple enum) -> do
+                cases' <- forM cases $ \c -> do
+                  let tctx' = tctx { tctxState = TypingPattern }
+                  pattern <- typeExpr ctx tctx' mod $ matchPattern c
+                  resolve $ TypeEq
+                    (inferredType r1)
+                    (inferredType pattern)
+                    "Match pattern must match the type of the matched value"
+                    (tPos pattern)
+                  patternScope <- newScope []
+                  let ids = exprMapReduce
+                        (\x -> case tExpr x of
+                          Identifier (Var v) [] ->
+                            Just (v, inferredType x, tPos x)
+                          _ -> Nothing
+                        )
+                        (\x acc -> case x of
+                          Just x  -> x : acc
+                          Nothing -> acc
+                        )
+                        tExpr
+                        []
+                        pattern
+                  forM_ ids $ \(id, t, pos) -> do
+                    bindToScope patternScope id $ newBinding
+                      ([], id)
+                      (VarBinding
+                        (newVarDefinition { varName = id, varType = t })
+                      )
+                      t
+                      []
+                      pos
+                  -- TODO: find pattern variables, bind them before typing body
+                  let tctx' =
+                        tctx { tctxScopes = patternScope : (tctxScopes tctx) }
+                  body <- typeExpr ctx tctx' mod $ matchBody c
+                  return $ MatchCase {matchPattern = pattern, matchBody = body}
+                return $ Just $ makeExprTyped (Match r1 cases' r2)
+                                              (voidType)
+                                              pos
+
+            _ -> return Nothing
         TypeTuple t -> do
           -- TODO: match and destructure
           throwk $ InternalError "Not yet implemented" (Just pos)
@@ -460,7 +516,6 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
               "Match pattern must match the type of the matched value"
               (tPos pattern)
             return $ MatchCase {matchPattern = pattern, matchBody = body}
-          r2 <- maybeR e2
           -- TODO: allow use of match as expression
           -- TODO: check for pattern overlap
           -- TODO: check for pattern exhaustiveness

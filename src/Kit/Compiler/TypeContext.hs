@@ -41,9 +41,14 @@ data TypeContext = TypeContext {
   tctxImplicits :: [TypedExpr],
   tctxTypeParams :: [(Str, ())], -- TODO
   tctxLoopCount :: Int,
-  tctxRewriteRecursionDepth :: Int
+  tctxRewriteRecursionDepth :: Int,
+  tctxState :: TypeContextState
   , tctxTemps :: Maybe (IORef [TypedExpr])
 }
+
+data TypeContextState
+  = TypingExpression
+  | TypingPattern
 
 newTypeContext :: [Scope Binding] -> IO TypeContext
 newTypeContext scopes = do
@@ -60,6 +65,7 @@ newTypeContext scopes = do
     , tctxLoopCount             = 0
     , tctxRewriteRecursionDepth = 0
     , tctxTemps                 = Nothing
+    , tctxState                 = TypingExpression
     }
 
 unknownType t pos = do

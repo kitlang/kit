@@ -48,3 +48,12 @@ convertEnumVariant converter@(Converter { exprConverter = exprConverter, typeCon
                           , variantValue     = newValue
                           , variantPos       = variantPos v
                           }
+
+discriminantFieldName :: Str
+discriminantFieldName = "__discriminant"
+
+variantFieldName :: Str
+variantFieldName = "__variant"
+
+discriminantMemberName :: Str -> Str
+discriminantMemberName discriminant = s_concat ["variant_", discriminant]
