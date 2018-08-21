@@ -126,11 +126,12 @@ displayFileSnippet span  = do
     hPutStrLn stderr $ "\n  " ++ show span
     contents <- readFile $ fp
     let content_lines = lines contents
-    forM_ [(startLine span) .. (endLine span)] $ \n -> do
+    let lineNumbers   = [(startLine span) .. (endLine span)]
+    forM_ lineNumbers $ \n -> do
       hSetSGR
         stderr
         [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
-      if n == (startLine span) + 3
+      if n == (startLine span) + 3 && (length lineNumbers > 5)
         then do
           hPutStrLn stderr $ "\n  ...\n"
         else unless (n > (startLine span) + 3 && n < (endLine span) - 2) $ do
@@ -164,7 +165,7 @@ displayFileSnippet span  = do
                   ]
                 ePutStrLn
                   (take ((this_endCol) - (this_startCol) + 1) $ repeat '^')
-    hSetSGR   stderr [Reset]
+    hSetSGR stderr [Reset]
     case rewrittenFrom span of
       Just x -> do
         hPutStrLn stderr "    ... rewritten from ..."
