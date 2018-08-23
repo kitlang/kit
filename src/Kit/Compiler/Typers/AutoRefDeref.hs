@@ -23,14 +23,13 @@ import Kit.Str
 autoRefDeref
   :: CompileContext
   -> TypeContext
-  -> Module
   -> ConcreteType
   -> ConcreteType
   -> TypedExpr
   -> [TypedExpr]
   -> TypedExpr
   -> IO TypedExpr
-autoRefDeref ctx tctx mod toType fromType original temps ex = do
+autoRefDeref ctx tctx toType fromType original temps ex = do
   let
     tryLvalue a b = do
       case tctxTemps tctx of
@@ -45,7 +44,7 @@ autoRefDeref ctx tctx mod toType fromType original temps ex = do
                   (inferredType ex)
                   (tPos ex)
                 )
-          autoRefDeref ctx tctx mod a b original (temp : temps)
+          autoRefDeref ctx tctx a b original (temp : temps)
             $ (makeExprTyped (Identifier (Var tmp) [])
                              (inferredType ex)
                              (tPos ex)
@@ -56,21 +55,21 @@ autoRefDeref ctx tctx mod toType fromType original temps ex = do
           Just v -> do
             modifyIORef v (\val -> val ++ reverse temps)
         return ex
-  toType   <- knownType ctx tctx mod toType
-  fromType <- knownType ctx tctx mod fromType
-  result   <- unify ctx tctx mod toType fromType
+  toType   <- knownType ctx tctx toType
+  fromType <- knownType ctx tctx fromType
+  result   <- unify ctx tctx toType fromType
   case result of
     Just _ -> finalizeResult ex
     _      -> case (toType, fromType) of
-      (TypePtr a, TypePtr b) -> autoRefDeref ctx tctx mod a b original temps ex
+      (TypePtr a, TypePtr b) -> autoRefDeref ctx tctx a b original temps ex
       (TypePtr a, b        ) -> if tIsLvalue ex
-        then autoRefDeref ctx tctx mod a b original temps (addRef ex)
+        then autoRefDeref ctx tctx a b original temps (addRef ex)
         else tryLvalue toType fromType
       (a, TypePtr (TypeBasicType BasicTypeVoid)) ->
         -- don't try to deref a void pointer
         return original
       (a, TypePtr b) ->
-        autoRefDeref ctx tctx mod a b original temps (addDeref ex)
+        autoRefDeref ctx tctx a b original temps (addDeref ex)
       (TypeBox tp params, b) -> do
         if tIsLvalue ex
           then do

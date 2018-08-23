@@ -245,6 +245,7 @@ addStmtToModuleInterface ctx mod s = do
                   (functionType method)
                   [ (argName arg, argType arg) | arg <- functionArgs method ]
                   (functionVarargs method)
+                  []
                 )
                 (modPath mod ++ [name])
                 (functionPos method)
@@ -291,6 +292,7 @@ addStmtToModuleInterface ctx mod s = do
                 (functionType method)
                 [ (argName arg, argType arg) | arg <- functionArgs method ]
                 (functionVarargs method)
+                []
               )
               (modPath mod ++ [name])
               (functionPos method)
@@ -325,6 +327,7 @@ addStmtToModuleInterface ctx mod s = do
             (functionType converted)
             [ (argName arg, argType arg) | arg <- functionArgs converted ]
             varargs
+            []
           )
         return
           [ DeclFunction d

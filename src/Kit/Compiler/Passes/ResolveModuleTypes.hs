@@ -123,7 +123,8 @@ resolveTypesForMod ctx (mod, contents) = do
   let
     paramConverter params =
       let tctx' = tctx
-            { tctxTypeParams = [ (p, ()) | p <- params ] ++ tctxTypeParams tctx
+            { tctxTypeParams = [ (p, TypeTypeParam p) | p <- params ]
+              ++ tctxTypeParams tctx
             }
       in  converter (convertExpr ctx tctx' mod) (resolveMaybeType ctx tctx' mod)
 
@@ -142,7 +143,7 @@ resolveTypesForMod ctx (mod, contents) = do
           case (bindingType binding, decl) of
             (VarBinding vi, DeclVar v) -> do
               converted <- convertVarDefinition varConverter v
-              mergeVarInfo ctx tctx mod vi converted
+              mergeVarInfo ctx tctx vi converted
               bindToScope (modScope mod)
                           (declName decl)
                           (binding { bindingType = VarBinding converted })
@@ -150,7 +151,7 @@ resolveTypesForMod ctx (mod, contents) = do
 
             (FunctionBinding fi, DeclFunction f) -> do
               converted <- convertFunctionDefinition paramConverter f
-              mergeFunctionInfo ctx tctx mod fi converted
+              mergeFunctionInfo ctx tctx fi converted
               bindToScope
                 (modScope mod)
                 (declName decl)
@@ -160,11 +161,12 @@ resolveTypesForMod ctx (mod, contents) = do
             (TypeBinding ti, DeclType t) -> do
               let
                 paramConverter params =
-                  let tctx' = tctx
-                        { tctxTypeParams = [ (p, ()) | p <- params ]
-                          ++ tctxTypeParams tctx
-                        , tctxSelf       = Just (modPath mod, typeName t)
-                        }
+                  let
+                    tctx' = tctx
+                      { tctxTypeParams = [ (p, TypeTypeParam p) | p <- params ]
+                        ++ tctxTypeParams tctx
+                      , tctxSelf       = Just (modPath mod, typeName t)
+                      }
                   in  converter (convertExpr ctx tctx' mod)
                                 (resolveMaybeType ctx tctx' mod)
               converted <- do
@@ -175,32 +177,27 @@ resolveTypesForMod ctx (mod, contents) = do
                     thisType <- makeTypeVar ctx (typePos t)
                     return $ implicitifyInstanceMethods thisType c
 
-              forM_
-                (zip (typeStaticFields ti) (typeStaticFields converted))
-                (\(field1, field2) -> mergeVarInfo ctx tctx mod field1 field2)
+              forM_ (zip (typeStaticFields ti) (typeStaticFields converted))
+                    (\(field1, field2) -> mergeVarInfo ctx tctx field1 field2)
               forM_
                 (zip (typeStaticMethods ti) (typeStaticMethods converted))
                 (\(method1, method2) ->
-                  mergeFunctionInfo ctx tctx mod method1 method2
+                  mergeFunctionInfo ctx tctx method1 method2
                 )
               forM_
                 (zip (typeMethods ti) (typeMethods converted))
                 (\(method1, method2) ->
-                  mergeFunctionInfo ctx tctx mod method1 method2
+                  mergeFunctionInfo ctx tctx method1 method2
                 )
               case (typeSubtype ti, typeSubtype converted) of
                 (Struct { structFields = fields1 }, Struct { structFields = fields2 })
                   -> forM_
                     (zip fields1 fields2)
-                    (\(field1, field2) ->
-                      mergeVarInfo ctx tctx mod field1 field2
-                    )
+                    (\(field1, field2) -> mergeVarInfo ctx tctx field1 field2)
                 (Union { unionFields = fields1 }, Union { unionFields = fields2 })
                   -> forM_
                     (zip fields1 fields2)
-                    (\(field1, field2) ->
-                      mergeVarInfo ctx tctx mod field1 field2
-                    )
+                    (\(field1, field2) -> mergeVarInfo ctx tctx field1 field2)
                 _ -> return ()
 
               bindToScope (modScope mod)
@@ -213,7 +210,7 @@ resolveTypesForMod ctx (mod, contents) = do
               forM_
                 (zip (traitMethods ti) (traitMethods converted))
                 (\(method1, method2) ->
-                  mergeFunctionInfo ctx tctx mod method1 method2
+                  mergeFunctionInfo ctx tctx method1 method2
                 )
               bindToScope (modScope mod)
                           (declName decl)
@@ -233,7 +230,7 @@ resolveTypesForMod ctx (mod, contents) = do
 addSpecialization
   :: CompileContext -> Module -> ((TypeSpec, TypeSpec), Span) -> IO ()
 addSpecialization ctx mod (((TypeSpec tp params _), b), pos) = do
-  tctx  <- newTypeContext []
+  tctx  <- modTypeContext ctx mod
   found <- resolveModuleBinding ctx tctx mod tp
   case found of
     Just (Binding { bindingType = TraitBinding _, bindingConcrete = TypeTraitConstraint (tp, params') })
@@ -247,7 +244,9 @@ addSpecialization ctx mod (((TypeSpec tp params _), b), pos) = do
                             if pos' == pos
             then return ()
             else throwk $ DuplicateSpecializationError (modPath mod) tp pos' pos
-          _ -> h_insert (ctxTraitSpecializations ctx) tp (b, pos)
+          _ -> do
+            ct <- resolveType ctx tctx mod b
+            h_insert (ctxTraitSpecializations ctx) tp (ct, pos)
     _ -> throwk $ BasicError ("Couldn't resolve trait: " ++ show tp) (Just pos)
 
 addImplementation
@@ -293,21 +292,19 @@ addModUsing ctx tctx mod using = do
     using
   modifyIORef (modUsing mod) (\l -> converted : l)
 
-mergeVarInfo ctx tctx mod var1 var2 = resolveConstraint
+mergeVarInfo ctx tctx var1 var2 = resolveConstraint
   ctx
   tctx
-  mod
   (TypeEq (varType var1)
           (varType var2)
           "Var type must match its annotation"
           (varPos var1)
   )
 
-mergeFunctionInfo ctx tctx mod f1 f2 = do
+mergeFunctionInfo ctx tctx f1 f2 = do
   resolveConstraint
     ctx
     tctx
-    mod
     (TypeEq (functionType f1)
             (functionType f2)
             "Function return type must match its annotation"
@@ -319,10 +316,19 @@ mergeFunctionInfo ctx tctx mod f1 f2 = do
       resolveConstraint
         ctx
         tctx
-        mod
         (TypeEq (argType arg1)
                 (argType arg2)
                 "Function argument type must match its annotation"
                 (argPos arg1)
         )
     )
+
+
+resolveModuleBinding
+  :: CompileContext -> TypeContext -> Module -> TypePath -> IO (Maybe Binding)
+resolveModuleBinding ctx tctx mod (m, name) = do
+  importedMods <- getModImports ctx mod
+  let searchMods = if null m
+        then importedMods
+        else (filter (\mod' -> modPath mod' == m) importedMods)
+  resolveBinding (map modScope searchMods) name

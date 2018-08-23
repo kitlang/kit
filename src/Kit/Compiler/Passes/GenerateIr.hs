@@ -81,7 +81,6 @@ generateDeclIr ctx mod t = do
               && (ctxMainModule ctx == modPath mod)
               && not (ctxIsLibrary ctx)
 
-      -- FIXME: params
       converted <- convertFunctionDefinition paramConverter f
 
       if (isMain && functionType converted == BasicTypeVoid)
@@ -264,6 +263,10 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
         TypeTypeOf x -> throwk $ BasicError
           "Names of types can't be used as runtime values"
           (Just pos)
+        TypeFunction rt args varargs params | not (null params) -> do
+          tctx <- newTypeContext []
+          params <- mapM (mapType $ knownType ctx tctx) params
+          return $ IrIdentifier $ mangleName namespace $ monomorphName v params
         _ -> return $ IrIdentifier (mangleName namespace v)
       (Identifier     (MacroVar v _) _) -> return $ IrIdentifier v
       (TypeAnnotation e1             t) -> throw $ KitError $ BasicError

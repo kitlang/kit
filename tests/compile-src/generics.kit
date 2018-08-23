@@ -1,0 +1,17 @@
+function genericFunction[T](fmt: CString, v: T) {
+    printf(fmt, v);
+}
+
+function genericFunction2[T, U](fmt: CString, t: T, u: U) {
+    printf(fmt, t, u);
+}
+
+function main() {
+    genericFunction("%i\n", 1);
+    genericFunction("%i\n", 2);
+    genericFunction("%.2f\n", 3.0);
+    genericFunction("%s\n", "hello");
+
+    genericFunction2("%s%i\n", "hello", 1);
+    genericFunction2("%i%s\n", 1, "hello");
+}

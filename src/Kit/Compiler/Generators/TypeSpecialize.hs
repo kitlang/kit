@@ -84,7 +84,6 @@ findUnderlyingType ctx mod t = do
     -- TypePtr ConcreteType
     -- TypeArr ConcreteType (Maybe Int)
     -- TypeEnumConstructor TypePath ConcreteArgs
-    -- TypeIdentifier ConcreteType
     -- TypeRange
     -- TypeTraitPointer TypePath
     TypePtr t -> do
@@ -92,18 +91,23 @@ findUnderlyingType ctx mod t = do
       return $ CPtr t'
     TypeTypeVar tv -> do
       tctx  <- newTypeContext [] -- TODO...
-      known <- knownType ctx tctx mod t
+      known <- knownType ctx tctx t
       case known of
-        TypeTypeVar id -> if tv == id
-          then findDefaultType ctx mod id
-          else findUnderlyingType ctx mod known
+        TypeTypeVar id -> do
+          info <- getTypeVar ctx id
+          throwk $ BasicError
+            ("The type of this expression is ambiguous; not enough information to infer a type for type var #"
+            ++ show id
+            ++ ".\n\nTry adding a type annotation: `expression: Type`"
+            )
+            (Just $ head $ typeVarPositions info)
         _ -> findUnderlyingType ctx mod known
     TypeTuple t -> do
       slots <- forM t (findUnderlyingType ctx mod)
       return $ BasicTypeTuple
         (s_pack (basicTypeAbbreviation $ BasicTypeTuple "" slots))
         slots
-    TypeFunction rt args var -> do
+    TypeFunction rt args var params -> do
       rt'   <- findUnderlyingType ctx mod rt
       args' <- forM
         args
@@ -125,65 +129,3 @@ findUnderlyingType ctx mod t = do
     _                     -> return ()
 
   return x
-
--- TODO: finding specializations should be done as a separate step
-findDefaultType :: CompileContext -> Module -> Int -> IO BasicType
-findDefaultType ctx mod id = do
-  info <- getTypeVar ctx id
-  if null (typeVarConstraints info)
-    then throwk $ BasicError
-      ("The type of this expression is ambiguous; not enough information to infer a type for type var #"
-      ++ show id
-      ++ ".\n\nTry adding a type annotation: `expression: Type`"
-      )
-      (Just $ head $ typeVarPositions info)
-    else do
-      tctx <- newTypeContext []
-      let constraints = typeVarConstraints info
-      defaults <- mapM (h_lookup (ctxTraitSpecializations ctx))
-                       (map (fst . fst) constraints)
-      let specializations = catMaybes defaults
-      specialization <- foldM
-        (\acc (tp, _) -> do
-          spec <- resolveType ctx tctx mod tp
-          case acc of
-            Just _  -> return acc
-            Nothing -> do
-              meetConstraints <- foldM
-                (\acc' c -> case acc' of
-                  Just _ -> do
-                    -- FIXME: params
-                    result <- unify ctx
-                                    tctx
-                                    mod
-                                    spec
-                                    (TypeTraitConstraint (c, []))
-                    return $ case result of
-                      Just _ -> acc'
-                      _      -> Nothing
-                  Nothing -> do
-                    return acc'
-                )
-                (Just spec)
-                (map (fst . fst) constraints)
-              case meetConstraints of
-                Just _  -> return meetConstraints
-                Nothing -> return Nothing
-        )
-        Nothing
-        specializations
-      case specialization of
-        Just t -> do
-          tctx <- newTypeContext []
-          findUnderlyingType ctx mod t
-        _ -> throwk $ BasicError
-          ("This expression has constraints: \n\n"
-          ++ (intercalate
-               "\n"
-               [ "  - " ++ s_unpack (showTypePath c) ++ " (" ++ reason ++ ")"
-               | ((c, _), (reason, _)) <- constraints
-               ]
-             )
-          ++ "\n\nbut no specialization for one of these traits satisfies all of them, so no concrete type can be determined.\n\nTry adding a type annotation: `(myExpression: Type)`"
-          )
-          (Just $ head $ typeVarPositions info)

@@ -35,6 +35,27 @@ typeFunction ctx mod f = do
   --modifyIORef (modTypedContents mod) ((:) $ DeclFunction typed)
   return $ (Just $ DeclFunction typed, complete)
 
+typeFunctionMonomorph
+  :: CompileContext
+  -> Module
+  -> FunctionDefinition TypedExpr ConcreteType
+  -> [ConcreteType]
+  -> IO (Maybe TypedDecl, Bool)
+typeFunctionMonomorph ctx mod f params = do
+  debugLog ctx
+    $  "generating function monomorph for "
+    ++ s_unpack (functionName f)
+    ++ " in "
+    ++ show mod
+  tctx <- modTypeContext ctx mod
+  let tctx' = tctx
+        { tctxTypeParams = [ (paramName param, ct)
+                           | (param, ct) <- zip (functionParams f) params
+                           ]
+        }
+  (typed, complete) <- typeFunctionDefinition ctx tctx' mod f
+  return $ (Just $ DeclFunction typed, complete)
+
 typeFunctionDefinition
   :: CompileContext
   -> TypeContext
@@ -49,8 +70,11 @@ typeFunctionDefinition ctx tctx' mod f = do
   functionScope <- newScope (modPath mod)
   let tctx = tctx' { tctxScopes = functionScope : tctxScopes tctx' }
 
+  args <- forM (functionArgs f) $ \arg -> do
+    t <- knownType ctx tctx $ argType arg
+    return $ arg { argType = t }
   forM_
-    (functionArgs f)
+    args
     (\arg -> bindToScope
       functionScope
       (argName arg)
@@ -66,16 +90,12 @@ typeFunctionDefinition ctx tctx' mod f = do
         (argPos arg)
       )
     )
-  let returnType = functionType f
+  returnType <- knownType ctx tctx $ functionType f
   let ftctx =
-        (tctx
-          { tctxScopes     = functionScope : (tctxScopes tctx)
-          , tctxTypeParams = [ (paramName param, ())
-                             | param <- functionParams f
-                             ]
-          , tctxReturnType = Just returnType
+        (tctx { tctxScopes     = functionScope : (tctxScopes tctx)
+              , tctxReturnType = Just returnType
           -- TODO: , tctxSelf =
-          }
+              }
         )
   body <- typeMaybeExpr ctx ftctx mod (functionBody f)
   if case body of
@@ -84,13 +104,12 @@ typeFunctionDefinition ctx tctx' mod f = do
     then do
       -- We're done with the body, or there wasn't one
       -- Try to unify with void; if unification doesn't fail, we didn't encounter a return statement, so the function is void.
-      unification <- unify ctx ftctx mod returnType voidType
+      unification <- unify ctx ftctx returnType voidType
       case unification of
         Just _ -> do
           resolveConstraint
             ctx
             tctx
-            mod
             (TypeEq returnType
                     voidType
                     "Functions whose return type unifies with Void are Void"
@@ -99,9 +118,10 @@ typeFunctionDefinition ctx tctx' mod f = do
         _ -> return ()
       return
         $ ( f { functionBody      = body
+              , functionArgs      = args
               , functionType      = returnType
               , functionNamespace = (if isMain then [] else functionNamespace f)
               }
           , True
           )
-    else return (f { functionBody = body }, False)
+    else return (f { functionBody = body, functionArgs = args }, False)

@@ -10,7 +10,7 @@ import Kit.Str
 testUnify ctx a b c = do
   tctx        <- newTypeContext []
   mod         <- newMod [] ""
-  unification <- unify ctx tctx mod a b
+  unification <- unify ctx tctx a b
   unification `shouldBe` Just [c]
 
 spec :: Spec

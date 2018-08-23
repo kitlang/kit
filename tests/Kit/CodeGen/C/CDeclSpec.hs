@@ -56,4 +56,4 @@ spec = do
         )
         "struct MyEnum_Variant_Variant2 {\nint8_t field1; uint8_t field2;\n}\n\
         \enum MyEnum_Discriminant {\nVariant1, Variant2\n}\n\
-        \struct MyEnum {\nenum MyEnum_Discriminant __discriminant;\nunion {\nstruct MyEnum_Variant_Variant2 variant_Variant2;\n} __variant;\n}"
+        \struct MyEnum {\nenum MyEnum_Discriminant __dsc;\nunion {\nstruct MyEnum_Variant_Variant2 variant_Variant2;\n} __var;\n}"

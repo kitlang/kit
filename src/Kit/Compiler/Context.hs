@@ -5,6 +5,7 @@ import Control.Exception
 import Control.Monad
 import Data.Aeson
 import Data.IORef
+import Data.List
 import qualified Data.Text as T
 import System.Directory
 import System.FilePath
@@ -31,24 +32,30 @@ instance Errable DuplicateGlobalNameError where
   errPos (DuplicateGlobalNameError _ _ pos _) = Just pos
 
 data CompileContext = CompileContext {
+  -- state
+  ctxModules :: HashTable ModulePath Module,
+  ctxFailedModules :: HashTable ModulePath (),
+  ctxPreludes :: HashTable ModulePath [Statement],
+  ctxModuleGraph :: IORef [ModuleGraphNode],
+  ctxIncludes :: IORef [FilePath],
+  ctxLastTypeVar :: IORef Int,
+  ctxTypeVariables :: HashTable Int TypeVarInfo,
+  ctxTypedDecls :: HashTable TypePath TypedDecl,
+  ctxTraitSpecializations :: HashTable TypePath (ConcreteType, Span),
+  ctxImpls :: HashTable TypePath (HashTable ConcreteType (TraitImplementation TypedExpr ConcreteType)),
+  ctxGlobalNames :: HashTable Str Span,
+  ctxPendingGenerics :: IORef [(TypePath, [ConcreteType])],
+  ctxCompleteGenerics :: HashTable (TypePath, [ConcreteType]) (),
+  ctxUnresolvedTypeVars :: HashTable Int (),
+
+  -- options
+  ctxVerbose :: Bool,
   ctxMainModule :: ModulePath,
   ctxIsLibrary :: Bool,
   ctxSourcePaths :: [FilePath],
   ctxIncludePaths :: [FilePath],
   ctxOutputDir :: FilePath,
   ctxDefines :: [(String, String)],
-  ctxModules :: HashTable ModulePath Module,
-  ctxFailedModules :: HashTable ModulePath (),
-  ctxPreludes :: HashTable ModulePath [Statement],
-  ctxVerbose :: Bool,
-  ctxModuleGraph :: IORef [ModuleGraphNode],
-  ctxIncludes :: IORef [FilePath],
-  ctxLastTypeVar :: IORef Int,
-  ctxTypeVariables :: HashTable Int TypeVarInfo,
-  ctxTypedDecls :: HashTable TypePath TypedDecl,
-  ctxTraitSpecializations :: HashTable TypePath (TypeSpec, Span),
-  ctxImpls :: HashTable TypePath (HashTable ConcreteType (TraitImplementation TypedExpr ConcreteType)),
-  ctxGlobalNames :: HashTable Str Span,
   ctxCompilerFlags :: [String],
   ctxLinkerFlags :: [String],
   ctxNoCompile :: Bool,
@@ -75,17 +82,20 @@ instance Show CompileContext where
 
 newCompileContext :: IO CompileContext
 newCompileContext = do
-  module_graph <- newIORef []
-  mods         <- h_new
-  failed       <- h_new
-  preludes     <- h_new
-  typedDecls   <- h_new
-  includes     <- newIORef []
-  lastTypeVar  <- newIORef 0
-  typeVars     <- h_new
-  specs        <- h_new
-  impls        <- h_new
-  globals      <- h_new
+  module_graph     <- newIORef []
+  mods             <- h_new
+  failed           <- h_new
+  preludes         <- h_new
+  typedDecls       <- h_new
+  includes         <- newIORef []
+  lastTypeVar      <- newIORef 0
+  typeVars         <- h_new
+  specs            <- h_new
+  impls            <- h_new
+  globals          <- h_new
+  pendingGenerics  <- newIORef []
+  completeGenerics <- h_new
+  unresolved       <- h_new
   return $ CompileContext
     { ctxMainModule           = ["main"]
     , ctxIsLibrary            = False
@@ -100,11 +110,14 @@ newCompileContext = do
     , ctxModuleGraph          = module_graph
     , ctxIncludes             = includes
     , ctxLastTypeVar          = lastTypeVar
+    , ctxUnresolvedTypeVars   = unresolved
     , ctxTypeVariables        = typeVars
     , ctxTypedDecls           = typedDecls
     , ctxTraitSpecializations = specs
     , ctxImpls                = impls
     , ctxGlobalNames          = globals
+    , ctxPendingGenerics      = pendingGenerics
+    , ctxCompleteGenerics     = completeGenerics
     , ctxCompilerFlags        = []
     , ctxLinkerFlags          = []
     , ctxNoCompile            = False
@@ -149,6 +162,7 @@ makeTypeVar ctx pos = do
   let next = last + 1
   writeIORef (ctxLastTypeVar ctx) next
   h_insert (ctxTypeVariables ctx) next (newTypeVarInfo next pos)
+  h_insert (ctxUnresolvedTypeVars ctx) next ()
   return $ TypeTypeVar next
 
 getTypeVar :: CompileContext -> Int -> IO TypeVarInfo
@@ -213,6 +227,23 @@ makeBox ctx tp ex = do
           return $ Just $ ex { tExpr = Box impl ex, inferredType = t' }
         Nothing -> return Nothing
     else return Nothing
+
+makeGeneric :: CompileContext -> TypePath -> Span -> IO [(Str, ConcreteType)]
+makeGeneric ctx tp@(modPath, name) pos = do
+  defMod  <- getMod ctx modPath
+  binding <- resolveLocal (modScope defMod) name
+  let params = case binding of
+        Just (Binding { bindingType = TypeBinding def }) -> typeParams def
+        Just (Binding { bindingType = FunctionBinding def }) ->
+          functionParams def
+        Just (Binding { bindingType = TraitBinding def }) -> traitParams def
+  params <- forM params $ \param -> do
+    -- TODO: add param constraints here
+    tv <- makeTypeVar ctx pos
+    return (paramName param, tv)
+  let paramTypes = map snd params
+  modifyIORef (ctxPendingGenerics ctx) (\acc -> (tp, paramTypes) : acc)
+  return params
 
 getTypeDefinition
   :: CompileContext

@@ -33,8 +33,7 @@ instance Errable UnificationError where
 instance Eq UnificationError where
   (==) (UnificationError _ c1) (UnificationError _ c2) = c1 == c2
 
-getAbstractParents
-  :: CompileContext -> ConcreteType -> IO [ConcreteType]
+getAbstractParents :: CompileContext -> ConcreteType -> IO [ConcreteType]
 getAbstractParents ctx t = do
   case t of
     TypeInstance (modPath, typeName) params -> do
@@ -56,11 +55,10 @@ getAbstractParents ctx t = do
 unify
   :: CompileContext
   -> TypeContext
-  -> Module
   -> ConcreteType
   -> ConcreteType
   -> IO (Maybe [TypeInformation])
-unify ctx tctx mod a' b' = do
+unify ctx tctx a' b' = do
   let checkResults x = foldr
         (\result acc -> case acc of
           Just x -> case result of
@@ -70,8 +68,8 @@ unify ctx tctx mod a' b' = do
         )
         (Just [])
         x
-  a <- knownType ctx tctx mod a'
-  b <- knownType ctx tctx mod b'
+  a <- knownType ctx tctx a'
+  b <- knownType ctx tctx b'
   case (a, b) of
     (TypeTypeVar i, TypeTraitConstraint t) -> do
       info <- getTypeVar ctx i
@@ -90,26 +88,36 @@ unify ctx tctx mod a' b' = do
       results <- forM
         constraints
         (\((tp, params), _) ->
-          unify ctx tctx mod (TypeTraitConstraint (tp, params)) x
+          unify ctx tctx (TypeTraitConstraint (tp, params)) x
         )
       return $ checkResults ((Just $ [TypeVarIs i x]) : results)
-    (_                    , TypeTypeVar _) -> unify ctx tctx mod b a
+    (_                    , TypeTypeVar _) -> unify ctx tctx b a
     (TypeTraitConstraint t, x            ) -> do
       impl <- resolveTraitConstraint ctx t x
       return $ if impl then Just [] else Nothing
-    (_, TypeTraitConstraint v) -> unify ctx tctx mod b a
+    (_, TypeTraitConstraint v) -> unify ctx tctx b a
     (TypeBasicType a, TypeBasicType b) -> return $ unifyBasic a b
     (TypePtr (TypeBasicType BasicTypeVoid), TypePtr _) -> return $ Just []
     (TypePtr _, (TypeBasicType BasicTypeVoid)) -> return $ Just []
-    (TypePtr a, TypePtr b) -> unify ctx tctx mod a b
+    (TypePtr a, TypePtr b) -> unify ctx tctx a b
     (TypeTuple a, TypeTuple b) | length a == length b -> do
-      vals <- forM (zip a b) (\(a, b) -> unify ctx tctx mod a b)
+      vals <- forM (zip a b) (\(a, b) -> unify ctx tctx a b)
       return $ checkResults vals
-    (TypeFunction rt1 args1 v1, TypeFunction rt2 args2 v2) | v1 == v2 -> do
-      rt   <- unify ctx tctx mod rt1 rt2
-      args <- forM (zip args1 args2)
-                   (\((_, a), (_, b)) -> unify ctx tctx mod a b)
+    (TypeFunction rt1 args1 v1 _, TypeFunction rt2 args2 v2 _) | v1 == v2 -> do
+      rt   <- unify ctx tctx rt1 rt2
+      args <- forM (zip args1 args2) (\((_, a), (_, b)) -> unify ctx tctx a b)
       return $ checkResults $ rt : args
+    (TypeInstance tp1 params1, TypeInstance tp2 params2) -> do
+      if (tp1 == tp2) && (length params1 == length params2)
+        then do
+          paramMatch <- mapM (\(a, b) -> unify ctx tctx a b)
+                             (zip params1 params2)
+          return $ checkResults paramMatch
+        else do
+          parents <- getAbstractParents ctx b
+          case find ((==) a) parents of
+            Just _ -> return $ Just []
+            _      -> return Nothing
     (_, TypeInstance tp1 params1) -> do
       if a == b
         then return $ Just []
@@ -135,10 +143,9 @@ unifyBasic (BasicTypeUnknown) (_              ) = Nothing
 unifyBasic (CPtr a          ) (CPtr b         ) = unifyBasic a b
 unifyBasic a b = if a == b then Just [] else Nothing
 
-resolveConstraint
-  :: CompileContext -> TypeContext -> Module -> TypeConstraint -> IO ()
-resolveConstraint ctx tctx mod constraint@(TypeEq a b reason pos) = do
-  results <- resolveConstraintOrThrow ctx tctx mod constraint
+resolveConstraint :: CompileContext -> TypeContext -> TypeConstraint -> IO ()
+resolveConstraint ctx tctx constraint@(TypeEq a b reason pos) = do
+  results <- resolveConstraintOrThrow ctx tctx constraint
   forM_ results $ \result -> case result of
     TypeVarIs a (TypeTypeVar b) | a == b -> do
       -- tautological; would cause an endless loop
@@ -155,6 +162,8 @@ resolveConstraint ctx tctx mod constraint@(TypeEq a b reason pos) = do
         h_insert (ctxTypeVariables ctx)
                  (typeVarId info2)
                  (info2 { typeVarConstraints = constraints })
+        unresolved <- h_exists (ctxUnresolvedTypeVars ctx) (typeVarId info1)
+        when unresolved $ h_delete (ctxUnresolvedTypeVars ctx) (typeVarId info1)
     TypeVarIs id x -> do
       info <- getTypeVar ctx id
       let constraints = typeVarConstraints info
@@ -163,13 +172,14 @@ resolveConstraint ctx tctx mod constraint@(TypeEq a b reason pos) = do
         (\(constraint, (reason', pos')) -> resolveConstraint
           ctx
           tctx
-          mod
           (TypeEq x (TypeTraitConstraint constraint) reason' pos')
         )
       info <- getTypeVar ctx id
       h_insert (ctxTypeVariables ctx)
                (typeVarId info)
                (info { typeVarValue = Just x })
+      unresolved <- h_exists (ctxUnresolvedTypeVars ctx) (typeVarId info)
+      when unresolved $ h_delete (ctxUnresolvedTypeVars ctx) (typeVarId info)
     TypeVarConstraint id constraint -> do
       info <- getTypeVar ctx id
       h_insert (ctxTypeVariables ctx)
@@ -177,15 +187,11 @@ resolveConstraint ctx tctx mod constraint@(TypeEq a b reason pos) = do
                (addTypeVarConstraints info constraint reason pos)
 
 resolveConstraintOrThrow
-  :: CompileContext
-  -> TypeContext
-  -> Module
-  -> TypeConstraint
-  -> IO [TypeInformation]
-resolveConstraintOrThrow ctx tctx mod t@(TypeEq a' b' reason pos) = do
-  a      <- knownType ctx tctx mod a'
-  b      <- knownType ctx tctx mod b'
-  result <- unify ctx tctx mod a b
+  :: CompileContext -> TypeContext -> TypeConstraint -> IO [TypeInformation]
+resolveConstraintOrThrow ctx tctx t@(TypeEq a' b' reason pos) = do
+  a      <- knownType ctx tctx a'
+  b      <- knownType ctx tctx b'
+  result <- unify ctx tctx a b
   case result of
     Just x  -> return $ x
     Nothing -> throw $ KitError $ UnificationError ctx t

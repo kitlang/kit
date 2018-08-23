@@ -85,17 +85,17 @@ spec = do
         , (TypePtr
             (TypeFunction (TypeBasicType $ BasicTypeInt 16)
                           [("arg1", TypeBasicType $ BasicTypeInt 16)]
-                          False
+                          False []
             )
           )
         )
       , ( "Parses void functions"
         , "void_func1"
-        , TypeFunction (TypeBasicType $ BasicTypeVoid) [] False
+        , TypeFunction (TypeBasicType $ BasicTypeVoid) [] False []
         )
       , ( "Parses functions with non-void types"
         , "int_func1"
-        , TypeFunction (TypeBasicType $ BasicTypeInt 16) [] False
+        , TypeFunction (TypeBasicType $ BasicTypeInt 16) [] False []
         )
       , ( "Parses functions with arguments"
         , "func_with_args"
@@ -104,29 +104,29 @@ spec = do
           [ ("arg1", TypeBasicType $ BasicTypeInt 16)
           , ("arg2", TypeBasicType $ BasicTypeUint 64)
           ]
-          False
+          False []
         )
       , ( "Parses functions with struct return value/arguments"
         , "struct_func"
         , TypeFunction (TypeInstance (["c"], "Struct1") [])
                        [("a", TypeInstance (["c"], "Struct2") [])]
-                       False
+                       False []
         )
       , ( "Parses functions with pointer return value/arguments"
         , "pointer_func"
         , TypeFunction (TypePtr $ TypeBasicType $ BasicTypeFloat 32)
                        [("arg1", TypePtr $ TypeBasicType $ BasicTypeInt 16)]
-                       False
+                       False []
         )
       , ( "Parses variadic functions"
         , "varargs_func"
         , TypeFunction (TypeBasicType $ BasicTypeVoid)
                        [("a", TypeBasicType $ BasicTypeInt 16)]
-                       True
+                       True []
         )
       , ( "Parses void arg functions"
         , "void_func"
-        , TypeFunction (TypeBasicType $ BasicTypeInt 32) [] False
+        , TypeFunction (TypeBasicType $ BasicTypeInt 32) [] False []
         )
       ]
       (\(label, name, ct) -> it label $ do

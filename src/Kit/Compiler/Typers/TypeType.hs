@@ -32,7 +32,7 @@ typeTypeDefinition ctx mod def@(TypeDefinition { typeName = name }) = do
   tctx' <- modTypeContext ctx mod
   binding <- scopeGet (modScope mod) name
   let tctx = tctx'
-        { tctxTypeParams = [ (paramName param, ()) | param <- typeParams def ]
+        { tctxTypeParams = [ (paramName param, TypeTypeParam (paramName param)) | param <- typeParams def ]
         -- , tctxSelf = Just $ TypeTypeOf (bindingConcrete binding)
         }
   let r = typeExpr ctx tctx mod
@@ -69,7 +69,6 @@ typeTypeDefinition ctx mod def@(TypeDefinition { typeName = name }) = do
             resolveConstraint
               ctx
               tctx
-              mod
               (TypeEq (inferredType def)
                       (varType field)
                       "Struct field default value must match the field's type"

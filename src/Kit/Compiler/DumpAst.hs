@@ -15,6 +15,12 @@ import Kit.Log
 import Kit.Parser
 import Kit.Str
 
+dumpModuleContent :: CompileContext -> Module -> [TypedDecl] -> IO ()
+dumpModuleContent ctx mod defs = do
+  putStrLn $ show mod
+  forM_ defs (dumpModuleDecl ctx mod 0)
+  putStrLn ""
+
 dumpModuleDecl :: CompileContext -> Module -> Int -> TypedDecl -> IO ()
 dumpModuleDecl ctx mod indent decl = do
   let i = take (indent * 2) (repeat ' ')
@@ -202,7 +208,7 @@ dumpCt ctx t = case t of
   TypeTuple t -> do
     parts <- forM t $ dumpCt ctx
     return $ "(" ++ intercalate ", " parts ++ ")"
-  TypeFunction rt args var -> do
+  TypeFunction rt args var params -> do
     args <- forM args $ \(name, t) -> do
       t' <- dumpCt ctx t
       return (name, t')

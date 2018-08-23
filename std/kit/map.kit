@@ -8,3 +8,16 @@ trait Map[K, V] {
         (this[${key: K}] = (value: V)) => this.set($key, value);
     }
 }
+
+// default implementations for supported key types
+specialize Map[Bool, V] as BoolMap[V];
+specialize Map[Integral, V] as IntMap[V];
+specialize Map[String, V] as StringMap[V];
+// for small numbers, trade space use for faster inserts/lookups
+specialize Map[Uint8, V] as SmallIntMap[Uint8, V];
+specialize Map[Int8, V] as SmallIntMap[Int8, V];
+
+struct BoolMap[V] {}
+struct IntMap[V] {}
+struct SmallIntMap[K, V] {}
+struct StringMap[V] {}

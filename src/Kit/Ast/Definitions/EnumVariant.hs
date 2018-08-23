@@ -50,10 +50,10 @@ convertEnumVariant converter@(Converter { exprConverter = exprConverter, typeCon
                           }
 
 discriminantFieldName :: Str
-discriminantFieldName = "__discriminant"
+discriminantFieldName = "__dsc"
 
 variantFieldName :: Str
-variantFieldName = "__variant"
+variantFieldName = "__var"
 
 discriminantMemberName :: Str -> Str
 discriminantMemberName discriminant = s_concat ["variant_", discriminant]

@@ -2,11 +2,13 @@ module Kit.Compiler.Passes.TypeModuleContent where
 
 import Control.Exception
 import Control.Monad
+import Data.Function
 import Data.IORef
 import Data.List
 import Data.Maybe
 import System.FilePath
 import Kit.Ast
+import Kit.Compiler.Binding
 import Kit.Compiler.Context
 import Kit.Compiler.DumpAst
 import Kit.Compiler.Module
@@ -32,8 +34,6 @@ typeContent
   :: CompileContext -> [(Module, [TypedDecl])] -> IO [(Module, [TypedDecl])]
 typeContent ctx modContent = do
   results <- typeIterative ctx modContent [] (ctxRecursionLimit ctx)
-  when (ctxDumpAst ctx)
-    $ forM_ results (\(mod, decls) -> dumpModuleContent ctx mod decls)
   return results
 
 typeIterative
@@ -69,12 +69,15 @@ typeIterative ctx input output limit = do
         decls
         (\d -> do
           (x, complete) <- case d of
-            DeclFunction f  -> typeFunction ctx mod f
-            DeclVar      v  -> typeVar ctx mod v
-            DeclType     t  -> typeTypeDefinition ctx mod t
-            DeclTrait    t  -> typeTrait ctx mod t
-            DeclImpl     i  -> typeImpl ctx mod i
-            DeclRuleSet  rs -> return (Nothing, True)
+            DeclFunction f | null (functionParams f) -> typeFunction ctx mod f
+            DeclVar      v                           -> typeVar ctx mod v
+            DeclType t -> typeTypeDefinition ctx mod t
+            DeclTrait    t                           -> typeTrait ctx mod t
+            DeclImpl     i                           -> typeImpl ctx mod i
+            DeclRuleSet  rs                          -> return (Nothing, True)
+            DeclMonomorph (DeclFunction f) p ->
+              typeFunctionMonomorph ctx mod f p
+            _ -> return (Nothing, True)
           return (x, complete)
         )
       let (incompleteResults, completeResults) = foldr
@@ -92,14 +95,10 @@ typeIterative ctx input output limit = do
         , let y = catMaybes $ fst x
         , not $ null y
         ]
-  let complete = [ (mod, y) | (mod, x) <- results, let y = catMaybes $ snd x ]
+  let complete =
+        output
+          ++ ([ (mod, y) | (mod, x) <- results, let y = catMaybes $ snd x ])
 
   if null incomplete
     then return complete
     else typeIterative ctx incomplete complete (limit - 1)
-
-dumpModuleContent :: CompileContext -> Module -> [TypedDecl] -> IO ()
-dumpModuleContent ctx mod defs = do
-  putStrLn $ show mod
-  forM_ defs (dumpModuleDecl ctx mod 0)
-  putStrLn ""

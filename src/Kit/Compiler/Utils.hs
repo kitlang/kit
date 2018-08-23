@@ -57,6 +57,15 @@ findModule ctx mod pos = do
         [ (dir </> modPath) | dir <- ctxSourcePaths ctx ]
         pos
 
+validName :: Str -> Str
+validName name = if s_length name > 32 then s_concat ["kit", s_hash name] else name
+
 mangleName :: [Str] -> Str -> Str
 mangleName [] s = s
-mangleName namespace s = s_join "__" (("kit" : namespace) ++ [s])
+mangleName namespace s = validName $ s_join "_" (("kit" : namespace) ++ [s])
+
+monomorphName :: Str -> [ConcreteType] -> Str
+monomorphName name p = s_concat [name, "__", monomorphSuffix p]
+
+monomorphSuffix :: [ConcreteType] -> Str
+monomorphSuffix p = s_hash $ s_concat (map (s_pack . show) p)

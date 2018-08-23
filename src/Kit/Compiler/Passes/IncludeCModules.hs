@@ -180,6 +180,7 @@ parseDerivedType m (h' : t') ct =
             ]
           )
           varargs
+          []
         )
       _ -> p ct
 parseDerivedType m [] ct = ct
@@ -199,17 +200,16 @@ _parseDeclSpec modPath (h : t) width signed float = case h of
   (CShortType  _           ) -> _parseDeclSpec modPath t 16 signed False
   (CIntType    _           ) -> _parseDeclSpec modPath t 16 signed False
   (CLongType _) -> _parseDeclSpec modPath t (width + 32) signed False
-  (CTypeDef (Ident x _ _) _) ->
-    case x of
-      "int8_t" -> TypeBasicType $ BasicTypeInt 8
-      "int16_t" -> TypeBasicType $ BasicTypeInt 16
-      "int32_t" -> TypeBasicType $ BasicTypeInt 32
-      "int64_t" -> TypeBasicType $ BasicTypeInt 64
-      "uint8_t" -> TypeBasicType $ BasicTypeUint 8
-      "uint16_t" -> TypeBasicType $ BasicTypeUint 16
-      "uint32_t" -> TypeBasicType $ BasicTypeUint 32
-      "uint64_t" -> TypeBasicType $ BasicTypeUint 64
-      _ -> TypeTypedef (modPath, (s_pack x)) []
+  (CTypeDef (Ident x _ _) _) -> case x of
+    "int8_t"   -> TypeBasicType $ BasicTypeInt 8
+    "int16_t"  -> TypeBasicType $ BasicTypeInt 16
+    "int32_t"  -> TypeBasicType $ BasicTypeInt 32
+    "int64_t"  -> TypeBasicType $ BasicTypeInt 64
+    "uint8_t"  -> TypeBasicType $ BasicTypeUint 8
+    "uint16_t" -> TypeBasicType $ BasicTypeUint 16
+    "uint32_t" -> TypeBasicType $ BasicTypeUint 32
+    "uint64_t" -> TypeBasicType $ BasicTypeUint 64
+    _          -> TypeTypedef (modPath, (s_pack x)) []
   -- anonymous structs/enums; TODO: need to generate a stub declaration for these
   (CSUType (CStruct tag (Just (Ident x _ _)) _ _ _) _) ->
     (TypeInstance (modPath, (s_pack x)) [])
@@ -242,7 +242,7 @@ _parseDeclSpec modPath [] width signed float = if float
 addCDecl :: CompileContext -> Module -> Str -> ConcreteType -> Span -> IO ()
 addCDecl ctx mod name t pos = do
   let bindingData = case t of
-        TypeFunction t argTypes isVariadic -> FunctionBinding
+        TypeFunction t argTypes isVariadic _ -> FunctionBinding
           (newFunctionDefinition
             { functionName    = name
             , functionPos     = pos

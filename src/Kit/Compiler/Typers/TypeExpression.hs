@@ -8,6 +8,7 @@ import Data.Maybe
 import Kit.Ast
 import Kit.Compiler.Binding
 import Kit.Compiler.Context
+import Kit.Compiler.DumpAst
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TermRewrite
@@ -16,6 +17,8 @@ import Kit.Compiler.TypedExpr
 import Kit.Compiler.Typers.AutoRefDeref
 import Kit.Compiler.Typers.Base
 import Kit.Compiler.Typers.ConvertExpr
+import Kit.Compiler.Typers.TypeLiteral
+import Kit.Compiler.Typers.TypeOp
 import Kit.Compiler.Unify
 import Kit.Error
 import Kit.HashTable
@@ -57,7 +60,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           x' <- r x
           return $ Just x'
         Nothing -> return Nothing
-  let resolve constraint = resolveConstraint ctx tctx mod constraint
+  let resolve constraint = resolveConstraint ctx tctx constraint
   let unknownTyped x = makeExprTyped x (TypeBasicType BasicTypeUnknown) pos
   let tryRewrite x y = do
         result <- foldM
@@ -105,7 +108,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                 return $ UsingImplicit x'
               )
             _ -> return use
-          addUsing ctx c mod using'
+          addUsing ctx c using'
         )
         tctx
         using
@@ -138,7 +141,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           binding <- resolveVar ctx (tctxScopes tctx) mod vname
           case binding of
             Just binding@(Binding { bindingType = EnumConstructor _ }) -> do
-              x <- typeVarBinding ctx vname binding pos
+              x <- typeVarBinding ctx tctx vname binding pos
               return $ x { tIsLvalue = True }
             _ -> return ex
         (_, Var vname) -> do
@@ -148,7 +151,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
               binding <- resolveVar ctx (tctxScopes tctx) mod vname
               case binding of
                 Just binding -> do
-                  x <- typeVarBinding ctx vname binding pos
+                  x <- typeVarBinding ctx tctx vname binding pos
                   return $ x { tIsLvalue = True }
                 Nothing -> failTyping
                   $ TypingError ("Unknown identifier: " ++ s_unpack vname) pos
@@ -250,7 +253,6 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
             r1        <- r e1
             converted <- autoRefDeref ctx
                                       tctx
-                                      mod
                                       (inferredType r1)
                                       (inferredType r2)
                                       r2
@@ -302,8 +304,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       r1 <- r e1
       r2 <- r e2
       tryRewrite (unknownTyped $ Binop op r1 r2) $ do
-        lMixed <- unify ctx tctx mod (inferredType r1) (typeClassNumericMixed)
-        rMixed <- unify ctx tctx mod (inferredType r2) (typeClassNumericMixed)
+        lMixed <- unify ctx tctx (inferredType r1) (typeClassNumericMixed)
+        rMixed <- unify ctx tctx (inferredType r2) (typeClassNumericMixed)
         tv     <- makeTypeVar ctx pos
         case
             binopTypes op
@@ -338,7 +340,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           "For statements must iterate over an Iterable type"
           (tPos r2)
       return $ makeExprTyped
-        (For (makeExprTyped (Identifier v []) (TypeIdentifier tv) pos1) r2 r3)
+        (For (makeExprTyped (Identifier v []) tv pos1) r2 r3)
         voidType
         pos
 
@@ -433,7 +435,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       let implicits = tImplicits r1 ++ tctxImplicits tctx
       typedArgs <- mapM r args
       tryRewrite (unknownTyped $ Call r1 typedArgs) $ case inferredType r1 of
-        TypeFunction _ _ _ ->
+        TypeFunction _ _ _ _ ->
           typeFunctionCall ctx tctx mod r1 implicits typedArgs
         TypeEnumConstructor tp discriminant argTypes -> typeEnumConstructorCall
           ctx
@@ -505,13 +507,12 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                       binding    <- resolveLocal localScope fieldName
                       case binding of
                         Just x -> do
-                          typed <- typeVarBinding ctx fieldName x pos
+                          typed <- typeVarBinding ctx tctx fieldName x pos
                           return $ typed { tImplicits = r1 : tImplicits typed }
                         _ -> case subtype of
                           Struct { structFields = fields } -> do
                             result <- typeStructUnionFieldAccess ctx
                                                                  tctx
-                                                                 mod
                                                                  fields
                                                                  r1
                                                                  fieldName
@@ -528,7 +529,6 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                           Union { unionFields = fields } -> do
                             result <- typeStructUnionFieldAccess ctx
                                                                  tctx
-                                                                 mod
                                                                  fields
                                                                  r1
                                                                  fieldName
@@ -562,7 +562,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                 findStatic    <- resolveLocal subScope fieldName
                 case findStatic of
                   Just binding -> do
-                    x <- typeVarBinding ctx fieldName binding pos
+                    x <- typeVarBinding ctx tctx fieldName binding pos
                     resolve $ TypeEq
                       (bindingConcrete binding)
                       (inferredType x)
@@ -589,7 +589,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                 method <- resolveLocal subScope fieldName
                 case method of
                   Just binding -> do
-                    x <- typeVarBinding ctx fieldName binding pos
+                    x <- typeVarBinding ctx tctx fieldName binding pos
                     resolve $ TypeEq
                       (bindingConcrete binding)
                       (inferredType x)
@@ -664,9 +664,9 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         case (inferredType r1, t) of
           (TypePtr (TypeBasicType BasicTypeVoid), TypePtr _) -> cast
           (x, y        ) -> do
-            t' <- unify ctx tctx mod x y
-            x' <- unify ctx tctx mod x (typeClassNumeric)
-            y' <- unify ctx tctx mod y (typeClassNumeric)
+            t' <- unify ctx tctx x y
+            x' <- unify ctx tctx x (typeClassNumeric)
+            y' <- unify ctx tctx y (typeClassNumeric)
             -- TODO: allow cast from abstract parent to child
             -- TODO: allow cast from value to box
             case (t', x', y') of
@@ -699,7 +699,6 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           r1        <- r e1
           converted <- autoRefDeref ctx
                                     tctx
-                                    mod
                                     varType
                                     (inferredType r1)
                                     r1
@@ -789,7 +788,6 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                 r1        <- r expr
                 converted <- autoRefDeref ctx
                                           tctx
-                                          mod
                                           fieldType
                                           (inferredType r1)
                                           r1
@@ -814,30 +812,28 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
     _ -> return $ ex
 
-  t' <- knownType ctx tctx mod (inferredType result)
+  t' <- knownType ctx tctx (inferredType result)
   let result' = result { inferredType = t' }
   tryRewrite result' (return result')
 
 alignCallArgs
   :: CompileContext
   -> TypeContext
-  -> Module
   -> [ConcreteType]
   -> Bool
   -> [TypedExpr]
   -> [TypedExpr]
   -> IO [TypedExpr]
-alignCallArgs ctx tctx mod argTypes isVariadic implicits args =
+alignCallArgs ctx tctx argTypes isVariadic implicits args =
   if null argTypes
     then return []
     else do
-      nextArg <- knownType ctx tctx mod (head argTypes)
-      found   <- findImplicit ctx tctx mod nextArg implicits
+      nextArg <- knownType ctx tctx (head argTypes)
+      found   <- findImplicit ctx tctx nextArg implicits
       case found of
         Just x -> do
           rest <- alignCallArgs ctx
                                 tctx
-                                mod
                                 (tail argTypes)
                                 isVariadic
                                 (delete x implicits)
@@ -848,17 +844,16 @@ alignCallArgs ctx tctx mod argTypes isVariadic implicits args =
 findImplicit
   :: CompileContext
   -> TypeContext
-  -> Module
   -> ConcreteType
   -> [TypedExpr]
   -> IO (Maybe TypedExpr)
-findImplicit ctx tctx mod ct []      = return Nothing
-findImplicit ctx tctx mod ct (h : t) = do
-  converted <- autoRefDeref ctx tctx mod ct (inferredType h) h [] h
-  match     <- unify ctx tctx mod ct (inferredType converted)
+findImplicit ctx tctx ct []      = return Nothing
+findImplicit ctx tctx ct (h : t) = do
+  converted <- autoRefDeref ctx tctx ct (inferredType h) h [] h
+  match     <- unify ctx tctx ct (inferredType converted)
   case match of
     Just _  -> return $ Just converted
-    Nothing -> findImplicit ctx tctx mod ct t
+    Nothing -> findImplicit ctx tctx ct t
 
 typeFunctionCall
   :: CompileContext
@@ -868,11 +863,10 @@ typeFunctionCall
   -> [TypedExpr]
   -> [TypedExpr]
   -> IO TypedExpr
-typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = TypeFunction rt argTypes isVariadic, tPos = pos }) implicits args
+typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = TypeFunction rt argTypes isVariadic params, tPos = pos }) implicits args
   = do
     aligned <- alignCallArgs ctx
                              tctx
-                             mod
                              (map snd argTypes)
                              isVariadic
                              implicits
@@ -899,7 +893,6 @@ typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = TypeFunction rt argT
       (\(arg, argValue) -> case arg of
         Just (_, argType) -> autoRefDeref ctx
                                           tctx
-                                          mod
                                           argType
                                           (inferredType argValue)
                                           argValue
@@ -910,12 +903,11 @@ typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = TypeFunction rt argT
     forM_
       (zip argTypes converted)
       (\((_, argType), argValue) -> do
-        t1 <- follow ctx tctx mod argType
-        t2 <- knownType ctx tctx mod (inferredType argValue)
+        t1 <- knownType ctx tctx argType
+        t2 <- knownType ctx tctx (inferredType argValue)
         resolveConstraint
           ctx
           tctx
-          mod
           (TypeEq t1
                   t2
                   "Function arg types must match the function's declaration"
@@ -946,12 +938,11 @@ typeEnumConstructorCall ctx tctx mod e args tp discriminant argTypes = do
   forM_
     (zip argTypes args)
     (\((_, argType), argValue) -> do
-      t1 <- follow ctx tctx mod argType
-      t2 <- knownType ctx tctx mod (inferredType argValue)
+      t1 <- follow ctx tctx argType
+      t2 <- knownType ctx tctx (inferredType argValue)
       resolveConstraint
         ctx
         tctx
-        mod
         (TypeEq t1
                 t2
                 "Enum arg types must match the enum's declaration"
@@ -966,13 +957,12 @@ typeEnumConstructorCall ctx tctx mod e args tp discriminant argTypes = do
 typeStructUnionFieldAccess
   :: CompileContext
   -> TypeContext
-  -> Module
   -> [VarDefinition TypedExpr ConcreteType]
   -> TypedExpr
   -> Str
   -> Span
   -> IO (Maybe TypedExpr)
-typeStructUnionFieldAccess ctx tctx mod fields r fieldName pos = do
+typeStructUnionFieldAccess ctx tctx fields r fieldName pos = do
   case findStructUnionField fields fieldName of
     Just field -> do
       return
@@ -987,16 +977,30 @@ findStructUnionField (h : t) fieldName =
   if varName h == fieldName then Just h else findStructUnionField t fieldName
 findStructUnionField [] _ = Nothing
 
-typeVarBinding :: CompileContext -> Str -> Binding -> Span -> IO TypedExpr
-typeVarBinding ctx name binding pos = do
+typeVarBinding
+  :: CompileContext
+  -> TypeContext
+  -> Str
+  -> Binding
+  -> Span
+  -> IO TypedExpr
+typeVarBinding ctx tctx name binding pos = do
   let namespace = bindingNamespace binding
   let t         = bindingConcrete binding
   let tp        = bindingPath binding
   case bindingType binding of
     VarBinding _ ->
       return $ makeExprTyped (Identifier (Var name) namespace) t pos
-    FunctionBinding _ ->
-      return $ makeExprTyped (Identifier (Var name) namespace) t pos
+    FunctionBinding def -> if null $ functionParams def
+      then return $ makeExprTyped (Identifier (Var name) namespace) t pos
+      else do
+        params <- makeGeneric ctx tp pos
+        t'     <- mapType (knownType ctx tctx) t
+        t''    <- mapType (substituteParams params) t'
+        let ft = case t'' of
+              TypeFunction rt args varargs _ ->
+                TypeFunction rt args varargs (map snd params)
+        return $ makeExprTyped (Identifier (Var name) namespace) ft pos
     EnumConstructor (EnumVariant { variantName = discriminant, variantArgs = args })
       -> do -- TODO: handle type params
         let (TypeEnumConstructor tp _ _) = t
@@ -1019,174 +1023,3 @@ typeVarBinding ctx name binding pos = do
     -- TODO: in any method context, `Self`
     -- TODO: in any method context, static methods
     -- TODO: in any method context, static fields
-
-literalConstraints :: ValueLiteral b -> ConcreteType -> Span -> [TypeConstraint]
-literalConstraints (BoolValue _) s pos =
-  [TypeEq (basicType $ BasicTypeBool) s "Bool literal must be a Bool type" pos]
-literalConstraints (IntValue v _) s pos =
-  let exps = if v < 0
-        then [-63, -53, -31, -24, -15, -7, 0] :: [Int]
-        else [0, 7, 8, 15, 16, 24, 31, 32, 53, 63, 64] :: [Int]
-  in
-    let
-      t = foldr
-        (\(low, high) acc ->
-          if v
-               >= (signum low)
-               *  (2 ^ abs low)
-               && v
-               <  (signum high)
-               *  (2 ^ abs high)
-            then typeClassRange (if v < 0 then low else high)
-            else acc
-        )
-        typeClassNumeric
-        (zip exps (drop 1 exps))
-    in  [TypeEq t s "Int literals must be a Numeric type" pos]
-literalConstraints (FloatValue _ _) s pos =
-  [ TypeEq typeClassNumericMixed
-           s
-           "Float literals must be a NumericMixed type"
-           pos
-  ]
-literalConstraints (StringValue _) s pos =
-  [TypeEq typeClassStringy s "String literals must be a Stringy type" pos]
-
-unopTypes
-  :: Operator -> ConcreteType -> ConcreteType -> Span -> Maybe [TypeConstraint]
-unopTypes op l x pos = case op of
-  Inc -> Just
-    [ TypeEq typeClassNumeric
-             l
-             "Increment operator can only be used on Numeric types"
-             pos
-    , TypeEq l x "An increment operation's type must match its operand" pos
-    ]
-  Dec -> Just
-    [ TypeEq typeClassNumeric
-             l
-             "Decrement operator can only be used on Numeric types"
-             pos
-    , TypeEq l x "A decrement operation's type must match its operand" pos
-    ]
-  Invert -> Just
-    [ TypeEq (TypeBasicType BasicTypeBool)
-             l
-             "Logical invert can only be used on Bool expressions"
-             pos
-    , TypeEq (basicType BasicTypeBool)
-             x
-             "A logical invert must yield a Bool"
-             pos
-    ]
-  InvertBits -> Just
-    [ TypeEq typeClassIntegral
-             l
-             "Bit invert can only be used on Integral types"
-             pos
-    , TypeEq l x "Bit invert must yield the same type as its operand" pos
-    ]
-  Ref -> Just
-    [ TypeEq (TypePtr l)
-             x
-             "Reference operator must yield a pointer to its operand's type"
-             pos
-    ]
-  Deref -> Just
-    [ TypeEq
-        (TypePtr x)
-        l
-        "Dereference operator must operate on a pointer, yielding the pointed to type"
-        pos
-    ]
-  _ -> Nothing
-
-binopTypes
-  :: Operator
-  -> ConcreteType
-  -> ConcreteType
-  -> ConcreteType
-  -> Bool
-  -> Bool
-  -> Span
-  -> Maybe [TypeConstraint]
-binopTypes op l r x lMixed rMixed pos = case op of
-  Add        -> numericOp
-  Sub        -> numericOp
-  Mul        -> numericOp
-  Div        -> numericOp
-  Mod        -> numericOp
-  Eq         -> comparisonOp
-  Neq        -> comparisonOp
-  Gte        -> comparisonOp
-  Lte        -> comparisonOp
-  LeftShift  -> numericOp
-  RightShift -> numericOp
-  Gt         -> comparisonOp
-  Lt         -> comparisonOp
-  And        -> booleanOp
-  Or         -> booleanOp
-  BitAnd     -> bitOp
-  BitOr      -> bitOp
-  BitXor     -> bitOp
-  _          -> Nothing
- where
-  numericOp =
-    Just
-      $  (if (rMixed || rMixed)
-           then
-             [ TypeEq
-                 typeClassNumericMixed
-                 x
-                 ("Binary operator `"
-                 ++ show op
-                 ++ "` requires a NumericMixed result if either operand is NumericMixed"
-                 )
-                 pos
-             ]
-           else []
-         )
-      ++ [ TypeEq
-             typeClassNumeric
-             i
-             (  "Binary operator `"
-             ++ show op
-             ++ "` requires Numeric operands and result"
-             )
-             pos
-         | i <- [l, r, x]
-         ]
-  comparisonOp = Just
-    [ TypeEq
-      l
-      r
-      (  "Comparison operator `"
-      ++ show op
-      ++ "` requires operands of similar type"
-      )
-      pos
-    , TypeEq (TypeBasicType BasicTypeBool)
-             x
-             "Comparison operators must yield Bool values"
-             pos
-    ]
-  booleanOp = Just
-    [ TypeEq
-        (TypeBasicType BasicTypeBool)
-        i
-        ("Binary operator `" ++ show op ++ "` requires Bool operands and result"
-        )
-        pos
-    | i <- [l, r, x]
-    ]
-  bitOp = Just
-    [ TypeEq
-        typeClassIntegral
-        i
-        (  "Bitwise binary operator `"
-        ++ show op
-        ++ "` requires Integral operands and result"
-        )
-        pos
-    | i <- [l, r, x]
-    ]

@@ -34,7 +34,9 @@ library:
   - aeson
   - ansi-terminal
   - array
+  - base16-bytestring
   - bytestring
+  - cryptohash-md5
   - directory
   - filepath
   - hashable

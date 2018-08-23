@@ -2,6 +2,7 @@
 
 module Kit.Ast.ConcreteType where
 
+import Control.Monad
 import Data.Hashable
 import Data.IORef
 import Data.List
@@ -28,12 +29,11 @@ data ConcreteType
   | TypeAnonUnion [(Str, ConcreteType)]
   | TypeAnonEnum [Str]
   | TypeTypedef TypePath [ConcreteType]
-  | TypeFunction ConcreteType ConcreteArgs Bool
+  | TypeFunction ConcreteType ConcreteArgs Bool [ConcreteType]
   | TypeBasicType BasicType
   | TypePtr ConcreteType
   | TypeArr ConcreteType (Maybe Int)
   | TypeEnumConstructor TypePath Str ConcreteArgs
-  | TypeIdentifier ConcreteType
   | TypeRange
   | TypeTraitConstraint TraitConstraint
   | TypeTuple [ConcreteType]
@@ -55,14 +55,13 @@ instance Show ConcreteType where
   show (TypeAnonUnion f) = "(anon union)"
   show (TypeTypedef tp []) = (s_unpack $ showTypePath tp)
   show (TypeTypedef tp params) = (s_unpack $ showTypePath tp) ++ "[" ++ (intercalate ", " [show x | x <- params])
-  show (TypeFunction rt args var) = "function (" ++ (intercalate ", " [s_unpack name ++ ": " ++ (show t) | (name, t) <- args]) ++ (if var then ", ..." else "") ++ ") -> " ++ show rt
+  show (TypeFunction rt args var params) = "function (" ++ (intercalate ", " [s_unpack name ++ ": " ++ (show t) | (name, t) <- args]) ++ (if var then ", ..." else "") ++ ") -> " ++ show rt
   show (TypeBasicType t) = show t
   show (TypePtr (TypeBasicType (BasicTypeInt 8))) = "CString"
   show (TypePtr t) = "Ptr[" ++ (show t) ++ "]"
   show (TypeArr t (Just i)) = "Arr[" ++ (show t) ++ "] of length " ++ (show i)
   show (TypeArr t Nothing) = "Arr[" ++ (show t) ++ "]"
   show (TypeEnumConstructor tp d _) = "enum " ++ (show tp) ++ " constructor " ++ (s_unpack d)
-  show (TypeIdentifier t) = "Identifier of " ++ (show t)
   show (TypeRange) = "range"
   show (TypeTraitConstraint (tp, params)) = "trait " ++ s_unpack (showTypePath tp)
   show (TypeTuple t) = "(" ++ intercalate ", " (map show t) ++ ")"
@@ -76,3 +75,80 @@ type TypeVar = Int
 
 basicType = TypeBasicType
 voidType = TypeBasicType BasicTypeVoid
+
+mapType
+  :: (Monad m)
+  => (ConcreteType -> m ConcreteType)
+  -> ConcreteType
+  -> m ConcreteType
+mapType f (TypeInstance tp p) = do
+  p' <- mapM f p
+  f $ TypeInstance tp p'
+mapType f (TypeAnonStruct fields) = do
+  fields' <- forM fields $ \(n, t) -> do
+    t' <- f t
+    return (n, t')
+  f $ TypeAnonStruct fields'
+mapType f (TypeAnonUnion fields) = do
+  fields' <- forM fields $ \(n, t) -> do
+    t' <- f t
+    return (n, t')
+  f $ TypeAnonUnion fields'
+mapType f (TypeTypedef tp p) = do
+  p' <- mapM f p
+  f $ TypeTypedef tp p'
+mapType f (TypeFunction rt args varargs p) = do
+  rt'   <- f rt
+  args' <- forM args $ \(n, t) -> do
+    t' <- f t
+    return (n, t')
+  p' <- mapM f p
+  f $ TypeFunction rt' args' varargs p'
+mapType f (TypePtr t) = do
+  t' <- f t
+  f $ TypePtr t'
+mapType f (TypeArr t l) = do
+  t' <- f t
+  f $ TypeArr t' l
+mapType f (TypeEnumConstructor tp s args) = do
+  args' <- forM args $ \(n, t) -> do
+    t' <- f t
+    return (n, t')
+  f $ TypeEnumConstructor tp s args'
+-- TypeTraitConstraint
+mapType f (TypeBox tp p) = do
+  p' <- mapM f p
+  f $ TypeBox tp p'
+mapType f t = f t
+
+substituteParams :: [(Str, ConcreteType)] -> ConcreteType -> IO ConcreteType
+substituteParams params = mapType
+  (\t -> case t of
+    TypeTypeParam s -> substituteParam params s
+    _               -> return t
+  )
+
+substituteParam :: [(Str, ConcreteType)] -> Str -> IO ConcreteType
+substituteParam ((p, ct) : t) s =
+  if p == s then return ct else substituteParam t s
+substituteParam [] s = return $ TypeTypeParam s
+
+-- = TypeAtom
+-- | TypeInstance TypePath [ConcreteType]
+-- | TypeAnonStruct [(Str, ConcreteType)]
+-- | TypeAnonUnion [(Str, ConcreteType)]
+-- | TypeAnonEnum [Str]
+-- | TypeTypedef TypePath [ConcreteType]
+-- | TypeFunction ConcreteType ConcreteArgs Bool
+-- | TypeBasicType BasicType
+-- | TypePtr ConcreteType
+-- | TypeArr ConcreteType (Maybe Int)
+-- | TypeEnumConstructor TypePath Str ConcreteArgs
+-- | TypeRange
+-- | TypeTraitConstraint TraitConstraint
+-- | TypeTuple [ConcreteType]
+-- | TypeTypeOf TypePath
+-- | TypeTypeVar TypeVar
+-- | TypeTypeParam Str
+-- | TypeRuleSet TypePath
+-- | TypeBox TypePath [ConcreteType]

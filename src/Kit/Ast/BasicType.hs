@@ -61,6 +61,7 @@ instance Hashable BasicType
 
 instance Show BasicType where
   show (CArray t (Just i)) = show t ++ "[" ++ show i ++ "]"
+  show (CArray t Nothing) = show t ++ "[]"
   show (CPtr (BasicTypeInt 8)) = "CString"
   show (CPtr t) = "Ptr[" ++ show t ++ "]"
   show (BasicTypeVoid) = "Void"
@@ -76,11 +77,14 @@ instance Show BasicType where
   show (BasicTypeFloat w) = "Float" ++ show w
   show (BasicTypeStruct (Just name) _) = "struct " ++ s_unpack name
   show (BasicTypeStruct Nothing _) = "(anon struct)"
+  show (BasicTypeUnion (Just name) _) = "union " ++ s_unpack name
+  show (BasicTypeUnion Nothing _) = "(anon union)"
   show (BasicTypeSimpleEnum (Just name) _) = "enum " ++ s_unpack name
   show (BasicTypeSimpleEnum Nothing _) = "(anon enum)"
   show (BasicTypeComplexEnum name _) = "enum " ++ s_unpack name
   show (BasicTypeAtom) = "atom"
   show (BasicTypeFunction t args varargs) = "function (" ++ (intercalate ", " [s_unpack name ++ ": " ++ show argType | (name, argType) <- args]) ++ (if varargs then ", ..." else "") ++ "): " ++ show t
+  show (BasicTypeTuple _ t) = "tuple (" ++ intercalate ", " (map show t) ++ ")"
   show (BasicTypeUnknown) = "???"
 
 type BasicArgs = [(Str, BasicType)]

@@ -178,7 +178,7 @@ transpileExpr (IrEnumInit t@(BasicTypeComplexEnum name variants) discriminant fi
     , ( [ u
           $  CMemberDesig
           $  internalIdent
-          $  "__variant.variant_"
+          $  s_unpack (s_concat [variantFieldName, ".variant_"])
           ++ (s_unpack discriminant)
         ]
       , u $ CInitExpr $ transpileExpr

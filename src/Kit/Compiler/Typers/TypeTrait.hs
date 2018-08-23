@@ -24,7 +24,7 @@ typeTrait
 typeTrait ctx mod def = do
   tctx' <- modTypeContext ctx mod
   let tctx = tctx'
-        { tctxTypeParams = [ (paramName param, ()) | param <- traitParams def ]
+        { tctxTypeParams = [ (paramName param, TypeTypeParam (paramName param)) | param <- traitParams def ]
         }
   methods <- forM
     (traitMethods def)

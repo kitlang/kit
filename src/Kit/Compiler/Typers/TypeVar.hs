@@ -47,7 +47,6 @@ typeVarDefinition ctx tctx mod def = do
       resolveConstraint
         ctx
         tctx
-        mod
         (TypeEq
           (varType def)
           (inferredType typed)

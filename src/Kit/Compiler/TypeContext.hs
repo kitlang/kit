@@ -39,7 +39,7 @@ data TypeContext = TypeContext {
   tctxThis :: Maybe ConcreteType,
   tctxSelf :: Maybe TypePath,
   tctxImplicits :: [TypedExpr],
-  tctxTypeParams :: [(Str, ())], -- TODO
+  tctxTypeParams :: [(Str, ConcreteType)], -- TODO
   tctxLoopCount :: Int,
   tctxRewriteRecursionDepth :: Int,
   tctxState :: TypeContextState
@@ -71,53 +71,9 @@ newTypeContext scopes = do
 unknownType t pos = do
   throw $ KitError $ TypingError ("Unknown type: " ++ (show t)) pos
 
-follow
-  :: CompileContext -> TypeContext -> Module -> ConcreteType -> IO ConcreteType
-follow ctx tctx mod t = do
-  case t of
-    TypeInstance tp params -> do
-      resolvedParams <- forM params (follow ctx tctx mod)
-      return $ TypeInstance tp resolvedParams
-    TypeFunction t args varargs -> do
-      resolved     <- follow ctx tctx mod t
-      resolvedArgs <- forM
-        args
-        (\(name, t) -> do
-          resolvedArg <- follow ctx tctx mod t
-          return (name, resolvedArg)
-        )
-      return $ TypeFunction resolved resolvedArgs varargs
-    TypePtr t -> do
-      resolved <- follow ctx tctx mod t
-      return $ TypePtr resolved
-    TypeArr t len -> do
-      resolved <- follow ctx tctx mod t
-      return $ TypeArr resolved len
-    TypeEnumConstructor tp d args -> do
-      resolvedArgs <- forM
-        args
-        (\(name, t) -> do
-          resolvedArg <- follow ctx tctx mod t
-          return (name, resolvedArg)
-        )
-      return $ TypeEnumConstructor tp d resolvedArgs
-    TypeTypedef tp params -> do
-      resolveType ctx tctx mod
-        $ TypeSpec tp [ ConcreteType p | p <- params ] NoPos
-    _ -> return t
-
-resolveModuleBinding
-  :: CompileContext -> TypeContext -> Module -> TypePath -> IO (Maybe Binding)
-resolveModuleBinding ctx tctx mod (m, name) = do
-  importedMods <- getModImports ctx mod
-  let searchMods = if null m
-        then importedMods
-        else (filter (\mod' -> modPath mod' == m) importedMods)
-  resolveBinding (map modScope searchMods) name
-
-resolveTypeParam :: Str -> [(Str, ())] -> Maybe Str
+resolveTypeParam :: Str -> [(Str, ConcreteType)] -> Maybe ConcreteType
 resolveTypeParam s (h : t) =
-  if fst h == s then Just $ fst h else resolveTypeParam s t
+  if fst h == s then Just $ snd h else resolveTypeParam s t
 resolveTypeParam s [] = Nothing
 
 {-
@@ -129,7 +85,7 @@ resolveType
 resolveType ctx tctx mod t = do
   importedMods <- getModImports ctx mod
   case t of
-    ConcreteType ct     -> follow ctx tctx mod ct
+    ConcreteType ct     -> follow ctx tctx ct
     TupleTypeSpec t pos -> do
       slots <- forM t (resolveType ctx tctx mod)
       return $ TypeTuple slots
@@ -141,7 +97,7 @@ resolveType ctx tctx mod t = do
               resolveType ctx tctx mod (TypeSpec selfTp [] (typeSpecPosition t))
             _ -> do
               case resolveTypeParam s (tctxTypeParams tctx) of
-                Just x -> return $ TypeTypeParam x
+                Just x -> return x
                 _      -> do
                   scoped <- resolveBinding (tctxScopes tctx) s
                   case scoped of
@@ -153,22 +109,22 @@ resolveType ctx tctx mod t = do
                       bound <- resolveBinding (map modScope importedMods) s
                       case bound of
                         Just (Binding { bindingType = TypeBinding _, bindingConcrete = t })
-                          -> follow ctx tctx mod t
+                          -> follow ctx tctx t
                         Just (Binding { bindingType = TraitBinding _, bindingConcrete = t })
-                          -> follow ctx tctx mod t
+                          -> follow ctx tctx t
                         _ -> do
                           builtin <- builtinToConcreteType ctx tctx mod s params
                           case builtin of
-                            Just t  -> follow ctx tctx mod t
+                            Just t  -> follow ctx tctx t
                             Nothing -> unknownType s pos
         m -> do
           -- search only a specific module for this type
           result <- resolveBinding (map modScope importedMods) s
           case result of
             Just (Binding { bindingType = TypeBinding _, bindingConcrete = t })
-              -> follow ctx tctx mod t
+              -> follow ctx tctx t
             Just (Binding { bindingType = TypedefBinding, bindingConcrete = t })
-              -> follow ctx tctx mod t
+              -> follow ctx tctx t
             _ -> unknownType (s_unpack $ showTypePath (m, s)) pos
 
     FunctionTypeSpec rt args isVariadic pos -> do
@@ -180,7 +136,7 @@ resolveType ctx tctx mod t = do
           t <- resolveType ctx tctx mod arg
           return ("_", t)
         )
-      return $ TypeFunction rt' args' isVariadic
+      return $ TypeFunction rt' args' isVariadic []
 
 resolveMaybeType
   :: CompileContext
@@ -195,25 +151,68 @@ resolveMaybeType ctx tctx mod pos t = do
     Nothing -> makeTypeVar ctx pos
 
 knownType
-  :: CompileContext -> TypeContext -> Module -> ConcreteType -> IO ConcreteType
-knownType ctx tctx mod t = do
+  :: CompileContext -> TypeContext -> ConcreteType -> IO ConcreteType
+knownType ctx tctx t = do
   case t of
+    TypeTypeParam p -> do
+      case resolveTypeParam p (tctxTypeParams tctx) of
+        Just x  -> knownType ctx tctx x
+        Nothing -> return $ TypeTypeParam p
     TypeTypeVar x -> do
       info <- getTypeVar ctx x
       case typeVarValue info of
         -- Specific known type
-        Just t  -> knownType ctx tctx mod t
+        Just t  -> knownType ctx tctx t
         -- No specific type; return type var
-        Nothing -> follow ctx tctx mod t
-    t -> follow ctx tctx mod t
+        Nothing -> follow ctx tctx t
+    t -> follow ctx tctx t
+
+follow :: CompileContext -> TypeContext -> ConcreteType -> IO ConcreteType
+follow ctx tctx t = do
+  case t of
+    TypeInstance tp params -> do
+      resolvedParams <- forM params (follow ctx tctx)
+      return $ TypeInstance tp resolvedParams
+    TypeFunction t args varargs params -> do
+      resolved     <- follow ctx tctx t
+      resolvedArgs <- forM
+        args
+        (\(name, t) -> do
+          resolvedArg <- follow ctx tctx t
+          return (name, resolvedArg)
+        )
+      resolvedParams <- forM params (follow ctx tctx)
+      return $ TypeFunction resolved resolvedArgs varargs resolvedParams
+    TypePtr t -> do
+      resolved <- follow ctx tctx t
+      return $ TypePtr resolved
+    TypeArr t len -> do
+      resolved <- follow ctx tctx t
+      return $ TypeArr resolved len
+    TypeEnumConstructor tp d args -> do
+      resolvedArgs <- forM
+        args
+        (\(name, t) -> do
+          resolvedArg <- follow ctx tctx t
+          return (name, resolvedArg)
+        )
+      return $ TypeEnumConstructor tp d resolvedArgs
+    TypeTypedef tp@(modPath, name) params -> do
+      defMod  <- getMod ctx modPath
+      binding <- resolveLocal (modScope defMod) name
+      case binding of
+        Just binding -> return $ bindingConcrete binding
+        _            -> throwk $ InternalError
+          ("Unexpected missing type: " ++ (s_unpack $ showTypePath tp))
+          Nothing
+    _ -> return t
 
 addUsing
   :: CompileContext
   -> TypeContext
-  -> Module
   -> UsingType TypedExpr ConcreteType
   -> IO TypeContext
-addUsing ctx tctx mod using = case using of
+addUsing ctx tctx using = case using of
   UsingRuleSet (TypeRuleSet (modPath, n)) -> do
     defMod <- getMod ctx modPath
     def    <- resolveLocal (modScope defMod) n
@@ -240,7 +239,7 @@ modTypeContext ctx mod = do
   imports <- getModImports ctx mod
   tctx    <- newTypeContext (map modScope imports)
   using   <- readIORef (modUsing mod)
-  foldM (\tctx using -> addUsing ctx tctx mod using) tctx using
+  foldM (\tctx using -> addUsing ctx tctx using) tctx using
 
 builtinToConcreteType
   :: CompileContext
