@@ -62,7 +62,7 @@ validName name = if s_length name > 32 then s_concat ["kit", s_hash name] else n
 
 mangleName :: [Str] -> Str -> Str
 mangleName [] s = s
-mangleName namespace s = validName $ s_join "_" (("kit" : namespace) ++ [s])
+mangleName namespace s = validName $ s_concat [s_join "_" ("kit" : namespace), "__", s]
 
 monomorphName :: Str -> [ConcreteType] -> Str
 monomorphName name p = s_concat [name, "__", monomorphSuffix p]
