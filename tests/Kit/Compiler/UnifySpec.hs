@@ -18,8 +18,8 @@ spec = do
   describe "TypeSpec unification" $ do
     it "unifies type variables" $ do
       ctx <- newCompileContext
-      a   <- makeTypeVar ctx NoPos
-      b   <- makeTypeVar ctx NoPos
+      a   <- makeTypeVar ctx (sp "" 1 1 1 1)
+      b   <- makeTypeVar ctx (sp "" 1 1 1 1)
       testUnify ctx a b (TypeVarIs 1 b)
       testUnify ctx
                 a

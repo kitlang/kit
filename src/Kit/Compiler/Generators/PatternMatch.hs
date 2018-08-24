@@ -9,6 +9,7 @@ import Kit.Ast
 import Kit.Compiler.Binding
 import Kit.Compiler.Context
 import Kit.Compiler.Generators.FindUnderlyingType
+import Kit.Compiler.Generators.NameMangling
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
@@ -37,38 +38,50 @@ patternMatch
 patternMatch ctx mod typer pattern t ex = do
   let mergeResults = foldr (\(a, b) (c, d) -> (a ++ c, b ++ d)) ([], [])
   case tExpr pattern of
-    EnumInit (TypeInstance (modPath, typeName) params) discriminant args -> do
-      let
-        enumDiscriminant = case t of
-          BasicTypeSimpleEnum _ _ -> ex
-          BasicTypeComplexEnum _ _ -> (IrField ex discriminantFieldName)
-          _ -> throwk $ InternalError "Unexpected value used as enum"
-                                      (Just $ tPos pattern)
-      let enumField fieldName = IrField
-            ( IrField (IrField ex variantFieldName)
-            $ discriminantMemberName discriminant
-            )
-            fieldName
-      def <- getTypeDefinition ctx modPath typeName
-      case typeSubtype def of
-        Enum { enumVariants = variants } -> do
-          let variant =
+    EnumInit (TypeInstance tp@(modPath, typeName) params) discriminant args ->
+      do
+        let
+          enumDiscriminant = case t of
+            BasicTypeSimpleEnum _ _ -> ex
+            BasicTypeComplexEnum _ _ -> (IrField ex discriminantFieldName)
+            _ -> throwk $ InternalError "Unexpected value used as enum"
+                                        (Just $ tPos pattern)
+        discriminant' <- enumDiscriminantName ctx tp params discriminant
+        let enumField fieldName = IrField
+              ( IrField (IrField ex variantFieldName)
+              $ discriminantMemberName discriminant'
+              )
+              fieldName
+        def <- getTypeDefinition ctx modPath typeName
+        case typeSubtype def of
+          Enum { enumVariants = variants } -> do
+            let
+              variant =
                 find (\variant -> variantName variant == discriminant) variants
-          case variant of
-            Just variant -> do
-              args' <-
-                forM (zip (variantArgs variant) args) $ \(arg, argValue) -> do
-                  at <- findUnderlyingType ctx mod (Just $ tPos pattern) (argType arg)
-                  patternMatch ctx
-                               mod
-                               typer
-                               argValue
-                               at
-                               (enumField $ argName arg)
-              return $ mergeResults
-                (([IrBinop Eq enumDiscriminant (IrIdentifier discriminant)], [])
-                : args'
-                )
+            case variant of
+              Just variant -> do
+                args' <-
+                  forM (zip (variantArgs variant) args) $ \(arg, argValue) -> do
+                    modTctx <- modTypeContext ctx mod
+                    let tctx = addTypeParams
+                          modTctx
+                          [ (paramName param, value)
+                          | (param, value) <- zip (typeParams def) params
+                          ]
+                    t  <- mapType (follow ctx tctx) $ argType arg
+                    at <- findUnderlyingType ctx mod (Just $ tPos pattern) t
+                    patternMatch ctx
+                                 mod
+                                 typer
+                                 argValue
+                                 at
+                                 (enumField $ argName arg)
+                return $ mergeResults
+                  ( ( [IrBinop Eq enumDiscriminant (IrIdentifier discriminant')]
+                    , []
+                    )
+                  : args'
+                  )
     -- TODO: tuple destructure
     -- TODO: struct/union destructure
     Identifier (Var x) [] -> do

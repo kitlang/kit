@@ -1,5 +1,6 @@
 module Kit.Compiler.Module where
 
+import Control.Monad
 import Data.IORef
 import System.FilePath
 import Kit.Ast
@@ -7,10 +8,21 @@ import Kit.Compiler.Binding
 import Kit.Compiler.Scope
 import Kit.Compiler.TypedDecl
 import Kit.Compiler.TypedExpr
+import Kit.Error
 import Kit.HashTable
 import Kit.Ir
+import Kit.Log
 import Kit.Parser.Span
 import Kit.Str
+
+data DuplicateDeclarationError = DuplicateDeclarationError ModulePath Str Span Span deriving (Eq, Show)
+instance Errable DuplicateDeclarationError where
+  logError e@(DuplicateDeclarationError mod name pos1 pos2) = do
+    logErrorBasic e $ "Duplicate declaration for `" ++ s_unpack name ++ "` in " ++ s_unpack (showModulePath mod) ++ "; \n\nFirst declaration:"
+    ePutStrLn "\nSecond declaration:"
+    displayFileSnippet pos2
+    ePutStrLn "\nFunction, variable, type and trait names must be unique within the same scope."
+  errPos (DuplicateDeclarationError _ _ pos _) = Just pos
 
 data Module = Module {
   modPath :: ModulePath,
@@ -58,3 +70,31 @@ newCMod fp = do
 
 includeToModulePath :: FilePath -> ModulePath
 includeToModulePath fp = "c" : (map s_pack $ splitDirectories (fp -<.> ""))
+
+addToInterface
+  :: Module
+  -> Str
+  -> BindingType
+  -> Bool
+  -> ConcreteType
+  -> Span
+  -> Bool
+  -> IO ()
+addToInterface mod name b namespace ct pos allowCollisions =
+  (do
+    unless allowCollisions $ do
+      existing <- resolveLocal (modScope mod) name
+      case existing of
+        Just (Binding { bindingPos = pos2 }) ->
+          throwk $ DuplicateDeclarationError (modPath mod) name pos2 pos
+        _ -> return ()
+    bindToScope
+      (modScope mod)
+      name
+      (newBinding (modPath mod, name)
+                  b
+                  ct
+                  (if namespace then (modPath mod) else [])
+                  pos
+      )
+  )

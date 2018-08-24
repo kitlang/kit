@@ -146,6 +146,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
               x <- typeVarBinding ctx tctx vname binding pos
               return $ x { tIsLvalue = True }
             _ -> return ex
+        (TypingPattern, Hole) -> do
+          return ex
         (_, Var vname) -> do
           tryRewrite
             (unknownTyped $ Identifier v namespace)
@@ -439,15 +441,16 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       tryRewrite (unknownTyped $ Call r1 typedArgs) $ case inferredType r1 of
         TypeFunction _ _ _ _ ->
           typeFunctionCall ctx tctx mod r1 implicits typedArgs
-        TypeEnumConstructor tp discriminant argTypes -> typeEnumConstructorCall
-          ctx
-          tctx
-          mod
-          r1
-          typedArgs
-          tp
-          discriminant
-          argTypes
+        TypeEnumConstructor tp discriminant argTypes params ->
+          typeEnumConstructorCall ctx
+                                  tctx
+                                  mod
+                                  r1
+                                  typedArgs
+                                  tp
+                                  discriminant
+                                  argTypes
+                                  params
         x -> partialTyping ex (Call r1 typedArgs)
           $ TypingError ("Type " ++ show x ++ " is not callable") pos
 
@@ -567,6 +570,10 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                     Abstract { abstractUnderlyingType = u } ->
                       -- forward to parent
                       typeFieldAccess u fieldName
+
+                    x -> failTyping $ TypingError
+                      ("Field access is not allowed on " ++ show x)
+                      pos
 
               TypePtr x ->
                 -- try to auto-dereference
@@ -960,35 +967,40 @@ typeEnumConstructorCall
   -> TypePath
   -> Str
   -> ConcreteArgs
+  -> [ConcreteType]
   -> IO TypedExpr
-typeEnumConstructorCall ctx tctx mod e args tp discriminant argTypes = do
-  when (length args < length argTypes) $ throwk $ BasicError
-    (  "Expected "
-    ++ (show $ length argTypes)
-    ++ " arguments (called with "
-    ++ (show $ length args)
-    ++ ")"
-    )
-    (Just $ tPos e)
-  params <- makeGeneric ctx tp (tPos e) []
-  forM_
-    (zip argTypes args)
-    (\((_, argType), argValue) -> do
-      t1 <- follow ctx tctx argType
-      t2 <- follow ctx tctx (inferredType argValue)
-      resolveConstraint
-        ctx
-        tctx
-        (TypeEq t1
-                t2
-                "Enum arg types must match the enum's declaration"
-                (tPos argValue)
-        )
-    )
-  let ct = TypeInstance tp (map snd params)
-  return $ makeExprTyped (EnumInit ct discriminant args)
-                         ct
-                         (tPos e)
+typeEnumConstructorCall ctx tctx mod e args tp@(modPath, typeName) discriminant argTypes params
+  = do
+    when (length args < length argTypes) $ throwk $ BasicError
+      (  "Expected "
+      ++ (show $ length argTypes)
+      ++ " arguments (called with "
+      ++ (show $ length args)
+      ++ ")"
+      )
+      (Just $ tPos e)
+    def <- getTypeDefinition ctx modPath typeName
+    let tctx' = addTypeParams
+          tctx
+          [ (paramName param, value)
+          | (param, value) <- zip (typeParams def) params
+          ]
+    forM_
+      (zip argTypes args)
+      (\((_, argType), argValue) -> do
+        t1 <- follow ctx tctx' argType
+        t2 <- follow ctx tctx' (inferredType argValue)
+        resolveConstraint
+          ctx
+          tctx'
+          (TypeEq t1
+                  t2
+                  "Enum arg types must match the enum's declaration"
+                  (tPos argValue)
+          )
+      )
+    let ct = TypeInstance tp params
+    return $ makeExprTyped (EnumInit ct discriminant args) ct (tPos e)
 
 typeStructUnionFieldAccess
   :: CompileContext
@@ -1033,20 +1045,20 @@ typeVarBinding ctx tctx name binding pos = do
               TypeFunction rt args varargs _ ->
                 TypeFunction rt args varargs (map snd params)
         return $ makeExprTyped (Identifier (Var name) namespace) ft pos
-    EnumConstructor (EnumVariant { variantName = discriminant, variantArgs = args })
-      -> do -- TODO: handle type params
-        let (TypeEnumConstructor tp@(modPath, typeName) _ _) = t
-        def    <- getTypeDefinition ctx modPath typeName
-        params <- makeGeneric ctx tp pos []
-        let ct = TypeInstance tp (map snd params)
-        return $ if null args
-          then makeExprTyped (EnumInit ct discriminant []) ct pos
-          else makeExprTyped
+    EnumConstructor (v@(EnumVariant { variantName = discriminant })) -> do
+      let (TypeEnumConstructor tp@(modPath, typeName) _ _ params') = t
+      def    <- getTypeDefinition ctx modPath typeName
+      params <- makeGeneric ctx tp pos params'
+      let tctx' = addTypeParams tctx params
+      variant <- followVariant ctx tctx v
+      let ct   = TypeInstance tp (map snd params)
+      let args = [ (argName arg, argType arg) | arg <- variantArgs variant ]
+      if null args
+        then return $ makeExprTyped (EnumInit ct discriminant []) ct pos
+        else do
+          return $ makeExprTyped
             (Identifier (Var name) [])
-            (TypeEnumConstructor tp
-                                 discriminant
-                                 [ (argName arg, argType arg) | arg <- args ]
-            )
+            (TypeEnumConstructor tp discriminant args (map snd params))
             pos
     TypeBinding _ -> return
       $ makeExprTyped (Identifier (Var name) namespace) (TypeTypeOf tp) pos

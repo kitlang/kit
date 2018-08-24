@@ -8,6 +8,7 @@ import Data.Maybe
 import Kit.Ast
 import Kit.Compiler.Binding
 import Kit.Compiler.Context
+import Kit.Compiler.Generators.NameMangling
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext

@@ -42,7 +42,7 @@ instance Errable DuplicateSpecializationError where
 -}
 resolveModuleTypes
   :: CompileContext
-  -> [(Module, [Declaration Expr (Maybe TypeSpec)])]
+  -> [(Module, [(Declaration Expr (Maybe TypeSpec), Span)])]
   -> IO [(Module, [TypedDecl])]
 resolveModuleTypes ctx modContents = do
   unless (ctxIsLibrary ctx) $ validateMain ctx
@@ -108,7 +108,7 @@ validateMain ctx = do
 
 resolveTypesForMod
   :: CompileContext
-  -> (Module, [Declaration Expr (Maybe TypeSpec)])
+  -> (Module, [(Declaration Expr (Maybe TypeSpec), Span)])
   -> IO (Module, [TypedDecl])
 resolveTypesForMod ctx (mod, contents) = do
   specs <- readIORef (modSpecializations mod)
@@ -119,7 +119,6 @@ resolveTypesForMod ctx (mod, contents) = do
 
   let varConverter =
         converter (convertExpr ctx tctx mod) (resolveMaybeType ctx tctx mod)
-  -- TODO: params
   let
     paramConverter params =
       let tctx' = tctx
@@ -130,10 +129,10 @@ resolveTypesForMod ctx (mod, contents) = do
 
   converted <- forM
     contents
-    (\decl -> do
+    (\(decl, pos) -> do
       case decl of
         DeclUsing u -> do
-          addModUsing ctx tctx mod u
+          addModUsing ctx tctx mod pos u
           return Nothing
         DeclImpl i -> do
           converted <- convertTraitImplementation varConverter i
@@ -204,8 +203,25 @@ resolveTypesForMod ctx (mod, contents) = do
                     (\(field1, field2) -> mergeVarInfo ctx tctx' field1 field2)
                 (Enum { enumVariants = variants1 }, Enum { enumVariants = variants2 })
                   -> forM_ (zip variants1 variants2) $ \(variant1, variant2) ->
-                    forM_ (zip (variantArgs variant1) (variantArgs variant2))
-                      $ \(arg1, arg2) -> mergeArgInfo ctx tctx' arg1 arg2
+                    do
+                      forM_ (zip (variantArgs variant1) (variantArgs variant2))
+                        $ \(arg1, arg2) -> mergeArgInfo ctx tctx' arg1 arg2
+
+                      addToInterface
+                        mod
+                        (variantName variant1)
+                        (EnumConstructor variant2)
+                        False
+                        (TypeEnumConstructor
+                          (modPath mod, typeName converted)
+                          (variantName variant1)
+                          [ (argName arg, argType arg)
+                          | arg <- variantArgs variant2
+                          ]
+                          []
+                        )
+                        pos
+                        True
                 _ -> return ()
 
               bindToScope (modScope mod)
@@ -291,12 +307,13 @@ addModUsing
   :: CompileContext
   -> TypeContext
   -> Module
+  -> Span
   -> UsingType Expr (Maybe TypeSpec)
   -> IO ()
-addModUsing ctx tctx mod using = do
+addModUsing ctx tctx mod pos using = do
   converted <- convertUsingType
     (converter (convertExpr ctx tctx mod) (resolveMaybeType ctx tctx mod))
-    NoPos
+    pos
     using
   modifyIORef (modUsing mod) (\l -> converted : l)
 

@@ -21,15 +21,6 @@ instance Errable TypingError where
   logError e@(TypingError s _) = logErrorBasic (KitError e) s
   errPos (TypingError _ pos) = Just pos
 
-data DuplicateDeclarationError = DuplicateDeclarationError ModulePath Str Span Span deriving (Eq, Show)
-instance Errable DuplicateDeclarationError where
-  logError e@(DuplicateDeclarationError mod name pos1 pos2) = do
-    logErrorBasic e $ "Duplicate declaration for `" ++ s_unpack name ++ "` in " ++ s_unpack (showModulePath mod) ++ "; \n\nFirst declaration:"
-    ePutStrLn "\nSecond declaration:"
-    displayFileSnippet pos2
-    ePutStrLn "\nFunction, variable, type and trait names must be unique within the same scope."
-  errPos (DuplicateDeclarationError _ _ pos _) = Just pos
-
 data TypeContext = TypeContext {
   tctxScopes :: [Scope Binding],
   tctxMacroVars :: [(Str, TypedExpr)],
@@ -124,7 +115,10 @@ resolveType ctx tctx mod t = do
                         then return ct
                         else do
                           existing <- mapM (resolveType ctx tctx mod) params
-                          params   <- makeGeneric ctx tp NoPos existing
+                          params   <- makeGeneric ctx
+                                                  tp
+                                                  (typeSpecPosition t)
+                                                  existing
                           return $ TypeInstance tp (map snd params)
                     _ -> return ct
         m -> do
@@ -198,14 +192,15 @@ follow ctx tctx t = do
     TypeArr t len -> do
       resolved <- follow ctx tctx t
       return $ TypeArr resolved len
-    TypeEnumConstructor tp d args -> do
+    TypeEnumConstructor tp d args params -> do
       resolvedArgs <- forM
         args
         (\(name, t) -> do
           resolvedArg <- follow ctx tctx t
           return (name, resolvedArg)
         )
-      return $ TypeEnumConstructor tp d resolvedArgs
+      resolvedParams <- forM params (follow ctx tctx)
+      return $ TypeEnumConstructor tp d resolvedArgs resolvedParams
     TypeTypedef tp@(modPath, name) params -> do
       defMod  <- getMod ctx modPath
       binding <- resolveLocal (modScope defMod) name
@@ -216,12 +211,14 @@ follow ctx tctx t = do
           Nothing
     _ -> return t
 
-followType ctx tctx =
-  convertTypeDefinition (\_ -> converter return (\_ -> mapType $ follow ctx tctx))
-followFunction ctx tctx =
-  convertFunctionDefinition (\_ -> converter return (\_ -> mapType $ follow ctx tctx))
-followTrait ctx tctx =
-  convertTraitDefinition (\_ -> converter return (\_ -> mapType $ follow ctx tctx))
+followType ctx tctx = convertTypeDefinition
+  (\_ -> converter return (\_ -> mapType $ follow ctx tctx))
+followFunction ctx tctx = convertFunctionDefinition
+  (\_ -> converter return (\_ -> mapType $ follow ctx tctx))
+followTrait ctx tctx = convertTraitDefinition
+  (\_ -> converter return (\_ -> mapType $ follow ctx tctx))
+followVariant ctx tctx =
+  convertEnumVariant (converter return (\_ -> mapType $ follow ctx tctx))
 
 addUsing
   :: CompileContext

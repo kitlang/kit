@@ -1,3 +1,12 @@
+// we should be mangling the discriminant, and name collision within the same
+// module should be allowed, with the last declaration winning; if either of
+// these fail, the module won't compile
+enum MyRedundantEnum {
+    Apple;
+    Banana;
+    Strawberry;
+}
+
 enum MySimpleEnum {
     Apple;
     Banana;

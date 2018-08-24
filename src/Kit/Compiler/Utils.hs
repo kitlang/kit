@@ -37,7 +37,11 @@ findSourceFile f (h : t) = do
 
 debugLog :: CompileContext -> String -> IO ()
 debugLog ctx msg = do
-  when (ctxVerbose ctx) $ logMsg (Just Debug) msg
+  when (ctxVerbose ctx > 0) $ logMsg (Just Debug) msg
+
+noisyDebugLog :: CompileContext -> String -> IO ()
+noisyDebugLog ctx msg = do
+  when (ctxVerbose ctx > 1) $ logMsg (Just Debug) msg
 
 findModule :: CompileContext -> ModulePath -> Maybe Span -> IO FilePath
 findModule ctx mod pos = do
@@ -56,19 +60,6 @@ findModule ctx mod pos = do
         mod
         [ (dir </> modPath) | dir <- ctxSourcePaths ctx ]
         pos
-
-validName :: Str -> Str
-validName name = if s_length name > 32 then s_concat ["kit", s_hash name] else name
-
-mangleName :: [Str] -> Str -> Str
-mangleName [] s = s
-mangleName namespace s = validName $ s_concat [s_join "_" ("kit" : namespace), "__", s]
-
-monomorphName :: Str -> [ConcreteType] -> Str
-monomorphName name p = if null p then name else s_concat [name, "__", monomorphSuffix p]
-
-monomorphSuffix :: [ConcreteType] -> Str
-monomorphSuffix p = s_hash $ s_concat (map (s_pack . show) p)
 
 plural 1 = ""
 plural _ = "s"

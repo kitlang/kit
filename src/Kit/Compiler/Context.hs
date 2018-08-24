@@ -49,7 +49,7 @@ data CompileContext = CompileContext {
   ctxUnresolvedTypeVars :: HashTable Int (),
 
   -- options
-  ctxVerbose :: Bool,
+  ctxVerbose :: Int,
   ctxMainModule :: ModulePath,
   ctxIsLibrary :: Bool,
   ctxSourcePaths :: [FilePath],
@@ -106,7 +106,7 @@ newCompileContext = do
     , ctxModules              = mods
     , ctxFailedModules        = failed
     , ctxPreludes             = preludes
-    , ctxVerbose              = False
+    , ctxVerbose              = 0
     , ctxModuleGraph          = module_graph
     , ctxIncludes             = includes
     , ctxLastTypeVar          = lastTypeVar
@@ -152,17 +152,24 @@ getCMod ctx fp = do
   m <- h_lookup (ctxModules ctx) modPath
   case m of
     Just m' -> return m'
-    Nothing -> throw $ KitError $ InternalError
-      ("Unexpected missing C module: " ++ fp)
-      Nothing
+    Nothing ->
+      throwk $ InternalError ("Unexpected missing C module: " ++ fp) Nothing
 
 makeTypeVar :: CompileContext -> Span -> IO ConcreteType
+makeTypeVar ctx NoPos = throwk
+  $ InternalError ("Attempt to make type variable with no position data") Nothing
 makeTypeVar ctx pos = do
   last <- readIORef (ctxLastTypeVar ctx)
   let next = last + 1
   writeIORef (ctxLastTypeVar ctx) next
   h_insert (ctxTypeVariables ctx)      next (newTypeVarInfo next pos)
   h_insert (ctxUnresolvedTypeVars ctx) next ()
+  when (ctxVerbose ctx > 1)
+    $  logMsg (Just Debug)
+    $  "made type var: "
+    ++ show next
+    ++ " at "
+    ++ show pos
   return $ TypeTypeVar next
 
 getTypeVar :: CompileContext -> Int -> IO TypeVarInfo

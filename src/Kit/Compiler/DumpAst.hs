@@ -189,6 +189,16 @@ dumpCt ctx t = case t of
     return
       $  s_unpack (showTypePath tp)
       ++ (if null params then "" else "[" ++ intercalate ", " p ++ "]")
+  TypeEnumConstructor tp d _ params -> do
+    p <- mapM (dumpCt ctx) params
+    return
+      $  "enum constructor "
+      ++ s_unpack (showTypePath tp)
+      ++ "."
+      ++ s_unpack d
+      ++ "["
+      ++ intercalate ", " p
+      ++ "]"
   TypeTypeVar i -> do
     info <- getTypeVar ctx i
     let
@@ -204,7 +214,12 @@ dumpCt ctx t = case t of
                  )
              )
     case typeVarValue info of
-      Just t  -> dumpCt ctx t
+      Just t  ->
+        if (ctxVerbose ctx > 1)
+          then do
+            x <- dumpCt ctx t
+            return $ tv ++ " := " ++ x
+          else dumpCt ctx t
       Nothing -> return tv
   TypeTuple t -> do
     parts <- forM t $ dumpCt ctx

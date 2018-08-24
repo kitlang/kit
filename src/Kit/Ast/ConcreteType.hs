@@ -33,7 +33,7 @@ data ConcreteType
   | TypeBasicType BasicType
   | TypePtr ConcreteType
   | TypeArr ConcreteType (Maybe Int)
-  | TypeEnumConstructor TypePath Str ConcreteArgs
+  | TypeEnumConstructor TypePath Str ConcreteArgs [ConcreteType]
   | TypeRange
   | TypeTraitConstraint TraitConstraint
   | TypeTuple [ConcreteType]
@@ -50,7 +50,7 @@ instance Hashable ConcreteType
 instance Show ConcreteType where
   show (TypeAtom) = "atom"
   show (TypeInstance tp []) = "instance " ++ (s_unpack $ showTypePath tp)
-  show (TypeInstance tp params) = "instance " ++ (s_unpack $ showTypePath tp) ++ "[" ++ (intercalate ", " [show x | x <- params]) ++ "]"
+  show (TypeInstance tp params) = "instance " ++ (s_unpack $ showTypePath tp) ++ "[" ++ (intercalate ", " (map show params)) ++ "]"
   show (TypeAnonStruct f) = "(anon struct)"
   show (TypeAnonEnum variants) = "(anon enum {" ++ (intercalate ", " (map s_unpack variants)) ++ "})"
   show (TypeAnonUnion f) = "(anon union)"
@@ -62,7 +62,7 @@ instance Show ConcreteType where
   show (TypePtr t) = "Ptr[" ++ (show t) ++ "]"
   show (TypeArr t (Just i)) = "Arr[" ++ (show t) ++ "] of length " ++ (show i)
   show (TypeArr t Nothing) = "Arr[" ++ (show t) ++ "]"
-  show (TypeEnumConstructor tp d _) = "enum " ++ (show tp) ++ " constructor " ++ (s_unpack d)
+  show (TypeEnumConstructor tp d _ params) = "enum " ++ (show tp) ++ " constructor " ++ (s_unpack d) ++ "[" ++ (intercalate ", " (map show params)) ++ "]"
   show (TypeRange) = "range"
   show (TypeTraitConstraint (tp, params)) = "trait " ++ s_unpack (showTypePath tp)
   show (TypeTuple t) = "(" ++ intercalate ", " (map show t) ++ ")"
@@ -112,11 +112,12 @@ mapType f (TypePtr t) = do
 mapType f (TypeArr t l) = do
   t' <- f t
   f $ TypeArr t' l
-mapType f (TypeEnumConstructor tp s args) = do
+mapType f (TypeEnumConstructor tp s args p) = do
   args' <- forM args $ \(n, t) -> do
     t' <- f t
     return (n, t')
-  f $ TypeEnumConstructor tp s args'
+  p' <- mapM f p
+  f $ TypeEnumConstructor tp s args' p'
 -- TypeTraitConstraint
 mapType f (TypeBox tp p) = do
   p' <- mapM f p

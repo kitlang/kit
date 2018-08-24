@@ -65,8 +65,19 @@ generateDeclIr ctx mod t = do
         (\method -> generateDeclIr ctx mod $ DeclFunction
           (method { functionNamespace = (modPath mod) ++ [name] })
         )
+      subtype <- case typeSubtype converted of
+        t@(Enum { enumVariants = variants }) -> do
+          let newName n = if modIsCModule mod
+                then n
+                else mangleName (modPath mod ++ [typeName converted]) n
+          let variants' =
+                [ variant { variantName = newName $ variantName variant }
+                | variant <- variants
+                ]
+          return $ t { enumVariants = variants' }
+        x -> return x
       return
-        $ (DeclType converted)
+        $ (DeclType $ converted { typeSubtype = subtype })
         : (foldr (++) [] (staticFields ++ staticMethods ++ instanceMethods))
 
     DeclFunction f@(FunctionDefinition { functionName = name }) -> do
@@ -436,9 +447,17 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
             return (name, r1)
           )
         return $ IrStructInit f resolvedFields
-      (EnumInit t d args) -> do
+      (EnumInit (TypeInstance tp p) d args) -> do
+        discriminant <- enumDiscriminantName ctx tp p d
         resolvedArgs <- forM args r
-        return $ IrEnumInit f d resolvedArgs
+        f'           <- case f of
+          BasicTypeComplexEnum n variants -> do
+            variants <- forM variants $ \(name, args) -> do
+              name <- enumDiscriminantName ctx tp p name
+              return (name, args)
+            return $ BasicTypeComplexEnum n variants
+          f -> return f
+        return $ IrEnumInit f' discriminant resolvedArgs
       (EnumDiscriminant x) -> do
         r1       <- r x
         enumType <- findUnderlyingType ctx mod (Just pos) (inferredType x)
@@ -447,6 +466,8 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
           BasicTypeComplexEnum _ _ -> return $ IrField r1 discriminantFieldName
       (EnumField x variantName fieldName) -> do
         r1 <- r x
+        let (TypeInstance tp params) = inferredType x
+        variantName <- enumDiscriminantName ctx tp params variantName
         return
           $ IrField
               ( IrField (IrField r1 variantFieldName)

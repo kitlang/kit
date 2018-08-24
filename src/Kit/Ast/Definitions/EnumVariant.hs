@@ -54,6 +54,3 @@ discriminantFieldName = "__dsc"
 
 variantFieldName :: Str
 variantFieldName = "__var"
-
-discriminantMemberName :: Str -> Str
-discriminantMemberName discriminant = s_concat ["variant_", discriminant]

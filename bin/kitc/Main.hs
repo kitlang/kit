@@ -21,7 +21,7 @@ import Kit.Str
 
 data Options = Options {
   optShowVersion :: Bool,
-  optVerbose :: Bool,
+  optVerbose :: Int,
   optTarget :: String,
   optMainModule :: String,
   optOutputDir :: FilePath,
@@ -39,11 +39,17 @@ data Options = Options {
 options :: Parser Options
 options =
   Options
-    <$> switch
-          (long "version" <> short 'v' <> help
-            "show the version number and exit"
+    <$> switch (long "version" <> help "show the version number and exit")
+    <*> (length <$> many
+          (flag'
+            ()
+            (  long "verbose"
+            <> short 'v'
+            <> help
+                 "show extra debugging output; use multiple times (-vv) for even more output"
+            )
           )
-    <*> switch (long "verbose" <> help "show extra debugging output")
+        )
     <*> strOption
           (  long "target"
           <> short 't'

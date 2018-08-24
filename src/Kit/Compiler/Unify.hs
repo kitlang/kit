@@ -70,7 +70,7 @@ unify ctx tctx a' b' = do
   a <- follow ctx tctx a'
   b <- follow ctx tctx b'
   case (a, b) of
-    (TypeSelf, x       ) -> case tctxSelf tctx of
+    (TypeSelf, x) -> case tctxSelf tctx of
       Just y  -> unify ctx tctx y x
       Nothing -> return Nothing
     (TypeTypeVar i, TypeTraitConstraint t) -> do
@@ -128,6 +128,14 @@ unify ctx tctx a' b' = do
           case find ((==) a) parents of
             Just _ -> return $ Just []
             _      -> return Nothing
+    (TypeEnumConstructor tp1 d1 _ params1, TypeEnumConstructor tp2 d2 _ params2)
+      -> do
+        if (tp1 == tp2) && (d1 == d2) && (length params1 == length params2)
+          then do
+            paramMatch <- mapM (\(a, b) -> unify ctx tctx a b)
+                               (zip params1 params2)
+            return $ checkResults paramMatch
+          else return Nothing
     (a, b) | a == b -> return $ Just []
     _               -> return Nothing
 

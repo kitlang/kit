@@ -133,7 +133,11 @@ parseCDecls ctx mod path (h : t) = do
                 TypeBasicType BasicTypeUnknown ->
                   unknownTypeWarning ctx mod name pos
                 _ -> return ()
-              debugLog ctx $ "bind " ++ (s_unpack name) ++ ": " ++ (show t')
+              noisyDebugLog ctx
+                $  "bind "
+                ++ (s_unpack name)
+                ++ ": "
+                ++ (show t')
               addCDecl ctx mod name t' pos
             )
     _ -> do
@@ -149,7 +153,7 @@ defineTypedef
   -> IO ()
 defineTypedef ctx mod typeSpec pos (name, declr) = do
   let t' = parseType (modPath mod) typeSpec declr
-  debugLog ctx $ "typedef " ++ (s_unpack name) ++ ": " ++ (show t')
+  noisyDebugLog ctx $ "typedef " ++ (s_unpack name) ++ ": " ++ (show t')
   case t' of
     TypeBasicType BasicTypeUnknown -> unknownTypeWarning ctx mod name pos
     _                              -> return ()
@@ -309,7 +313,7 @@ defineNamedStructsEnumsUnions ctx mod pos (h : t) = do
                     []
                     pos
         )
-      debugLog ctx $ "define struct " ++ name
+      noisyDebugLog ctx $ "define struct " ++ name
     (CEnumType (CEnum (Just (Ident name _ _)) variants _ _) _) -> do
       let variants' = case variants of
             Just v  -> v
@@ -334,7 +338,7 @@ defineNamedStructsEnumsUnions ctx mod pos (h : t) = do
         (modScope mod)
         (s_pack name)
         (newBinding (modPath mod, s_pack name) (TypeBinding typeDef) ct [] pos)
-      debugLog ctx $ "define enum " ++ name
+      noisyDebugLog ctx $ "define enum " ++ name
       forM_
         (enumVariants $ typeSubtype typeDef)
         (\variant -> do
@@ -347,11 +351,12 @@ defineNamedStructsEnumsUnions ctx mod pos (h : t) = do
               (TypeEnumConstructor (modPath mod, typeName typeDef)
                                    (variantName variant)
                                    []
+                                   []
               )
               []
               pos
             )
-          debugLog ctx
+          noisyDebugLog ctx
             $  "define enum constructor "
             ++ (s_unpack $ variantName variant)
         )

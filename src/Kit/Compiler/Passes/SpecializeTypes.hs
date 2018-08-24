@@ -28,7 +28,7 @@ specializeTypes ctx = do
     defaultType <- findDefaultType ctx id
     case defaultType of
       Just x -> do
-        debugLog ctx $ "specializing type variable " ++ show id ++ " as " ++ show x
+        noisyDebugLog ctx $ "specializing type variable " ++ show id ++ " as " ++ show x
         info <- getTypeVar ctx id
         h_insert (ctxTypeVariables ctx) id (info { typeVarValue = Just x })
       _ -> return ()

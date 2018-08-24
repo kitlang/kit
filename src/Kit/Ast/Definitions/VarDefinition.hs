@@ -1,6 +1,7 @@
 module Kit.Ast.Definitions.VarDefinition where
 
 import Control.Monad
+import Debug.Trace
 import Kit.Ast.Definitions.Base
 import Kit.Ast.Metadata
 import Kit.Ast.Modifier

@@ -18,7 +18,7 @@ instance Show Span where
   show span = "@" ++ file span ++
               ":" ++ (show $ startLine span) ++ ":" ++ (show $ startCol span) ++
               (if (startCol span /= endCol span) || (startLine span /= endLine span)
-                then "-" ++ (show $ endLine span) ++ ":" ++ (show $ endCol span)
+                then "-" ++ (if startLine span /= endLine span then (show $ endLine span) ++ ":" else "") ++ (show $ endCol span)
                 else "") ++ (case rewrittenFrom span of {Just x -> " <= " ++ show x; Nothing -> ""})
 
 sp :: FilePath -> Int -> Int -> Int -> Int -> Span

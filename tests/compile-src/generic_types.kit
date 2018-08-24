@@ -31,6 +31,23 @@ union Either[A, B] {
 enum WrapperEnum[T] {
     OneValue(v: T);
     TwoValues(a: T, b: T);
+
+    public function which(fmt: CString) {
+        match this {
+            OneValue(a) => {
+                printf("one: ");
+                printf(fmt, a);
+                printf("\n");
+            }
+            TwoValues(a, b) => {
+                printf("two: ");
+                printf(fmt, a);
+                printf(", ");
+                printf(fmt, b);
+                printf("\n");
+            }
+        }
+    }
 }
 
 function main() {
@@ -71,11 +88,25 @@ function main() {
     e.b = 20.5;
     e.printRight("%.2f\n");
 
+    // union with partially specified parameters
+    var f: Either[Int];
+    f.a = 40;
+    f.printLeft("%i\n");
+    f.b = 77.77;
+    f.printRight("%.2f\n");
+
     // TODO: static methods of generic types...?
     // WrapperType.f();
     // WrapperType.g("%s\n", "this function uses the type parameter");
 
-    // FIXME: enum constructors may need type param holders
-    // var e: WrapperEnum[Int] = OneValue(1);
-    // var f = TwoValues(2, 3.0);
+    var g: WrapperEnum[Int] = OneValue(1);
+    // generic pattern matching issue
+    g.which("%i");
+    // bug here: discriminant should only be generated once, not per monomorph
+    var h: WrapperEnum[Float] = TwoValues(2.0, 3.0);
+    h.which("%.1f");
+    var i: WrapperEnum = OneValue(4);
+    i.which("%i");
+    var j: WrapperEnum = TwoValues(5, 6.0);
+    j.which("%.1f");
 }
