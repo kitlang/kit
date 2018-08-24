@@ -7,6 +7,7 @@ import Kit.Ast.Metadata
 import Kit.Ast.Modifier
 import Kit.Ast.ModulePath
 import Kit.Ast.Operator
+import Kit.Ast.TypePath
 import Kit.Ast.TypeSpec
 import Kit.Ast.UsingType
 import Kit.Ast.Value
@@ -82,6 +83,7 @@ data ExprType a b
   | BoxedValue (TraitDefinition a b) a
   | BoxedVtable (TraitDefinition a b) a
   | SizeOf b
+  | Method a TypePath Str
   deriving (Eq, Show)
 
 exprDiscriminant :: ExprType a b -> Int
@@ -126,6 +128,7 @@ exprDiscriminant et = case et of
   SizeOf    _          -> 36
   TupleInit _          -> 37
   TupleSlot _ _        -> 38
+  Method _ _ _         -> 39
 
 exprChildren :: ExprType a b -> [a]
 exprChildren et = case et of
@@ -161,6 +164,7 @@ exprChildren et = case et of
   BoxedVtable _ x             -> [x]
   TupleInit x                 -> x
   TupleSlot x _               -> [x]
+  Method x _ _                -> [x]
   _                           -> []
 
 exprMapReduce :: (a -> c) -> (c -> d -> d) -> (a -> ExprType a b) -> d -> a -> d

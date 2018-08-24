@@ -10,14 +10,12 @@ import System.FilePath
 import Kit.Ast
 import Kit.Compiler.Binding
 import Kit.Compiler.Context
-import Kit.Compiler.DumpAst
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
 import Kit.Compiler.TypedDecl
 import Kit.Compiler.TypedExpr
 import Kit.Compiler.Typers
-import Kit.Compiler.Unify
 import Kit.Compiler.Utils
 import Kit.Error
 import Kit.HashTable
@@ -30,7 +28,7 @@ generateMonomorphs ctx = do
   writeIORef (ctxPendingGenerics ctx) []
   decls <- forM (reverse pendingGenerics) $ \(tp@(modPath, name), params') -> do
     tctx     <- newTypeContext []
-    params   <- forM params' (mapType $ knownType ctx tctx)
+    params   <- forM params' (mapType $ follow ctx tctx)
     existing <- h_lookup (ctxCompleteGenerics ctx) (tp, params)
     case existing of
       Just x -> return Nothing
@@ -40,14 +38,22 @@ generateMonomorphs ctx = do
         binding       <- scopeGet (modScope definitionMod) name
         case bindingType binding of
           FunctionBinding def -> do
-            x <- typeFunctionMonomorph
-              ctx
-              definitionMod
-              (def { functionName = monomorphName (functionName def) params })
-              params
+            x <- typeFunctionMonomorph ctx definitionMod def params
             return $ case x of
-              (Just x, _) -> Just (definitionMod, [x])
-              _           -> Nothing
+              (Just (DeclFunction x), _) -> Just
+                ( definitionMod
+                , [DeclFunction $ x { functionName = monomorphName (functionName def) params }]
+                )
+              _ -> Nothing
+          TypeBinding def -> do
+            x <- typeTypeMonomorph ctx definitionMod def params
+            return $ case x of
+              (Just (DeclType x), _) ->
+                Just
+                  ( definitionMod
+                  , [DeclType $ x { typeName = monomorphName (typeName def) params }]
+                  )
+              _ -> Nothing
           _ -> return Nothing
 
   return $ catMaybes decls

@@ -39,11 +39,10 @@ getAbstractParents ctx t = do
     TypeInstance (modPath, typeName) params -> do
       -- TODO: factor this out
       def <- getTypeDefinition ctx modPath typeName
-      case def of
-        Just (TypeDefinition { typeSubtype = Abstract { abstractUnderlyingType = t' } })
-          -> do
-            parents <- getAbstractParents ctx t'
-            return $ t' : parents
+      case typeSubtype def of
+        Abstract { abstractUnderlyingType = t' } -> do
+          parents <- getAbstractParents ctx t'
+          return $ t' : parents
         _ -> return []
     _ -> return []
 
@@ -68,9 +67,12 @@ unify ctx tctx a' b' = do
         )
         (Just [])
         x
-  a <- knownType ctx tctx a'
-  b <- knownType ctx tctx b'
+  a <- follow ctx tctx a'
+  b <- follow ctx tctx b'
   case (a, b) of
+    (TypeSelf, x       ) -> case tctxSelf tctx of
+      Just y  -> unify ctx tctx y x
+      Nothing -> return Nothing
     (TypeTypeVar i, TypeTraitConstraint t) -> do
       info <- getTypeVar ctx i
       return $ if elem t (map fst $ typeVarConstraints info)
@@ -189,8 +191,8 @@ resolveConstraint ctx tctx constraint@(TypeEq a b reason pos) = do
 resolveConstraintOrThrow
   :: CompileContext -> TypeContext -> TypeConstraint -> IO [TypeInformation]
 resolveConstraintOrThrow ctx tctx t@(TypeEq a' b' reason pos) = do
-  a      <- knownType ctx tctx a'
-  b      <- knownType ctx tctx b'
+  a      <- follow ctx tctx a'
+  b      <- follow ctx tctx b'
   result <- unify ctx tctx a b
   case result of
     Just x  -> return $ x

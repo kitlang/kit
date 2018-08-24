@@ -153,8 +153,9 @@ dumpAst ctx indent e@(TypedExpr { tExpr = texpr, inferredType = t, tPos = pos })
       Match x cases def -> i
         "match"
         (x : (foldr (++) [] [ [matchPattern c, matchBody c] | c <- cases ]))
-      InlineCall a -> i "inline" [a]
-      Field a id   -> i ("field " ++ show id) [a]
+      InlineCall a     -> i "inline" [a]
+      Method a tp name -> i ("method " ++ s_unpack name) [a]
+      Field a id       -> i ("field " ++ show id) [a]
       StructInit (TypeInstance tp _) fields ->
         i ("struct " ++ s_unpack (showTypePath tp)) (map snd fields)
       EnumInit _ constructor fields ->
@@ -183,6 +184,11 @@ dumpAst ctx indent e@(TypedExpr { tExpr = texpr, inferredType = t, tPos = pos })
 
 dumpCt :: CompileContext -> ConcreteType -> IO String
 dumpCt ctx t = case t of
+  TypeInstance tp params -> do
+    p <- mapM (dumpCt ctx) params
+    return
+      $  s_unpack (showTypePath tp)
+      ++ (if null params then "" else "[" ++ intercalate ", " p ++ "]")
   TypeTypeVar i -> do
     info <- getTypeVar ctx i
     let
@@ -191,19 +197,14 @@ dumpCt ctx t = case t of
           ++ show (typeVarId info)
           ++ (if null $ typeVarConstraints info
                then ""
-               else
-                 " ["
-                 ++ intercalate
-                      ", "
-                      ( map (s_unpack . showTypePath . fst . fst)
-                      $ typeVarConstraints info
-                      )
-                 ++ "]"
+               else ": " ++ intercalate
+                 ", "
+                 ( map (s_unpack . showTypePath . fst . fst)
+                 $ typeVarConstraints info
+                 )
              )
     case typeVarValue info of
-      Just t -> do
-        t' <- dumpCt ctx t
-        return $ tv ++ " => " ++ t'
+      Just t  -> dumpCt ctx t
       Nothing -> return tv
   TypeTuple t -> do
     parts <- forM t $ dumpCt ctx

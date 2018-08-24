@@ -27,19 +27,19 @@ data FunctionDefinition a b = FunctionDefinition {
 
 newFunctionDefinition :: FunctionDefinition a b
 newFunctionDefinition = FunctionDefinition
-  { functionName         = undefined
-  , functionDoc          = Nothing
-  , functionMeta         = []
-  , functionModifiers    = [Public]
-  , functionParams       = []
-  , functionArgs         = []
-  , functionType         = undefined
-  , functionBody         = Nothing
-  , functionVarargs      = False
-  , functionNamespace    = []
-  , functionThis         = Nothing
-  , functionSelf         = Nothing
-  , functionPos          = NoPos
+  { functionName      = undefined
+  , functionDoc       = Nothing
+  , functionMeta      = []
+  , functionModifiers = [Public]
+  , functionParams    = []
+  , functionArgs      = []
+  , functionType      = undefined
+  , functionBody      = Nothing
+  , functionVarargs   = False
+  , functionNamespace = []
+  , functionThis      = Nothing
+  , functionSelf      = Nothing
+  , functionPos       = NoPos
   }
 
 convertFunctionDefinition
@@ -55,19 +55,18 @@ convertFunctionDefinition paramConverter f = do
   rt   <- typeConverter (functionPos f) (functionType f)
   args <- forM (functionArgs f) (convertArgSpec converter)
   body <- maybeConvert exprConverter (functionBody f)
-  return $ (newFunctionDefinition)
-    { functionName         = functionName f
-    , functionDoc          = functionDoc f
-    , functionMeta         = functionMeta f
-    , functionModifiers    = functionModifiers f
-    , functionParams       = functionParams f
-    , functionArgs         = args
-    , functionType         = rt
-    , functionBody         = body
-    , functionVarargs      = functionVarargs f
-    , functionNamespace    = functionNamespace f
-    , functionPos          = functionPos f
-    }
+  return $ (newFunctionDefinition) { functionName      = functionName f
+                                   , functionDoc       = functionDoc f
+                                   , functionMeta      = functionMeta f
+                                   , functionModifiers = functionModifiers f
+                                   , functionParams    = functionParams f
+                                   , functionArgs      = args
+                                   , functionType      = rt
+                                   , functionBody      = body
+                                   , functionVarargs   = functionVarargs f
+                                   , functionNamespace = functionNamespace f
+                                   , functionPos       = functionPos f
+                                   }
 
 data ArgSpec a b = ArgSpec {
   argName :: Str,
@@ -107,4 +106,10 @@ implicitifyMethod thisType thisName method = method
                                }
                    )
     : (functionArgs method)
+  }
+
+reimplicitify :: b -> FunctionDefinition a b -> FunctionDefinition a b
+reimplicitify selfType def = def
+  { functionArgs = ((head $ functionArgs def) { argType = selfType })
+    : (tail $ functionArgs def)
   }

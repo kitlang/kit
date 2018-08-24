@@ -55,8 +55,8 @@ autoRefDeref ctx tctx toType fromType original temps ex = do
           Just v -> do
             modifyIORef v (\val -> val ++ reverse temps)
         return ex
-  toType   <- knownType ctx tctx toType
-  fromType <- knownType ctx tctx fromType
+  toType   <- follow ctx tctx toType
+  fromType <- follow ctx tctx fromType
   result   <- unify ctx tctx toType fromType
   case result of
     Just _ -> finalizeResult ex

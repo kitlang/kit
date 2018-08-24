@@ -20,6 +20,7 @@ import Kit.Compiler.Typers.ConvertExpr
 import Kit.Compiler.Typers.TypeLiteral
 import Kit.Compiler.Typers.TypeOp
 import Kit.Compiler.Unify
+import Kit.Compiler.Utils
 import Kit.Error
 import Kit.HashTable
 import Kit.Parser
@@ -131,7 +132,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
     (Self) -> do
       case tctxSelf tctx of
-        Just t -> return $ makeExprTyped Self (TypeTypeOf t) pos
+        Just (TypeInstance tp params) ->
+          return $ makeExprTyped Self (TypeTypeOf tp) pos
         Nothing ->
           failTyping $ TypingError ("`Self` can only be used in methods") pos
 
@@ -496,55 +498,75 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       tryRewrite (unknownTyped $ Field r1 (Var fieldName)) $ do
         let
           typeFieldAccess t fieldName = do
+            t <- follow ctx tctx t
             case t of
-              TypeInstance (modPath, typeName) params -> do
-                defMod  <- getMod ctx modPath
-                binding <- resolveLocal (modScope defMod) typeName
+              TypeInstance tp@(modPath, typeName) params -> do
+                templateDef <- getTypeDefinition ctx modPath typeName
+                let tctx' = addTypeParams
+                      tctx
+                      [ (paramName param, val)
+                      | (param, val) <- zip (typeParams templateDef) params
+                      ]
+                def <- followType ctx tctx' templateDef
+                let subtype = typeSubtype def
+                localScope <- getSubScope (modScope mod) [typeName]
+                binding    <- resolveLocal localScope fieldName
                 case binding of
-                  Just (Binding { bindingType = TypeBinding def@(TypeDefinition { typeSubtype = subtype }) })
-                    -> do
-                      localScope <- getSubScope (modScope mod) [typeName]
-                      binding    <- resolveLocal localScope fieldName
-                      case binding of
-                        Just x -> do
-                          typed <- typeVarBinding ctx tctx fieldName x pos
-                          return $ typed { tImplicits = r1 : tImplicits typed }
-                        _ -> case subtype of
-                          Struct { structFields = fields } -> do
-                            result <- typeStructUnionFieldAccess ctx
-                                                                 tctx
-                                                                 fields
-                                                                 r1
-                                                                 fieldName
-                                                                 pos
-                            case result of
-                              Just x -> return $ x { tIsLvalue = True }
-                              _      -> failTyping $ TypingError
-                                (  "Struct doesn't have a field called `"
-                                ++ s_unpack fieldName
-                                ++ "`"
-                                )
-                                pos
+                  Just x -> do
+                    -- this is a local method
+                    typed <- typeVarBinding ctx tctx' fieldName x pos
+                    -- this may be a template; replace `this` with the actual
+                    -- type to guarantee the implicit pass will work
+                    let
+                      f = case inferredType typed of
+                        TypeFunction rt args varargs _ -> TypeFunction
+                          rt
+                          ( (let (name, _) = (head args)
+                             in  (name, inferredType r1)
+                            )
+                          : (tail args)
+                          )
+                          varargs
+                          params
+                    return $ (makeExprTyped (Method r1 tp fieldName) f pos)
+                      { tImplicits = r1 : tImplicits typed
+                      }
+                  _ -> case subtype of
+                    Struct { structFields = fields } -> do
+                      result <- typeStructUnionFieldAccess ctx
+                                                           tctx'
+                                                           fields
+                                                           r1
+                                                           fieldName
+                                                           pos
+                      case result of
+                        Just x -> return $ x { tIsLvalue = True }
+                        _      -> failTyping $ TypingError
+                          (  "Struct doesn't have a field called `"
+                          ++ s_unpack fieldName
+                          ++ "`"
+                          )
+                          pos
 
-                          Union { unionFields = fields } -> do
-                            result <- typeStructUnionFieldAccess ctx
-                                                                 tctx
-                                                                 fields
-                                                                 r1
-                                                                 fieldName
-                                                                 pos
-                            case result of
-                              Just x -> return $ x { tIsLvalue = True }
-                              _      -> failTyping $ TypingError
-                                (  "Union doesn't have a field called `"
-                                ++ s_unpack fieldName
-                                ++ "`"
-                                )
-                                pos
+                    Union { unionFields = fields } -> do
+                      result <- typeStructUnionFieldAccess ctx
+                                                           tctx'
+                                                           fields
+                                                           r1
+                                                           fieldName
+                                                           pos
+                      case result of
+                        Just x -> return $ x { tIsLvalue = True }
+                        _      -> failTyping $ TypingError
+                          (  "Union doesn't have a field called `"
+                          ++ s_unpack fieldName
+                          ++ "`"
+                          )
+                          pos
 
-                          Abstract { abstractUnderlyingType = u } ->
-                            -- forward to parent
-                            typeFieldAccess u fieldName
+                    Abstract { abstractUnderlyingType = u } ->
+                      -- forward to parent
+                      typeFieldAccess u fieldName
 
               TypePtr x ->
                 -- try to auto-dereference
@@ -697,13 +719,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       init' <- case init of
         Just e1 -> do
           r1        <- r e1
-          converted <- autoRefDeref ctx
-                                    tctx
-                                    varType
-                                    (inferredType r1)
-                                    r1
-                                    []
-                                    r1
+          converted <- autoRefDeref ctx tctx varType (inferredType r1) r1 [] r1
           resolve $ TypeEq
             varType
             (inferredType converted)
@@ -739,70 +755,71 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
     (Defer e1) -> do
       throwk $ InternalError "Not yet implemented" (Just pos)
 
-    (StructInit structType@(TypeInstance tp@(mp, name) params) fields) -> do
+    (StructInit structType@(TypeInstance tp@(mp, name) p) fields) -> do
+      params       <- makeGeneric ctx tp pos p
       owningModule <- getMod ctx mp
-      structDef    <- resolveLocal (modScope owningModule) name
-      case structDef of
-        Just (Binding { bindingType = TypeBinding (TypeDefinition { typeSubtype = Struct { structFields = structFields } }) })
-          -> do
-            let providedNames = map fst fields
-            let fieldNames    = map varName structFields
-            let extraNames    = providedNames \\ fieldNames
-            -- TODO: check for duplicate fields
-            -- check for extra fields
-            unless (null extraNames) $ throwk $ BasicError
-              (  "Struct "
-              ++ s_unpack (showTypePath tp)
-              ++ " has the following extra fields:\n\n"
-              ++ intercalate
-                   "\n"
-                   [ "  - `" ++ s_unpack name ++ "`" | name <- extraNames ]
-              ++ "\n\nRemove these fields or correct any typos."
-              )
-              (Just pos)
-            let nonProvidedNames = fieldNames \\ providedNames
-            typedFields <- forM
-              (structFields)
-              (\field -> do
-                let fieldType = varType field
-                let provided =
-                      find (\(name, _) -> name == varName field) fields
-                case provided of
-                  Just (name, value) -> return ((name, value), fieldType)
-                  Nothing            -> case varDefault field of
-                    Just fieldDefault -> do
-                      -- FIXME
-                      return ((varName field, fieldDefault), fieldType)
-                    Nothing -> throwk $ BasicError
-                      (  "Struct "
-                      ++ s_unpack (showTypePath tp)
-                      ++ " is missing field "
-                      ++ s_unpack (varName field)
-                      ++ ", and no default value is provided."
-                      )
-                      (Just pos)
-              )
-            typedFields <- forM
-              typedFields
-              (\((name, expr), fieldType) -> do
-                r1        <- r expr
-                converted <- autoRefDeref ctx
-                                          tctx
-                                          fieldType
-                                          (inferredType r1)
-                                          r1
-                                          []
-                                          r1
-                resolve $ TypeEq
-                  fieldType
-                  (inferredType converted)
-                  "Provided struct field values must match the declared struct field type"
-                  (tPos r1)
-                return (name, converted)
-              )
-            return $ makeExprTyped (StructInit structType typedFields)
-                                   structType
-                                   pos
+      structDef    <- getTypeDefinition ctx mp name
+      let tctx' = addTypeParams tctx params
+      case typeSubtype structDef of
+        Struct { structFields = structFields } -> do
+          let providedNames = map fst fields
+          let fieldNames    = map varName structFields
+          let extraNames    = providedNames \\ fieldNames
+          -- TODO: check for duplicate fields
+          -- check for extra fields
+          unless (null extraNames) $ throwk $ BasicError
+            (  "Struct "
+            ++ s_unpack (showTypePath tp)
+            ++ " has the following extra fields:\n\n"
+            ++ intercalate
+                 "\n"
+                 [ "  - `" ++ s_unpack name ++ "`" | name <- extraNames ]
+            ++ "\n\nRemove these fields or correct any typos."
+            )
+            (Just pos)
+          let nonProvidedNames = fieldNames \\ providedNames
+          typedFields <- forM
+            (structFields)
+            (\field -> do
+              fieldType <- follow ctx tctx' $ varType field
+              let provided = find (\(name, _) -> name == varName field) fields
+              case provided of
+                Just (name, value) -> return ((name, value), fieldType)
+                Nothing            -> case varDefault field of
+                  Just fieldDefault -> do
+                    -- FIXME
+                    return ((varName field, fieldDefault), fieldType)
+                  Nothing -> throwk $ BasicError
+                    (  "Struct "
+                    ++ s_unpack (showTypePath tp)
+                    ++ " is missing field "
+                    ++ s_unpack (varName field)
+                    ++ ", and no default value is provided."
+                    )
+                    (Just pos)
+            )
+          typedFields <- forM
+            typedFields
+            (\((name, expr), fieldType) -> do
+              r1        <- r expr
+              converted <- autoRefDeref ctx
+                                        tctx
+                                        fieldType
+                                        (inferredType r1)
+                                        r1
+                                        []
+                                        r1
+              resolve $ TypeEq
+                fieldType
+                (inferredType converted)
+                "Provided struct field values must match the declared struct field type"
+                (tPos r1)
+              return (name, converted)
+            )
+          let structType' = TypeInstance tp $ map snd params
+          return $ makeExprTyped (StructInit structType' typedFields)
+                                 structType'
+                                 pos
 
     (TupleInit slots) -> do
       slots' <- forM slots r
@@ -812,7 +829,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
     _ -> return $ ex
 
-  t' <- knownType ctx tctx (inferredType result)
+  t' <- follow ctx tctx (inferredType result)
   let result' = result { inferredType = t' }
   tryRewrite result' (return result')
 
@@ -824,22 +841,21 @@ alignCallArgs
   -> [TypedExpr]
   -> [TypedExpr]
   -> IO [TypedExpr]
-alignCallArgs ctx tctx argTypes isVariadic implicits args =
-  if null argTypes
-    then return []
-    else do
-      nextArg <- knownType ctx tctx (head argTypes)
-      found   <- findImplicit ctx tctx nextArg implicits
-      case found of
-        Just x -> do
-          rest <- alignCallArgs ctx
-                                tctx
-                                (tail argTypes)
-                                isVariadic
-                                (delete x implicits)
-                                args
-          return $ x : rest
-        Nothing -> return $ args
+alignCallArgs ctx tctx argTypes isVariadic implicits args = if null argTypes
+  then return []
+  else do
+    nextArg <- follow ctx tctx (head argTypes)
+    found   <- findImplicit ctx tctx nextArg implicits
+    case found of
+      Just x -> do
+        rest <- alignCallArgs ctx
+                              tctx
+                              (tail argTypes)
+                              isVariadic
+                              (delete x implicits)
+                              args
+        return $ x : rest
+      Nothing -> return $ args
 
 findImplicit
   :: CompileContext
@@ -863,7 +879,7 @@ typeFunctionCall
   -> [TypedExpr]
   -> [TypedExpr]
   -> IO TypedExpr
-typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = TypeFunction rt argTypes isVariadic params, tPos = pos }) implicits args
+typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = ft@(TypeFunction rt argTypes isVariadic params), tPos = pos }) implicits args
   = do
     aligned <- alignCallArgs ctx
                              tctx
@@ -878,14 +894,33 @@ typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = TypeFunction rt argT
         )
       $ throwk
       $ TypingError
-          (  "Expected "
+          (  "Function expected "
           ++ (show $ length argTypes)
           ++ (if isVariadic then " or more" else "")
-          ++ " arguments (called with "
+          ++ " argument"
+          ++ (plural $ length argTypes)
+          ++ ":\n\n  "
+          ++ show ft
+          ++ "\n\nCalled with "
           ++ (show $ length args)
-          ++ " arguments and "
-          ++ (show $ length implicits)
-          ++ " implicits)"
+          ++ " argument"
+          ++ (plural $ length args)
+          ++ (if null implicits
+              then
+                "."
+              else
+                (  ", and "
+                ++ (show $ length implicits)
+                ++ " implicit"
+                ++ (plural $ length implicits)
+                ++ ":\n\n"
+                ++ intercalate
+                     "\n"
+                     [ "  - implicit " ++ (show $ inferredType i)
+                     | i <- implicits
+                     ]
+                )
+             )
           )
           pos
     converted <- forM
@@ -903,8 +938,8 @@ typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = TypeFunction rt argT
     forM_
       (zip argTypes converted)
       (\((_, argType), argValue) -> do
-        t1 <- knownType ctx tctx argType
-        t2 <- knownType ctx tctx (inferredType argValue)
+        t1 <- follow ctx tctx argType
+        t2 <- follow ctx tctx (inferredType argValue)
         resolveConstraint
           ctx
           tctx
@@ -935,11 +970,12 @@ typeEnumConstructorCall ctx tctx mod e args tp discriminant argTypes = do
     ++ ")"
     )
     (Just $ tPos e)
+  params <- makeGeneric ctx tp (tPos e) []
   forM_
     (zip argTypes args)
     (\((_, argType), argValue) -> do
       t1 <- follow ctx tctx argType
-      t2 <- knownType ctx tctx (inferredType argValue)
+      t2 <- follow ctx tctx (inferredType argValue)
       resolveConstraint
         ctx
         tctx
@@ -949,9 +985,9 @@ typeEnumConstructorCall ctx tctx mod e args tp discriminant argTypes = do
                 (tPos argValue)
         )
     )
-                                                                  -- TODO: params
-  return $ makeExprTyped (EnumInit (TypeInstance tp []) discriminant args)
-                         (TypeInstance tp [])
+  let ct = TypeInstance tp (map snd params)
+  return $ makeExprTyped (EnumInit ct discriminant args)
+                         ct
                          (tPos e)
 
 typeStructUnionFieldAccess
@@ -978,12 +1014,7 @@ findStructUnionField (h : t) fieldName =
 findStructUnionField [] _ = Nothing
 
 typeVarBinding
-  :: CompileContext
-  -> TypeContext
-  -> Str
-  -> Binding
-  -> Span
-  -> IO TypedExpr
+  :: CompileContext -> TypeContext -> Str -> Binding -> Span -> IO TypedExpr
 typeVarBinding ctx tctx name binding pos = do
   let namespace = bindingNamespace binding
   let t         = bindingConcrete binding
@@ -994,8 +1025,9 @@ typeVarBinding ctx tctx name binding pos = do
     FunctionBinding def -> if null $ functionParams def
       then return $ makeExprTyped (Identifier (Var name) namespace) t pos
       else do
-        params <- makeGeneric ctx tp pos
-        t'     <- mapType (knownType ctx tctx) t
+-- TODO: allow specifying explicit function params
+        params <- makeGeneric ctx tp pos []
+        t'     <- mapType (follow ctx tctx) t
         t''    <- mapType (substituteParams params) t'
         let ft = case t'' of
               TypeFunction rt args varargs _ ->
@@ -1003,11 +1035,12 @@ typeVarBinding ctx tctx name binding pos = do
         return $ makeExprTyped (Identifier (Var name) namespace) ft pos
     EnumConstructor (EnumVariant { variantName = discriminant, variantArgs = args })
       -> do -- TODO: handle type params
-        let (TypeEnumConstructor tp _ _) = t
+        let (TypeEnumConstructor tp@(modPath, typeName) _ _) = t
+        def    <- getTypeDefinition ctx modPath typeName
+        params <- makeGeneric ctx tp pos []
+        let ct = TypeInstance tp (map snd params)
         return $ if null args
-          then makeExprTyped (EnumInit (TypeInstance tp []) discriminant [])
-                             (TypeInstance tp [])
-                             pos
+          then makeExprTyped (EnumInit ct discriminant []) ct pos
           else makeExprTyped
             (Identifier (Var name) [])
             (TypeEnumConstructor tp

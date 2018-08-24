@@ -32,12 +32,12 @@ h_exists m k = do
     Just _  -> True
     Nothing -> False
 
-h_get :: (Eq k, Hashable k) => HashTable k v -> k -> IO v
+h_get :: (Eq k, Hashable k, Show k) => HashTable k v -> k -> IO v
 h_get m k = do
   val <- h_lookup m k
   return $ case val of
     Just x  -> x
-    Nothing -> error "Unexpected missing HashTable key"
+    Nothing -> error ("Unexpected missing HashTable key: " ++ show k)
 
 h_toList :: (Eq k, Hashable k) => HashTable k v -> IO [(k, v)]
 h_toList = H.toList

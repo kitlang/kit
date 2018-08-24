@@ -41,8 +41,8 @@ generateModuleIr ctx (mod, decls) = do
 
 generateDeclIr :: CompileContext -> Module -> TypedDecl -> IO [IrDecl]
 generateDeclIr ctx mod t = do
-  let converter' =
-        converter (typedToIr ctx mod) (\pos -> findUnderlyingType ctx mod)
+  let converter' = converter (typedToIr ctx mod)
+                             (\pos -> findUnderlyingType ctx mod (Just pos))
   let paramConverter = \p -> converter'
   case t of
     DeclType def@(TypeDefinition { typeName = name }) -> do
@@ -168,7 +168,7 @@ generateDeclIr ctx mod t = do
       -> do
       -- FIXME: for now we're indexing trait implementations by basic type, but
       -- different concrete types of the same basic type could each have their own
-        for <- findUnderlyingType ctx mod ct
+        for <- findUnderlyingType ctx mod (Just $ implPos i) ct
         let implName =
               (mangleName (mp ++ [name, "impl"] ++ implMod)
                           (s_pack $ basicTypeAbbreviation for)
@@ -226,8 +226,9 @@ maybeTypedToIr ctx mod e = case e of
 typedToIr :: CompileContext -> Module -> TypedExpr -> IO IrExpr
 typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
   do
-    let converter' =
-          converter (typedToIr ctx mod) (\pos -> findUnderlyingType ctx mod)
+    let converter' = converter
+          (typedToIr ctx mod)
+          (\pos -> findUnderlyingType ctx mod (Just pos))
     let paramConverter = \p -> converter'
     let r x = typedToIr ctx mod x
     let maybeR x = case x of
@@ -235,7 +236,7 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
             r' <- r x
             return $ Just r'
           Nothing -> return Nothing
-    f <- findUnderlyingType ctx mod t
+    f <- findUnderlyingType ctx mod (Just pos) t
 
     case et of
       (Block children) -> do
@@ -264,10 +265,19 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
           "Names of types can't be used as runtime values"
           (Just pos)
         TypeFunction rt args varargs params | not (null params) -> do
-          tctx <- newTypeContext []
-          params <- mapM (mapType $ knownType ctx tctx) params
+          -- generic function
+          tctx   <- newTypeContext []
+          params <- mapM (mapType $ follow ctx tctx) params
           return $ IrIdentifier $ mangleName namespace $ monomorphName v params
         _ -> return $ IrIdentifier (mangleName namespace v)
+      (Method e1 (modPath, typeName) name) -> case t of
+        TypeFunction rt args varargs params -> do
+          tctx   <- newTypeContext []
+          params <- forM params $ mapType $ follow ctx tctx
+          return
+            $ IrIdentifier
+            $ mangleName (modPath ++ [monomorphName typeName params])
+            $ name
       (Identifier     (MacroVar v _) _) -> return $ IrIdentifier v
       (TypeAnnotation e1             t) -> throw $ KitError $ BasicError
         ("unexpected type annotation in typed AST")
@@ -283,8 +293,8 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
         -- GenerateCode, not GenerateIr
         r1 <- r e1
         r2 <- r e2
-        t1 <- findUnderlyingType ctx mod (inferredType e1)
-        t2 <- findUnderlyingType ctx mod (inferredType e2)
+        t1 <- findUnderlyingType ctx mod (Just pos) (inferredType e1)
+        t2 <- findUnderlyingType ctx mod (Just pos) (inferredType e2)
         let maxFloat = foldr
               (\t acc -> case t of
                 BasicTypeFloat f -> max f acc
@@ -323,13 +333,18 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
       (Match e1 cases e2) -> do
         r1        <- r e1
         r2        <- maybeR e2
-        matchType <- findUnderlyingType ctx mod (inferredType e1)
+        matchType <- findUnderlyingType ctx mod (Just pos) (inferredType e1)
         case matchType of
           BasicTypeComplexEnum _ _ -> do
             -- complex match with ADT
             cases' <- forM cases $ \c -> do
-              (conditions, exprs) <- patternMatch ctx mod r (matchPattern c) matchType r1
-              body                <- r $ matchBody c
+              (conditions, exprs) <- patternMatch ctx
+                                                  mod
+                                                  r
+                                                  (matchPattern c)
+                                                  matchType
+                                                  r1
+              body <- r $ matchBody c
               let mergeConditions (h : t) =
                     if null t then h else (IrBinop And h (mergeConditions t))
               return $ (mergeConditions conditions, (IrBlock $ exprs ++ [body]))
@@ -395,7 +410,7 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
         return $ IrCall r1 args'
       (Cast e1 t2) -> do
         r1  <- r e1
-        t1' <- findUnderlyingType ctx mod (inferredType e1)
+        t1' <- findUnderlyingType ctx mod (Just pos) (inferredType e1)
         return $ if t1' == f then r1 else IrCast r1 f
       (Unsafe       e1   ) -> r e1
       (BlockComment s    ) -> return $ IrBlock []
@@ -426,7 +441,7 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
         return $ IrEnumInit f d resolvedArgs
       (EnumDiscriminant x) -> do
         r1       <- r x
-        enumType <- findUnderlyingType ctx mod (inferredType x)
+        enumType <- findUnderlyingType ctx mod (Just pos) (inferredType x)
         case enumType of
           BasicTypeSimpleEnum  _ _ -> return r1
           BasicTypeComplexEnum _ _ -> return $ IrField r1 discriminantFieldName
@@ -452,7 +467,7 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
       (Box (TraitImplementation { implTrait = TypeTraitConstraint ((modPath, name), params), implFor = for, implMod = implMod }) e1)
         -> do
           r1  <- r e1
-          for <- findUnderlyingType ctx mod for
+          for <- findUnderlyingType ctx mod (Just pos) for
           let structName = (mangleName (modPath ++ [name]) "box")
           -- TODO: fix name
           let implName =
@@ -474,7 +489,7 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
         box <- r x
         return $ IrPreUnop Deref (IrField box vtablePointerName)
       (SizeOf t) -> do
-        t' <- findUnderlyingType ctx mod t
+        t' <- findUnderlyingType ctx mod (Just pos) t
         return $ IrSizeOf t'
       t -> do
         throwk $ InternalError

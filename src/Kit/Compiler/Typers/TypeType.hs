@@ -21,71 +21,106 @@ import Kit.Error
 import Kit.Parser
 import Kit.Str
 
-typeTypeDefinition
+typeType
   :: CompileContext
   -> Module
   -> TypeDefinition TypedExpr ConcreteType
   -> IO (Maybe TypedDecl, Bool)
-typeTypeDefinition ctx mod def@(TypeDefinition { typeName = name }) = do
-  debugLog ctx $ "typing " ++ s_unpack name ++ " in " ++ show mod
-  -- TODO: handle params here
+typeType ctx mod def = do
+  debugLog ctx $ "typing " ++ s_unpack (typeName def) ++ " in " ++ show mod
+  tctx    <- modTypeContext ctx mod
+  binding <- scopeGet (modScope mod) (typeName def)
+  typeTypeDefinition
+    ctx
+    (tctx { tctxSelf = Just $ TypeInstance (modPath mod, typeName def) [] })
+    mod
+    (bindingConcrete binding)
+    def
+
+typeTypeMonomorph
+  :: CompileContext
+  -> Module
+  -> TypeDefinition TypedExpr ConcreteType
+  -> [ConcreteType]
+  -> IO (Maybe TypedDecl, Bool)
+typeTypeMonomorph ctx mod def params = do
+  debugLog ctx
+    $  "generating type monomorph for "
+    ++ s_unpack (typeName def)
+    ++ " in "
+    ++ show mod
+  let selfType = TypeInstance (modPath mod, typeName def) params
   tctx' <- modTypeContext ctx mod
-  binding <- scopeGet (modScope mod) name
-  let tctx = tctx'
-        { tctxTypeParams = [ (paramName param, TypeTypeParam (paramName param)) | param <- typeParams def ]
-        -- , tctxSelf = Just $ TypeTypeOf (bindingConcrete binding)
-        }
-  let r = typeExpr ctx tctx mod
-  staticFields <- forM
-    (typeStaticFields def)
-    (\field -> do
-      (typed, complete) <- typeVarDefinition ctx tctx mod field
-      return typed
-    )
-  staticMethods <- forM
-    (typeStaticMethods def)
-    (\method -> do
-      (typed, complete) <- typeFunctionDefinition ctx tctx mod method
-      return typed
-    )
-  instanceMethods <- forM
-    (typeMethods def)
-    (\method -> do
-      let tctx' = tctx {
-        tctxThis = Just (bindingConcrete binding)
-      }
-      (typed, complete) <- typeFunctionDefinition ctx tctx' mod method
-      return typed
-    )
-  -- TODO: enum variants...
-  let s = typeSubtype def
-  subtype <- case s of
-    Struct { structFields = f } -> do
-      fields <- forM
-        f
-        (\field -> case varDefault field of
-          Just x -> do
-            def <- r x
-            resolveConstraint
-              ctx
-              tctx
-              (TypeEq (inferredType def)
-                      (varType field)
-                      "Struct field default value must match the field's type"
-                      (varPos field)
-              )
-            return $ field { varDefault = Just def }
-          Nothing -> return field
-        )
-      return $ s { structFields = fields }
-    _ -> return $ typeSubtype def
-  return
-    $ ( Just $ DeclType
-        (def { typeStaticFields  = staticFields
-             , typeStaticMethods = staticMethods
-             , typeMethods       = instanceMethods
-             , typeSubtype       = subtype
-             }
-        )
-      , True
+  let tctx = (addTypeParams
+               tctx'
+               [ (paramName param, ct)
+               | (param, ct) <- zip (typeParams def) params
+               ]
+             ) { tctxSelf = Just selfType
+               }
+  monomorph <- followType ctx tctx def
+  typeTypeDefinition ctx tctx mod selfType monomorph
+
+typeTypeDefinition
+  :: CompileContext
+  -> TypeContext
+  -> Module
+  -> ConcreteType
+  -> TypeDefinition TypedExpr ConcreteType
+  -> IO (Maybe TypedDecl, Bool)
+typeTypeDefinition ctx tctx mod selfType def@(TypeDefinition { typeName = name })
+  = do
+    let r = typeExpr ctx tctx mod
+    staticFields <- forM
+      (typeStaticFields def)
+      (\field -> do
+        (typed, complete) <- typeVarDefinition ctx tctx mod field
+        return typed
       )
+    staticMethods <- forM
+      (typeStaticMethods def)
+      (\method -> do
+        (typed, complete) <- typeFunctionDefinition ctx tctx mod method
+        return typed
+      )
+    instanceMethods <- forM
+      (typeMethods def)
+      (\method -> do
+        let tctx' = tctx { tctxThis = Just selfType }
+        (typed, complete) <- typeFunctionDefinition ctx tctx' mod method
+        -- revise self type in instance methods
+        return $ reimplicitify selfType typed
+      )
+    -- TODO: enum variants...
+    let s = typeSubtype def
+    subtype <- case s of
+      Struct { structFields = f } -> do
+        fields <- forM
+          f
+          (\field -> case varDefault field of
+            Just x -> do
+              def <- r x
+              resolveConstraint
+                ctx
+                tctx
+                (TypeEq
+                  (inferredType def)
+                  (varType field)
+                  "Struct field default value must match the field's type"
+                  (varPos field)
+                )
+              return $ field { varDefault = Just def }
+            Nothing -> return field
+          )
+        return $ s { structFields = fields }
+      _ -> return $ typeSubtype def
+    return
+      $ ( Just $ DeclType
+          (def { typeStaticFields  = staticFields
+               , typeStaticMethods = staticMethods
+               , typeMethods       = instanceMethods
+               , typeSubtype       = subtype
+               }
+          )
+        , True
+        )

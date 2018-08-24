@@ -37,7 +37,7 @@ data TypeContext = TypeContext {
   tctxActiveRules :: [(RewriteRule Expr (Maybe TypeSpec), Span)],
   tctxReturnType :: Maybe ConcreteType,
   tctxThis :: Maybe ConcreteType,
-  tctxSelf :: Maybe TypePath,
+  tctxSelf :: Maybe ConcreteType,
   tctxImplicits :: [TypedExpr],
   tctxTypeParams :: [(Str, ConcreteType)], -- TODO
   tctxLoopCount :: Int,
@@ -93,14 +93,13 @@ resolveType ctx tctx mod t = do
       case m of
         [] -> do
           case (s, tctxSelf tctx) of
-            ("Self", Just selfTp) ->
-              resolveType ctx tctx mod (TypeSpec selfTp [] (typeSpecPosition t))
-            _ -> do
+            ("Self", Just self) -> return self
+            _                   -> do
               case resolveTypeParam s (tctxTypeParams tctx) of
                 Just x -> return x
                 _      -> do
                   scoped <- resolveBinding (tctxScopes tctx) s
-                  case scoped of
+                  ct     <- case scoped of
                     Just x ->
                       -- named binding exists locally; resolve and return it
                       return $ bindingConcrete x
@@ -117,6 +116,17 @@ resolveType ctx tctx mod t = do
                           case builtin of
                             Just t  -> follow ctx tctx t
                             Nothing -> unknownType s pos
+                  -- if this is a type instance, create a new generic
+                  case ct of
+                    TypeInstance tp@(modPath, name) [] -> do
+                      def <- getTypeDefinition ctx modPath name
+                      if null (typeParams def)
+                        then return ct
+                        else do
+                          existing <- mapM (resolveType ctx tctx mod) params
+                          params   <- makeGeneric ctx tp NoPos existing
+                          return $ TypeInstance tp (map snd params)
+                    _ -> return ct
         m -> do
           -- search only a specific module for this type
           result <- resolveBinding (map modScope importedMods) s
@@ -150,26 +160,25 @@ resolveMaybeType ctx tctx mod pos t = do
     Just t  -> resolveType ctx tctx mod t
     Nothing -> makeTypeVar ctx pos
 
-knownType
-  :: CompileContext -> TypeContext -> ConcreteType -> IO ConcreteType
-knownType ctx tctx t = do
+follow :: CompileContext -> TypeContext -> ConcreteType -> IO ConcreteType
+follow ctx tctx t = do
   case t of
+    TypeSelf -> do
+      case tctxSelf tctx of
+        Just x  -> follow ctx tctx x
+        Nothing -> return TypeSelf
     TypeTypeParam p -> do
       case resolveTypeParam p (tctxTypeParams tctx) of
-        Just x  -> knownType ctx tctx x
-        Nothing -> return $ TypeTypeParam p
+        Just (TypeTypeParam q) | p == q -> return $ TypeTypeParam p
+        Just x                          -> follow ctx tctx x
+        Nothing                         -> return $ TypeTypeParam p
     TypeTypeVar x -> do
       info <- getTypeVar ctx x
       case typeVarValue info of
         -- Specific known type
-        Just t  -> knownType ctx tctx t
+        Just t  -> follow ctx tctx t
         -- No specific type; return type var
-        Nothing -> follow ctx tctx t
-    t -> follow ctx tctx t
-
-follow :: CompileContext -> TypeContext -> ConcreteType -> IO ConcreteType
-follow ctx tctx t = do
-  case t of
+        Nothing -> return t
     TypeInstance tp params -> do
       resolvedParams <- forM params (follow ctx tctx)
       return $ TypeInstance tp resolvedParams
@@ -207,6 +216,13 @@ follow ctx tctx t = do
           Nothing
     _ -> return t
 
+followType ctx tctx =
+  convertTypeDefinition (\_ -> converter return (\_ -> mapType $ follow ctx tctx))
+followFunction ctx tctx =
+  convertFunctionDefinition (\_ -> converter return (\_ -> mapType $ follow ctx tctx))
+followTrait ctx tctx =
+  convertTraitDefinition (\_ -> converter return (\_ -> mapType $ follow ctx tctx))
+
 addUsing
   :: CompileContext
   -> TypeContext
@@ -233,6 +249,10 @@ addUsing ctx tctx using = case using of
   UsingImplicit x -> return $ tctx { tctxImplicits = x : tctxImplicits tctx }
   _ ->
     throwk $ InternalError ("Unexpected using clause: " ++ show using) Nothing
+
+addTypeParams :: TypeContext -> [(Str, ConcreteType)] -> TypeContext
+addTypeParams tctx params =
+  tctx { tctxTypeParams = params ++ tctxTypeParams tctx }
 
 modTypeContext :: CompileContext -> Module -> IO TypeContext
 modTypeContext ctx mod = do

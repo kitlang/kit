@@ -65,7 +65,10 @@ mangleName [] s = s
 mangleName namespace s = validName $ s_concat [s_join "_" ("kit" : namespace), "__", s]
 
 monomorphName :: Str -> [ConcreteType] -> Str
-monomorphName name p = s_concat [name, "__", monomorphSuffix p]
+monomorphName name p = if null p then name else s_concat [name, "__", monomorphSuffix p]
 
 monomorphSuffix :: [ConcreteType] -> Str
 monomorphSuffix p = s_hash $ s_concat (map (s_pack . show) p)
+
+plural 1 = ""
+plural _ = "s"

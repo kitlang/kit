@@ -186,3 +186,7 @@ convertExpr ctx tctx mod e = do
       return $ m (SizeOf t') (TypeBasicType $ BasicTypeUint 16)
     SizeOf Nothing -> do
       throwk $ BasicError "sizeof keyword requires a type" (Just pos')
+    Method e1 tp n -> do
+      r1 <- r e1
+      t <- mtv
+      return $ m (Method r1 tp n) t

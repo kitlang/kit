@@ -69,14 +69,12 @@ typeIterative ctx input output limit = do
         decls
         (\d -> do
           (x, complete) <- case d of
+            DeclVar      v -> typeVar ctx mod v
             DeclFunction f | null (functionParams f) -> typeFunction ctx mod f
-            DeclVar      v                           -> typeVar ctx mod v
-            DeclType t -> typeTypeDefinition ctx mod t
-            DeclTrait    t                           -> typeTrait ctx mod t
-            DeclImpl     i                           -> typeImpl ctx mod i
-            DeclRuleSet  rs                          -> return (Nothing, True)
-            DeclMonomorph (DeclFunction f) p ->
-              typeFunctionMonomorph ctx mod f p
+            DeclType     t | null (typeParams t) -> typeType ctx mod t
+            DeclTrait    t -> typeTrait ctx mod t
+            DeclImpl     i -> typeImpl ctx mod i
+            DeclRuleSet  rs -> return (Nothing, True)
             _ -> return (Nothing, True)
           return (x, complete)
         )

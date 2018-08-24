@@ -42,6 +42,7 @@ data ConcreteType
   | TypeTypeParam Str
   | TypeRuleSet TypePath
   | TypeBox TypePath [ConcreteType]
+  | TypeSelf
   deriving (Eq, Generic)
 
 instance Hashable ConcreteType
@@ -49,7 +50,7 @@ instance Hashable ConcreteType
 instance Show ConcreteType where
   show (TypeAtom) = "atom"
   show (TypeInstance tp []) = "instance " ++ (s_unpack $ showTypePath tp)
-  show (TypeInstance tp params) = "instance " ++ (s_unpack $ showTypePath tp) ++ "[" ++ (intercalate ", " [show x | x <- params])
+  show (TypeInstance tp params) = "instance " ++ (s_unpack $ showTypePath tp) ++ "[" ++ (intercalate ", " [show x | x <- params]) ++ "]"
   show (TypeAnonStruct f) = "(anon struct)"
   show (TypeAnonEnum variants) = "(anon enum {" ++ (intercalate ", " (map s_unpack variants)) ++ "})"
   show (TypeAnonUnion f) = "(anon union)"
@@ -70,6 +71,7 @@ instance Show ConcreteType where
   show (TypeTypeParam s) = "type param " ++ s_unpack s
   show (TypeRuleSet tp) = "rules " ++ (s_unpack $ showTypePath tp)
   show (TypeBox tp params) = "box: " ++ (s_unpack $ showTypePath tp)
+  show (TypeSelf) = "Self"
 
 type TypeVar = Int
 

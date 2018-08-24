@@ -1,0 +1,81 @@
+struct WrapperType[T] {
+    public var innerValue: T;
+
+    public static function f() {
+        printf("this function ignores the type parameter");
+    }
+
+    public static function g(fmt: CString, v: T) {
+        printf(fmt, v);
+    }
+
+    public function greet(fmt: CString) {
+        printf("greeting: ");
+        printf(fmt, this.innerValue);
+    }
+}
+
+union Either[A, B] {
+    public var a: A;
+    public var b: B;
+
+    public function printLeft(fmt: CString) {
+        printf(fmt, this.a);
+    }
+
+    public function printRight(fmt: CString) {
+        printf(fmt, this.b);
+    }
+}
+
+enum WrapperEnum[T] {
+    OneValue(v: T);
+    TwoValues(a: T, b: T);
+}
+
+function main() {
+    // fully specified
+    var a1: WrapperType[Bool] = struct WrapperType {
+        innerValue: true,
+    };
+    var a2: WrapperType[Bool] = struct WrapperType {
+        innerValue: false,
+    };
+    // incomplete parameters
+    var b: WrapperType = struct WrapperType {
+        innerValue: 1,
+    };
+    // full type inference
+    var c = struct WrapperType {
+        innerValue: 2,
+    };
+    var d = struct WrapperType {
+        innerValue: "hello",
+    };
+
+    // generic struct field access
+    printf("%i\n", a1.innerValue);
+    printf("%i\n", a2.innerValue);
+    printf("%i\n", b.innerValue);
+    printf("%i\n", c.innerValue);
+    printf("%s\n", d.innerValue);
+
+    // generic methods
+    a1.greet("%i\n");
+    d.greet("%s\n");
+
+    // union with two inferred parameters
+    var e: Either;
+    e.a = 10;
+    e.printLeft("%i\n");
+    e.b = 20.5;
+    e.printRight("%.2f\n");
+
+    // TODO: static methods of generic types...?
+    // WrapperType.f();
+    // WrapperType.g("%s\n", "this function uses the type parameter");
+
+    // FIXME: enum constructors may need type param holders
+    // var e: WrapperEnum[Int] = OneValue(1);
+    // var f = TwoValues(2, 3.0);
+}

@@ -160,15 +160,18 @@ resolveTypesForMod ctx (mod, contents) = do
 
             (TypeBinding ti, DeclType t) -> do
               let
-                paramConverter params =
-                  let
-                    tctx' = tctx
-                      { tctxTypeParams = [ (p, TypeTypeParam p) | p <- params ]
-                        ++ tctxTypeParams tctx
-                      , tctxSelf       = Just (modPath mod, typeName t)
-                      }
-                  in  converter (convertExpr ctx tctx' mod)
-                                (resolveMaybeType ctx tctx' mod)
+                tctx' = tctx
+                  { tctxTypeParams = [ ( paramName p
+                                       , TypeTypeParam $ paramName p
+                                       )
+                                     | p <- typeParams t
+                                     ]
+                    ++ tctxTypeParams tctx
+                  , tctxSelf       = Just (bindingConcrete binding)
+                  }
+              let paramConverter params = converter
+                    (convertExpr ctx tctx' mod)
+                    (resolveMaybeType ctx tctx' mod)
               converted <- do
                 c <- convertTypeDefinition paramConverter t
                 if null (typeMethods c)
@@ -177,27 +180,32 @@ resolveTypesForMod ctx (mod, contents) = do
                     thisType <- makeTypeVar ctx (typePos t)
                     return $ implicitifyInstanceMethods thisType c
 
-              forM_ (zip (typeStaticFields ti) (typeStaticFields converted))
-                    (\(field1, field2) -> mergeVarInfo ctx tctx field1 field2)
+              forM_
+                (zip (typeStaticFields ti) (typeStaticFields converted))
+                (\(field1, field2) -> mergeVarInfo ctx tctx' field1 field2)
               forM_
                 (zip (typeStaticMethods ti) (typeStaticMethods converted))
                 (\(method1, method2) ->
-                  mergeFunctionInfo ctx tctx method1 method2
+                  mergeFunctionInfo ctx tctx' method1 method2
                 )
               forM_
                 (zip (typeMethods ti) (typeMethods converted))
                 (\(method1, method2) ->
-                  mergeFunctionInfo ctx tctx method1 method2
+                  mergeFunctionInfo ctx tctx' method1 method2
                 )
               case (typeSubtype ti, typeSubtype converted) of
                 (Struct { structFields = fields1 }, Struct { structFields = fields2 })
                   -> forM_
                     (zip fields1 fields2)
-                    (\(field1, field2) -> mergeVarInfo ctx tctx field1 field2)
+                    (\(field1, field2) -> mergeVarInfo ctx tctx' field1 field2)
                 (Union { unionFields = fields1 }, Union { unionFields = fields2 })
                   -> forM_
                     (zip fields1 fields2)
-                    (\(field1, field2) -> mergeVarInfo ctx tctx field1 field2)
+                    (\(field1, field2) -> mergeVarInfo ctx tctx' field1 field2)
+                (Enum { enumVariants = variants1 }, Enum { enumVariants = variants2 })
+                  -> forM_ (zip variants1 variants2) $ \(variant1, variant2) ->
+                    forM_ (zip (variantArgs variant1) (variantArgs variant2))
+                      $ \(arg1, arg2) -> mergeArgInfo ctx tctx' arg1 arg2
                 _ -> return ()
 
               bindToScope (modScope mod)
@@ -301,6 +309,16 @@ mergeVarInfo ctx tctx var1 var2 = resolveConstraint
           (varPos var1)
   )
 
+mergeArgInfo ctx tctx arg1 arg2 = do
+  resolveConstraint
+    ctx
+    tctx
+    (TypeEq (argType arg1)
+            (argType arg2)
+            "Arg type must match its annotation"
+            (argPos arg1)
+    )
+
 mergeFunctionInfo ctx tctx f1 f2 = do
   resolveConstraint
     ctx
@@ -310,18 +328,8 @@ mergeFunctionInfo ctx tctx f1 f2 = do
             "Function return type must match its annotation"
             (functionPos f1)
     )
-  forM
-    (zip (functionArgs f1) (functionArgs f2))
-    (\(arg1, arg2) -> do
-      resolveConstraint
-        ctx
-        tctx
-        (TypeEq (argType arg1)
-                (argType arg2)
-                "Function argument type must match its annotation"
-                (argPos arg1)
-        )
-    )
+  forM (zip (functionArgs f1) (functionArgs f2))
+       (\(arg1, arg2) -> mergeArgInfo ctx tctx arg1 arg2)
 
 
 resolveModuleBinding

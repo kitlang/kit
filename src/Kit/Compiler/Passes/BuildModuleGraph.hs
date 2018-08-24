@@ -204,7 +204,10 @@ addStmtToModuleInterface ctx mod s = do
   case stmt s of
     TypeDeclaration d@(TypeDefinition { typeName = name, typeSubtype = subtype, typeRules = rules })
       -> do
-        let ct = TypeInstance (modPath mod, name) []
+        let ct = TypeInstance
+              (modPath mod, name)
+              []
+              -- [TypeTypeParam (paramName p) | p <- typeParams d ]
 
         converted <- do
           c <- convertTypeDefinition (\_ -> interfaceConverter) d
@@ -281,22 +284,26 @@ addStmtToModuleInterface ctx mod s = do
       forM_
         (traitMethods converted)
         (\method' ->
-          let method = implicitifyMethod (TypePtr $ TypeBasicType BasicTypeVoid) (vThisArgName) method' in
-          bindToScope
-            (subNamespace)
-            (functionName method)
-            (newBinding
-              (modPath mod ++ [name], functionName method)
-              (FunctionBinding method)
-              (TypeFunction
-                (functionType method)
-                [ (argName arg, argType arg) | arg <- functionArgs method ]
-                (functionVarargs method)
-                []
+          let method = implicitifyMethod
+                (TypePtr $ TypeBasicType BasicTypeVoid)
+                (vThisArgName)
+                method'
+          in
+            bindToScope
+              (subNamespace)
+              (functionName method)
+              (newBinding
+                (modPath mod ++ [name], functionName method)
+                (FunctionBinding method)
+                (TypeFunction
+                  (functionType method)
+                  [ (argName arg, argType arg) | arg <- functionArgs method ]
+                  (functionVarargs method)
+                  []
+                )
+                (modPath mod ++ [name])
+                (functionPos method)
               )
-              (modPath mod ++ [name])
-              (functionPos method)
-            )
         )
       addToInterface name
                      (TraitBinding converted)

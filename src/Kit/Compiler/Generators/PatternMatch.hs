@@ -8,7 +8,7 @@ import Data.Maybe
 import Kit.Ast
 import Kit.Compiler.Binding
 import Kit.Compiler.Context
-import Kit.Compiler.Generators.TypeSpecialize
+import Kit.Compiler.Generators.FindUnderlyingType
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
@@ -50,29 +50,25 @@ patternMatch ctx mod typer pattern t ex = do
             )
             fieldName
       def <- getTypeDefinition ctx modPath typeName
-      case def of
-        Just (TypeDefinition { typeSubtype = Enum { enumVariants = variants } })
-          -> do
-            let
-              variant =
+      case typeSubtype def of
+        Enum { enumVariants = variants } -> do
+          let variant =
                 find (\variant -> variantName variant == discriminant) variants
-            case variant of
-              Just variant -> do
-                args' <-
-                  forM (zip (variantArgs variant) args) $ \(arg, argValue) -> do
-                    at <- findUnderlyingType ctx mod (argType arg)
-                    patternMatch ctx
-                                 mod
-                                 typer
-                                 argValue
-                                 at
-                                 (enumField $ argName arg)
-                return $ mergeResults
-                  ( ( [IrBinop Eq enumDiscriminant (IrIdentifier discriminant)]
-                    , []
-                    )
-                  : args'
-                  )
+          case variant of
+            Just variant -> do
+              args' <-
+                forM (zip (variantArgs variant) args) $ \(arg, argValue) -> do
+                  at <- findUnderlyingType ctx mod (Just $ tPos pattern) (argType arg)
+                  patternMatch ctx
+                               mod
+                               typer
+                               argValue
+                               at
+                               (enumField $ argName arg)
+              return $ mergeResults
+                (([IrBinop Eq enumDiscriminant (IrIdentifier discriminant)], [])
+                : args'
+                )
     -- TODO: tuple destructure
     -- TODO: struct/union destructure
     Identifier (Var x) [] -> do

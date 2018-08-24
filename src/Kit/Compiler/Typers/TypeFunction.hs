@@ -71,7 +71,7 @@ typeFunctionDefinition ctx tctx' mod f = do
   let tctx = tctx' { tctxScopes = functionScope : tctxScopes tctx' }
 
   args <- forM (functionArgs f) $ \arg -> do
-    t <- knownType ctx tctx $ argType arg
+    t <- follow ctx tctx $ argType arg
     return $ arg { argType = t }
   forM_
     args
@@ -90,7 +90,7 @@ typeFunctionDefinition ctx tctx' mod f = do
         (argPos arg)
       )
     )
-  returnType <- knownType ctx tctx $ functionType f
+  returnType <- follow ctx tctx $ functionType f
   let ftctx =
         (tctx { tctxScopes     = functionScope : (tctxScopes tctx)
               , tctxReturnType = Just returnType

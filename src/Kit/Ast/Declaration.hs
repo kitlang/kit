@@ -14,7 +14,6 @@ data Declaration a b
   | DeclRuleSet (RuleSet a b)
   | DeclUsing (UsingType a b)
   | DeclTuple b
-  | DeclMonomorph (Declaration a b) [b]
   deriving (Eq, Show)
 
 

@@ -161,7 +161,7 @@ makeTypeVar ctx pos = do
   last <- readIORef (ctxLastTypeVar ctx)
   let next = last + 1
   writeIORef (ctxLastTypeVar ctx) next
-  h_insert (ctxTypeVariables ctx) next (newTypeVarInfo next pos)
+  h_insert (ctxTypeVariables ctx)      next (newTypeVarInfo next pos)
   h_insert (ctxUnresolvedTypeVars ctx) next ()
   return $ TypeTypeVar next
 
@@ -209,9 +209,8 @@ getTraitImpl ctx trait ct = do
       case ct of
         TypeInstance (modPath, name) params -> do
           def <- getTypeDefinition ctx modPath name
-          case def of
-            Just (TypeDefinition { typeSubtype = Abstract { abstractUnderlyingType = u } })
-              -> getTraitImpl ctx trait u
+          case typeSubtype def of
+            Abstract { abstractUnderlyingType = u } -> getTraitImpl ctx trait u
             _ -> return Nothing
         _ -> return Nothing
 
@@ -228,8 +227,13 @@ makeBox ctx tp ex = do
         Nothing -> return Nothing
     else return Nothing
 
-makeGeneric :: CompileContext -> TypePath -> Span -> IO [(Str, ConcreteType)]
-makeGeneric ctx tp@(modPath, name) pos = do
+makeGeneric
+  :: CompileContext
+  -> TypePath
+  -> Span
+  -> [ConcreteType]
+  -> IO [(Str, ConcreteType)]
+makeGeneric ctx tp@(modPath, name) pos existing = do
   defMod  <- getMod ctx modPath
   binding <- resolveLocal (modScope defMod) name
   let params = case binding of
@@ -237,25 +241,35 @@ makeGeneric ctx tp@(modPath, name) pos = do
         Just (Binding { bindingType = FunctionBinding def }) ->
           functionParams def
         Just (Binding { bindingType = TraitBinding def }) -> traitParams def
-  params <- forM params $ \param -> do
+  params <-
+    forM (zip params (map Just existing ++ repeat Nothing))
+      $ \(param, value) -> do
     -- TODO: add param constraints here
-    tv <- makeTypeVar ctx pos
-    return (paramName param, tv)
+          tv <- case value of
+            Just (TypeTypeParam p) | paramName param == p -> makeTypeVar ctx pos
+            Just x  -> return x
+            Nothing -> makeTypeVar ctx pos
+          return (paramName param, tv)
   let paramTypes = map snd params
-  modifyIORef (ctxPendingGenerics ctx) (\acc -> (tp, paramTypes) : acc)
+  when (length params > length existing)
+    $ modifyIORef (ctxPendingGenerics ctx) (\acc -> (tp, paramTypes) : acc)
   return params
 
 getTypeDefinition
   :: CompileContext
   -> ModulePath
   -> Str
-  -> IO (Maybe (TypeDefinition TypedExpr ConcreteType))
+  -> IO (TypeDefinition TypedExpr ConcreteType)
 getTypeDefinition ctx modPath typeName = do
   defMod  <- getMod ctx modPath
   binding <- resolveLocal (modScope defMod) typeName
   case binding of
-    Just (Binding { bindingType = TypeBinding def }) -> return $ Just def
-    _ -> return Nothing
+    Just (Binding { bindingType = TypeBinding def }) -> return def
+    _ -> throwk $ InternalError
+      (  "Unexpected missing type: "
+      ++ (s_unpack $ showTypePath (modPath, typeName))
+      )
+      Nothing
 
 addGlobalName :: CompileContext -> Module -> Span -> Str -> IO ()
 addGlobalName ctx mod pos name = do
