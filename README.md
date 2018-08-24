@@ -1,6 +1,8 @@
 [![Build Status](https://img.shields.io/travis/kitlang/kit/master.svg?style=flat)](https://travis-ci.org/kitlang/kit)
-[![License: LGPL v3](https://img.shields.io/badge/License-LGPL%20v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
-[![Join the chat at https://gitter.im/kitlang/kit](https://badges.gitter.im/kitlang/kit.svg)](https://gitter.im/kitlang/kit?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![License: LGPL v3](https://img.shields.io/badge/license-LGPL%20v3-202020.svg)](https://www.gnu.org/licenses/lgpl-3.0)
+[![Join the chat at https://gitter.im/kitlang/kit](https://img.shields.io/badge/chat-on%20gitter-f50864.svg)](https://gitter.im/kitlang/kit?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![roadmap on_trello](https://img.shields.io/badge/roadmap-on%20trello-0079bf.svg)](https://trello.com/b/Bn9H0fzk/kit)
+[![Website URL: https://www.kitlang.org](https://img.shields.io/badge/web-kitlang.org-3fa5bf.svg)](https://www.kitlang.org)
 
 ![Kit logo](https://raw.githubusercontent.com/kitlang/kit/master/assets/logo-128.png)
 
@@ -20,7 +22,7 @@
   o888o  o888o  o888o   '888'
 ```
 
-**Kit** is a programming language designed for creating concise, high performance cross-platform applications. Kit compiles to C, so it's highly portable; it can be used in addition to or as an alternative to C, and was designed with game development in mind.
+[**Kit**](https://www.kitlang.org) is a programming language designed for creating concise, high performance cross-platform applications. Kit compiles to C, so it's highly portable; it can be used in addition to or as an alternative to C, and was designed with game development in mind.
 
 Why you should use Kit in place of:
 
