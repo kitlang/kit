@@ -156,8 +156,9 @@ getCMod ctx fp = do
       throwk $ InternalError ("Unexpected missing C module: " ++ fp) Nothing
 
 makeTypeVar :: CompileContext -> Span -> IO ConcreteType
-makeTypeVar ctx NoPos = throwk
-  $ InternalError ("Attempt to make type variable with no position data") Nothing
+makeTypeVar ctx NoPos = throwk $ InternalError
+  ("Attempt to make type variable with no position data")
+  Nothing
 makeTypeVar ctx pos = do
   last <- readIORef (ctxLastTypeVar ctx)
   let next = last + 1
@@ -210,18 +211,21 @@ makeGeneric ctx tp@(modPath, name) pos existing = do
         Just (Binding { bindingType = FunctionBinding def }) ->
           functionParams def
         Just (Binding { bindingType = TraitBinding def }) -> traitParams def
-  params <-
-    forM (zip params (map Just existing ++ repeat Nothing))
-      $ \(param, value) -> do
-    -- TODO: add param constraints here
-          tv <- case value of
-            Just (TypeTypeParam p) | paramName param == p -> makeTypeVar ctx pos
-            Just x  -> return x
-            Nothing -> makeTypeVar ctx pos
-          return (paramName param, tv)
-  let paramTypes = map snd params
-  modifyIORef (ctxPendingGenerics ctx) (\acc -> (tp, paramTypes) : acc)
-  return params
+  if null params
+    then return []
+    else do
+      params <-
+        forM (zip params (map Just existing ++ repeat Nothing))
+          $ \(param, value) -> do
+        -- TODO: add param constraints here
+              tv <- case value of
+                Just (TypeTypeParam p) | paramName param == p -> makeTypeVar ctx pos
+                Just x  -> return x
+                Nothing -> makeTypeVar ctx pos
+              return (paramName param, tv)
+      let paramTypes = map snd params
+      modifyIORef (ctxPendingGenerics ctx) (\acc -> (tp, paramTypes) : acc)
+      return params
 
 getTypeDefinition
   :: CompileContext
