@@ -20,6 +20,16 @@ import Kit.HashTable
 import Kit.Parser
 import Kit.Str
 
+{-
+  Used to automatically perform specific implicit conversions:
+
+  - referencing/dereferencing pointers
+  - creating a Box pointer
+
+  Attempts to convert expression `ex` from `toType` to `fromType`; returns
+  either a new typed expression of type `fromType` or the original if the
+  conversion wasn't possible.
+-}
 autoRefDeref
   :: CompileContext
   -> TypeContext
@@ -79,3 +89,29 @@ autoRefDeref ctx tctx toType fromType original temps ex = do
               Nothing -> return original
           else tryLvalue toType fromType
       _ -> return original
+
+makeBox
+  :: CompileContext
+  -> TypeContext
+  -> TypePath
+  -> TypedExpr
+  -> IO (Maybe TypedExpr)
+makeBox ctx tctx tp ex = do
+  if tIsLvalue ex
+    then do
+      impl <- getTraitImpl ctx tctx tp (inferredType ex)
+      case impl of
+        Just impl -> do
+          -- TODO params
+          let t' = TypeBox tp []
+          return $ Just $ ex { tExpr = Box impl ex, inferredType = t' }
+        Nothing -> return Nothing
+    else return Nothing
+
+addRef :: TypedExpr -> TypedExpr
+addRef ex =
+  makeExprTyped (PreUnop Ref ex) (TypePtr $ inferredType ex) (tPos ex)
+
+addDeref :: TypedExpr -> TypedExpr
+addDeref ex = case inferredType ex of
+  TypePtr x -> makeExprTyped (PreUnop Deref ex) x (tPos ex)

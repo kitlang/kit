@@ -30,11 +30,10 @@ data TypeContext = TypeContext {
   tctxThis :: Maybe ConcreteType,
   tctxSelf :: Maybe ConcreteType,
   tctxImplicits :: [TypedExpr],
-  tctxTypeParams :: [(Str, ConcreteType)], -- TODO
+  tctxTypeParams :: [(Str, ConcreteType)],
   tctxLoopCount :: Int,
   tctxRewriteRecursionDepth :: Int,
-  tctxState :: TypeContextState
-  , tctxTemps :: Maybe (IORef [TypedExpr])
+  tctxState :: TypeContextState, tctxTemps :: Maybe (IORef [TypedExpr])
 }
 
 data TypeContextState
@@ -336,21 +335,3 @@ getTraitImpl ctx tctx trait ct = do
               getTraitImpl ctx tctx' trait u
             _ -> return Nothing
         _ -> return Nothing
-
-makeBox
-  :: CompileContext
-  -> TypeContext
-  -> TypePath
-  -> TypedExpr
-  -> IO (Maybe TypedExpr)
-makeBox ctx tctx tp ex = do
-  if tIsLvalue ex
-    then do
-      impl <- getTraitImpl ctx tctx tp (inferredType ex)
-      case impl of
-        Just impl -> do
-          -- TODO params
-          let t' = TypeBox tp []
-          return $ Just $ ex { tExpr = Box impl ex, inferredType = t' }
-        Nothing -> return Nothing
-    else return Nothing

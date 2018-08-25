@@ -19,6 +19,9 @@ import Kit.Error
 import Kit.Parser
 import Kit.Str
 
+{-
+  Type checks a variable declaration.
+-}
 typeVar
   :: CompileContext
   -> Module

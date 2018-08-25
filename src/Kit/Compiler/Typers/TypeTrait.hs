@@ -16,6 +16,9 @@ import Kit.Error
 import Kit.Parser
 import Kit.Str
 
+{-
+  Type checks a trait specification.
+-}
 typeTrait
   :: CompileContext
   -> Module

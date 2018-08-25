@@ -27,11 +27,3 @@ makeExprTyped et t pos = TypedExpr
   , tIsLvalue    = False
   , tTemps       = []
   }
-
-addRef :: TypedExpr -> TypedExpr
-addRef ex =
-  makeExprTyped (PreUnop Ref ex) (TypePtr $ inferredType ex) (tPos ex)
-
-addDeref :: TypedExpr -> TypedExpr
-addDeref ex = case inferredType ex of
-  TypePtr x -> makeExprTyped (PreUnop Deref ex) x (tPos ex)

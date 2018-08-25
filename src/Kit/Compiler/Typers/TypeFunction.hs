@@ -19,6 +19,9 @@ import Kit.HashTable
 import Kit.Parser
 import Kit.Str
 
+{-
+  Type checks a non-generic function.
+-}
 typeFunction
   :: CompileContext
   -> Module
@@ -35,6 +38,10 @@ typeFunction ctx mod f = do
   --modifyIORef (modTypedContents mod) ((:) $ DeclFunction typed)
   return $ (Just $ DeclFunction typed, complete)
 
+{-
+  Type checks a specific monomorph of a generic function, with a known set of
+  parameters. By this point the final types of the parameters must be known.
+-}
 typeFunctionMonomorph
   :: CompileContext
   -> Module

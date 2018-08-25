@@ -22,6 +22,9 @@ import Kit.HashTable
 import Kit.Parser
 import Kit.Str
 
+{-
+  Returns a set of type constraints for literals depending on their value.
+-}
 literalConstraints :: ValueLiteral b -> ConcreteType -> Span -> [TypeConstraint]
 literalConstraints (BoolValue _) s pos =
   [TypeEq (basicType $ BasicTypeBool) s "Bool literal must be a Bool type" pos]

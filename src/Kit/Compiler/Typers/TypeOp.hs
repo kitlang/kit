@@ -22,6 +22,9 @@ import Kit.HashTable
 import Kit.Parser
 import Kit.Str
 
+{-
+  Type check a unary operation.
+-}
 unopTypes
   :: Operator -> ConcreteType -> ConcreteType -> Span -> Maybe [TypeConstraint]
 unopTypes op l x pos = case op of
@@ -71,6 +74,9 @@ unopTypes op l x pos = case op of
     ]
   _ -> Nothing
 
+{-
+  Type check a binary operation.
+-}
 binopTypes
   :: Operator
   -> ConcreteType

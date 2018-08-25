@@ -75,7 +75,6 @@ unify ctx tctx a' b' = do
         x
   a <- mapType (follow ctx tctx) a'
   b <- mapType (follow ctx tctx) b'
-  print (a, b)
   case (a, b) of
     (TypeSelf, x) -> case tctxSelf tctx of
       Just y  -> unify ctx tctx y x

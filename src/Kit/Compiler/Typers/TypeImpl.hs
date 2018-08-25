@@ -16,6 +16,9 @@ import Kit.Error
 import Kit.Parser
 import Kit.Str
 
+{-
+  Type checks a trait implementation.
+-}
 typeImpl
   :: CompileContext
   -> Module
@@ -34,5 +37,5 @@ typeImpl ctx mod def = do
       return typed
     )
 
-  -- TODO
+  -- TODO: we're not actually verifying that this matches the trait...
   return (Just $ DeclImpl $ def { implMethods = methods }, True)

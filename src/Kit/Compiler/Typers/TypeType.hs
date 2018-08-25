@@ -21,6 +21,9 @@ import Kit.Error
 import Kit.Parser
 import Kit.Str
 
+{-
+  Type checks a non-generic type declaration.
+-}
 typeType
   :: CompileContext
   -> Module
@@ -37,6 +40,10 @@ typeType ctx mod def = do
     (bindingConcrete binding)
     def
 
+{-
+  Type checks a specific monomorph of a generic type, with a known set of
+  parameters. By this point the final types of the parameters must be known.
+-}
 typeTypeMonomorph
   :: CompileContext
   -> Module
