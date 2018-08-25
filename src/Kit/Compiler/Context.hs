@@ -157,6 +157,7 @@ getCMod ctx fp = do
 
 makeTypeVar :: CompileContext -> Span -> IO ConcreteType
 makeTypeVar ctx NoPos = throwk $ InternalError
+  -- type vars from nowhere are impossible to debug, so disallow them
   ("Attempt to make type variable with no position data")
   Nothing
 makeTypeVar ctx pos = do

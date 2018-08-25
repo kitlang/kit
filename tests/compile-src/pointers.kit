@@ -1,0 +1,10 @@
+function main() {
+    var a = 1;
+    var b: Ptr[Int] = a;
+    printf("%i\n", *b);
+
+    // type param inference for pointers
+    var c = "abc";
+    var d: Ptr = c;
+    printf("%s\n", *d);
+}

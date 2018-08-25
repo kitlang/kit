@@ -102,7 +102,7 @@ resolveType ctx tctx mod t = do
                         Just (Binding { bindingType = TraitBinding _, bindingConcrete = t })
                           -> follow ctx tctx t
                         _ -> do
-                          builtin <- builtinToConcreteType ctx tctx mod s params
+                          builtin <- builtinToConcreteType ctx tctx mod s params pos
                           case builtin of
                             Just t  -> follow ctx tctx t
                             Nothing -> unknownType s pos
@@ -263,8 +263,9 @@ builtinToConcreteType
   -> Module
   -> Str
   -> [TypeSpec]
+  -> Span
   -> IO (Maybe ConcreteType)
-builtinToConcreteType ctx tctx mod s p = do
+builtinToConcreteType ctx tctx mod s p pos = do
   case (s, p) of
     -- basics
     ("CString", [] ) -> return $ Just $ TypePtr $ TypeBasicType $ BasicTypeInt 8
@@ -280,14 +281,14 @@ builtinToConcreteType ctx tctx mod s p = do
     ("Float32", [] ) -> return $ Just $ TypeBasicType $ BasicTypeFloat 32
     ("Float64", [] ) -> return $ Just $ TypeBasicType $ BasicTypeFloat 64
     -- aliases
-    ("Byte"   , [] ) -> builtinToConcreteType ctx tctx mod "Uint8" []
-    ("Char"   , [] ) -> builtinToConcreteType ctx tctx mod "Int8" []
-    ("Short"  , [] ) -> builtinToConcreteType ctx tctx mod "Int16" []
-    ("Int"    , [] ) -> builtinToConcreteType ctx tctx mod "Int32" []
-    ("Long"   , [] ) -> builtinToConcreteType ctx tctx mod "Int64" []
-    ("Uint"   , [] ) -> builtinToConcreteType ctx tctx mod "Uint32" []
-    ("Float"  , [] ) -> builtinToConcreteType ctx tctx mod "Float32" []
-    ("Double" , [] ) -> builtinToConcreteType ctx tctx mod "Float64" []
+    ("Byte"   , [] ) -> builtinToConcreteType ctx tctx mod "Uint8" [] pos
+    ("Char"   , [] ) -> builtinToConcreteType ctx tctx mod "Int8" [] pos
+    ("Short"  , [] ) -> builtinToConcreteType ctx tctx mod "Int16" [] pos
+    ("Int"    , [] ) -> builtinToConcreteType ctx tctx mod "Int32" [] pos
+    ("Long"   , [] ) -> builtinToConcreteType ctx tctx mod "Int64" [] pos
+    ("Uint"   , [] ) -> builtinToConcreteType ctx tctx mod "Uint32" [] pos
+    ("Float"  , [] ) -> builtinToConcreteType ctx tctx mod "Float32" [] pos
+    ("Double" , [] ) -> builtinToConcreteType ctx tctx mod "Float64" [] pos
     ("Void"   , [] ) -> return $ Just $ TypeBasicType BasicTypeVoid
     -- compound
     ("Box"    , [x]) -> do
@@ -295,9 +296,15 @@ builtinToConcreteType ctx tctx mod s p = do
       case trait of
         TypeTraitConstraint (tp, params) -> return $ Just $ TypeBox tp params
         _ -> return Nothing
+    ("Ptr", []) -> do
+      param <- makeTypeVar ctx pos
+      return $ Just $ TypePtr param
     ("Ptr", [x]) -> do
       param <- resolveType ctx tctx mod x
       return $ Just $ TypePtr param
+    ("CArray", []) -> do
+      param <- makeTypeVar ctx pos
+      return $ Just $ TypeArr param Nothing
     ("CArray", [x]) -> do
       param <- resolveType ctx tctx mod x
       return $ Just $ TypeArr param Nothing
