@@ -196,44 +196,6 @@ getModImports ctx mod = do
   includes  <- mapM (getCMod ctx) (map fst $ includes')
   return $ mod : (imports ++ includes)
 
-getTraitImpl
-  :: CompileContext
-  -> TypePath
-  -> ConcreteType
-  -> IO (Maybe (TraitImplementation TypedExpr ConcreteType))
-getTraitImpl ctx trait ct = do
-  traitImpls <- h_lookup (ctxImpls ctx) trait
-  result     <- case traitImpls of
-    Just x -> do
-      lookup <- h_lookup x ct
-      case lookup of
-        Just y -> return $ Just y
-        _      -> return Nothing
-    Nothing -> return Nothing
-  case result of
-    Just impl -> return $ Just impl
-    Nothing   -> do
-      case ct of
-        TypeInstance (modPath, name) params -> do
-          def <- getTypeDefinition ctx modPath name
-          case typeSubtype def of
-            Abstract { abstractUnderlyingType = u } -> getTraitImpl ctx trait u
-            _ -> return Nothing
-        _ -> return Nothing
-
-makeBox :: CompileContext -> TypePath -> TypedExpr -> IO (Maybe TypedExpr)
-makeBox ctx tp ex = do
-  if tIsLvalue ex
-    then do
-      impl <- getTraitImpl ctx tp (inferredType ex)
-      case impl of
-        Just impl -> do
-          -- TODO params
-          let t' = TypeBox tp []
-          return $ Just $ ex { tExpr = Box impl ex, inferredType = t' }
-        Nothing -> return Nothing
-    else return Nothing
-
 makeGeneric
   :: CompileContext
   -> TypePath
@@ -258,8 +220,7 @@ makeGeneric ctx tp@(modPath, name) pos existing = do
             Nothing -> makeTypeVar ctx pos
           return (paramName param, tv)
   let paramTypes = map snd params
-  when (length params > length existing)
-    $ modifyIORef (ctxPendingGenerics ctx) (\acc -> (tp, paramTypes) : acc)
+  modifyIORef (ctxPendingGenerics ctx) (\acc -> (tp, paramTypes) : acc)
   return params
 
 getTypeDefinition

@@ -303,3 +303,54 @@ builtinToConcreteType ctx tctx mod s p = do
       param <- resolveType ctx tctx mod x
       return $ Just $ TypeArr param Nothing
     _ -> return Nothing
+
+getTraitImpl
+  :: CompileContext
+  -> TypeContext
+  -> TypePath
+  -> ConcreteType
+  -> IO (Maybe (TraitImplementation TypedExpr ConcreteType))
+getTraitImpl ctx tctx trait ct = do
+  ct         <- follow ctx tctx ct
+  traitImpls <- h_lookup (ctxImpls ctx) trait
+  result     <- case traitImpls of
+    Just x -> do
+      lookup <- h_lookup x ct
+      case lookup of
+        Just y -> return $ Just y
+        _      -> return Nothing
+    Nothing -> return Nothing
+  case result of
+    Just impl -> return $ Just impl
+    Nothing   -> do
+      case ct of
+        TypeInstance (modPath, name) params -> do
+          def <- getTypeDefinition ctx modPath name
+          case typeSubtype def of
+            Abstract { abstractUnderlyingType = u } -> do
+              let tctx' = addTypeParams
+                    tctx
+                    [ (paramName param, value)
+                    | (param, value) <- zip (typeParams def) params
+                    ]
+              getTraitImpl ctx tctx' trait u
+            _ -> return Nothing
+        _ -> return Nothing
+
+makeBox
+  :: CompileContext
+  -> TypeContext
+  -> TypePath
+  -> TypedExpr
+  -> IO (Maybe TypedExpr)
+makeBox ctx tctx tp ex = do
+  if tIsLvalue ex
+    then do
+      impl <- getTraitImpl ctx tctx tp (inferredType ex)
+      case impl of
+        Just impl -> do
+          -- TODO params
+          let t' = TypeBox tp []
+          return $ Just $ ex { tExpr = Box impl ex, inferredType = t' }
+        Nothing -> return Nothing
+    else return Nothing

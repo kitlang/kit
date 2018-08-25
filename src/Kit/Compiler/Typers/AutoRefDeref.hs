@@ -73,7 +73,7 @@ autoRefDeref ctx tctx toType fromType original temps ex = do
       (TypeBox tp params, b) -> do
         if tIsLvalue ex
           then do
-            box <- makeBox ctx tp ex
+            box <- makeBox ctx tctx tp ex
             case box of
               Just x  -> finalizeResult x
               Nothing -> return original

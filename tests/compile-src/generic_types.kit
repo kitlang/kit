@@ -50,6 +50,14 @@ enum WrapperEnum[T] {
     }
 }
 
+abstract WrapperAbstract[T]: T {
+    public function hello(fmt: CString) {
+        printf("Hello ");
+        printf(fmt, this);
+        printf("\n");
+    }
+}
+
 function main() {
     // fully specified
     var a1: WrapperType[Bool] = struct WrapperType {
@@ -109,4 +117,9 @@ function main() {
     i.which("%i");
     var j: WrapperEnum = TwoValues(5, 6.0);
     j.which("%.1f");
+
+    var k: WrapperAbstract[Int] = 1;
+    var l: WrapperAbstract = "hello";
+    k.hello("%i");
+    l.hello("%s");
 }

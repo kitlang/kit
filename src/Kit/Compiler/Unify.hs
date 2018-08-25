@@ -33,16 +33,22 @@ instance Errable UnificationError where
 instance Eq UnificationError where
   (==) (UnificationError _ c1) (UnificationError _ c2) = c1 == c2
 
-getAbstractParents :: CompileContext -> ConcreteType -> IO [ConcreteType]
-getAbstractParents ctx t = do
+getAbstractParents
+  :: CompileContext -> TypeContext -> ConcreteType -> IO [ConcreteType]
+getAbstractParents ctx tctx t = do
   case t of
     TypeInstance (modPath, typeName) params -> do
-      -- TODO: factor this out
       def <- getTypeDefinition ctx modPath typeName
       case typeSubtype def of
         Abstract { abstractUnderlyingType = t' } -> do
-          parents <- getAbstractParents ctx t'
-          return $ t' : parents
+          let tctx' = addTypeParams
+                tctx
+                [ (paramName param, value)
+                | (param, value) <- zip (typeParams def) params
+                ]
+          t       <- mapType (follow ctx tctx') t'
+          parents <- getAbstractParents ctx tctx' t
+          return $ t : parents
         _ -> return []
     _ -> return []
 
@@ -67,8 +73,9 @@ unify ctx tctx a' b' = do
         )
         (Just [])
         x
-  a <- follow ctx tctx a'
-  b <- follow ctx tctx b'
+  a <- mapType (follow ctx tctx) a'
+  b <- mapType (follow ctx tctx) b'
+  print (a, b)
   case (a, b) of
     (TypeSelf, x) -> case tctxSelf tctx of
       Just y  -> unify ctx tctx y x
@@ -95,8 +102,8 @@ unify ctx tctx a' b' = do
       return $ checkResults ((Just $ [TypeVarIs i x]) : results)
     (_                    , TypeTypeVar _) -> unify ctx tctx b a
     (TypeTraitConstraint t, x            ) -> do
-      impl <- resolveTraitConstraint ctx t x
-      return $ if impl then Just [] else Nothing
+      impl <- resolveTraitConstraint ctx tctx t x
+      if impl then return $ Just [] else fallBackToAbstractParent a b
     (_, TypeTraitConstraint v) -> unify ctx tctx b a
     (TypeBasicType a, TypeBasicType b) -> return $ unifyBasic a b
     (TypePtr (TypeBasicType BasicTypeVoid), TypePtr _) -> return $ Just []
@@ -115,19 +122,9 @@ unify ctx tctx a' b' = do
           paramMatch <- mapM (\(a, b) -> unify ctx tctx a b)
                              (zip params1 params2)
           return $ checkResults paramMatch
-        else do
-          parents <- getAbstractParents ctx b
-          case find ((==) a) parents of
-            Just _ -> return $ Just []
-            _      -> return Nothing
+        else fallBackToAbstractParent a b
     (_, TypeInstance tp1 params1) -> do
-      if a == b
-        then return $ Just []
-        else do
-          parents <- getAbstractParents ctx b
-          case find ((==) a) parents of
-            Just _ -> return $ Just []
-            _      -> return Nothing
+      if a == b then return $ Just [] else fallBackToAbstractParent a b
     (TypeEnumConstructor tp1 d1 _ params1, TypeEnumConstructor tp2 d2 _ params2)
       -> do
         if (tp1 == tp2) && (d1 == d2) && (length params1 == length params2)
@@ -138,6 +135,12 @@ unify ctx tctx a' b' = do
           else return Nothing
     (a, b) | a == b -> return $ Just []
     _               -> return Nothing
+ where
+  fallBackToAbstractParent a b = do
+    parents <- getAbstractParents ctx tctx b
+    if null parents
+      then return Nothing
+      else unify ctx tctx a (head $ reverse parents)
 
 unifyBasic :: BasicType -> BasicType -> Maybe [TypeInformation]
 unifyBasic (BasicTypeVoid)    (BasicTypeVoid)   = Just []
@@ -207,7 +210,7 @@ resolveConstraintOrThrow ctx tctx t@(TypeEq a' b' reason pos) = do
     Nothing -> throw $ KitError $ UnificationError ctx t
 
 resolveTraitConstraint
-  :: CompileContext -> TraitConstraint -> ConcreteType -> IO Bool
-resolveTraitConstraint ctx (tp, params) ct = do
-  impl <- getTraitImpl ctx tp ct
+  :: CompileContext -> TypeContext -> TraitConstraint -> ConcreteType -> IO Bool
+resolveTraitConstraint ctx tctx (tp, params) ct = do
+  impl <- getTraitImpl ctx tctx tp ct
   return $ impl /= Nothing
