@@ -13,6 +13,14 @@ struct WrapperType[T] {
         printf("greeting: ");
         printf(fmt, this.innerValue);
     }
+
+    public function greetWith(fmt: CString, other: T) {
+        printf("greetings from ");
+        printf(fmt, this.innerValue);
+        printf(" and ");
+        printf(fmt, other);
+        printf("\n");
+    }
 }
 
 union Either[A, B] {
@@ -88,6 +96,7 @@ function main() {
     // generic methods
     a1.greet("%i\n");
     d.greet("%s\n");
+    b.greetWith("%i", 5);
 
     // union with two inferred parameters
     var e: Either;

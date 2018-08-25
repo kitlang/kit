@@ -61,7 +61,7 @@ Design goals and philosophy
 Building from source
 --------------------
 
-The Kit compiler is written in Haskell, and building the compiler requires GHC; the easiest path is to install [Stack](https://docs.haskellstack.org/en/stable/README/) and run:
+The Kit compiler, `kitc`, is written in Haskell. Building the compiler requires GHC; the easiest path is to install [Stack](https://docs.haskellstack.org/en/stable/README/) and run:
 
     stack build
 

@@ -517,7 +517,9 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                 case binding of
                   Just x -> do
                     -- this is a local method
-                    typed <- typeVarBinding ctx tctx' fieldName x pos
+                    typed' <- typeVarBinding ctx tctx' fieldName x pos
+                    t <- mapType (follow ctx tctx') (inferredType typed')
+                    let typed = typed' {inferredType = t}
                     -- this may be a template; replace `this` with the actual
                     -- type to guarantee the implicit pass will work
                     let
@@ -1039,9 +1041,9 @@ typeVarBinding ctx tctx name binding pos = do
       else do
 -- TODO: allow specifying explicit function params
         params <- makeGeneric ctx tp pos []
-        t'     <- mapType (follow ctx tctx) t
-        t''    <- mapType (substituteParams params) t'
-        let ft = case t'' of
+        let tctx' = addTypeParams tctx params
+        t <- mapType (follow ctx tctx') t
+        let ft = case t of
               TypeFunction rt args varargs _ ->
                 TypeFunction rt args varargs (map snd params)
         return $ makeExprTyped (Identifier (Var name) namespace) ft pos
