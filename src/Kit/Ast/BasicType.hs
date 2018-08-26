@@ -15,13 +15,14 @@ import Kit.Str
 data BasicType
   = CArray BasicType (Maybe Int)
   | CPtr BasicType
+  | BasicTypeCInt
+  | BasicTypeCChar
+  | BasicTypeCSize
   | BasicTypeVoid
   | BasicTypeBool
   | BasicTypeInt Int
   | BasicTypeUint Int
   | BasicTypeFloat Int
-  -- In case we need "int" and not int16_t etc.
-  | BasicTypeTrueInt
   -- Anonymous structs from headers are supported, but can't be defined in Kit.
   | BasicTypeStruct (Maybe Str) BasicArgs
   | BasicTypeUnion (Maybe Str) BasicArgs
@@ -43,20 +44,38 @@ data BasicType
 
 basicTypeAbbreviation (CArray t _) = "a" ++ basicTypeAbbreviation t
 basicTypeAbbreviation (CPtr t) = "p" ++ basicTypeAbbreviation t
-basicTypeAbbreviation (BasicTypeVoid) = "v"
-basicTypeAbbreviation (BasicTypeBool) = "b"
-basicTypeAbbreviation (BasicTypeInt i) = "i" ++ show i
-basicTypeAbbreviation (BasicTypeUint i) = "u" ++ show i
-basicTypeAbbreviation (BasicTypeFloat f) = "f" ++ show f
+basicTypeAbbreviation (BasicTypeVoid             ) = "v"
+basicTypeAbbreviation (BasicTypeBool             ) = "b"
+basicTypeAbbreviation (BasicTypeCChar            ) = "c"
+basicTypeAbbreviation (BasicTypeCInt             ) = "I"
+basicTypeAbbreviation (BasicTypeCSize            ) = "z"
+basicTypeAbbreviation (BasicTypeInt   i          ) = "i" ++ show i
+basicTypeAbbreviation (BasicTypeUint  i          ) = "u" ++ show i
+basicTypeAbbreviation (BasicTypeFloat f          ) = "f" ++ show f
 basicTypeAbbreviation (BasicTypeStruct (Just x) _) = "s" ++ s_unpack x
-basicTypeAbbreviation (BasicTypeStruct Nothing args) = "s" ++ show (length args) ++ (foldr (++) "" [s_unpack n ++ basicTypeAbbreviation t | (n, t) <- args])
+basicTypeAbbreviation (BasicTypeStruct Nothing args) =
+  "s"
+    ++ show (length args)
+    ++ (foldr (++) "" [ s_unpack n ++ basicTypeAbbreviation t | (n, t) <- args ]
+       )
 basicTypeAbbreviation (BasicTypeUnion (Just x) args) = "u" ++ s_unpack x
-basicTypeAbbreviation (BasicTypeUnion Nothing args) = "u" ++ show (length args) ++ (foldr (++) "" [s_unpack n ++ basicTypeAbbreviation t | (n, t) <- args])
--- basicTypeAbbreviation (BasicTypeSimpleEnum n variants)
--- basicTypeAbbreviation (BasicTypeComplexEnum n args)
-basicTypeAbbreviation (BasicTypeAtom) = "a"
--- basicTypeAbbreviation (BasicTypeFunction rt args v)
-basicTypeAbbreviation (BasicTypeTuple _ t) = "t" ++ show (length t) ++ foldr (++) "" (map basicTypeAbbreviation t)
+basicTypeAbbreviation (BasicTypeUnion Nothing args) =
+  "u"
+    ++ show (length args)
+    ++ (foldr (++) "" [ s_unpack n ++ basicTypeAbbreviation t | (n, t) <- args ]
+       )
+basicTypeAbbreviation (BasicTypeSimpleEnum  (Just n) _   ) = "e" ++ s_unpack n
+basicTypeAbbreviation (BasicTypeSimpleEnum  Nothing  _   ) = "e_"
+basicTypeAbbreviation (BasicTypeComplexEnum n        args) = "E" ++ s_unpack n
+basicTypeAbbreviation (BasicTypeAtom                     ) = "a"
+basicTypeAbbreviation (BasicTypeFunction rt args v) =
+  "f"
+    ++ show (length args)
+    ++ (foldr (++) "" [ s_unpack n ++ basicTypeAbbreviation t | (n, t) <- args ]
+       )
+    ++ basicTypeAbbreviation rt
+basicTypeAbbreviation (BasicTypeTuple _ t) =
+  "t" ++ show (length t) ++ foldr (++) "" (map basicTypeAbbreviation t)
 basicTypeAbbreviation (BasicTypeUnknown) = "q"
 
 instance Hashable BasicType
@@ -64,10 +83,13 @@ instance Hashable BasicType
 instance Show BasicType where
   show (CArray t (Just i)) = show t ++ "[" ++ show i ++ "]"
   show (CArray t Nothing) = show t ++ "[]"
-  show (CPtr (BasicTypeInt 8)) = "CString"
+  show (CPtr BasicTypeCChar) = "CString"
   show (CPtr t) = "Ptr[" ++ show t ++ "]"
   show (BasicTypeVoid) = "Void"
   show (BasicTypeBool) = "Bool"
+  show (BasicTypeCChar) = "Char"
+  show (BasicTypeCInt) = "Int"
+  show (BasicTypeCSize) = "Size"
   show (BasicTypeInt 16) = "Short"
   show (BasicTypeInt 32) = "Int"
   show (BasicTypeInt 64) = "Long"
@@ -90,3 +112,11 @@ instance Show BasicType where
   show (BasicTypeUnknown) = "???"
 
 type BasicArgs = [(Str, BasicType)]
+
+typeIsIntegral :: BasicType -> Bool
+typeIsIntegral (BasicTypeInt  _) = True
+typeIsIntegral (BasicTypeUint _) = True
+typeIsIntegral BasicTypeCChar    = True
+typeIsIntegral BasicTypeCInt     = True
+typeIsIntegral BasicTypeCSize    = True
+typeIsIntegral _                 = False

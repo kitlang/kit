@@ -195,8 +195,7 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
               return (pattern, body)
             def <- maybeR e2
             let canSwitch = case matchType of
-                  BasicTypeInt  _         -> True
-                  BasicTypeUint _         -> True
+                  a | typeIsIntegral a    -> True
                   BasicTypeSimpleEnum _ _ -> True
                   _                       -> False
             if canSwitch

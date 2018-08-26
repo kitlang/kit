@@ -102,7 +102,12 @@ resolveType ctx tctx mod t = do
                         Just (Binding { bindingType = TraitBinding _, bindingConcrete = t })
                           -> follow ctx tctx t
                         _ -> do
-                          builtin <- builtinToConcreteType ctx tctx mod s params pos
+                          builtin <- builtinToConcreteType ctx
+                                                           tctx
+                                                           mod
+                                                           s
+                                                           params
+                                                           pos
                           case builtin of
                             Just t  -> follow ctx tctx t
                             Nothing -> unknownType s pos
@@ -268,7 +273,10 @@ builtinToConcreteType
 builtinToConcreteType ctx tctx mod s p pos = do
   case (s, p) of
     -- basics
-    ("CString", [] ) -> return $ Just $ TypePtr $ TypeBasicType $ BasicTypeInt 8
+    ("CString", [] ) -> return $ Just $ TypePtr $ TypeBasicType $ BasicTypeCChar
+    ("Char"  , [] ) -> return $ Just $ TypeBasicType $ BasicTypeCChar
+    ("Int"   , [] ) -> return $ Just $ TypeBasicType $ BasicTypeCInt
+    ("Size"   , [] ) -> return $ Just $ TypeBasicType $ BasicTypeCSize
     ("Bool"   , [] ) -> return $ Just $ TypeBasicType $ BasicTypeBool
     ("Int8"   , [] ) -> return $ Just $ TypeBasicType $ BasicTypeInt 8
     ("Int16"  , [] ) -> return $ Just $ TypeBasicType $ BasicTypeInt 16
@@ -282,9 +290,7 @@ builtinToConcreteType ctx tctx mod s p pos = do
     ("Float64", [] ) -> return $ Just $ TypeBasicType $ BasicTypeFloat 64
     -- aliases
     ("Byte"   , [] ) -> builtinToConcreteType ctx tctx mod "Uint8" [] pos
-    ("Char"   , [] ) -> builtinToConcreteType ctx tctx mod "Int8" [] pos
     ("Short"  , [] ) -> builtinToConcreteType ctx tctx mod "Int16" [] pos
-    ("Int"    , [] ) -> builtinToConcreteType ctx tctx mod "Int32" [] pos
     ("Long"   , [] ) -> builtinToConcreteType ctx tctx mod "Int64" [] pos
     ("Uint"   , [] ) -> builtinToConcreteType ctx tctx mod "Uint32" [] pos
     ("Float"  , [] ) -> builtinToConcreteType ctx tctx mod "Float32" [] pos

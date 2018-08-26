@@ -144,17 +144,13 @@ unify ctx tctx a' b' = do
       else unify ctx tctx a (head $ reverse parents)
 
 unifyBasic :: BasicType -> BasicType -> Maybe [TypeInformation]
-unifyBasic (BasicTypeVoid)    (BasicTypeVoid)   = Just []
-unifyBasic (BasicTypeVoid)    _                 = Nothing
-unifyBasic _                  (BasicTypeVoid  ) = Nothing
-unifyBasic (BasicTypeInt   _) (BasicTypeInt  _) = Just []
-unifyBasic (BasicTypeUint  _) (BasicTypeInt  _) = Just []
-unifyBasic (BasicTypeFloat _) (BasicTypeInt  _) = Just []
-unifyBasic (BasicTypeInt   _) (BasicTypeUint _) = Just []
-unifyBasic (BasicTypeUint  _) (BasicTypeUint _) = Just []
-unifyBasic (BasicTypeFloat _) (BasicTypeUint _) = Just []
-unifyBasic (BasicTypeUnknown) (_              ) = Nothing
-unifyBasic (CPtr a          ) (CPtr b         ) = unifyBasic a b
+unifyBasic (BasicTypeVoid)    (BasicTypeVoid) = Just []
+unifyBasic (BasicTypeVoid)    _               = Nothing
+unifyBasic _                  (BasicTypeVoid) = Nothing
+unifyBasic a                  b | (typeIsIntegral a) && (typeIsIntegral b) = Just []
+unifyBasic (BasicTypeFloat _) b | (typeIsIntegral b) = Just []
+unifyBasic (BasicTypeUnknown) (_     )        = Nothing
+unifyBasic (CPtr a          ) (CPtr b)        = unifyBasic a b
 unifyBasic a b = if a == b then Just [] else Nothing
 
 resolveConstraint :: CompileContext -> TypeContext -> TypeConstraint -> IO ()

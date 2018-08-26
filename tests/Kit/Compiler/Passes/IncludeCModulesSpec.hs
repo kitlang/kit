@@ -40,6 +40,9 @@ spec = do
       , BasicTypeUint 16
       , BasicTypeUint 32
       , BasicTypeUint 64
+      , BasicTypeCChar
+      , BasicTypeCInt
+      , BasicTypeCSize
       ]
       (\t ->
         it ("Parses C specifiers into " ++ show t)
@@ -62,7 +65,7 @@ spec = do
     forM_
       [ let (n, t) = ("var1", (TypeBasicType $ BasicTypeInt 16))
         in  ("Parses var declarations", "var1", t)
-      , ("Parses var definitions", "var2", (TypeBasicType $ BasicTypeInt 8))
+      , ("Parses var definitions", "var2", (TypeBasicType $ BasicTypeCChar))
       , ( "Parses var definitions with multiple type specifiers"
         , "var3"
         , (TypeBasicType $ BasicTypeUint 32)
@@ -85,7 +88,8 @@ spec = do
         , (TypePtr
             (TypeFunction (TypeBasicType $ BasicTypeInt 16)
                           [("arg1", TypeBasicType $ BasicTypeInt 16)]
-                          False []
+                          False
+                          []
             )
           )
         )
@@ -104,25 +108,29 @@ spec = do
           [ ("arg1", TypeBasicType $ BasicTypeInt 16)
           , ("arg2", TypeBasicType $ BasicTypeUint 64)
           ]
-          False []
+          False
+          []
         )
       , ( "Parses functions with struct return value/arguments"
         , "struct_func"
         , TypeFunction (TypeInstance (["c"], "Struct1") [])
                        [("a", TypeInstance (["c"], "Struct2") [])]
-                       False []
+                       False
+                       []
         )
       , ( "Parses functions with pointer return value/arguments"
         , "pointer_func"
         , TypeFunction (TypePtr $ TypeBasicType $ BasicTypeFloat 32)
-                       [("arg1", TypePtr $ TypeBasicType $ BasicTypeInt 16)]
-                       False []
+                       [("arg1", TypePtr $ TypeBasicType $ BasicTypeCInt)]
+                       False
+                       []
         )
       , ( "Parses variadic functions"
         , "varargs_func"
         , TypeFunction (TypeBasicType $ BasicTypeVoid)
                        [("a", TypeBasicType $ BasicTypeInt 16)]
-                       True []
+                       True
+                       []
         )
       , ( "Parses void arg functions"
         , "void_func"
@@ -149,7 +157,7 @@ spec = do
                                , varType      = Just
                                  $ ConcreteType
                                  $ TypeBasicType
-                                 $ BasicTypeInt 8
+                                 $ BasicTypeCChar
                                }
                              , newVarDefinition
                                { varName      = "field2"

@@ -1,4 +1,4 @@
-function calloc_alloc(size: Uint64) {
+function calloc_alloc(size: Size) {
     return calloc(1, size);
 }
 
@@ -6,7 +6,7 @@ struct MyStruct {
     var a: Int;
     var b: Float;
 
-    public static function new(allocator: function (Uint64) -> Ptr[Void]): Ptr[MyStruct] {
+    public static function new(allocator: function (Size) -> Ptr[Void]): Ptr[MyStruct] {
         return allocator(8) as Ptr[MyStruct];
     }
 }

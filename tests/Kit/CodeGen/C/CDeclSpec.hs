@@ -25,10 +25,10 @@ spec = do
   describe "Transpiles structures into typedefs" $ do
     it "Transpiles structs" $ do
       showstruct
-          (BasicTypeStruct
-            (Just "MyStruct") [("a", BasicTypeInt 8), ("b", BasicTypeUint 8)]
+          (BasicTypeStruct (Just "MyStruct")
+                           [("a", BasicTypeInt 8), ("b", BasicTypeUint 8)]
           )
-        `shouldBe` "struct MyStruct {\nchar a; uint8_t b;\n}"
+        `shouldBe` "struct MyStruct {\nint8_t a; uint8_t b;\n}"
 
   describe "Transpiles simple enums" $ do
     it "Transpiles enum discriminants" $ do
@@ -49,7 +49,7 @@ spec = do
             "MyEnum"
             [ ("Variant1", [])
             , ( "Variant2"
-              , [("field1", BasicTypeInt 8), ("field2", BasicTypeUint 8)]
+              , [("field1", BasicTypeCChar), ("field2", BasicTypeUint 8)]
               )
             ]
           )

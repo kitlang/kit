@@ -81,7 +81,21 @@ data TokenClass
   | UpperIdentifier Str
   deriving (Eq)
 
-data NumSpec = Int8 | Int16 | Int32 | Int64 | Uint8 | Uint16 | Uint32 | Uint64 | Float32 | Float64 deriving (Eq, Show)
+data NumSpec = CChar | CInt | CSize | Int8 | Int16 | Int32 | Int64 | Uint8 | Uint16 | Uint32 | Uint64 | Float32 | Float64 deriving (Eq)
+instance Show NumSpec where
+  show CChar = "Char"
+  show CInt = "Int"
+  show CSize = "Size"
+  show Int8 = "Int8"
+  show Int16 = "Int16"
+  show Int32 = "Int32"
+  show Int64 = "Int64"
+  show Uint8 = "Uint8"
+  show Uint16 = "Uint16"
+  show Uint32 = "Uint32"
+  show Uint64 = "Uint64"
+  show Float32 = "Float32"
+  show Float64 = "Float64"
 
 instance Show TokenClass where
   show tok = case tok of

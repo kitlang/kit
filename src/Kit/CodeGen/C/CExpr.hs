@@ -30,16 +30,18 @@ cpos p x =
   x $ mkNodeInfoOnlyPos $ position 0 (file p) (startLine p) (startCol p) Nothing
 
 ctype :: BasicType -> ([CTypeSpec], [CDerivedDeclr])
-ctype BasicTypeVoid     = ([u CVoidType], [])
-ctype BasicTypeBool     = ([u CBoolType], [])
-ctype (BasicTypeTrueInt) = ([u CIntType], [])
-ctype (BasicTypeInt 8 ) = ([u CCharType], [])
+ctype BasicTypeVoid    = ([u CVoidType], [])
+ctype BasicTypeBool    = ([u CBoolType], [])
+ctype (BasicTypeCChar) = ([u CCharType], [])
+ctype (BasicTypeCInt ) = ([u CIntType], [])
+ctype (BasicTypeCSize) = ([u $ CTypeDef (internalIdent $ "size_t")], [])
 ctype (BasicTypeInt n) =
   ([u $ CTypeDef (internalIdent $ "int" ++ show n ++ "_t")], [])
 ctype (BasicTypeUint n) =
   ([u $ CTypeDef (internalIdent $ "uint" ++ show n ++ "_t")], [])
 ctype (BasicTypeFloat 32) = ([u CFloatType], [])
 ctype (BasicTypeFloat 64) = ([u CDoubleType], [])
+ctype (BasicTypeFloat _ ) = undefined
 ctype (BasicTypeAtom    ) = ([u CUnsigType, u CLongType], [])
 ctype (BasicTypeStruct name args) =
   ( [ u $ CSUType $ u $ CStruct
@@ -137,7 +139,7 @@ transpileExpr (IrLiteral (FloatValue f t)) =
   CConst $ u $ CFloatConst $ transpileFloat (s_unpack f)
 transpileExpr (IrLiteral (StringValue s)) =
   u
-    $ CCast (cDecl (CPtr $ BasicTypeInt 8) Nothing Nothing)
+    $ CCast (cDecl (CPtr $ BasicTypeCChar) Nothing Nothing)
     $ CConst
     $ u
     $ CStrConst
@@ -206,6 +208,7 @@ transpileExpr (IrTupleInit t vals) = u $ CCompoundLit
   | (i, e) <- zip [0 ..] vals
   ]
 transpileExpr (IrSizeOf t) = u $ CSizeofType (cDecl t Nothing Nothing)
+transpileExpr _            = undefined
 
 getVariantFieldNames variants discriminant =
   case find (\(name, _) -> name == discriminant) variants of
@@ -280,6 +283,7 @@ transpileInt ('0' : 'b' : s) = cInteger $ r1 $ readInt 2 isBin readBin s
   isBin x = (x == '0' || x == '1')
   readBin '0' = 0
   readBin '1' = 1
+  readBin _   = undefined
 transpileInt ('0' : 'o' : s) = cInteger $ r1 $ readOct ('0' : s)
 transpileInt s               = cInteger $ r1 $ readDec s
 

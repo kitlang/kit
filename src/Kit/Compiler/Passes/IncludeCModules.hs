@@ -200,11 +200,12 @@ _parseDeclSpec modPath (h : t) width signed float = case h of
   (CUnsigType  _           ) -> _parseDeclSpec modPath t width False float
   (CFloatType  _           ) -> _parseDeclSpec modPath t 32 signed True
   (CDoubleType _           ) -> _parseDeclSpec modPath t 64 signed True
-  (CCharType   _           ) -> _parseDeclSpec modPath t 8 signed False
+  (CCharType   _           ) -> TypeBasicType $ BasicTypeCChar
+  (CIntType    _           ) -> TypeBasicType $ BasicTypeCInt
   (CShortType  _           ) -> _parseDeclSpec modPath t 16 signed False
-  (CIntType    _           ) -> _parseDeclSpec modPath t 16 signed False
   (CLongType _) -> _parseDeclSpec modPath t (width + 32) signed False
   (CTypeDef (Ident x _ _) _) -> case x of
+    "size_t"   -> TypeBasicType $ BasicTypeCSize
     "int8_t"   -> TypeBasicType $ BasicTypeInt 8
     "int16_t"  -> TypeBasicType $ BasicTypeInt 16
     "int32_t"  -> TypeBasicType $ BasicTypeInt 32

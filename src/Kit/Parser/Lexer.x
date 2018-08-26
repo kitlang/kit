@@ -94,10 +94,10 @@ tokens :-
   [\"]{3} ([^\"]|\"[^\"]|\"\"[^\"]|\n)* [\"]{3} { tok' (\s -> LiteralString $ processStringLiteral $ s_take (s_length s - 6) $ s_drop 3 s) }
 
   \-?[0-9]+ "." [0-9]* "_" (f(32|64)) { tok' (\s -> let [p1, p2] = s_split '_' s in LiteralFloat p1 (Just $ parseNumSuffix $ s_unpack p2)) }
-  "0x" [0-9a-fA-F]+ "_" ([ui](8|16|32|64)|f(32|64)) { tok' (\s -> let [p1, p2] = map s_unpack (s_split '_' s) in LiteralInt (parseInt readHex $ drop 2 $ p1) (Just $ parseNumSuffix p2)) }
-  "0o" [0-7]+ "_" ([ui](8|16|32|64)|f(32|64)) { tok' (\s -> let [p1, p2] = map s_unpack (s_split '_' s) in LiteralInt (parseInt readOct $ drop 2 $ p1) (Just $ parseNumSuffix p2)) }
-  "0b" [01]+ "_" ([ui](8|16|32|64)|f(32|64)) { tok' (\s -> let [p1, p2] = map s_unpack (s_split '_' s) in LiteralInt (parseInt readBin $ drop 2 $ p1) (Just $ parseNumSuffix p2)) }
-  \-?(0|[1-9][0-9]*) "_" ([ui](8|16|32|64)|f(32|64)) { tok' (\s -> let [p1, p2] = map s_unpack (s_split '_' s) in LiteralInt (parseInt readDec $ p1) (Just $ parseNumSuffix p2)) }
+  "0x" [0-9a-fA-F]+ "_" ([ui](8|16|32|64)|f(32|64)|[cis]) { tok' (\s -> let [p1, p2] = map s_unpack (s_split '_' s) in LiteralInt (parseInt readHex $ drop 2 $ p1) (Just $ parseNumSuffix p2)) }
+  "0o" [0-7]+ "_" ([ui](8|16|32|64)|f(32|64)|[cis]) { tok' (\s -> let [p1, p2] = map s_unpack (s_split '_' s) in LiteralInt (parseInt readOct $ drop 2 $ p1) (Just $ parseNumSuffix p2)) }
+  "0b" [01]+ "_" ([ui](8|16|32|64)|f(32|64)|[cis]) { tok' (\s -> let [p1, p2] = map s_unpack (s_split '_' s) in LiteralInt (parseInt readBin $ drop 2 $ p1) (Just $ parseNumSuffix p2)) }
+  \-?(0|[1-9][0-9]*) "_" ([ui](8|16|32|64)|f(32|64)|[cis]) { tok' (\s -> let [p1, p2] = map s_unpack (s_split '_' s) in LiteralInt (parseInt readDec $ p1) (Just $ parseNumSuffix p2)) }
 
   \-?[0-9]+ "." [0-9]* { tok' (\s -> LiteralFloat s Nothing) }
   "0x" [0-9a-fA-F]+ { tok' (\s -> LiteralInt (parseInt readHex $ drop 2 $ s_unpack s) Nothing) }
@@ -183,6 +183,9 @@ _processString [] _ = ""
 readBin = readInt 2 (\c -> c == '0' || c == '1') digitToInt
 parseInt f ('-':s) = -(fst $ head $ f s)
 parseInt f s = fst $ head $ f s
+parseNumSuffix "c" = CChar
+parseNumSuffix "i" = CInt
+parseNumSuffix "s" = CSize
 parseNumSuffix "u8" = Uint8
 parseNumSuffix "u16" = Uint16
 parseNumSuffix "u32" = Uint32

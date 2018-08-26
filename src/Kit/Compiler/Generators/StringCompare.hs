@@ -11,7 +11,7 @@ stringCompare ex s = IrBinop
     (IrIdentifier "strncmp")
     [ ex
     , IrLiteral $ StringValue s
-    , IrLiteral $ IntValue (fromIntegral $ s_length s) BasicTypeTrueInt
+    , IrLiteral $ IntValue (fromIntegral $ s_length s) BasicTypeCInt
     ]
   )
-  (IrLiteral $ IntValue 0 BasicTypeTrueInt)
+  (IrLiteral $ IntValue 0 BasicTypeCInt)
