@@ -8,6 +8,11 @@ addons:
     packages:
     - libgmp-dev
 
+env:
+  matrix:
+    - CC=gcc
+    - CC=clang
+
 before_install:
 - mkdir -p ~/.local/bin
 - export PATH=$HOME/.local/bin:$PATH
