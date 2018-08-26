@@ -22,7 +22,7 @@ import Kit.Str
 -}
 compileCode :: CompileContext -> IO (Maybe FilePath)
 compileCode ctx = do
-  compiler      <- findCompiler
+  compiler      <- findCompiler ctx
   ccache        <- findCcache ctx
   compilerFlags <- getCompilerFlags ctx
   linkerFlags   <- getLinkerFlags ctx
@@ -94,22 +94,25 @@ getLinkerFlags ctx = do
     Just s  -> ctxFlags ++ words s
     Nothing -> ctxFlags
 
-findCompiler :: IO FilePath
-findCompiler = do
-  ccEnv <- lookupEnv "CC"
-  case ccEnv of
+findCompiler :: CompileContext -> IO FilePath
+findCompiler ctx = do
+  case ctxCompilerPath ctx of
     Just cc -> return cc
-    Nothing -> do
-      let exes = ["cc", "gcc"]
-      exePaths <- mapM findExecutable exes
-      case msum exePaths of
+    _       -> do
+      ccEnv <- lookupEnv "CC"
+      case ccEnv of
         Just cc -> return cc
-        Nothing -> throwk $ BasicError
-          ("Couldn't find a C compiler from your executable paths; tried looking for:\n\n"
-          ++ intercalate "\n" ([ "  - " ++ exe | exe <- exes ])
-          ++ "\n\nYou can set the compiler path explicitly using the CC environment variable"
-          )
-          Nothing
+        Nothing -> do
+          let exes = ["cc", "gcc", "clang"]
+          exePaths <- mapM findExecutable exes
+          case msum exePaths of
+            Just cc -> return cc
+            Nothing -> throwk $ BasicError
+              ("Couldn't find a C compiler from your executable paths; tried looking for:\n\n"
+              ++ intercalate "\n" ([ "  - " ++ exe | exe <- exes ])
+              ++ "\n\nYou can set the compiler path explicitly using the CC environment variable"
+              )
+              Nothing
 
 findCcache :: CompileContext -> IO (Maybe FilePath)
 findCcache ctx =

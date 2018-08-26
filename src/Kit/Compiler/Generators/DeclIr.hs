@@ -83,7 +83,7 @@ generateDeclIr ctx mod t = do
         then return
           [ DeclFunction $ converted
               { functionName = name
-              , functionType = BasicTypeInt 16
+              , functionType = BasicTypeTrueInt
               , functionBody = case functionBody converted of
                 Just x ->
                   Just
@@ -93,15 +93,20 @@ generateDeclIr ctx mod t = do
                         $ Just
                         $ IrLiteral
                         $ IntValue 0
-                        $ BasicTypeInt 16
+                        $ BasicTypeTrueInt
                         ]
-                Nothing -> Just
-                  (IrReturn $ Just $ IrLiteral $ IntValue 0 $ BasicTypeInt 16)
+                Nothing ->
+                  Just
+                    (IrReturn $ Just $ IrLiteral $ IntValue 0 $ BasicTypeTrueInt
+                    )
               }
           ]
         else return
           [ DeclFunction $ converted
               { functionName = mangleName (functionNamespace f) name
+              , functionType = if isMain
+                then BasicTypeTrueInt
+                else functionType converted
               }
           ]
 

@@ -30,8 +30,10 @@ cpos p x =
   x $ mkNodeInfoOnlyPos $ position 0 (file p) (startLine p) (startCol p) Nothing
 
 ctype :: BasicType -> ([CTypeSpec], [CDerivedDeclr])
-ctype BasicTypeVoid = ([u CVoidType], [])
-ctype BasicTypeBool = ([u CBoolType], [])
+ctype BasicTypeVoid     = ([u CVoidType], [])
+ctype BasicTypeBool     = ([u CBoolType], [])
+ctype (BasicTypeTrueInt) = ([u CIntType], [])
+ctype (BasicTypeInt 8 ) = ([u CCharType], [])
 ctype (BasicTypeInt n) =
   ([u $ CTypeDef (internalIdent $ "int" ++ show n ++ "_t")], [])
 ctype (BasicTypeUint n) =
@@ -134,7 +136,13 @@ transpileExpr (IrLiteral (IntValue i t)) = CConst $ u $ CIntConst $ CInteger
 transpileExpr (IrLiteral (FloatValue f t)) =
   CConst $ u $ CFloatConst $ transpileFloat (s_unpack f)
 transpileExpr (IrLiteral (StringValue s)) =
-  u $ CCast (cDecl (CPtr $ BasicTypeInt 8) Nothing Nothing) $ CConst $ u $ CStrConst $ cString $ s_unpack s
+  u
+    $ CCast (cDecl (CPtr $ BasicTypeInt 8) Nothing Nothing)
+    $ CConst
+    $ u
+    $ CStrConst
+    $ cString
+    $ s_unpack s
 transpileExpr (IrBinop Assign e1 e2) =
   u $ CAssign (CAssignOp) (transpileExpr e1) (transpileExpr e2)
 transpileExpr (IrBinop (AssignOp op) e1 e2) =

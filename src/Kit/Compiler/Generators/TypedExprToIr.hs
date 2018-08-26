@@ -11,6 +11,7 @@ import Kit.Compiler.Context
 import Kit.Compiler.Generators.FindUnderlyingType
 import Kit.Compiler.Generators.NameMangling
 import Kit.Compiler.Generators.PatternMatch
+import Kit.Compiler.Generators.StringCompare
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
@@ -115,6 +116,12 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
           32 -> do
             return $ IrCall (IrIdentifier "fmodf") [r1, r2]
           _ -> return $ IrBinop Mod r1 r2
+      (Binop Eq (TypedExpr { tExpr = Literal (StringValue s) }) e2) -> do
+        r2 <- r e2
+        return $ stringCompare r2 s
+      (Binop Eq e1 (TypedExpr { tExpr = Literal (StringValue s) })) -> do
+        r1 <- r e1
+        return $ stringCompare r1 s
       (Binop op e1 e2) -> do
         r1 <- r e1
         r2 <- r e2
@@ -196,7 +203,10 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
               then return $ IrSwitch r1 cases' def
               else
                 let ifX ((a, b) : t) = IrIf
-                      (IrBinop Eq r1 a)
+                      (case a of
+                        IrLiteral (StringValue s) -> stringCompare r1 s
+                        _                         -> (IrBinop Eq r1 a)
+                      )
                       b
                       (if null t then r2 else Just $ ifX t)
                 in  return $ ifX cases'

@@ -20,6 +20,8 @@ data BasicType
   | BasicTypeInt Int
   | BasicTypeUint Int
   | BasicTypeFloat Int
+  -- In case we need "int" and not int16_t etc.
+  | BasicTypeTrueInt
   -- Anonymous structs from headers are supported, but can't be defined in Kit.
   | BasicTypeStruct (Maybe Str) BasicArgs
   | BasicTypeUnion (Maybe Str) BasicArgs

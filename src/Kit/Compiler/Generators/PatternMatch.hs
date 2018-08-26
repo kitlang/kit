@@ -10,6 +10,7 @@ import Kit.Compiler.Binding
 import Kit.Compiler.Context
 import Kit.Compiler.Generators.FindUnderlyingType
 import Kit.Compiler.Generators.NameMangling
+import Kit.Compiler.Generators.StringCompare
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
@@ -86,8 +87,9 @@ patternMatch ctx mod typer pattern t ex = do
     -- TODO: struct/union destructure
     Identifier (Var x) [] -> do
       return $ ([], [IrVarDeclaration x t (Just ex)])
-    Literal (BoolValue True ) -> return ([ex], [])
-    Literal (BoolValue False) -> return ([IrPreUnop Invert ex], [])
-    _                         -> do
+    Literal (BoolValue   True ) -> return ([ex], [])
+    Literal (BoolValue   False) -> return ([IrPreUnop Invert ex], [])
+    Literal (StringValue s    ) -> return ([stringCompare ex s], [])
+    _                           -> do
       r1 <- typer pattern
       return ([IrBinop Eq ex r1], [])

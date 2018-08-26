@@ -24,7 +24,7 @@ spec = do
     it "transpiles bool types" $ do
       showctype (BasicTypeBool) `shouldBe` "_Bool"
     it "transpiles int types" $ do
-      showctype (BasicTypeInt 8) `shouldBe` "int8_t"
+      showctype (BasicTypeInt 8) `shouldBe` "char"
       showctype (BasicTypeInt 16) `shouldBe` "int16_t"
       showctype (BasicTypeInt 32) `shouldBe` "int32_t"
       showctype (BasicTypeInt 64) `shouldBe` "int64_t"
@@ -159,7 +159,7 @@ spec = do
     it "transpiles casts" $ do
       showexpr (IrCast (IrIdentifier "a") BasicTypeVoid) `shouldBe` "(void) a"
       showexpr (IrCast (IrIdentifier "abc") (BasicTypeInt 8))
-        `shouldBe` "(int8_t) abc"
+        `shouldBe` "(char) abc"
     {-it "transpiles vector literals" $ do
       showexpr (VectorLiteral [(IrIdentifier "b"), (IrIdentifier "c")]) `shouldBe` "[b, c]"-}
 

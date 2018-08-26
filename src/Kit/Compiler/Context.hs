@@ -53,6 +53,7 @@ data CompileContext = CompileContext {
   ctxMainModule :: ModulePath,
   ctxIsLibrary :: Bool,
   ctxSourcePaths :: [FilePath],
+  ctxCompilerPath :: Maybe FilePath,
   ctxIncludePaths :: [FilePath],
   ctxOutputDir :: FilePath,
   ctxDefines :: [(String, String)],
@@ -100,6 +101,7 @@ newCompileContext = do
     { ctxMainModule           = ["main"]
     , ctxIsLibrary            = False
     , ctxSourcePaths          = ["src"]
+    , ctxCompilerPath         = Nothing
     , ctxIncludePaths         = ["/usr/include"]
     , ctxOutputDir            = "build"
     , ctxDefines              = []
@@ -220,7 +222,8 @@ makeGeneric ctx tp@(modPath, name) pos existing = do
           $ \(param, value) -> do
         -- TODO: add param constraints here
               tv <- case value of
-                Just (TypeTypeParam p) | paramName param == p -> makeTypeVar ctx pos
+                Just (TypeTypeParam p) | paramName param == p ->
+                  makeTypeVar ctx pos
                 Just x  -> return x
                 Nothing -> makeTypeVar ctx pos
               return (paramName param, tv)

@@ -27,6 +27,7 @@ data Options = Options {
   optOutputDir :: FilePath,
   optSourcePaths :: [FilePath],
   optIncludePaths :: [FilePath],
+  optCompilerPath :: Maybe FilePath,
   optDefines :: [String],
   optIsLibrary :: Bool,
   optNoCompile :: Bool,
@@ -77,6 +78,11 @@ options =
           )
     <*> many sourceDirParser
     <*> many includeDirParser
+    <*> (optional $ strOption
+          (long "cc" <> metavar "PATH" <> help
+            "path to the C compiler"
+          )
+        )
     <*> many definesParser
     <*> switch (long "lib" <> help "build a library, without linking")
     <*> switch
@@ -144,11 +150,16 @@ main = do
             Just x  -> x
             Nothing -> "std"
       base_context <- newCompileContext
+      inc          <- lookupEnv "INCLUDE_PATH"
+      let baseIncludePaths = case inc of
+            Just x  -> [x]
+            Nothing -> ["/usr/include"]
       let ctx = base_context
             { ctxMainModule   = parseModulePath $ s_pack $ optMainModule opts
             , ctxIsLibrary    = optIsLibrary opts
             , ctxOutputDir    = optOutputDir opts
-            , ctxIncludePaths = optIncludePaths opts ++ ["/usr/include"]
+            , ctxCompilerPath = optCompilerPath opts
+            , ctxIncludePaths = optIncludePaths opts ++ baseIncludePaths
             , ctxSourcePaths  = optSourcePaths opts ++ [std_path]
             , ctxDefines      = map
               (\s -> (takeWhile (/= '=') s, drop 1 $ dropWhile (/= '=') s))

@@ -12,7 +12,7 @@ enum MySimpleEnum {
     Banana;
     Strawberry;
 
-    public function print(): CString {
+    public function print(): Void {
         match this {
             Apple => printf("%s\n", "apple");
             Banana => printf("%s\n", "banana");
@@ -26,7 +26,7 @@ enum MyComplexEnum {
     Banana2(a: Float, b: CString);
     Strawberry2;
 
-    public function print(): CString {
+    public function print(): Void {
         match this {
             Apple2(i) => {
                 printf("Apple2: %i\n", i);
