@@ -31,7 +31,6 @@ library:
   - Kit.Parser
   - Kit.Str
   dependencies:
-  - aeson
   - ansi-terminal
   - array
   - base16-bytestring

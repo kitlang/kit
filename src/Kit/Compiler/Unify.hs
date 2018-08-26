@@ -15,7 +15,7 @@ import Kit.Log
 import Kit.Parser.Span
 import Kit.Str
 
-data UnificationError = UnificationError CompileContext TypeConstraint deriving (Show)
+data UnificationError = UnificationError CompileContext TypeConstraint
 instance Errable UnificationError where
   logError err@(UnificationError ctx (TypeEq a b reason pos)) = do
     logErrorBasic err $ reason ++ ":"
@@ -29,6 +29,8 @@ instance Errable UnificationError where
                               _ -> ePutStrLn $ "  - Type := " ++ show x
                            ePutStrLn "")
   errPos (UnificationError _ (TypeEq _ _ _ pos)) = Just pos
+instance Show UnificationError where
+  show (UnificationError _ tc) = "UnificationError " ++ show tc
 
 instance Eq UnificationError where
   (==) (UnificationError _ c1) (UnificationError _ c2) = c1 == c2

@@ -3,7 +3,6 @@ module Kit.Compiler.Context where
 import Control.Applicative
 import Control.Exception
 import Control.Monad
-import Data.Aeson
 import Data.IORef
 import Data.List
 import qualified Data.Text as T
@@ -66,20 +65,6 @@ data CompileContext = CompileContext {
   ctxRecursionLimit :: Int,
   ctxRun :: Bool
 }
-
-instance Show CompileContext where
-  show ctx = s_unpack $ encode $ object [
-      "main" .= (s_unpack $ showModulePath $ ctxMainModule ctx),
-      "lib" .= ctxIsLibrary ctx,
-      "src" .= ctxSourcePaths ctx,
-      "include" .= ctxIncludePaths ctx,
-      "out" .= ctxOutputDir ctx,
-      "defines" .= object [T.pack key .= value | (key, value) <- ctxDefines ctx],
-      "verbose" .= ctxVerbose ctx,
-      "no-compile" .= ctxNoCompile ctx,
-      "no-link" .= ctxNoLink ctx,
-      "no-ccache" .= ctxNoCcache ctx
-    ]
 
 newCompileContext :: IO CompileContext
 newCompileContext = do

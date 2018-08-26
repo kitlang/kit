@@ -41,8 +41,6 @@ tryCompile context = try $ compile context
 -}
 compile :: CompileContext -> IO ()
 compile ctx = do
-  debugLog ctx $ show ctx
-
   {-
     Load the main module and all of its dependencies recursively. Also builds
     module interfaces, which declare the set of types that exist in a module
