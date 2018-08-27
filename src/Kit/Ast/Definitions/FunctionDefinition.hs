@@ -98,14 +98,21 @@ convertArgSpec (Converter { exprConverter = exprConverter, typeConverter = typeC
                         }
 
 implicitifyMethod
-  :: b -> Str -> FunctionDefinition a b -> FunctionDefinition a b
-implicitifyMethod thisType thisName method = method
+  :: Str
+  -> b
+  -> (FunctionDefinition a b -> a -> a)
+  -> FunctionDefinition a b
+  -> FunctionDefinition a b
+implicitifyMethod thisName thisType body method = method
   { functionArgs = (newArgSpec { argName = thisName
                                , argType = thisType
                                , argPos  = functionPos method
                                }
                    )
     : (functionArgs method)
+  , functionBody = case functionBody method of
+    Just x  -> Just $ body method x
+    Nothing -> Nothing
   }
 
 reimplicitify :: b -> FunctionDefinition a b -> FunctionDefinition a b

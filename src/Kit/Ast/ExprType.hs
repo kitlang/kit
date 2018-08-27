@@ -63,7 +63,7 @@ data ExprType a b
   | InlineCall a
   | Field a (Identifier b)
   | StructInit b [(Str, a)]
-  | EnumInit b Str [a]
+  | EnumInit b Str [(Str, a)]
   | EnumDiscriminant a
   | EnumField a Str Str
   | TupleInit [a]
@@ -148,7 +148,7 @@ exprChildren et = case et of
   InlineCall x                -> [x]
   Field      x _              -> [x]
   StructInit _ fields         -> map snd fields
-  EnumInit _ _ x              -> x
+  EnumInit _ _ x              -> map snd x
   EnumDiscriminant x          -> [x]
   EnumField x _ _             -> [x]
   ArrayAccess x y             -> [x, y]

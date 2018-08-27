@@ -90,6 +90,8 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
       (TypeAnnotation e1             t) -> throw $ KitError $ BasicError
         ("unexpected type annotation in typed AST")
         (Just pos)
+      (PreUnop Ref (TypedExpr {tExpr = This})) -> do
+        return $ IrIdentifier thisPtrName
       (PreUnop op e1) -> do
         r1 <- r e1
         return $ IrPreUnop op r1
@@ -147,7 +149,7 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
         r2        <- maybeR e2
         matchType <- findUnderlyingType ctx mod (Just pos) (inferredType e1)
         case matchType of
-          BasicTypeComplexEnum _ _ -> do
+          BasicTypeComplexEnum _ -> do
             -- complex match with ADT
             cases' <- forM cases $ \c -> do
               (conditions, exprs) <- patternMatch ctx
@@ -195,9 +197,10 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
               return (pattern, body)
             def <- maybeR e2
             let canSwitch = case matchType of
-                  a | typeIsIntegral a    -> True
-                  BasicTypeSimpleEnum _ _ -> True
-                  _                       -> False
+                  a | typeIsIntegral a  -> True
+                  BasicTypeSimpleEnum _ -> True
+                  BasicTypeAnonEnum   _ -> True
+                  _                     -> False
             if canSwitch
               then return $ IrSwitch r1 cases' def
               else
@@ -252,21 +255,21 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
         return $ IrStructInit f resolvedFields
       (EnumInit (TypeInstance tp p) d args) -> do
         discriminant <- enumDiscriminantName ctx tp p d
-        resolvedArgs <- forM args r
-        f'           <- case f of
-          BasicTypeComplexEnum n variants -> do
-            variants <- forM variants $ \(name, args) -> do
-              name <- enumDiscriminantName ctx tp p name
-              return (name, args)
-            return $ BasicTypeComplexEnum n variants
+        resolvedArgs <- forM args $ \(name, x) -> do
+          x <- r x
+          return (name, x)
+        f' <- case f of
+          BasicTypeComplexEnum n -> do
+            return $ BasicTypeComplexEnum n
           f -> return f
         return $ IrEnumInit f' discriminant resolvedArgs
       (EnumDiscriminant x) -> do
         r1       <- r x
         enumType <- findUnderlyingType ctx mod (Just pos) (inferredType x)
         case enumType of
-          BasicTypeSimpleEnum  _ _ -> return r1
-          BasicTypeComplexEnum _ _ -> return $ IrField r1 discriminantFieldName
+          BasicTypeSimpleEnum  _ -> return r1
+          BasicTypeAnonEnum    _ -> return r1
+          BasicTypeComplexEnum _ -> return $ IrField r1 discriminantFieldName
       (EnumField x variantName fieldName) -> do
         r1 <- r x
         let (TypeInstance tp params) = inferredType x
@@ -299,7 +302,7 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
                             (s_pack $ basicTypeAbbreviation for)
                 )
           return $ IrStructInit
-            (BasicTypeStruct (Just structName) [])
+            (BasicTypeStruct structName)
             [ (valuePointerName , (IrPreUnop Ref r1))
             , (vtablePointerName, IrPreUnop Ref (IrIdentifier implName))
             ]

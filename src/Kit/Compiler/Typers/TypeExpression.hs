@@ -505,37 +505,42 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
             case t of
               TypeInstance tp@(modPath, typeName) params -> do
                 templateDef <- getTypeDefinition ctx modPath typeName
-                let tctx' = addTypeParams
-                      tctx
-                      [ (paramName param, val)
-                      | (param, val) <- zip (typeParams templateDef) params
-                      ]
-                def <- followType ctx tctx' templateDef
+                let tctx' =
+                      (addTypeParams
+                        tctx
+                        [ (paramName param, val)
+                        | (param, val) <- zip (typeParams templateDef) params
+                        ]
+                      ) { tctxSelf = Just t
+                        }
+                definitionMod <- getMod ctx modPath
+                def           <- followType ctx tctx' templateDef
                 let subtype = typeSubtype def
-                localScope <- getSubScope (modScope mod) [typeName]
+                localScope <- getSubScope (modScope definitionMod) [typeName]
+                bindings   <- bindingList localScope
                 binding    <- resolveLocal localScope fieldName
                 case binding of
                   Just x -> do
                     -- this is a local method
                     typed' <- typeVarBinding ctx tctx' fieldName x pos
-                    t <- mapType (follow ctx tctx') (inferredType typed')
-                    let typed = typed' {inferredType = t}
+                    t      <- mapType (follow ctx tctx') (inferredType typed')
+                    let typed = typed' { inferredType = t }
                     -- this may be a template; replace `this` with the actual
                     -- type to guarantee the implicit pass will work
-                    let
-                      f = case inferredType typed of
-                        TypeFunction rt args varargs _ -> TypeFunction
-                          rt
-                          ( (let (name, _) = (head args)
-                             in  (name, inferredType r1)
+                    let f = case inferredType typed of
+                          TypeFunction rt args varargs _ -> TypeFunction
+                            rt
+                            ( (let (name, _) = (head args)
+                               in  (name, TypePtr $ inferredType r1)
+                              )
+                            : (tail args)
                             )
-                          : (tail args)
-                          )
-                          varargs
-                          params
+                            varargs
+                            params
                     return $ (makeExprTyped (Method r1 tp fieldName) f pos)
                       { tImplicits = r1 : tImplicits typed
                       }
+
                   _ -> case subtype of
                     Struct { structFields = fields } -> do
                       result <- typeStructUnionFieldAccess ctx
@@ -593,13 +598,16 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                 findStatic    <- resolveLocal subScope fieldName
                 case findStatic of
                   Just binding -> do
-                    x <- typeVarBinding ctx tctx fieldName binding pos
+                    let tctx' =
+                          tctx { tctxSelf = Just $ TypeInstance (mp, name) [] }
+                    x <- typeVarBinding ctx tctx' fieldName binding pos
                     resolve $ TypeEq
                       (bindingConcrete binding)
                       (inferredType x)
                       "Field access must match the field's type"
                       (tPos x)
-                    return x
+                    f <- mapType (follow ctx tctx') $ inferredType x
+                    return $ x {inferredType = f}
                   Nothing -> failTyping $ TypingError
                     (  "Type "
                     ++ (s_unpack $ showTypePath x)
@@ -856,14 +864,14 @@ alignCallArgs ctx tctx argTypes isVariadic implicits args = if null argTypes
     nextArg <- follow ctx tctx (head argTypes)
     found   <- findImplicit ctx tctx nextArg implicits
     case found of
-      Just x -> do
+      Just (x, y) -> do
         rest <- alignCallArgs ctx
                               tctx
                               (tail argTypes)
                               isVariadic
                               (delete x implicits)
                               args
-        return $ x : rest
+        return $ y : rest
       Nothing -> return $ args
 
 findImplicit
@@ -871,13 +879,13 @@ findImplicit
   -> TypeContext
   -> ConcreteType
   -> [TypedExpr]
-  -> IO (Maybe TypedExpr)
+  -> IO (Maybe (TypedExpr, TypedExpr))
 findImplicit ctx tctx ct []      = return Nothing
 findImplicit ctx tctx ct (h : t) = do
   converted <- autoRefDeref ctx tctx ct (inferredType h) h [] h
   match     <- unify ctx tctx ct (inferredType converted)
   case match of
-    Just _  -> return $ Just converted
+    Just _  -> do return $ Just (h, converted)
     Nothing -> findImplicit ctx tctx ct t
 
 typeFunctionCall
@@ -1002,7 +1010,10 @@ typeEnumConstructorCall ctx tctx mod e args tp@(modPath, typeName) discriminant 
           )
       )
     let ct = TypeInstance tp params
-    return $ makeExprTyped (EnumInit ct discriminant args) ct (tPos e)
+    return $ makeExprTyped
+      (EnumInit ct discriminant (zip (map fst argTypes) args))
+      ct
+      (tPos e)
 
 typeStructUnionFieldAccess
   :: CompileContext

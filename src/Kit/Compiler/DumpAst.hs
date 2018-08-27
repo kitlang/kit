@@ -124,7 +124,13 @@ dumpAst ctx indent e@(TypedExpr { tExpr = texpr, inferredType = t, tPos = pos })
   = do
     let dumpChild = dumpAst ctx (indent + 1)
     t' <- dumpCt ctx t
-    let indented = (++) (take (indent * 2) $ repeat ' ')
+    let
+      indented =
+        (++)
+          (  (take (indent * 2) $ repeat ' ')
+          ++ (show $ (pos { file = "" }))
+          ++ ": "
+          )
     let f x = indented $ x ++ ": " ++ t'
     let i x children =
           (do
@@ -159,7 +165,7 @@ dumpAst ctx indent e@(TypedExpr { tExpr = texpr, inferredType = t, tPos = pos })
       StructInit (TypeInstance tp _) fields ->
         i ("struct " ++ s_unpack (showTypePath tp)) (map snd fields)
       EnumInit _ constructor fields ->
-        i ("enum " ++ s_unpack constructor) fields
+        i ("enum " ++ s_unpack constructor) (map snd fields)
       ArrayAccess a b       -> i "array access" [a, b]
       Call        a args    -> i "call" (a : args)
       Cast        a _       -> i "cast" [a]
@@ -214,12 +220,11 @@ dumpCt ctx t = case t of
                  )
              )
     case typeVarValue info of
-      Just t  ->
-        if (ctxVerbose ctx > 1)
-          then do
-            x <- dumpCt ctx t
-            return $ tv ++ " := " ++ x
-          else dumpCt ctx t
+      Just t -> if (ctxVerbose ctx > 1)
+        then do
+          x <- dumpCt ctx t
+          return $ tv ++ " := " ++ x
+        else dumpCt ctx t
       Nothing -> return tv
   TypeTuple t -> do
     parts <- forM t $ dumpCt ctx

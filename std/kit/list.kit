@@ -2,57 +2,57 @@
  * A List[T] is an immutable singly linked list.
  */
 enum List[T] {
-    Cons(head: T, tail: List[T]);
+    Cons(head: T, tail: Ptr[List[T]]);
     Empty;
 
-    /**
-     * Returns a new list which combines two other lists. Requires iterating
-     * over both lists, which is O(n).
-     */
-    public function concat(other: Self): Self {
-        var list = Empty;
-        for i in this {
-            list = i :: list;
-        }
-        for i in other {
-            list = i :: list;
-        }
-        return list.reverse();
-    }
+    // /**
+    //  * Returns a new list which combines two other lists. Requires iterating
+    //  * over both lists, which is O(n).
+    //  */
+    // public function concat(other: Self): Self {
+    //     var list = Empty;
+    //     for i in this {
+    //         list = i :: list;
+    //     }
+    //     for i in other {
+    //         list = i :: list;
+    //     }
+    //     return list.reverse();
+    // }
 
     /**
      * Returns a new list, with the provided value added to the front of this
      * list.
      */
     public function cons(value: T): Self {
-        return Cons(value, this);
+        return Cons(value, &this);
     }
 
-    /**
-     * Return a new list, which is this list in reverse order. Requires O(n)
-     * time. This does not modify the current list.
-     */
-    public function reverse(): Self {
-        var list = Empty;
-        for i in this {
-            list = i :: list;
-        }
-        return list;
-    }
+    // /**
+    //  * Return a new list, which is this list in reverse order. Requires O(n)
+    //  * time. This does not modify the current list.
+    //  */
+    // public function reverse(): Self {
+    //     var list = Empty;
+    //     for i in this {
+    //         list = i :: list;
+    //     }
+    //     return list;
+    // }
 
     /**
      * Return the length of the list. Requires O(n) to calculate.
      */
-    public function getLength(): Uint {
+    public function getLength(): Size {
         var len = 0;
         var current = this;
         while true {
             match current {
                 Cons(h, t) => {
                     ++len;
-                    current = t;
+                    current = *t;
                 }
-                Empty => break;
+                default => break;
             }
         }
         return len;
@@ -118,28 +118,28 @@ enum List[T] {
     }
 }
 
-implement Iterable[T] for List[T] {
-    public function iterator() {
-        return ListIterator.new(this);
-    }
-}
+// implement Iterable[T] for List[T] {
+//     public function iterator() {
+//         return ListIterator.new(this);
+//     }
+// }
 
-struct ListIterator[T] {
-    public var current: Ptr[List[T]];
+// struct ListIterator[T] {
+//     public var current: Ptr[List[T]];
 
-    public static function new(list: Ptr[List[T]]) {
-        return struct Self {current: list};
-    }
-}
+//     public static function new(list: Ptr[List[T]]) {
+//         return struct Self {current: list};
+//     }
+// }
 
-implement Iterator[T] for ArrayIterator[T] {
-    public function next(): Null[T] {
-        return match list {
-            Cons(h, t) => {
-                current = t;
-                Some(h);
-            }
-            Empty => None;
-        }
-    }
-}
+// implement Iterator[T] for ArrayIterator[T] {
+//     public function next(): Null[T] {
+//         return match list {
+//             Cons(h, t) => {
+//                 current = t;
+//                 Some(h);
+//             }
+//             Empty => None;
+//         }
+//     }
+// }

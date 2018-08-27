@@ -38,7 +38,7 @@ findUnderlyingType ctx mod pos t = do
           t' <- findUnderlyingType ctx mod pos t
           return (name, t')
         )
-      return $ BasicTypeStruct Nothing fields'
+      return $ BasicTypeAnonStruct fields'
     TypeAnonUnion fields -> do
       fields' <- forM
         fields
@@ -46,7 +46,7 @@ findUnderlyingType ctx mod pos t = do
           t' <- findUnderlyingType ctx mod pos t
           return (name, t')
         )
-      return $ BasicTypeUnion Nothing fields'
+      return $ BasicTypeAnonUnion fields'
     TypeInstance (modPath, name) p -> do
       templateDef <- getTypeDefinition ctx modPath name
       mod         <- getMod ctx modPath
@@ -64,29 +64,19 @@ findUnderlyingType ctx mod pos t = do
           fields <- forM fields $ \field -> do
             t <- findUnderlyingType ctx mod pos (varType field)
             return (varName field, t)
-          return $ BasicTypeStruct (Just typeName) fields
+          return $ BasicTypeStruct typeName
         Union { unionFields = fields } -> do
           fields <- forM fields $ \field -> do
             t <- findUnderlyingType ctx mod pos (varType field)
             return (varName field, t)
-          return $ BasicTypeUnion (Just typeName) fields
+          return $ BasicTypeUnion typeName
         enum@(Enum { enumVariants = variants }) -> do
-          if enumIsSimple enum
-            then return $ BasicTypeSimpleEnum (Just typeName) $ map
-              variantName
-              variants
-            else do
-              variants' <- forM variants $ \variant -> do
-                args <- forM (variantArgs variant) $ \arg -> do
-                  t <- findUnderlyingType ctx mod pos $ argType arg
-                  return (argName arg, t)
-                return (variantName variant, args)
-              return $ BasicTypeComplexEnum typeName variants'
+          return $ if enumIsSimple enum
+            then BasicTypeSimpleEnum typeName
+            else BasicTypeComplexEnum typeName
         Abstract { abstractUnderlyingType = u } ->
           findUnderlyingType ctx mod pos u
 
-            -- typeDef       <- h_lookup (modContents definitionMod) name
-      -- TODO
     -- TypeTypedef TypePath [ConcreteType]
     -- TypeFunction ConcreteType ConcreteArgs Bool
     -- TypePtr ConcreteType
@@ -126,7 +116,7 @@ findUnderlyingType ctx mod pos t = do
       return $ BasicTypeFunction rt' args' var
     TypeBox (modPath, name) params -> do
       let name' = (mangleName (modPath ++ [name]) "box")
-      return $ BasicTypeStruct (Just name') []
+      return $ BasicTypeStruct name'
     TypeTypeParam t -> do
       throwk $ InternalError
         (  "Couldn't find underlying type for type param "
