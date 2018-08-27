@@ -20,10 +20,10 @@ import Kit.Log
 import Kit.Str
 
 data Options = Options {
+  optMainModule :: String,
   optShowVersion :: Bool,
   optVerbose :: Int,
   optTarget :: String,
-  optMainModule :: String,
   optOutputDir :: FilePath,
   optSourcePaths :: [FilePath],
   optIncludePaths :: [FilePath],
@@ -40,7 +40,15 @@ data Options = Options {
 options :: Parser Options
 options =
   Options
-    <$> switch (long "version" <> help "show the version number and exit")
+    <$> argument
+          str
+          (  showDefault
+          <> value "main"
+          <> metavar "MODULE"
+          <> help
+               "module containing the main() function (for binaries) or compilation entry point for libraries"
+          )
+    <*> switch (long "version" <> help "show the version number and exit")
     <*> (length <$> many
           (flag'
             ()
@@ -60,15 +68,6 @@ options =
           <> help "compile target (c|web|eval)"
           )
     <*> strOption
-          (  long "main"
-          <> short 'm'
-          <> showDefault
-          <> value "main"
-          <> metavar "MODULE"
-          <> help
-               "module containing the main() function (for binaries) or compilation entry point for libraries"
-          )
-    <*> strOption
           (  long "output"
           <> short 'o'
           <> showDefault
@@ -79,16 +78,14 @@ options =
     <*> many sourceDirParser
     <*> many includeDirParser
     <*> (optional $ strOption
-          (long "cc" <> metavar "PATH" <> help
-            "path to the C compiler"
-          )
+          (long "cc" <> metavar "PATH" <> help "path to the C compiler")
         )
     <*> many definesParser
     <*> switch (long "lib" <> help "build a library, without linking")
     <*> switch
           (  long "no-compile"
           <> help
-               "generates C files and headers but does not compile a library/binary"
+               "generates C files and headers but does not compile a library/binary (implies --no-link)"
           )
     <*> switch
           (long "no-link" <> help
@@ -109,13 +106,17 @@ options =
 
 
 sourceDirParser = strOption
-  (long "src" <> short 's' <> metavar "DIR" <> help "add a source directory")
+  (long "src" <> short 's' <> metavar "DIR" <> help
+    "add a source directory; can be repeated"
+  )
 includeDirParser = strOption
   (long "include" <> short 'I' <> metavar "DIR" <> help
-    "add a header include directory"
+    "add a header include directory; can be repeated"
   )
 definesParser = strOption
-  (long "define" <> short 'D' <> metavar "KEY[=VAL]" <> help "add a define")
+  (long "define" <> short 'D' <> metavar "KEY[=VAL]" <> help
+    "add a define; can be repeated"
+  )
 
 helper' :: Parser (a -> a)
 helper' = abortOption ShowHelpText $ mconcat
