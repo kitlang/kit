@@ -190,6 +190,22 @@ generateDef ctx mod codeFile decl = do
           ("\n" ++ (render $ pretty $ cfunDef name (functionBasicType def) body)
           )
 
+    DeclVar def@(VarDefinition { varName = name, varType = t@(BasicTypeStruct n), varDefault = Just val })
+      -> do
+        -- somewhat arbitrarily, compound literals aren't supported as static initializers in GCC <= 4
+        hPutStrLn
+          codeFile
+          (  "\n"
+          ++ (render $ pretty $ CDeclExt $ cDecl
+               t
+               (Just name)
+               (Just $ case (transpileExpr val) of
+                 CCompoundLit _ x _ -> u $ CInitList $ x
+                 x                  -> u $ CInitExpr $ x
+               )
+             )
+          )
+
     DeclVar def@(VarDefinition { varName = name, varType = t, varDefault = Just val })
       -> do
         hPutStrLn

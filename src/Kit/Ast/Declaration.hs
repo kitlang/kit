@@ -18,11 +18,11 @@ data Declaration a b
 
 
 declName :: (Show b) => Declaration a b -> Str
-declName (DeclVar v) = varName v
+declName (DeclVar      v) = varName v
 declName (DeclFunction v) = functionName v
-declName (DeclType v) = typeName v
-declName (DeclTrait v) = traitName v
-declName (DeclImpl v) = "()"
-declName (DeclRuleSet v) = ruleSetName v
-declName (DeclTuple b) = s_pack $ show b
-declName (DeclUsing v) = "()"
+declName (DeclType     v) = typeName v
+declName (DeclTrait    v) = traitName v
+declName (DeclImpl     v) = "()"
+declName (DeclRuleSet  v) = ruleSetName v
+declName (DeclTuple    b) = s_pack $ show b
+declName (DeclUsing    v) = "()"
