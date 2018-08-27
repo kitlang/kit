@@ -36,6 +36,10 @@ typeContent ctx modContent = do
   results <- typeIterative ctx modContent [] (ctxRecursionLimit ctx)
   return results
 
+data TypingStatus
+  = Complete (Maybe TypedDecl)
+  | Incomplete TypedDecl (Maybe KitError)
+
 typeIterative
   :: CompileContext
   -> [(Module, [TypedDecl])]
@@ -43,12 +47,87 @@ typeIterative
   -> Int
   -> IO [(Module, [TypedDecl])]
 typeIterative ctx input output limit = do
+  results <- forM
+    input
+    (\(mod, decls) -> do
+      results <- forM
+        decls
+        (\d -> do
+          result <-
+            (try $ case d of
+              DeclVar      v -> typeVar ctx mod v
+              DeclFunction f | null (functionParams f) -> typeFunction ctx mod f
+              DeclType     t | null (typeParams t) -> typeType ctx mod t
+              DeclTrait    t -> typeTrait ctx mod t
+              DeclImpl     i -> typeImpl ctx mod i
+              DeclRuleSet  rs -> return (Nothing, True)
+              _ -> return (Nothing, True)
+            ) :: IO (Either KitError (Maybe TypedDecl, Bool))
+          case result of
+            Left  e                 -> return $ Incomplete d (Just e)
+            Right (d       , True ) -> return $ Complete d
+            Right ((Just x), False) -> return $ Incomplete x Nothing
+        )
+      return (mod, results)
+    )
+
+  let incompletes x = foldr
+        (\x acc -> case x of
+          Incomplete d _ -> d : acc
+          _              -> acc
+        )
+        []
+        x
+  let completes x = foldr
+        (\x acc -> case x of
+          Complete (Just d) -> d : acc
+          _                 -> acc
+        )
+        []
+        x
+
+  let incomplete =
+        [ (mod, incompletes r)
+        | (mod, r) <- results
+        , not $ null $ incompletes r
+        ]
+  let complete =
+        output
+          ++ [ (mod, completes r)
+             | (mod, r) <- results
+             , not $ null $ completes r
+             ]
+
+  let errors =
+        (foldr
+          (\x acc -> case x of
+            Incomplete _ (Just e) -> e : acc
+            _                     -> acc
+          )
+          []
+          (reverse $ foldr (++) [] (map snd results))
+        )
+
+  let decls x = foldr (++) [] (map snd x)
+  when (decls incomplete == decls input)
+    $ throwk
+    $ KitErrors
+    $ (KitError $ BasicError
+        "Failed typing; halting due to the following unsolvable errors:"
+        Nothing
+      )
+    : errors
+
   when (limit <= 0) $ if ctxDumpAst ctx
     then do
-      throwk $ BasicError
-        ("Maximum number of compile passes exceeded while typing; incomplete content:"
-        )
-        Nothing
+      throwk
+        $ KitErrors
+        $ (KitError $ BasicError
+            ("Maximum number of compile passes exceeded while typing; incomplete content:"
+            )
+            Nothing
+          )
+        : errors
       mods <- ctxSourceModules ctx
       forM_
         input
@@ -57,45 +136,16 @@ typeIterative ctx input output limit = do
           forM_ decls (dumpModuleDecl ctx mod 0)
           putStrLn ""
         )
-    else throwk $ BasicError
-      (  "Maximum number of compile passes exceeded while typing;"
-      ++ "; run again with --dump-ast to see typed output"
-      )
-      Nothing
-  results <- forM
-    input
-    (\(mod, decls) -> do
-      results <- forM
-        decls
-        (\d -> do
-          (x, complete) <- case d of
-            DeclVar      v -> typeVar ctx mod v
-            DeclFunction f | null (functionParams f) -> typeFunction ctx mod f
-            DeclType     t | null (typeParams t) -> typeType ctx mod t
-            DeclTrait    t -> typeTrait ctx mod t
-            DeclImpl     i -> typeImpl ctx mod i
-            DeclRuleSet  rs -> return (Nothing, True)
-            _ -> return (Nothing, True)
-          return (x, complete)
+    else
+      throwk
+      $ KitErrors
+      $ (KitError $ BasicError
+          (  "Maximum number of compile passes exceeded while typing;"
+          ++ "; run again with --dump-ast to see typed output"
+          )
+          Nothing
         )
-      let (incompleteResults, completeResults) = foldr
-            (\(x, complete) (i, c) ->
-              if complete then (i, x : c) else (x : i, c)
-            )
-            ([], [])
-            results
-      return (mod, (incompleteResults, completeResults))
-    )
-
-  let incomplete =
-        [ (mod, y)
-        | (mod, x) <- results
-        , let y = catMaybes $ fst x
-        , not $ null y
-        ]
-  let complete =
-        output
-          ++ ([ (mod, y) | (mod, x) <- results, let y = catMaybes $ snd x ])
+      : errors
 
   if null incomplete
     then return complete
