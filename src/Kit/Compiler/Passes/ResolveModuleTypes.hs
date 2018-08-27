@@ -159,14 +159,15 @@ resolveTypesForMod ctx (mod, contents) = do
 
             (TypeBinding ti, DeclType t) -> do
               let
+                params' =
+                  [ (paramName p, TypeTypeParam $ paramName p)
+                  | p <- typeParams t
+                  ]
+              let
                 tctx' = tctx
-                  { tctxTypeParams = [ ( paramName p
-                                       , TypeTypeParam $ paramName p
-                                       )
-                                     | p <- typeParams t
-                                     ]
-                    ++ tctxTypeParams tctx
-                  , tctxSelf       = Just (bindingConcrete binding)
+                  { tctxTypeParams = params' ++ tctxTypeParams tctx
+                  , tctxSelf       = Just
+                    (TypeInstance (modPath mod, typeName t) (map snd params'))
                   }
               let paramConverter params = converter
                     (convertExpr ctx tctx' mod)
@@ -176,8 +177,39 @@ resolveTypesForMod ctx (mod, contents) = do
                 if null (typeMethods c)
                   then return c
                   else do
-                    thisType <- makeTypeVar ctx (typePos t)
-                    return $ implicitifyInstanceMethods thisType c
+                    -- thisType <- makeTypeVar ctx (typePos t)
+                    let thisType = TypeSelf
+                    let m f x t = makeExprTyped x t (functionPos f)
+                    return $ implicitifyInstanceMethods
+                      thisPtrName
+                      (TypePtr thisType)
+                      (\f x -> m
+                        f
+                        (Block
+                          [ m
+                            f
+                            (VarDeclaration
+                              (Var thisArgName)
+                              thisType
+                              (Just $ m
+                                f
+                                (PreUnop
+                                  Deref
+                                  (m f
+                                     (Identifier (Var thisPtrName) [])
+                                     (TypePtr thisType)
+                                  )
+                                )
+                                thisType
+                              )
+                            )
+                            (thisType)
+                          , x
+                          ]
+                        )
+                        (inferredType x)
+                      )
+                      c
 
               forM_
                 (zip (typeStaticFields ti) (typeStaticFields converted))
@@ -206,7 +238,6 @@ resolveTypesForMod ctx (mod, contents) = do
                     do
                       forM_ (zip (variantArgs variant1) (variantArgs variant2))
                         $ \(arg1, arg2) -> mergeArgInfo ctx tctx' arg1 arg2
-
                       addToInterface
                         mod
                         (variantName variant1)

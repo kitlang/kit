@@ -25,7 +25,7 @@ data IrExpr
   | IrCArrLiteral [IrExpr]
   | IrVarDeclaration Str BasicType (Maybe IrExpr)
   | IrStructInit BasicType [(Str, IrExpr)]
-  | IrEnumInit BasicType Str [IrExpr]
+  | IrEnumInit BasicType Str [(Str, IrExpr)]
   | IrTupleInit BasicType [IrExpr]
   | IrSizeOf BasicType
   | IrSwitch IrExpr [(IrExpr, IrExpr)] (Maybe IrExpr)

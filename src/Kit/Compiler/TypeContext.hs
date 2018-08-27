@@ -86,7 +86,8 @@ resolveType ctx tctx mod t = do
             ("Self", Just self) -> return self
             _                   -> do
               case resolveTypeParam s (tctxTypeParams tctx) of
-                Just x -> return x
+                Just x -> do
+                  return x
                 _      -> do
                   scoped <- resolveBinding (tctxScopes tctx) s
                   ct     <- case scoped of

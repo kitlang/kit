@@ -51,9 +51,14 @@ newTypeDefinition = TypeDefinition
   , typePos           = NoPos
   }
 
-implicitifyInstanceMethods :: b -> TypeDefinition a b -> TypeDefinition a b
-implicitifyInstanceMethods thisType def = def
-  { typeMethods = [ implicitifyMethod thisType thisArgName method
+implicitifyInstanceMethods
+  :: Str
+  -> b
+  -> (FunctionDefinition a b -> a -> a)
+  -> TypeDefinition a b
+  -> TypeDefinition a b
+implicitifyInstanceMethods thisName thisType body def = def
+  { typeMethods = [ implicitifyMethod thisName thisType body method
                   | method <- typeMethods def
                   ]
   }
@@ -116,3 +121,5 @@ typeRuleSet t = newRuleSet { ruleSetName  = typeName t
 
 thisArgName :: Str
 thisArgName = "__this"
+thisPtrName :: Str
+thisPtrName = "__thisPtr"

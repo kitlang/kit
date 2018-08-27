@@ -1,10 +1,15 @@
-function f(a: Int, b: Float, c: CString) {
+abstract SpecialInt: Int;
+abstract SpecialFloat: Float;
+
+function f(a: SpecialInt, b: SpecialFloat, c: CString) {
     printf("hello %s!\n", c);
 }
 
 function main() {
-    var a: Int = 1;
-    var b: Float = 2.0;
+    // numeric types aren't a great example of implicits; for the test to pass,
+    // using abstracts so they don't unify with each other
+    var a: SpecialInt = 1;
+    var b: SpecialFloat = 2.0;
     var c: CString = "world2";
 
     using implicit a {

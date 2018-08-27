@@ -32,9 +32,7 @@ generateDeclIr ctx mod t = do
   case t of
     DeclType def@(TypeDefinition { typeName = name }) -> do
       debugLog ctx $ "generating IR for " ++ s_unpack name ++ " in " ++ show mod
-      -- TODO: params
       converted    <- convertTypeDefinition paramConverter def
-      -- TODO: add declarations for instance methods
       staticFields <- forM
         (typeStaticFields def)
         (\field -> generateDeclIr ctx mod
@@ -95,10 +93,8 @@ generateDeclIr ctx mod t = do
                         $ IntValue 0
                         $ BasicTypeCInt
                         ]
-                Nothing ->
-                  Just
-                    (IrReturn $ Just $ IrLiteral $ IntValue 0 $ BasicTypeCInt
-                    )
+                Nothing -> Just
+                  (IrReturn $ Just $ IrLiteral $ IntValue 0 $ BasicTypeCInt)
               }
           ]
         else return
@@ -137,8 +133,7 @@ generateDeclIr ctx mod t = do
                                                 }
                              , newVarDefinition
                                { varName = "__vtable"
-                               , varType = CPtr
-                                 $ BasicTypeStruct (Just vtableName) []
+                               , varType = CPtr $ BasicTypeStruct vtableName
                                }
                              ]
             }
@@ -177,7 +172,22 @@ generateDeclIr ctx mod t = do
         let vtableName = mangleName ((modPath mod) ++ [name]) "vtable"
         methods <- forM (implMethods i) $ \method -> do
           f' <- convertFunctionDefinition paramConverter method
-          let f = implicitifyMethod (CPtr BasicTypeVoid) vThisArgName f'
+          let
+            f = implicitifyMethod
+              vThisArgName
+              (CPtr BasicTypeVoid)
+              (\_ x -> IrBlock
+                [ IrVarDeclaration
+                  thisArgName
+                  for
+                  (Just $ IrPreUnop
+                    Deref
+                    (IrCast (IrIdentifier vThisArgName) (CPtr for))
+                  )
+                , x
+                ]
+              )
+              f'
           let name' =
                 (mangleName
                   (  mp
@@ -187,29 +197,12 @@ generateDeclIr ctx mod t = do
                   )
                   (functionName f)
                 )
-          return
-            ( name'
-            , DeclFunction $ f
-              { functionName = name'
-              , functionBody = let
-                                 v = IrVarDeclaration
-                                   thisArgName
-                                   for
-                                   (Just $ IrPreUnop
-                                     Deref
-                                     (IrCast (IrIdentifier vThisArgName) (CPtr for))
-                                   )
-                               in  case functionBody f of
-                                     Just (IrBlock x) -> Just (IrBlock (v : x))
-                                     Just x           -> Just $ IrBlock [v, x]
-                                     _                -> Nothing
-              }
-            )
+          return (name', DeclFunction $ f { functionName = name' })
         let impl = newVarDefinition
               { varName    = implName
-              , varType    = BasicTypeStruct (Just vtableName) []
+              , varType    = BasicTypeStruct vtableName
               , varDefault = Just $ IrStructInit
-                (BasicTypeStruct (Just vtableName) [])
+                (BasicTypeStruct vtableName)
                 [ (functionName method, IrIdentifier mangledName)
                 | ((mangledName, _), method) <- zip methods (implMethods i)
                 ]

@@ -96,9 +96,9 @@ typeTypeDefinition ctx tctx mod selfType def@(TypeDefinition { typeName = name }
         let tctx' = tctx { tctxThis = Just selfType }
         (typed, complete) <- typeFunctionDefinition ctx tctx' mod method
         -- revise self type in instance methods
-        return $ reimplicitify selfType typed
+        -- return $ reimplicitify (TypePtr selfType) typed
+        return typed
       )
-    -- TODO: enum variants...
     let s = typeSubtype def
     subtype <- case s of
       Struct { structFields = f } -> do
@@ -120,6 +120,11 @@ typeTypeDefinition ctx tctx mod selfType def@(TypeDefinition { typeName = name }
             Nothing -> return field
           )
         return $ s { structFields = fields }
+      -- Enum { enumVariants = variants } -> do
+      --   variants <- forM variants $ \variant -> convertEnumVariant
+      --     (converter (typeExpr ctx tctx mod) (\_ -> mapType $ follow ctx tctx))
+      --     variant
+      --   return $ s { enumVariants = variants }
       _ -> return $ typeSubtype def
     return
       $ ( Just $ DeclType

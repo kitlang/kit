@@ -101,7 +101,6 @@ typeFunctionDefinition ctx tctx' mod f = do
   let ftctx =
         (tctx { tctxScopes     = functionScope : (tctxScopes tctx)
               , tctxReturnType = Just returnType
-          -- TODO: , tctxSelf =
               }
         )
   body <- typeMaybeExpr ctx ftctx mod (functionBody f)

@@ -43,8 +43,9 @@ patternMatch ctx mod typer pattern t ex = do
       do
         let
           enumDiscriminant = case t of
-            BasicTypeSimpleEnum _ _ -> ex
-            BasicTypeComplexEnum _ _ -> (IrField ex discriminantFieldName)
+            BasicTypeSimpleEnum  _ -> ex
+            BasicTypeAnonEnum    _ -> ex
+            BasicTypeComplexEnum _ -> (IrField ex discriminantFieldName)
             _ -> throwk $ InternalError "Unexpected value used as enum"
                                         (Just $ tPos pattern)
         discriminant' <- enumDiscriminantName ctx tp params discriminant
@@ -62,7 +63,7 @@ patternMatch ctx mod typer pattern t ex = do
             case variant of
               Just variant -> do
                 args' <-
-                  forM (zip (variantArgs variant) args) $ \(arg, argValue) -> do
+                  forM (zip (variantArgs variant) args) $ \(arg, (_, argValue)) -> do
                     modTctx <- modTypeContext ctx mod
                     let tctx = addTypeParams
                           modTctx

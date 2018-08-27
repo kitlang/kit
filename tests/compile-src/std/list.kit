@@ -1,0 +1,38 @@
+abstract PrintingList: List[Int] {
+    public function print() {
+        var current: List[Int] = this;
+        while true {
+            match current {
+                Cons(h, t) => {
+                    printf("%i ", h);
+                    current = *t;
+                }
+                default => break;
+            }
+        }
+        printf(".\n");
+    }
+}
+
+function main() {
+    var l: List[Int] = Empty;
+    var m: List[Int] = Cons(1, &l);
+    var n: List[Int] = Cons(2, &m);
+    var o = n.cons(3);
+
+    var len: Size = l.getLength();
+    printf("%lu\n", len);
+    printf("%lu\n", o.getLength());
+    printf("%lu\n", n.getLength());
+    printf("%lu\n", m.getLength());
+
+    var l2: PrintingList = l as PrintingList;
+    var m2: PrintingList = m as PrintingList;
+    var n2: PrintingList = n as PrintingList;
+    var o2: PrintingList = o as PrintingList;
+
+    l2.print();
+    m2.print();
+    n2.print();
+    o2.print();
+}

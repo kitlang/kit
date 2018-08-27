@@ -207,13 +207,20 @@ makeGeneric ctx tp@(modPath, name) pos existing = do
           $ \(param, value) -> do
         -- TODO: add param constraints here
               tv <- case value of
-                Just (TypeTypeParam p) | paramName param == p ->
-                  makeTypeVar ctx pos
                 Just x  -> return x
                 Nothing -> makeTypeVar ctx pos
               return (paramName param, tv)
       let paramTypes = map snd params
-      modifyIORef (ctxPendingGenerics ctx) (\acc -> (tp, paramTypes) : acc)
+      -- if the supplied type parameters are generic, this isn't a real monomorph
+      unless
+          (any
+            (\t -> case t of
+              TypeTypeParam _ -> True
+              _               -> False
+            )
+            (map snd params)
+          )
+        $ modifyIORef (ctxPendingGenerics ctx) (\acc -> (tp, paramTypes) : acc)
       return params
 
 getTypeDefinition

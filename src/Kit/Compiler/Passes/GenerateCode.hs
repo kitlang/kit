@@ -137,12 +137,12 @@ btOrder memos t = do
         BasicTypeTuple _ fields -> do
           deps <- forM fields $ btOrder memos
           return $ depScore deps
-        BasicTypeStruct _ args -> do
-          deps <- forM (map snd args) $ btOrder memos
-          return $ depScore deps
-        BasicTypeUnion _ args -> do
-          deps <- forM (map snd args) $ btOrder memos
-          return $ depScore deps
+        -- BasicTypeStruct _ args -> do
+        --   deps <- forM (map snd args) $ btOrder memos
+        --   return $ depScore deps
+        -- BasicTypeUnion _ args -> do
+        --   deps <- forM (map snd args) $ btOrder memos
+        --   return $ depScore deps
         _ -> return (-1)
       h_insert memos t score
       return score
@@ -150,23 +150,18 @@ btOrder memos t = do
 generateHeaderDecl :: CompileContext -> Module -> Handle -> IrDecl -> IO ()
 generateHeaderDecl ctx mod headerFile decl = do
   case decl of
-    DeclTuple t@(BasicTypeTuple name _) -> do
+    DeclTuple (BasicTypeTuple name slots) -> do
       hPutStrLn headerFile $ "#ifndef KIT_TUPLE__" ++ s_unpack name
       hPutStrLn headerFile $ "#define KIT_TUPLE__" ++ s_unpack name
-      let decls = cdecl t
+      let decls = cTupleDecl name slots
       mapM_ (\d -> hPutStrLn headerFile (render $ pretty $ CDeclExt d)) decls
       hPutStrLn headerFile $ "#endif"
 
     DeclType def@(TypeDefinition { typeSubtype = Atom }) -> return ()
 
     DeclType def@(TypeDefinition{}                     ) -> do
-      case typeBasicType def of
-        Just x ->
-          let decls = cdecl x
-          in  mapM_
-                (\d -> hPutStrLn headerFile (render $ pretty $ CDeclExt d))
-                decls
-        _ -> return ()
+      let decls = cTypeDecl def
+      mapM_ (\d -> hPutStrLn headerFile (render $ pretty $ CDeclExt d)) decls
 
     DeclFunction def@(FunctionDefinition { functionName = name, functionType = t, functionArgs = args, functionVarargs = varargs })
       -> do
@@ -215,18 +210,9 @@ functionBasicType (FunctionDefinition { functionType = t, functionArgs = args, f
 typeBasicType :: TypeDefinition IrExpr BasicType -> Maybe BasicType
 typeBasicType def@(TypeDefinition { typeName = name }) =
   case typeSubtype def of
-    Struct { structFields = fields } -> Just $ BasicTypeStruct
-      (Just name)
-      [ (varName field, varType field) | field <- fields ]
-    Union { unionFields = fields } -> Just $ BasicTypeUnion
-      (Just name)
-      [ (varName field, varType field) | field <- fields ]
+    Struct { structFields = fields } -> Just $ BasicTypeStruct name
+    Union { unionFields = fields }   -> Just $ BasicTypeUnion name
     Enum { enumVariants = variants } -> if all variantIsSimple variants
-      then Just
-        $ BasicTypeSimpleEnum (Just name) [ variantName v | v <- variants ]
-      else Just $ BasicTypeComplexEnum
-        name
-        [ (variantName v, [ (argName a, argType a) | a <- variantArgs v ])
-        | v <- variants
-        ]
+      then Just $ BasicTypeSimpleEnum name
+      else Just $ BasicTypeComplexEnum name
     _ -> Nothing

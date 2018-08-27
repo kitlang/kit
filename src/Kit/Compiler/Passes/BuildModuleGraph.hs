@@ -217,7 +217,10 @@ addStmtToModuleInterface ctx mod s = do
           if null (typeMethods d)
             then return c
             else do
-              return $ implicitifyInstanceMethods ct c
+              return $ implicitifyInstanceMethods thisArgName
+                                                  (TypePtr TypeSelf)
+                                                  (\_ -> id)
+                                                  c
 
         let b      = TypeBinding converted
         let extern = hasMeta "extern" (typeMeta d)
@@ -268,8 +271,9 @@ addStmtToModuleInterface ctx mod s = do
         (traitMethods converted)
         (\method' ->
           let method = implicitifyMethod
+                vThisArgName
                 (TypePtr $ TypeBasicType BasicTypeVoid)
-                (vThisArgName)
+                (\_ -> id)
                 method'
           in
             bindToScope

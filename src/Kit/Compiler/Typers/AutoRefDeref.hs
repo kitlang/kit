@@ -78,8 +78,7 @@ autoRefDeref ctx tctx toType fromType original temps ex = do
       (a, TypePtr (TypeBasicType BasicTypeVoid)) ->
         -- don't try to deref a void pointer
         return original
-      (a, TypePtr b) ->
-        autoRefDeref ctx tctx a b original temps (addDeref ex)
+      (a, TypePtr b) -> autoRefDeref ctx tctx a b original temps (addDeref ex)
       (TypeBox tp params, b) -> do
         if tIsLvalue ex
           then do
@@ -115,3 +114,4 @@ addRef ex =
 addDeref :: TypedExpr -> TypedExpr
 addDeref ex = case inferredType ex of
   TypePtr x -> makeExprTyped (PreUnop Deref ex) x (tPos ex)
+  _         -> undefined

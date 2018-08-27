@@ -43,56 +43,63 @@ ctype (BasicTypeFloat 32) = ([u CFloatType], [])
 ctype (BasicTypeFloat 64) = ([u CDoubleType], [])
 ctype (BasicTypeFloat _ ) = undefined
 ctype (BasicTypeAtom    ) = ([u CUnsigType, u CLongType], [])
-ctype (BasicTypeStruct name args) =
-  ( [ u $ CSUType $ u $ CStruct
-        CStructTag
-        (case name of
-          Just name -> Just $ internalIdent $ s_unpack name
-          Nothing   -> Nothing
-        )
-        (case name of
-          Just name -> Nothing
-          Nothing -> -- anonymous
-            Just
-              [ cDecl argType (Just argName) Nothing
-              | (argName, argType) <- args
-              ]
-        )
-        []
+ctype (BasicTypeStruct name) =
+  ( [ u $ CSUType $ u $ CStruct CStructTag
+                                (Just $ internalIdent $ s_unpack name)
+                                Nothing
+                                []
     ]
   , []
   )
-ctype (BasicTypeUnion name args) =
-  ( [ u $ CSUType $ u $ CStruct
-        CUnionTag
-        (case name of
-          Just name -> Just $ internalIdent $ s_unpack name
-          Nothing   -> Nothing
-        )
-        (case name of
-          Just name -> Nothing
-          Nothing -> -- anonymous
-            Just
-              [ cDecl argType (Just argName) Nothing
-              | (argName, argType) <- args
-              ]
-        )
-        []
+ctype (BasicTypeAnonStruct args)
+  = ( [ u $ CSUType $ u $ CStruct
+          CStructTag
+          Nothing
+          (Just
+            [ cDecl argType (Just argName) Nothing
+            | (argName, argType) <- args
+            ]
+          )
+          []
+      ]
+    , []
+    )
+ctype (BasicTypeUnion name) =
+  ( [ u $ CSUType $ u $ CStruct CUnionTag
+                                (Just $ internalIdent $ s_unpack name)
+                                Nothing
+                                []
     ]
   , []
   )
-ctype (BasicTypeSimpleEnum name _) =
-  ( [ u $ CEnumType $ u $ CEnum
-        (case name of
-          Just name -> Just (internalIdent $ s_unpack name)
-          Nothing   -> Nothing
-        )
-        Nothing
-        []
+ctype (BasicTypeAnonUnion args)
+  = ( [ u $ CSUType $ u $ CStruct
+          CUnionTag
+          Nothing
+          (Just
+            [ cDecl argType (Just argName) Nothing
+            | (argName, argType) <- args
+            ]
+          )
+          []
+      ]
+    , []
+    )
+ctype (BasicTypeSimpleEnum name) =
+  ( [ u $ CEnumType $ u $ CEnum (Just (internalIdent $ s_unpack name))
+                                Nothing
+                                []
     ]
   , []
   )
-ctype (BasicTypeComplexEnum name _) = ctype (BasicTypeStruct (Just name) [])
+-- ctype (BasicTypeAnonEnum variants) =
+--   ( [ u $ CEnumType $ u $ CEnum Nothing
+--                                 (Just )
+--                                 []
+--     ]
+--   , []
+--   )
+ctype (BasicTypeComplexEnum name) = ctype (BasicTypeStruct name)
 ctype (BasicTypeTuple name t) =
   ( [ u $ CSUType $ u $ CStruct CStructTag
                                 (Just (internalIdent $ s_unpack name))
@@ -171,7 +178,9 @@ transpileExpr (IrStructInit t fields) = u $ CCompoundLit
     )
   | (name, e) <- fields
   ]
-transpileExpr (IrEnumInit (BasicTypeSimpleEnum _ _) discriminant []) =
+transpileExpr (IrEnumInit (BasicTypeSimpleEnum _) discriminant []) =
+  transpileExpr (IrIdentifier discriminant)
+transpileExpr (IrEnumInit (BasicTypeAnonEnum _) discriminant []) =
   transpileExpr (IrIdentifier discriminant)
 transpileExpr (IrEnumInit t discriminant []) = u $ CCompoundLit
   (cDecl t Nothing Nothing)
@@ -179,8 +188,8 @@ transpileExpr (IrEnumInit t discriminant []) = u $ CCompoundLit
     , u $ CInitExpr $ transpileExpr (IrIdentifier discriminant)
     )
   ]
-transpileExpr (IrEnumInit t@(BasicTypeComplexEnum name variants) discriminant fields)
-  = u $ CCompoundLit
+transpileExpr (IrEnumInit t@(BasicTypeComplexEnum name) discriminant fields) =
+  u $ CCompoundLit
     (cDecl t Nothing Nothing)
     [ ( [u $ CMemberDesig (internalIdent $ s_unpack discriminantFieldName)]
       , u $ CInitExpr $ transpileExpr (IrIdentifier discriminant)
@@ -193,10 +202,8 @@ transpileExpr (IrEnumInit t@(BasicTypeComplexEnum name variants) discriminant fi
         ]
       , u $ CInitExpr $ transpileExpr
         (IrStructInit
-          (BasicTypeStruct (Just $ s_concat [name, "_Variant_", discriminant])
-                           []
-          )
-          (zip (map fst $ getVariantFieldNames variants discriminant) fields)
+          (BasicTypeStruct $ s_concat [name, "_Variant_", discriminant])
+          fields
         )
       )
     ]
