@@ -83,7 +83,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         case result of
           Just x  -> return x
           Nothing -> y
-  let failTyping e = partialTyping ex et e
+  -- let throwk e = partialTyping ex et e
 
   result <- case et of
     (Block children) -> do
@@ -128,14 +128,14 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       case tctxThis tctx of
         Just t -> return $ makeExprTyped This t pos
         Nothing ->
-          failTyping $ TypingError ("`this` can only be used in methods") pos
+          throwk $ TypingError ("`this` can only be used in methods") pos
 
     (Self) -> do
       case tctxSelf tctx of
         Just (TypeInstance tp params) ->
           return $ makeExprTyped Self (TypeTypeOf tp) pos
         Nothing ->
-          failTyping $ TypingError ("`Self` can only be used in methods") pos
+          throwk $ TypingError ("`Self` can only be used in methods") pos
 
     (Identifier v namespace) -> do
       case (tctxState tctx, v) of
@@ -157,7 +157,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                 Just binding -> do
                   x <- typeVarBinding ctx tctx vname binding pos
                   return $ x { tIsLvalue = True }
-                Nothing -> failTyping
+                Nothing -> throwk
                   $ TypingError ("Unknown identifier: " ++ s_unpack vname) pos
             )
         (_, MacroVar vname t) -> do
@@ -247,10 +247,10 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                       _              -> r e1
 
                   return $ (makeExprTyped (Block slots) (inferredType r2) pos)
-                else failTyping $ TypingError
+                else throwk $ TypingError
                   "Tuples can only be assigned to tuples of the same size"
                   pos
-              _ -> failTyping $ TypingError
+              _ -> throwk $ TypingError
                 "Tuples can only be assigned to matching tuples"
                 pos
           _ -> do
@@ -297,13 +297,12 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
     (Binop op@(Custom s) e1 e2) -> do
       r1 <- r e1
       r2 <- r e2
-      tryRewrite (unknownTyped $ Binop op r1 r2) $ do
-        partialTyping ex (Binop op r1 r2) $ BasicError
-          (  "Custom operator `"
-          ++ s_unpack s
-          ++ "` can only be used as part of a rewrite rule"
-          )
-          (Just pos)
+      tryRewrite (unknownTyped $ Binop op r1 r2) $ throwk $ BasicError
+        (  "Custom operator `"
+        ++ s_unpack s
+        ++ "` can only be used as part of a rewrite rule"
+        )
+        (Just pos)
     (Binop op e1 e2) -> do
       r1 <- r e1
       r2 <- r e2
@@ -409,12 +408,12 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
     (Continue) -> do
       if (tctxLoopCount tctx > 0)
         then return $ makeExprTyped (Continue) voidType pos
-        else failTyping $ TypingError "Can't `continue` outside of a loop" pos
+        else throwk $ TypingError "Can't `continue` outside of a loop" pos
 
     (Break) -> do
       if (tctxLoopCount tctx > 0)
         then return $ makeExprTyped (Break) voidType pos
-        else failTyping $ TypingError "Can't `break` outside of a loop" pos
+        else throwk $ TypingError "Can't `break` outside of a loop" pos
 
     (Return e1) -> do
       r1 <- typeMaybeExpr ctx tctx mod e1
@@ -432,7 +431,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                            pos
           return $ makeExprTyped (Return Nothing) voidType pos
         (Nothing, _) ->
-          failTyping $ TypingError "Can't `return` outside of a function" pos
+          throwk $ TypingError "Can't `return` outside of a function" pos
 
     (Call e1 args) -> do
       r1 <- r e1
@@ -451,8 +450,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                                   discriminant
                                   argTypes
                                   params
-        x -> partialTyping ex (Call r1 typedArgs)
-          $ TypingError ("Type " ++ show x ++ " is not callable") pos
+        x -> throwk $ TypingError ("Type " ++ show x ++ " is not callable") pos
 
     (Throw e1) -> do
       throwk $ InternalError "Not yet implemented" (Just pos)
@@ -551,7 +549,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                                                            pos
                       case result of
                         Just x -> return $ x { tIsLvalue = True }
-                        _      -> failTyping $ TypingError
+                        _      -> throwk $ TypingError
                           (  "Struct doesn't have a field called `"
                           ++ s_unpack fieldName
                           ++ "`"
@@ -567,7 +565,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                                                            pos
                       case result of
                         Just x -> return $ x { tIsLvalue = True }
-                        _      -> failTyping $ TypingError
+                        _      -> throwk $ TypingError
                           (  "Union doesn't have a field called `"
                           ++ s_unpack fieldName
                           ++ "`"
@@ -578,7 +576,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                       -- forward to parent
                       typeFieldAccess u fieldName
 
-                    x -> failTyping $ TypingError
+                    x -> throwk $ TypingError
                       ("Field access is not allowed on " ++ show x)
                       pos
 
@@ -607,8 +605,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                       "Field access must match the field's type"
                       (tPos x)
                     f <- mapType (follow ctx tctx') $ inferredType x
-                    return $ x {inferredType = f}
-                  Nothing -> failTyping $ TypingError
+                    return $ x { inferredType = f }
+                  Nothing -> throwk $ TypingError
                     (  "Type "
                     ++ (s_unpack $ showTypePath x)
                     ++ " has no static field "
@@ -653,11 +651,11 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                                      )
                         : tImplicits typed
                       }
-                  Nothing -> failTyping $ TypingError
+                  Nothing -> throwk $ TypingError
                     ((show t) ++ " has no field " ++ s_unpack fieldName)
                     pos
 
-              x -> failTyping $ TypingError
+              x -> throwk $ TypingError
                 ("Field access is not allowed on " ++ show x)
                 pos
 
@@ -784,7 +782,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           let extraNames    = providedNames \\ fieldNames
           -- TODO: check for duplicate fields
           -- check for extra fields
-          unless (null extraNames) $ throwk $ BasicError
+          unless (null extraNames) $ throwk $ TypingError
             (  "Struct "
             ++ s_unpack (showTypePath tp)
             ++ " has the following extra fields:\n\n"
@@ -793,7 +791,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                  [ "  - `" ++ s_unpack name ++ "`" | name <- extraNames ]
             ++ "\n\nRemove these fields or correct any typos."
             )
-            (Just pos)
+            pos
           let nonProvidedNames = fieldNames \\ providedNames
           typedFields <- forM
             (structFields)
@@ -806,14 +804,14 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                   Just fieldDefault -> do
                     -- FIXME
                     return ((varName field, fieldDefault), fieldType)
-                  Nothing -> throwk $ BasicError
+                  Nothing -> throwk $ TypingError
                     (  "Struct "
                     ++ s_unpack (showTypePath tp)
                     ++ " is missing field "
                     ++ s_unpack (varName field)
                     ++ ", and no default value is provided."
                     )
-                    (Just pos)
+                    pos
             )
           typedFields <- forM
             typedFields
@@ -885,7 +883,8 @@ findImplicit ctx tctx ct (h : t) = do
   converted <- autoRefDeref ctx tctx ct (inferredType h) h [] h
   match     <- unify ctx tctx ct (inferredType converted)
   case match of
-    Just _  -> do return $ Just (h, converted)
+    Just _ -> do
+      return $ Just (h, converted)
     Nothing -> findImplicit ctx tctx ct t
 
 typeFunctionCall
@@ -981,14 +980,14 @@ typeEnumConstructorCall
   -> IO TypedExpr
 typeEnumConstructorCall ctx tctx mod e args tp@(modPath, typeName) discriminant argTypes params
   = do
-    when (length args < length argTypes) $ throwk $ BasicError
+    when (length args < length argTypes) $ throwk $ TypingError
       (  "Expected "
       ++ (show $ length argTypes)
       ++ " arguments (called with "
       ++ (show $ length args)
       ++ ")"
       )
-      (Just $ tPos e)
+      (tPos e)
     def <- getTypeDefinition ctx modPath typeName
     let tctx' = addTypeParams
           tctx
