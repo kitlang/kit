@@ -104,30 +104,23 @@ typeFunctionDefinition ctx tctx' mod f = do
               }
         )
   body <- typeMaybeExpr ctx ftctx mod (functionBody f)
-  if case body of
-       Just x  -> tError x == Nothing
-       Nothing -> True
-    then do
-      -- We're done with the body, or there wasn't one
-      -- Try to unify with void; if unification doesn't fail, we didn't encounter a return statement, so the function is void.
-      unification <- unify ctx ftctx returnType voidType
-      case unification of
-        Just _ -> do
-          resolveConstraint
-            ctx
-            tctx
-            (TypeEq returnType
-                    voidType
-                    "Functions whose return type unifies with Void are Void"
-                    fPos
-            )
-        _ -> return ()
-      return
-        $ ( f { functionBody      = body
-              , functionArgs      = args
-              , functionType      = returnType
-              , functionNamespace = (if isMain then [] else functionNamespace f)
-              }
-          , True
-          )
-    else return (f { functionBody = body, functionArgs = args }, False)
+  unification <- unify ctx ftctx returnType voidType
+  case unification of
+    Just _ -> do
+      resolveConstraint
+        ctx
+        tctx
+        (TypeEq returnType
+                voidType
+                "Functions whose return type unifies with Void are Void"
+                fPos
+        )
+    _ -> return ()
+  return
+    $ ( f { functionBody      = body
+          , functionArgs      = args
+          , functionType      = returnType
+          , functionNamespace = (if isMain then [] else functionNamespace f)
+          }
+      , True
+      )

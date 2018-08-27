@@ -11,7 +11,6 @@ data TypedExpr = TypedExpr {
   tImplicits :: [TypedExpr],
   tPos :: Span,
   rewrittenBy :: Maybe (RewriteRule (Expr) (Maybe TypeSpec)),
-  tError :: Maybe KitError,
   tIsLvalue :: Bool,
   tTemps :: [TypedExpr]
 } deriving (Eq, Show)
@@ -23,7 +22,6 @@ makeExprTyped et t pos = TypedExpr
   , tImplicits   = []
   , tPos         = pos
   , rewrittenBy  = Nothing
-  , tError       = Nothing
   , tIsLvalue    = False
   , tTemps       = []
   }

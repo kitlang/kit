@@ -90,7 +90,7 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
       (TypeAnnotation e1             t) -> throw $ KitError $ BasicError
         ("unexpected type annotation in typed AST")
         (Just pos)
-      (PreUnop Ref (TypedExpr {tExpr = This})) -> do
+      (PreUnop Ref (TypedExpr { tExpr = This })) -> do
         return $ IrIdentifier thisPtrName
       (PreUnop op e1) -> do
         r1 <- r e1
@@ -128,6 +128,13 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
         r1 <- r e1
         r2 <- r e2
         return $ IrBinop op r1 r2
+      (For e1@(TypedExpr {tExpr = Identifier (Var id) []}) (TypedExpr { tExpr = RangeLiteral eFrom eTo }) e3)
+        -> do
+          t     <- findUnderlyingType ctx mod (Just $ tPos e1) (inferredType e1)
+          rFrom <- r eFrom
+          rTo   <- r eTo
+          r3    <- r e3
+          return $ IrFor id t rFrom rTo r3
       (For   e1 e2 e3) -> return $ undefined -- TODO
       (While e1 e2 d ) -> do
         r1 <- r e1
