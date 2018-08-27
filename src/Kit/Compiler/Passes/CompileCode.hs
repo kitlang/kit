@@ -51,6 +51,7 @@ compileModule ctx ccache cc' args mod = do
              , "-std=c99"
              ]
           ++ (if (ctxIsLibrary ctx) then ["-fPIC"] else [])
+          ++ compilerSpecificArgs cc'
   printLog $ "compiling " ++ show mod
   let (cc, args) = case ccache of
         Just x  -> (x, cc' : args')
@@ -118,3 +119,7 @@ findCompiler ctx = do
 findCcache :: CompileContext -> IO (Maybe FilePath)
 findCcache ctx =
   if ctxNoCcache ctx then return Nothing else findExecutable "ccache"
+
+compilerSpecificArgs :: FilePath -> [String]
+compilerSpecificArgs "clang" = ["-Wno-error=unused-command-line-argument"]
+compilerSpecificArgs _ = []
