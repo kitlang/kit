@@ -95,7 +95,6 @@ typeIterative ctx input output limit = do
         output
           ++ [ (mod, completes r)
              | (mod, r) <- results
-             , not $ null $ completes r
              ]
 
   let errors =
