@@ -48,6 +48,7 @@ compileModule ctx ccache cc' args mod = do
              , libPath ctx (modPath mod)
              , "-o"
              , objPath ctx (modPath mod)
+             , "-std=c99"
              ]
           ++ (if (ctxIsLibrary ctx) then ["-fPIC"] else [])
   printLog $ "compiling " ++ show mod
