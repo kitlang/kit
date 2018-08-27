@@ -26,6 +26,9 @@ import Kit.Str
 -}
 generateCode :: CompileContext -> [(Module, [IrDecl])] -> IO ()
 generateCode ctx ir = do
+  forM_ [libDir ctx, includeDir ctx] $ \d -> do
+    exists <- doesDirectoryExist d
+    when exists $ removeDirectoryRecursive d
   mods <- ctxSourceModules ctx
   forM_ ir (generateModule ctx)
   return ()
