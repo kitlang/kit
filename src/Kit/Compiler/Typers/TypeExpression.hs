@@ -38,7 +38,7 @@ typeMaybeExpr ctx tctx mod e = case e of
     return $ Just result
   Nothing -> return Nothing
 
-partialTyping ex et e = return $ ex { tExpr = et, tError = Just $ KitError e }
+-- partialTyping ex et e = return $ ex { tExpr = et, tError = Just $ KitError e }
 
 {-
   Converts a tree of untyped AST to typed AST.
@@ -323,10 +323,36 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
             Nothing          -> return () -- TODO
         return $ makeExprTyped (Binop op r1 r2) tv pos
 
-    (For (TypedExpr { tExpr = Identifier v _, tPos = pos1 }) e2 e3) -> do
+    (For e1@(TypedExpr { tExpr = Identifier (Var id) _ }) e2 e3) -> do
       r2    <- r e2
       scope <- newScope (modPath mod)
-      r3    <- typeExpr
+      let tv = inferredType e1
+      case tExpr r2 of
+        RangeLiteral eFrom eTo -> do
+          forM_ [eFrom, eTo] $ \x -> resolve $ TypeEq
+            tv
+            (inferredType x)
+            "For identifier must match the iterator's type"
+            (tPos x)
+          bindToScope scope id $ newBinding
+            ([], id)
+            (VarBinding (newVarDefinition { varName = id, varType = tv }))
+            tv
+            []
+            pos
+          return ()
+        _ -> do
+          resolve $ TypeEq (typeClassIterable tv)
+                           (inferredType r2)
+                           "For statements must iterate over an Iterable type"
+                           (tPos r2)
+          bindToScope scope id $ newBinding
+            ([], id)
+            (VarBinding (newVarDefinition { varName = id, varType = tv }))
+            tv
+            []
+            pos
+      r3 <- typeExpr
         ctx
         (tctx { tctxScopes    = scope : (tctxScopes tctx)
               , tctxLoopCount = (tctxLoopCount tctx) + 1
@@ -334,18 +360,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         )
         mod
         e3
-      tv <- makeTypeVar ctx pos
-      case tExpr e2 of
-        RangeLiteral _ _ -> return ()
-        _                -> resolve $ TypeEq
-          (typeClassIterable tv)
-          (inferredType r2)
-          "For statements must iterate over an Iterable type"
-          (tPos r2)
-      return $ makeExprTyped
-        (For (makeExprTyped (Identifier v []) tv pos1) r2 r3)
-        voidType
-        pos
+      return $ makeExprTyped (For e1 r2 r3) voidType pos
 
     (While e1 e2 d) -> do
       r1    <- r e1
