@@ -56,7 +56,7 @@ typeFunctionMonomorph ctx mod f params = do
     ++ show mod
   tctx <- modTypeContext ctx mod
   let tctx' = tctx
-        { tctxTypeParams = [ (paramName param, ct)
+        { tctxTypeParams = [ (functionSubPath (modPath mod) f $ paramName param, ct)
                            | (param, ct) <- zip (functionParams f) params
                            ]
         }

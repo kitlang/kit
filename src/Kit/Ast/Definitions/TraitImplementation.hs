@@ -31,14 +31,16 @@ newTraitImplementation = TraitImplementation
 convertTraitImplementation
   :: (Monad m)
   => Converter m a b c d
+  -> ModulePath
   -> TraitImplementation a b
   -> m (TraitImplementation c d)
-convertTraitImplementation converter@(Converter { exprConverter = exprConverter, typeConverter = typeConverter }) i
+convertTraitImplementation converter@(Converter { exprConverter = exprConverter, typeConverter = typeConverter }) mp i
   = do
     trait   <- typeConverter (implPos i) (implTrait i)
     for     <- typeConverter (implPos i) (implFor i)
+    -- TODO: impl needs a name
     methods <- forM (implMethods i)
-                    (convertFunctionDefinition (\p -> converter))
+                    (\f -> convertFunctionDefinition (\p -> converter) mp f)
     return $ (newTraitImplementation) { implTrait   = trait
                                       , implFor     = for
                                       , implMod     = implMod i

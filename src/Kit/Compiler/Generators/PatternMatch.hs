@@ -63,21 +63,24 @@ patternMatch ctx mod typer pattern t ex = do
             case variant of
               Just variant -> do
                 args' <-
-                  forM (zip (variantArgs variant) args) $ \(arg, (_, argValue)) -> do
-                    modTctx <- modTypeContext ctx mod
-                    let tctx = addTypeParams
-                          modTctx
-                          [ (paramName param, value)
-                          | (param, value) <- zip (typeParams def) params
-                          ]
-                    t  <- mapType (follow ctx tctx) $ argType arg
-                    at <- findUnderlyingType ctx mod (Just $ tPos pattern) t
-                    patternMatch ctx
-                                 mod
-                                 typer
-                                 argValue
-                                 at
-                                 (enumField $ argName arg)
+                  forM (zip (variantArgs variant) args)
+                    $ \(arg, (_, argValue)) -> do
+                        modTctx <- modTypeContext ctx mod
+                        let tctx = addTypeParams
+                              modTctx
+                              [ ( typeSubPath modPath def $ paramName param
+                                , value
+                                )
+                              | (param, value) <- zip (typeParams def) params
+                              ]
+                        t  <- mapType (follow ctx tctx) $ argType arg
+                        at <- findUnderlyingType ctx mod (Just $ tPos pattern) t
+                        patternMatch ctx
+                                     mod
+                                     typer
+                                     argValue
+                                     at
+                                     (enumField $ argName arg)
                 return $ mergeResults
                   ( ( [IrBinop Eq enumDiscriminant (IrIdentifier discriminant')]
                     , []

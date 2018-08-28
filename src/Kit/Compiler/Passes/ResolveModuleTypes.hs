@@ -135,7 +135,7 @@ resolveTypesForMod ctx (mod, contents) = do
           addModUsing ctx tctx mod pos u
           return Nothing
         DeclImpl i -> do
-          converted <- convertTraitImplementation varConverter i
+          converted <- convertTraitImplementation varConverter (modPath mod) i
           return $ Just $ DeclImpl converted
         _ -> do
           binding <- scopeGet (modScope mod) (declName decl)
@@ -149,7 +149,9 @@ resolveTypesForMod ctx (mod, contents) = do
               return $ Just $ DeclVar converted
 
             (FunctionBinding fi, DeclFunction f) -> do
-              converted <- convertFunctionDefinition paramConverter f
+              converted <- convertFunctionDefinition paramConverter
+                                                     (modPath mod)
+                                                     f
               mergeFunctionInfo ctx tctx fi converted
               bindToScope
                 (modScope mod)
@@ -158,11 +160,11 @@ resolveTypesForMod ctx (mod, contents) = do
               return $ Just $ DeclFunction converted
 
             (TypeBinding ti, DeclType t) -> do
-              let
-                params' =
-                  [ (paramName p, TypeTypeParam $ paramName p)
-                  | p <- typeParams t
-                  ]
+              let params' =
+                    [ (tp, TypeTypeParam $ tp)
+                    | p <- typeParams t
+                    , let tp = typeSubPath (modPath mod) t $ paramName p
+                    ]
               let
                 tctx' = tctx
                   { tctxTypeParams = params' ++ tctxTypeParams tctx
@@ -173,7 +175,7 @@ resolveTypesForMod ctx (mod, contents) = do
                     (convertExpr ctx tctx' mod)
                     (resolveMaybeType ctx tctx' mod)
               converted <- do
-                c <- convertTypeDefinition paramConverter t
+                c <- convertTypeDefinition paramConverter (modPath mod) t
                 if null (typeMethods c)
                   then return c
                   else do
@@ -261,11 +263,25 @@ resolveTypesForMod ctx (mod, contents) = do
               return $ Just $ DeclType converted
 
             (TraitBinding ti, DeclTrait t) -> do
-              converted <- convertTraitDefinition paramConverter t
+              let
+                tctx' = tctx
+                  { tctxTypeParams = [ (tp, TypeTypeParam $ tp)
+                                     | p <- traitParams t
+                                     , let
+                                       tp = traitSubPath (modPath mod) t
+                                         $ paramName p
+                                     ]
+                    ++ tctxTypeParams tctx
+                  , tctxSelf       = Just TypeSelf
+                  }
+              let paramConverter params = converter
+                    (convertExpr ctx tctx' mod)
+                    (resolveMaybeType ctx tctx' mod)
+              converted <- convertTraitDefinition paramConverter (modPath mod) t
               forM_
                 (zip (traitMethods ti) (traitMethods converted))
                 (\(method1, method2) ->
-                  mergeFunctionInfo ctx tctx method1 method2
+                  mergeFunctionInfo ctx tctx' method1 method2
                 )
               bindToScope (modScope mod)
                           (declName decl)
@@ -314,14 +330,29 @@ addImplementation ctx mod impl@(TraitImplementation { implTrait = Just (TypeSpec
     tctx       <- newTypeContext []
     foundTrait <- resolveModuleBinding ctx tctx mod (tpTrait)
     case foundTrait of
-      Just (Binding { bindingType = TraitBinding _, bindingConcrete = TypeTraitConstraint (tpTrait, tpParams) })
+      Just (Binding { bindingType = TraitBinding def, bindingConcrete = TypeTraitConstraint (tpTrait, tpParams) })
         -> do
-          ct       <- resolveType ctx tctx mod implFor
+          let paramTctx =
+                (addTypeParams
+                  tctx
+                  [ let p = traitSubPath (modPath mod) def $ paramName param
+                    in  (p, TypeTypeParam $ p)
+                  | param <- traitParams def
+                  ]
+                )
+          ct <- resolveType ctx tctx mod implFor
+          case ct of
+            TypeTraitConstraint (tp, params) | not (null params) -> do
+              makeGeneric ctx tp (implPos impl) params
+              return ()
+            _ -> return ()
+          let selfTctx = paramTctx { tctxSelf = Just ct }
           existing <- h_lookup (ctxImpls ctx) tpTrait
           impl'    <- convertTraitImplementation
-            (converter (convertExpr ctx tctx mod)
-                       (resolveMaybeType ctx tctx mod)
+            (converter (convertExpr ctx selfTctx mod)
+                       (resolveMaybeType ctx selfTctx mod)
             )
+            (modPath mod)
             impl
           let impl = impl' { implMod = modPath mod }
 

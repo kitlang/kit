@@ -23,7 +23,7 @@ import Kit.Str
 
 validName :: Str -> Str
 validName name =
-  if s_length name > 32 then s_concat ["kit", s_hash name] else name
+  if s_length name > 64 then s_concat ["kit", s_hash name] else name
 
 mangleName :: [Str] -> Str -> Str
 mangleName [] s = s

@@ -192,8 +192,9 @@ makeGeneric
   -> TypePath
   -> Span
   -> [ConcreteType]
-  -> IO [(Str, ConcreteType)]
+  -> IO [(TypePath, ConcreteType)]
 makeGeneric ctx tp@(modPath, name) pos existing = do
+  print (tp, existing)
   defMod  <- getMod ctx modPath
   binding <- resolveLocal (modScope defMod) name
   let params = case binding of
@@ -211,7 +212,7 @@ makeGeneric ctx tp@(modPath, name) pos existing = do
               tv <- case value of
                 Just x  -> return x
                 Nothing -> makeTypeVar ctx pos
-              return (paramName param, tv)
+              return ((modPath ++ [name], paramName param), tv)
       let paramTypes = map snd params
       -- if the supplied type parameters are generic, this isn't a real monomorph
       unless

@@ -29,6 +29,22 @@ spec = parallel $ do
                      (Just $ TypeSpec (([], "T")) [] NoPos)
                    )
 
+      testParseExpr "x : T[A, B, C, D[E]]"
+        `shouldBe` (pe (sp "" 1 1 1 20) $ TypeAnnotation
+                     (pe (sp "" 1 1 1 1) $ Identifier (Var "x") [])
+                     (Just $ TypeSpec
+                       (([], "T"))
+                       [ TypeSpec (([], "A")) [] NoPos
+                       , TypeSpec (([], "B")) [] NoPos
+                       , TypeSpec (([], "C")) [] NoPos
+                       , TypeSpec (([], "D"))
+                                  [TypeSpec (([], "E")) [] NoPos]
+                                  NoPos
+                       ]
+                       NoPos
+                     )
+                   )
+
     it "parses value literals" $ do
       testParseExpr "1"
         `shouldBe` (pe (sp "" 1 1 1 1) $ Literal $ IntValue 1 Nothing)
@@ -279,7 +295,9 @@ spec = parallel $ do
     it "parses imports" $ do
       testParse "import a;" `shouldBe` [makeStmt $ Import ["a"] False]
       testParse "import a.b.c.*; import d;"
-        `shouldBe` [makeStmt $ Import ["a", "b", "c"] True, makeStmt $ Import ["d"] False]
+        `shouldBe` [ makeStmt $ Import ["a", "b", "c"] True
+                   , makeStmt $ Import ["d"] False
+                   ]
 
 
     it "parses typedefs" $ do

@@ -83,7 +83,8 @@ convertExpr ctx tctx mod e = do
       t' <- resolveMaybeType ctx tctx mod pos' t
       return $ m (Literal (FloatValue v t')) t'
     Literal (StringValue s) -> do
-      return $ m (Literal (StringValue s)) (TypePtr $ TypeBasicType $ BasicTypeCChar)
+      return $ m (Literal (StringValue s))
+                 (TypePtr $ TypeBasicType $ BasicTypeCChar)
     Literal (BoolValue b) ->
       return $ m (Literal (BoolValue b)) (TypeBasicType BasicTypeBool)
     This -> container0 This
@@ -172,14 +173,15 @@ convertExpr ctx tctx mod e = do
       t  <- resolveMaybeType ctx tctx mod pos' t
       r1 <- maybeR e1
       return $ m (VarDeclaration id t r1) t
-    Defer e1    -> singleWrapper e1 Defer
-    Box impl e1 -> do
-      impl' <- convertTraitImplementation (converter r (\_ -> typeOrTypeVar))
-                                          impl
-      let (tp, params) = case implTrait impl' of
-            TypeTraitConstraint (tp, params) -> (tp, params)
-      r1 <- r e1
-      return $ m (Box impl' r1) (TypeBox tp params)
+    Defer e1                        -> singleWrapper e1 Defer
+    -- Box impl e1 -> do
+    --   impl' <- convertTraitImplementation (converter r (\_ -> typeOrTypeVar))
+    --                                       modPath
+    --                                       impl
+    --   let (tp, params) = case implTrait impl' of
+    --         TypeTraitConstraint (tp, params) -> (tp, params)
+    --   r1 <- r e1
+    --   return $ m (Box impl' r1) (TypeBox tp params)
     SizeOf (Just t) -> do
       t' <- resolveType ctx tctx mod t
       return $ m (SizeOf t') (TypeBasicType $ BasicTypeUint 16)

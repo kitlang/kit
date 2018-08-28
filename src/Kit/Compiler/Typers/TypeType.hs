@@ -60,12 +60,12 @@ typeTypeMonomorph ctx mod def params = do
   tctx' <- modTypeContext ctx mod
   let tctx = (addTypeParams
                tctx'
-               [ (paramName param, ct)
+               [ (typeSubPath (modPath mod) def $ paramName param, ct)
                | (param, ct) <- zip (typeParams def) params
                ]
              ) { tctxSelf = Just selfType
                }
-  monomorph <- followType ctx tctx def
+  monomorph <- followType ctx tctx (modPath mod) def
   typeTypeDefinition ctx tctx mod selfType monomorph
 
 typeTypeDefinition

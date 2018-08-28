@@ -39,7 +39,7 @@ data ConcreteType
   | TypeTuple [ConcreteType]
   | TypeTypeOf TypePath
   | TypeTypeVar TypeVar
-  | TypeTypeParam Str
+  | TypeTypeParam TypePath
   | TypeRuleSet TypePath
   | TypeBox TypePath [ConcreteType]
   | TypeSelf
@@ -49,13 +49,12 @@ instance Hashable ConcreteType
 
 instance Show ConcreteType where
   show (TypeAtom) = "atom"
-  show (TypeInstance tp []) = "instance " ++ (s_unpack $ showTypePath tp)
-  show (TypeInstance tp params) = "instance " ++ (s_unpack $ showTypePath tp) ++ "[" ++ (intercalate ", " (map show params)) ++ "]"
+  show (TypeInstance tp params) = "instance " ++ (s_unpack $ showTypePath tp) ++ showParams params
   show (TypeAnonStruct f) = "(anon struct)"
   show (TypeAnonEnum variants) = "(anon enum {" ++ (intercalate ", " (map s_unpack variants)) ++ "})"
   show (TypeAnonUnion f) = "(anon union)"
   show (TypeTypedef tp []) = (s_unpack $ showTypePath tp)
-  show (TypeTypedef tp params) = (s_unpack $ showTypePath tp) ++ "[" ++ (intercalate ", " [show x | x <- params])
+  show (TypeTypedef tp params) = (s_unpack $ showTypePath tp) ++ showParams params
   show (TypeFunction rt args var params) = "function (" ++ (intercalate ", " [s_unpack name ++ ": " ++ (show t) | (name, t) <- args]) ++ (if var then ", ..." else "") ++ ") -> " ++ show rt
   show (TypeBasicType t) = show t
   show (TypePtr (TypeBasicType (BasicTypeInt 8))) = "CString"
@@ -64,14 +63,17 @@ instance Show ConcreteType where
   show (TypeArr t Nothing) = "Arr[" ++ (show t) ++ "]"
   show (TypeEnumConstructor tp d _ params) = "enum " ++ (show tp) ++ " constructor " ++ (s_unpack d) ++ "[" ++ (intercalate ", " (map show params)) ++ "]"
   show (TypeRange) = "range"
-  show (TypeTraitConstraint (tp, params)) = "trait " ++ s_unpack (showTypePath tp)
+  show (TypeTraitConstraint (tp, params)) = "trait " ++ s_unpack (showTypePath tp) ++ showParams params
   show (TypeTuple t) = "(" ++ intercalate ", " (map show t) ++ ")"
   show (TypeTypeOf t) = "typeof " ++ s_unpack (showTypePath t)
   show (TypeTypeVar i) = "type var #" ++ show i
-  show (TypeTypeParam s) = "type param " ++ s_unpack s
+  show (TypeTypeParam tp) = "type param " ++ s_unpack (showTypePath tp)
   show (TypeRuleSet tp) = "rules " ++ (s_unpack $ showTypePath tp)
-  show (TypeBox tp params) = "box: " ++ (s_unpack $ showTypePath tp)
+  show (TypeBox tp params) = "box: " ++ (s_unpack $ showTypePath tp) ++ showParams params
   show (TypeSelf) = "Self"
+
+showParams []     = ""
+showParams params = "[" ++ (intercalate ", " (map show params)) ++ "]"
 
 type TypeVar = Int
 
@@ -124,14 +126,15 @@ mapType f (TypeBox tp p) = do
   f $ TypeBox tp p'
 mapType f t = f t
 
-substituteParams :: [(Str, ConcreteType)] -> ConcreteType -> IO ConcreteType
+substituteParams
+  :: [(TypePath, ConcreteType)] -> ConcreteType -> IO ConcreteType
 substituteParams params = mapType
   (\t -> case t of
     TypeTypeParam s -> substituteParam params s
     _               -> return t
   )
 
-substituteParam :: [(Str, ConcreteType)] -> Str -> IO ConcreteType
+substituteParam :: [(TypePath, ConcreteType)] -> TypePath -> IO ConcreteType
 substituteParam ((p, ct) : t) s =
   if p == s then return ct else substituteParam t s
 substituteParam [] s = return $ TypeTypeParam s

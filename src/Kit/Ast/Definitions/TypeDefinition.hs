@@ -9,6 +9,7 @@ import Kit.Ast.Definitions.VarDefinition
 import Kit.Ast.Metadata
 import Kit.Ast.Modifier
 import Kit.Ast.ModulePath
+import Kit.Ast.TypePath
 import Kit.Ast.TypeSpec
 import Kit.Parser.Span
 import Kit.Str
@@ -27,6 +28,9 @@ data TypeDefinition a b = TypeDefinition {
   typeParams :: [TypeParam],
   typeNamespace :: [Str]
 } deriving (Eq, Show)
+
+typeSubPath :: ModulePath -> TypeDefinition a b -> Str -> TypePath
+typeSubPath mp def s = (mp ++ [typeName def], s)
 
 data TypeDefinitionType a b
   = Atom
@@ -66,15 +70,17 @@ implicitifyInstanceMethods thisName thisType body def = def
 convertTypeDefinition
   :: (Monad m)
   => ParameterizedConverter m a b c d
+  -> ModulePath
   -> TypeDefinition a b
   -> m (TypeDefinition c d)
-convertTypeDefinition paramConverter t = do
-  let params = map paramName (typeParams t)
+convertTypeDefinition paramConverter modPath t = do
+  let params =
+        [ typeSubPath modPath t $ paramName param | param <- typeParams t ]
   let
     (converter@(Converter { exprConverter = exprConverter, typeConverter = typeConverter }))
       = paramConverter params
   let methodParamConverter methodParams =
-        paramConverter (methodParams ++ (map paramName $ typeParams t))
+        paramConverter (methodParams ++ params)
   newType <- case typeSubtype t of
     Atom                        -> return Atom
     Struct { structFields = f } -> do
@@ -91,12 +97,20 @@ convertTypeDefinition paramConverter t = do
     Abstract { abstractUnderlyingType = ut } -> do
       u <- typeConverter (typePos t) ut
       return $ Abstract {abstractUnderlyingType = u}
-  staticFields  <- forM (typeStaticFields t) (convertVarDefinition converter)
 
-  staticMethods <- forM (typeStaticMethods t)
-                        (convertFunctionDefinition methodParamConverter)
-  instanceMethods <- forM (typeMethods t)
-                          (convertFunctionDefinition methodParamConverter)
+  staticFields  <- forM (typeStaticFields t) (convertVarDefinition converter)
+  staticMethods <- forM
+    (typeStaticMethods t)
+    (\f -> convertFunctionDefinition methodParamConverter
+                                     (modPath ++ [typeName t])
+                                     f
+    )
+  instanceMethods <- forM
+    (typeMethods t)
+    (\f -> convertFunctionDefinition methodParamConverter
+                                     (modPath ++ [typeName t])
+                                     f
+    )
 
   -- since they are untyped, rulesets will not be converted and will be lost
   return $ (newTypeDefinition) { typeName          = typeName t

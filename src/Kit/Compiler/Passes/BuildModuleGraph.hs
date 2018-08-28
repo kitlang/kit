@@ -213,7 +213,7 @@ addStmtToModuleInterface ctx mod s = do
               -- [TypeTypeParam (paramName p) | p <- typeParams d ]
 
         converted <- do
-          c <- convertTypeDefinition (\_ -> interfaceConverter) d
+          c <- convertTypeDefinition (\_ -> interfaceConverter) (modPath mod) d
           if null (typeMethods d)
             then return c
             else do
@@ -266,7 +266,7 @@ addStmtToModuleInterface ctx mod s = do
 
     TraitDeclaration d@(TraitDefinition { traitName = name }) -> do
       subNamespace <- getSubScope (modScope mod) [name]
-      converted    <- convertTraitDefinition (\_ -> interfaceConverter) d
+      converted    <- convertTraitDefinition (\_ -> interfaceConverter) (modPath mod) d
       forM_
         (traitMethods converted)
         (\method' ->
@@ -316,7 +316,7 @@ addStmtToModuleInterface ctx mod s = do
 
     FunctionDeclaration d@(FunctionDefinition { functionName = name, functionArgs = args, functionVarargs = varargs })
       -> do
-        converted <- convertFunctionDefinition (\_ -> interfaceConverter) d
+        converted <- convertFunctionDefinition (\_ -> interfaceConverter) (modPath mod) d
         let extern = hasMeta "extern" (functionMeta d)
         when extern $ recordGlobalName name
         addToInterface

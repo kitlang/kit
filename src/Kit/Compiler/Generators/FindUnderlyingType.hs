@@ -54,10 +54,10 @@ findUnderlyingType ctx mod pos t = do
       params      <- forM p (mapType $ follow ctx modTctx)
       let tctx = addTypeParams
             modTctx
-            [ (paramName param, value)
+            [ (typeSubPath modPath templateDef $ paramName param, value)
             | (param, value) <- zip (typeParams templateDef) params
             ]
-      def <- followType ctx tctx templateDef
+      def <- followType ctx tctx modPath templateDef
       let typeName = if null params then name else monomorphName name params
       case typeSubtype def of
         Struct { structFields = fields } -> do
@@ -115,12 +115,12 @@ findUnderlyingType ctx mod pos t = do
         )
       return $ BasicTypeFunction rt' args' var
     TypeBox (modPath, name) params -> do
-      let name' = (mangleName (modPath ++ [name]) "box")
+      let name' = (mangleName (modPath ++ [monomorphName name params]) "box")
       return $ BasicTypeStruct name'
     TypeTypeParam t -> do
       throwk $ InternalError
         (  "Couldn't find underlying type for type param "
-        ++ s_unpack t
+        ++ s_unpack (showTypePath t)
         ++ "; this is probably an error with monomorph generation!"
         )
         pos

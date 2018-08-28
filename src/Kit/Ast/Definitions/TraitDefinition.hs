@@ -7,6 +7,7 @@ import Kit.Ast.Definitions.RewriteRule
 import Kit.Ast.Metadata
 import Kit.Ast.Modifier
 import Kit.Ast.ModulePath
+import Kit.Ast.TypePath
 import Kit.Ast.TypeSpec
 import Kit.Parser.Span
 import Kit.Str
@@ -22,6 +23,9 @@ data TraitDefinition a b = TraitDefinition {
   traitMethods :: [FunctionDefinition a b]
 } deriving (Eq, Show)
 
+traitSubPath :: ModulePath -> TraitDefinition a b -> Str -> TypePath
+traitSubPath mp def s = (mp ++ [traitName def], s)
+
 newTraitDefinition = TraitDefinition
   { traitName      = undefined
   , traitPos       = NoPos
@@ -36,16 +40,23 @@ newTraitDefinition = TraitDefinition
 convertTraitDefinition
   :: (Monad m)
   => ParameterizedConverter m a b c d
+  -> ModulePath
   -> TraitDefinition a b
   -> m (TraitDefinition c d)
-convertTraitDefinition paramConverter t = do
-  let params = map paramName (traitParams t)
+convertTraitDefinition paramConverter mp t = do
+  let params =
+        [ traitSubPath mp t $ paramName param | param <- traitParams t ]
   let
     converter@(Converter { exprConverter = exprConverter, typeConverter = typeConverter })
       = paramConverter params
+  let methodParamConverter methodParams =
+        paramConverter (methodParams ++ params)
   methods <- forM
     (traitMethods t)
-    (convertFunctionDefinition (\p -> paramConverter (p ++ (map paramName $ traitParams t))))
+    (\f -> convertFunctionDefinition methodParamConverter
+                                     (mp ++ [traitName t])
+                                     f
+    )
   return $ (newTraitDefinition) { traitName      = traitName t
                                 , traitPos       = traitPos t
                                 , traitDoc       = traitDoc t

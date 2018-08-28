@@ -58,7 +58,7 @@ typeIterative ctx input output limit = do
               DeclVar      v -> typeVar ctx mod v
               DeclFunction f | null (functionParams f) -> typeFunction ctx mod f
               DeclType     t | null (typeParams t) -> typeType ctx mod t
-              DeclTrait    t -> typeTrait ctx mod t
+              DeclTrait    t | null (traitParams t) -> typeTrait ctx mod t
               DeclImpl     i -> typeImpl ctx mod i
               DeclRuleSet  rs -> return (Nothing, True)
               _ -> return (Nothing, True)
@@ -91,11 +91,7 @@ typeIterative ctx input output limit = do
         | (mod, r) <- results
         , not $ null $ incompletes r
         ]
-  let complete =
-        output
-          ++ [ (mod, completes r)
-             | (mod, r) <- results
-             ]
+  let complete = output ++ [ (mod, completes r) | (mod, r) <- results ]
 
   let errors =
         (foldr

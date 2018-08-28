@@ -5,6 +5,7 @@ import Kit.Ast.Definitions.Base
 import Kit.Ast.Metadata
 import Kit.Ast.Modifier
 import Kit.Ast.ModulePath
+import Kit.Ast.TypePath
 import Kit.Ast.TypeSpec
 import Kit.Parser.Span
 import Kit.Str
@@ -24,6 +25,9 @@ data FunctionDefinition a b = FunctionDefinition {
   functionThis :: Maybe b,
   functionSelf :: Maybe b
 } deriving (Eq, Show)
+
+functionSubPath :: ModulePath -> FunctionDefinition a b -> Str -> TypePath
+functionSubPath mp def s = (mp ++ [functionName def], s)
 
 newFunctionDefinition :: FunctionDefinition a b
 newFunctionDefinition = FunctionDefinition
@@ -45,10 +49,14 @@ newFunctionDefinition = FunctionDefinition
 convertFunctionDefinition
   :: (Monad m)
   => ParameterizedConverter m a b c d
+  -> ModulePath
   -> FunctionDefinition a b
   -> m (FunctionDefinition c d)
-convertFunctionDefinition paramConverter f = do
-  let params = map paramName (functionParams f)
+convertFunctionDefinition paramConverter modPath f = do
+  let params =
+        [ functionSubPath modPath f $ paramName param
+        | param <- functionParams f
+        ]
   let
     converter@(Converter { exprConverter = exprConverter, typeConverter = typeConverter })
       = paramConverter params

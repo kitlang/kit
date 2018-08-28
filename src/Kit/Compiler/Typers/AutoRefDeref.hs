@@ -71,6 +71,15 @@ autoRefDeref ctx tctx toType fromType original temps ex = do
   case result of
     Just _ -> finalizeResult ex
     _      -> case (toType, fromType) of
+      (TypeBox tp params, b) -> do
+        if tIsLvalue ex
+          then do
+            params <- makeGeneric ctx tp (tPos ex) params
+            box    <- makeBox ctx tctx tp (map snd params) ex
+            case box of
+              Just x  -> finalizeResult x
+              Nothing -> return original
+          else tryLvalue toType fromType
       (TypePtr a, TypePtr b) -> autoRefDeref ctx tctx a b original temps ex
       (TypePtr a, b        ) -> if tIsLvalue ex
         then autoRefDeref ctx tctx a b original temps (addRef ex)
@@ -79,30 +88,23 @@ autoRefDeref ctx tctx toType fromType original temps ex = do
         -- don't try to deref a void pointer
         return original
       (a, TypePtr b) -> autoRefDeref ctx tctx a b original temps (addDeref ex)
-      (TypeBox tp params, b) -> do
-        if tIsLvalue ex
-          then do
-            box <- makeBox ctx tctx tp ex
-            case box of
-              Just x  -> finalizeResult x
-              Nothing -> return original
-          else tryLvalue toType fromType
       _ -> return original
 
 makeBox
   :: CompileContext
   -> TypeContext
   -> TypePath
+  -> [ConcreteType]
   -> TypedExpr
   -> IO (Maybe TypedExpr)
-makeBox ctx tctx tp ex = do
+makeBox ctx tctx tp params ex = do
   if tIsLvalue ex
     then do
+      -- TODO: params
       impl <- getTraitImpl ctx tctx tp (inferredType ex)
       case impl of
         Just impl -> do
-          -- TODO params
-          let t' = TypeBox tp []
+          let t' = TypeBox tp params
           return $ Just $ ex { tExpr = Box impl ex, inferredType = t' }
         Nothing -> return Nothing
     else return Nothing

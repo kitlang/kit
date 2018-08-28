@@ -45,7 +45,7 @@ getAbstractParents ctx tctx t = do
         Abstract { abstractUnderlyingType = t' } -> do
           let tctx' = addTypeParams
                 tctx
-                [ (paramName param, value)
+                [ (typeSubPath modPath def $ paramName param, value)
                 | (param, value) <- zip (typeParams def) params
                 ]
           t       <- mapType (follow ctx tctx') t'
@@ -79,7 +79,7 @@ unify ctx tctx a' b' = do
   b <- mapType (follow ctx tctx) b'
   case (a, b) of
     (TypeSelf, TypeSelf) -> return $ Just []
-    (TypeSelf, x) -> case tctxSelf tctx of
+    (TypeSelf, x       ) -> case tctxSelf tctx of
       Just y  -> unify ctx tctx y x
       Nothing -> return Nothing
     (TypeTypeVar i, TypeTraitConstraint t) -> do

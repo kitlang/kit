@@ -30,7 +30,7 @@ data TypeContext = TypeContext {
   tctxThis :: Maybe ConcreteType,
   tctxSelf :: Maybe ConcreteType,
   tctxImplicits :: [TypedExpr],
-  tctxTypeParams :: [(Str, ConcreteType)],
+  tctxTypeParams :: [(TypePath, ConcreteType)],
   tctxLoopCount :: Int,
   tctxRewriteRecursionDepth :: Int,
   tctxState :: TypeContextState, tctxTemps :: Maybe (IORef [TypedExpr])
@@ -61,9 +61,11 @@ newTypeContext scopes = do
 unknownType t pos = do
   throw $ KitError $ TypingError ("Unknown type: " ++ (show t)) pos
 
-resolveTypeParam :: Str -> [(Str, ConcreteType)] -> Maybe ConcreteType
+resolveTypeParam :: TypePath -> [(TypePath, ConcreteType)] -> Maybe ConcreteType
 resolveTypeParam s (h : t) =
-  if fst h == s then Just $ snd h else resolveTypeParam s t
+  if (snd (fst h) == snd s) && (null (fst s) || (fst (fst h) == fst s))
+    then Just $ snd h
+    else resolveTypeParam s t
 resolveTypeParam s [] = Nothing
 
 {-
@@ -80,20 +82,25 @@ resolveType ctx tctx mod t = do
       slots <- forM t (resolveType ctx tctx mod)
       return $ TypeTuple slots
     TypeSpec (m, s) params pos -> do
+      resolvedParams <- forM params (resolveType ctx tctx mod)
       case m of
         [] -> do
           case (s, tctxSelf tctx) of
             ("Self", Just self) -> return self
             _                   -> do
-              case resolveTypeParam s (tctxTypeParams tctx) of
+              case resolveTypeParam ([], s) (tctxTypeParams tctx) of
                 Just x -> do
                   return x
-                _      -> do
+                _ -> do
                   scoped <- resolveBinding (tctxScopes tctx) s
                   ct     <- case scoped of
                     Just x ->
                       -- named binding exists locally; resolve and return it
-                      return $ bindingConcrete x
+                              return $ case bindingConcrete x of
+                      TypeInstance x p -> TypeInstance x (p ++ resolvedParams)
+                      TypeTraitConstraint (x, p) ->
+                        TypeTraitConstraint (x, (p ++ resolvedParams))
+                      x -> x
                     Nothing -> do
                       -- search other modules
                       bound <- resolveBinding (map modScope importedMods) s
@@ -114,17 +121,18 @@ resolveType ctx tctx mod t = do
                             Nothing -> unknownType s pos
                   -- if this is a type instance, create a new generic
                   case ct of
-                    TypeInstance tp@(modPath, name) [] -> do
-                      def <- getTypeDefinition ctx modPath name
-                      if null (typeParams def)
-                        then return ct
-                        else do
-                          existing <- mapM (resolveType ctx tctx mod) params
-                          params   <- makeGeneric ctx
-                                                  tp
-                                                  (typeSpecPosition t)
-                                                  existing
-                          return $ TypeInstance tp (map snd params)
+                    TypeInstance tp@(modPath, name) p -> do
+                      params <- makeGeneric ctx
+                                            tp
+                                            (typeSpecPosition t)
+                                            (p)
+                      return $ TypeInstance tp (map snd params)
+                    TypeBox tp@(modPath, name) p -> do
+                      params <- makeGeneric ctx
+                                            tp
+                                            (typeSpecPosition t)
+                                            (p)
+                      return $ TypeBox tp (map snd params)
                     _ -> return ct
         m -> do
           -- search only a specific module for this type
@@ -216,14 +224,18 @@ follow ctx tctx t = do
           Nothing
     _ -> return t
 
-followType ctx tctx = convertTypeDefinition
+followType ctx tctx modPath = convertTypeDefinition
   (\_ -> converter return (\_ -> mapType $ follow ctx tctx))
-followFunction ctx tctx = convertFunctionDefinition
+  modPath
+followFunction ctx tctx modPath = convertFunctionDefinition
   (\_ -> converter return (\_ -> mapType $ follow ctx tctx))
-followTrait ctx tctx = convertTraitDefinition
+  modPath
+followTrait ctx tctx modPath = convertTraitDefinition
   (\_ -> converter return (\_ -> mapType $ follow ctx tctx))
-followVariant ctx tctx =
-  convertEnumVariant (converter return (\_ -> mapType $ follow ctx tctx))
+  modPath
+followVariant ctx tctx modPath = convertEnumVariant
+  (converter return (\_ -> mapType $ follow ctx tctx))
+  modPath
 
 addUsing
   :: CompileContext
@@ -252,7 +264,7 @@ addUsing ctx tctx using = case using of
   _ ->
     throwk $ InternalError ("Unexpected using clause: " ++ show using) Nothing
 
-addTypeParams :: TypeContext -> [(Str, ConcreteType)] -> TypeContext
+addTypeParams :: TypeContext -> [(TypePath, ConcreteType)] -> TypeContext
 addTypeParams tctx params =
   tctx { tctxTypeParams = params ++ tctxTypeParams tctx }
 
@@ -275,8 +287,8 @@ builtinToConcreteType ctx tctx mod s p pos = do
   case (s, p) of
     -- basics
     ("CString", [] ) -> return $ Just $ TypePtr $ TypeBasicType $ BasicTypeCChar
-    ("Char"  , [] ) -> return $ Just $ TypeBasicType $ BasicTypeCChar
-    ("Int"   , [] ) -> return $ Just $ TypeBasicType $ BasicTypeCInt
+    ("Char"   , [] ) -> return $ Just $ TypeBasicType $ BasicTypeCChar
+    ("Int"    , [] ) -> return $ Just $ TypeBasicType $ BasicTypeCInt
     ("Size"   , [] ) -> return $ Just $ TypeBasicType $ BasicTypeCSize
     ("Bool"   , [] ) -> return $ Just $ TypeBasicType $ BasicTypeBool
     ("Int8"   , [] ) -> return $ Just $ TypeBasicType $ BasicTypeInt 8
@@ -301,7 +313,9 @@ builtinToConcreteType ctx tctx mod s p pos = do
     ("Box"    , [x]) -> do
       trait <- resolveType ctx tctx mod x
       case trait of
-        TypeTraitConstraint (tp, params) -> return $ Just $ TypeBox tp params
+        TypeTraitConstraint (tp, params) -> do
+          params <- makeGeneric ctx tp pos params
+          return $ Just $ TypeBox tp (map snd params)
         _ -> return Nothing
     ("Ptr", []) -> do
       param <- makeTypeVar ctx pos
@@ -343,7 +357,7 @@ getTraitImpl ctx tctx trait ct = do
             Abstract { abstractUnderlyingType = u } -> do
               let tctx' = addTypeParams
                     tctx
-                    [ (paramName param, value)
+                    [ (typeSubPath modPath def (paramName param), value)
                     | (param, value) <- zip (typeParams def) params
                     ]
               getTraitImpl ctx tctx' trait u

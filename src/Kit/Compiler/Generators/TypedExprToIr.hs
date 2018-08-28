@@ -298,10 +298,11 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
       (TupleSlot x slot) -> do
         r1 <- r x
         return $ IrField r1 (s_pack $ "__slot" ++ show slot)
-      (Box (TraitImplementation { implTrait = TypeTraitConstraint ((modPath, name), params), implFor = for, implMod = implMod }) e1)
+      (Box (TraitImplementation { implTrait = TypeTraitConstraint ((modPath, traitName), params), implFor = for, implMod = implMod }) e1)
         -> do
           r1  <- r e1
           for <- findUnderlyingType ctx mod (Just pos) for
+          let name = monomorphName traitName params
           let structName = (mangleName (modPath ++ [name]) "box")
           -- TODO: fix name
           let implName =

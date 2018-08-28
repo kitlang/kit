@@ -4,6 +4,7 @@ import Control.Monad
 import Kit.Ast.Metadata
 import Kit.Ast.Modifier
 import Kit.Ast.ModulePath
+import Kit.Ast.TypePath
 import Kit.Ast.TypeSpec
 import Kit.Parser.Span
 import Kit.Str
@@ -30,6 +31,6 @@ data Converter m a b c d = Converter {
   parameters when resolving types. Given a list of type parameter names, will
   return a Converter that will handle them in type lookups.
 -}
-type ParameterizedConverter m a b c d = [Str] -> Converter m a b c d
+type ParameterizedConverter m a b c d = [TypePath] -> Converter m a b c d
 
 converter e t = Converter {exprConverter = e, typeConverter = t}

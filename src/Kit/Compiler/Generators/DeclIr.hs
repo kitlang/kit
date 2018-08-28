@@ -32,7 +32,7 @@ generateDeclIr ctx mod t = do
   case t of
     DeclType def@(TypeDefinition { typeName = name }) -> do
       debugLog ctx $ "generating IR for " ++ s_unpack name ++ " in " ++ show mod
-      converted    <- convertTypeDefinition paramConverter def
+      converted    <- convertTypeDefinition paramConverter (modPath mod) def
       staticFields <- forM
         (typeStaticFields def)
         (\field -> generateDeclIr ctx mod
@@ -75,7 +75,7 @@ generateDeclIr ctx mod t = do
               && (ctxMainModule ctx == modPath mod)
               && not (ctxIsLibrary ctx)
 
-      converted <- convertFunctionDefinition paramConverter f
+      converted <- convertFunctionDefinition paramConverter (modPath mod) f
 
       if (isMain && functionType converted == BasicTypeVoid)
         then return
@@ -120,7 +120,7 @@ generateDeclIr ctx mod t = do
     DeclTrait (      TraitDefinition { traitMethods = [] }) -> return []
     DeclTrait trait@(TraitDefinition { traitName = name } ) -> do
       -- FIXME: params
-      converted <- convertTraitDefinition paramConverter trait
+      converted <- convertTraitDefinition paramConverter (modPath mod) trait
       -- trait declarations become struct definitions for the box/vtable
       let boxName    = mangleName ((modPath mod) ++ [name]) "box"
       let vtableName = mangleName ((modPath mod) ++ [name]) "vtable"
@@ -160,18 +160,19 @@ generateDeclIr ctx mod t = do
       return [DeclType $ traitBox, DeclType $ vtable]
 
     DeclImpl (TraitImplementation { implMethods = [] }) -> return []
-    DeclImpl i@(TraitImplementation { implTrait = TypeTraitConstraint ((mp, name), params), implFor = ct, implMod = implMod })
+    DeclImpl i@(TraitImplementation { implTrait = TypeTraitConstraint ((mp, traitName), traitParams), implFor = ct, implMod = implMod })
       -> do
       -- FIXME: for now we're indexing trait implementations by basic type, but
       -- different concrete types of the same basic type could each have their own
         for <- findUnderlyingType ctx mod (Just $ implPos i) ct
+        let name = monomorphName traitName traitParams
         let implName =
               (mangleName (mp ++ [name, "impl"] ++ implMod)
                           (s_pack $ basicTypeAbbreviation for)
               )
         let vtableName = mangleName ((modPath mod) ++ [name]) "vtable"
         methods <- forM (implMethods i) $ \method -> do
-          f' <- convertFunctionDefinition paramConverter method
+          f' <- convertFunctionDefinition paramConverter (modPath mod) method
           let
             f = implicitifyMethod
               vThisArgName

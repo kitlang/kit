@@ -518,16 +518,18 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
             case t of
               TypeInstance tp@(modPath, typeName) params -> do
                 templateDef <- getTypeDefinition ctx modPath typeName
-                let tctx' =
-                      (addTypeParams
+                let
+                  tctx' =
+                    (addTypeParams
                         tctx
-                        [ (paramName param, val)
+                        [ (typeSubPath modPath templateDef $ paramName param, val)
                         | (param, val) <- zip (typeParams templateDef) params
                         ]
-                      ) { tctxSelf = Just t
-                        }
+                      )
+                      { tctxSelf = Just t
+                      }
                 definitionMod <- getMod ctx modPath
-                def           <- followType ctx tctx' templateDef
+                def           <- followType ctx tctx' modPath templateDef
                 let subtype = typeSubtype def
                 localScope <- getSubScope (modScope definitionMod) [typeName]
                 bindings   <- bindingList localScope
@@ -638,10 +640,20 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                   _ -> throwk $ TypingError
                     ("Couldn't find trait: " ++ s_unpack (showTypePath tp))
                     pos
+                let
+                  tctx' =
+                    (addTypeParams
+                        tctx
+                        [ (traitSubPath defMod traitDef $ paramName param, val)
+                        | (param, val) <- zip (traitParams traitDef) params
+                        ]
+                      )
+                      { tctxSelf = Just t
+                      }
                 method <- resolveLocal subScope fieldName
                 case method of
                   Just binding -> do
-                    x <- typeVarBinding ctx tctx fieldName binding pos
+                    x <- typeVarBinding ctx tctx' fieldName binding pos
                     resolve $ TypeEq
                       (bindingConcrete binding)
                       (inferredType x)
@@ -658,13 +670,16 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                         )
                         (inferredType x)
                         (pos)
+                    -- trait <- followTrait ctx tctx' (modPath mod) traitDef
+                    t <- mapType (follow ctx tctx') (inferredType x)
                     return $ typed
-                      { tImplicits = (makeExprTyped
-                                       (BoxedValue traitDef r1)
-                                       (TypePtr $ TypeBasicType BasicTypeVoid)
-                                       pos
-                                     )
+                      { tImplicits   = (makeExprTyped
+                                         (BoxedValue traitDef r1)
+                                         (TypePtr $ TypeBasicType BasicTypeVoid)
+                                         pos
+                                       )
                         : tImplicits typed
+                      , inferredType = t
                       }
                   Nothing -> throwk $ TypingError
                     ((show t) ++ " has no field " ++ s_unpack fieldName)
@@ -1022,7 +1037,7 @@ typeEnumConstructorCall ctx tctx mod e args tp@(modPath, typeName) discriminant 
     def <- getTypeDefinition ctx modPath typeName
     let tctx' = addTypeParams
           tctx
-          [ (paramName param, value)
+          [ (typeSubPath modPath def $ paramName param, value)
           | (param, value) <- zip (typeParams def) params
           ]
     forM_

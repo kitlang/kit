@@ -380,7 +380,7 @@ TypeAnnotation :: {(Maybe TypeSpec, Span)}
   | ':' TypeSpec {(Just $ fst $2, p $1 <+> p $2)}
 
 TypeSpec :: {(TypeSpec, Span)}
-  : TypePath TypeSpecParams {(TypeSpec (fst $1) (reverse $ fst $2) (p $1 <+> p $2), p $1 <+> p $2)}
+  : TypePath TypeSpecParams {(TypeSpec (fst $1) (fst $2) (p $1 <+> p $2), p $1 <+> p $2)}
   | function FunctionTypeSpec {$2}
   | TupleTypeSpec {$1}
 
