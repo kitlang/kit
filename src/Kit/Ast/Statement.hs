@@ -30,7 +30,8 @@ data StatementType a b
   | Specialize TypeSpec TypeSpec
   | RuleSetDeclaration (RuleSet a b)
   | Typedef Str TypeSpec
-  | Import ModulePath
+  -- if the bool parameter is True, this is a wildcard import from a package
+  | Import ModulePath Bool
   | Include FilePath
   | ModuleUsing (UsingType a b)
   deriving (Eq, Show)

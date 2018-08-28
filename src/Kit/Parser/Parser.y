@@ -37,6 +37,7 @@ import Kit.Str
   "->" {(FunctionArrow,_)}
   -- '?' {(Question,_)}
   '_' {(Underscore,_)}
+  ".*" {(WildcardSuffix,_)}
   abstract {(KeywordAbstract,_)}
   as {(KeywordAs,_)}
   atom {(KeywordAtom,_)}
@@ -127,7 +128,8 @@ MaybeDoc :: {Maybe Str}
   | doc_comment {Just $ extract_doc_comment $1}
 
 Statement :: {Statement}
-  : import ModulePath ';' {ps (p $1 <+> p $3) $ Import (reverse $ fst $2)}
+  : import ModulePath ';' {ps (p $1 <+> p $3) $ Import (reverse $ fst $2) False}
+  | import ModulePath ".*" ';' {ps (p $1 <+> p $3) $ Import (reverse $ fst $2) True}
   | include str ';' {ps (p $1 <+> p $3) $ Include $ B.unpack $ extract_lit $ fst $2}
   | using UsingClause ';' {ps (snd $1 <+> snd $3) $ ModuleUsing $ fst $2}
   | DocMetaMods typedef upper_identifier '=' TypeSpec ';' {

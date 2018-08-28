@@ -35,6 +35,7 @@ tokens :-
   "=>" { tok Arrow }
   "->" { tok FunctionArrow }
   "?" { tok Question }
+  ".*" { tok WildcardSuffix }
 
   -- comments
   "/**" ([^\*]|\*[^\/]|\*\n|\n)* "*/" { tok' (\s -> DocComment $ s_dropWhile whitespace $ s_take (s_length s - 5) $ s_drop 3 s) }

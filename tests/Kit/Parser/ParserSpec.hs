@@ -277,9 +277,9 @@ spec = parallel $ do
 
   describe "Parse toplevel statements" $ do
     it "parses imports" $ do
-      testParse "import a;" `shouldBe` [makeStmt $ Import ["a"]]
-      testParse "import a.b.c; import d;"
-        `shouldBe` [makeStmt $ Import ["a", "b", "c"], makeStmt $ Import ["d"]]
+      testParse "import a;" `shouldBe` [makeStmt $ Import ["a"] False]
+      testParse "import a.b.c.*; import d;"
+        `shouldBe` [makeStmt $ Import ["a", "b", "c"] True, makeStmt $ Import ["d"] False]
 
 
     it "parses typedefs" $ do
@@ -490,11 +490,11 @@ spec = parallel $ do
                        }
                    ]
 
-  describe "Parses expression lists" $ do
+  describe "Parses statement lists" $ do
     it "parses multiple statements" $ do
       testParse "import a; import b; import c; import d;"
-        `shouldBe` [ makeStmt $ Import ["a"]
-                   , makeStmt $ Import ["b"]
-                   , makeStmt $ Import ["c"]
-                   , makeStmt $ Import ["d"]
+        `shouldBe` [ makeStmt $ Import ["a"] False
+                   , makeStmt $ Import ["b"] False
+                   , makeStmt $ Import ["c"] False
+                   , makeStmt $ Import ["d"] False
                    ]

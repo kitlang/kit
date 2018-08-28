@@ -21,5 +21,6 @@ spec = do
                 ParseResult e -> e
                 Err         _ -> []
       m <- newMod [] ""
-      let imports = findImports [] exprs
+      ctx <- newCompileContext
+      imports <- findImports ctx [] exprs
       map fst imports `shouldBe` [["a"], ["b", "c"], ["d"]]

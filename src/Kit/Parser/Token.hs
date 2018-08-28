@@ -27,6 +27,7 @@ data TokenClass
   | FunctionArrow
   | Question
   | Underscore
+  | WildcardSuffix
   | DocComment Str
   | KeywordAbstract
   | KeywordAs

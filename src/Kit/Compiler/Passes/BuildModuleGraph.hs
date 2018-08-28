@@ -161,8 +161,8 @@ _loadModule ctx mod pos = do
     then return []
     else _loadPreludes ctx (take (length mod - 1) mod)
   let stmts = prelude ++ exprs
-  m <- newMod mod fp
-  let imports    = findImports mod stmts
+  m       <- newMod mod fp
+  imports <- findImports ctx mod stmts
   let includes   = findIncludes stmts
   let createdMod = m { modImports = imports }
   writeIORef (modIncludes createdMod) includes
@@ -365,16 +365,34 @@ addStmtToModuleInterface ctx mod s = do
   pos              = stmtPos s
   recordGlobalName = addGlobalName ctx mod pos
 
-findImports :: ModulePath -> [Statement] -> [(ModulePath, Span)]
-findImports mod stmts = foldr
-  (\e acc -> case e of
-    Statement { stmt = Import mp, stmtPos = p } ->
-      -- eliminate self imports (e.g. from prelude)
-      if mod == mp then acc else (mp, p) : acc
-    _ -> acc
-  )
-  []
-  stmts
+findImports
+  :: CompileContext -> ModulePath -> [Statement] -> IO [(ModulePath, Span)]
+findImports ctx mod stmts = do
+  r <- foldM
+    (\acc e -> case e of
+      Statement { stmt = Import mp False, stmtPos = p } ->
+  -- eliminate self imports (e.g. from prelude)
+        return $ if mod == mp then acc else (mp, p) : acc
+      Statement { stmt = Import mp True, stmtPos = p } -> do
+        results <- forM (ctxSourcePaths ctx) $ \dir -> do
+          let dirPath = dir </> (moduleFilePath mp -<.> "")
+          exists <- doesDirectoryExist dirPath
+          if not exists
+            then return []
+            else do
+              files <- listDirectory dirPath
+              return
+                $ [ mp ++ [s_pack $ file -<.> ""]
+                  | file <- files
+                  , takeExtension file == ".kit"
+                  , file /= "prelude.kit"
+                  ]
+        return $ [ (i, p) | i <- foldr (++) [] results ] ++ acc
+      _ -> return acc
+    )
+    []
+    stmts
+  return $ reverse r
 
 findIncludes :: [Statement] -> [(FilePath, Span)]
 findIncludes stmts = foldr
