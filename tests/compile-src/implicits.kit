@@ -23,4 +23,11 @@ function main() {
         // nested implicit
         using implicit c f();
     }
+
+    var d: Float = 2.5;
+    var e: Float;
+    using implicit d {
+        e = 4 + (implicit Float);
+    }
+    printf("%.1f\n", e);
 }

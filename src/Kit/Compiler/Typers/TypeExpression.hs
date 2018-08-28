@@ -857,6 +857,22 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                              (TypeTuple (map inferredType slots'))
                              pos
 
+    (Implicit t) -> do
+      val <- findImplicit ctx tctx t (tctxImplicits tctx)
+      case val of
+        Just (_, x) -> return x
+        Nothing     -> throwk $ TypingError
+          (  "Couldn't find an implicit value of type "
+          ++ show t
+          ++ ".\n\nImplicits in scope:\n\n"
+          ++ intercalate
+               "\n"
+               [ "  - implicit " ++ (show $ inferredType i)
+               | i <- tctxImplicits tctx
+               ]
+          )
+          pos
+
     _ -> return $ ex
 
   t' <- follow ctx tctx (inferredType result)

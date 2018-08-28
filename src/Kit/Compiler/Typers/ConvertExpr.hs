@@ -188,5 +188,8 @@ convertExpr ctx tctx mod e = do
       throwk $ BasicError "sizeof keyword requires a type" (Just pos')
     Method e1 tp n -> do
       r1 <- r e1
-      t <- mtv
+      t  <- mtv
       return $ m (Method r1 tp n) t
+    Implicit (Just t) -> do
+      t' <- resolveType ctx tctx mod t
+      return $ m (Implicit t') t'

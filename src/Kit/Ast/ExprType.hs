@@ -84,6 +84,7 @@ data ExprType a b
   | BoxedVtable (TraitDefinition a b) a
   | SizeOf b
   | Method a TypePath Str
+  | Implicit b
   deriving (Eq, Show)
 
 exprDiscriminant :: ExprType a b -> Int
@@ -129,6 +130,7 @@ exprDiscriminant et = case et of
   TupleInit _          -> 37
   TupleSlot _ _        -> 38
   Method _ _ _         -> 39
+  Implicit _           -> 40
 
 exprChildren :: ExprType a b -> [a]
 exprChildren et = case et of
