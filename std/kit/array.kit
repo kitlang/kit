@@ -61,10 +61,6 @@ struct Array[T] {
     }
 
     rules {
-        // FIXME
-        ((v: Vector[T]) as Self) => Array.new(v);
-        // FIXME
-        (Self as Vector[T]) => this.a;
         (this :: (other: Self)) => (concat(other));
         (this.length) => this._length;
 

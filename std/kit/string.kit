@@ -14,16 +14,6 @@
 //     }
 // }
 
-/**
- * Builtin trait that allows construction of a type from a string literal.
- */
-trait Stringy;
-
-implement Stringy for CString;
-// implement Stringy for String;
-
-specialize Stringy as CString;
-
 // /**
 //  * Allows coercing values of the implementing type into a string.
 //  */

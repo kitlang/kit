@@ -71,6 +71,32 @@ To run the compiler unit tests:
 
     stack test
 
+To point Kit to its standard library, you have a few options:
+
+- Set an environment variable, KIT_STD_PATH
+- Put the kitc binary next to its standard library
+- Put the standard library in an OS-specific default location:
+    - Linux: "/usr/lib/kit"
+    - Mac: "/usr/local/lib/kit"
+
+
+Hello world
+-----------
+
+After building/installing `kitc`:
+
+- Create a "src" directory, and within it, a new file, "helloworld.kit"
+- Copy the following into src/main.kit:
+
+```kit
+include "stdio.h";
+
+function main() {
+    printf("%s\n", "Hello from Kit!");
+}
+```
+
+- Run `kitc helloworld --run` to compile and run your program
 
 Copyright
 ---------

@@ -54,5 +54,4 @@ literalConstraints (FloatValue _ _) s pos =
            "Float literals must be a NumericMixed type"
            pos
   ]
-literalConstraints (StringValue _) s pos =
-  [TypeEq typeClassStringy s "String literals must be a Stringy type" pos]
+literalConstraints _ _ _ = []

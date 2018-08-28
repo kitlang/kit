@@ -83,8 +83,7 @@ convertExpr ctx tctx mod e = do
       t' <- resolveMaybeType ctx tctx mod pos' t
       return $ m (Literal (FloatValue v t')) t'
     Literal (StringValue s) -> do
-      t' <- mtv
-      return $ m (Literal (StringValue s)) t'
+      return $ m (Literal (StringValue s)) (TypePtr $ TypeBasicType $ BasicTypeCChar)
     Literal (BoolValue b) ->
       return $ m (Literal (BoolValue b)) (TypeBasicType BasicTypeBool)
     This -> container0 This

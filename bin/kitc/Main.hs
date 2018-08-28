@@ -42,9 +42,7 @@ options =
   Options
     <$> argument
           str
-          (  showDefault
-          <> value "main"
-          <> metavar "MODULE"
+          (  metavar "MODULE"
           <> help
                "module containing the main() function (for binaries) or compilation entry point for libraries"
           )
@@ -145,34 +143,36 @@ main = do
   if optShowVersion opts
     then putStrLn $ "kitc v" ++ version
     else do
-      modules <- h_new
-      std     <- lookupEnv "KIT_STD_PATH"
-      let std_path = case std of
-            Just x  -> x
-            Nothing -> "std"
-      base_context <- newCompileContext
-      inc          <- lookupEnv "INCLUDE_PATH"
+      modules     <- h_new
+      stdPath     <- findStd
+      baseContext <- newCompileContext
+      inc         <- lookupEnv "INCLUDE_PATH"
       let baseIncludePaths = case inc of
             Just x  -> [x]
             Nothing -> ["/usr/include"]
-      let ctx = base_context
-            { ctxMainModule   = parseModulePath $ s_pack $ optMainModule opts
-            , ctxIsLibrary    = optIsLibrary opts
-            , ctxOutputDir    = optOutputDir opts
-            , ctxCompilerPath = optCompilerPath opts
-            , ctxIncludePaths = optIncludePaths opts ++ baseIncludePaths
-            , ctxSourcePaths  = optSourcePaths opts ++ [std_path]
-            , ctxDefines      = map
-              (\s -> (takeWhile (/= '=') s, drop 1 $ dropWhile (/= '=') s))
-              (optDefines opts)
-            , ctxModules      = modules
-            , ctxVerbose      = optVerbose opts
-            , ctxNoCompile    = optNoCompile opts
-            , ctxNoLink       = optNoLink opts
-            , ctxDumpAst      = optDumpAst opts
-            , ctxNoCcache     = optNoCcache opts
-            , ctxRun          = optRun opts
-            }
+      let
+        ctx = baseContext
+          { ctxMainModule   = parseModulePath $ s_pack $ optMainModule opts
+          , ctxIsLibrary    = optIsLibrary opts
+          , ctxOutputDir    = optOutputDir opts
+          , ctxCompilerPath = optCompilerPath opts
+          , ctxIncludePaths = optIncludePaths opts ++ baseIncludePaths
+          , ctxSourcePaths  = (if null $ optSourcePaths opts
+                                then ["src"]
+                                else optSourcePaths opts
+                              )
+            ++ stdPath
+          , ctxDefines      = map
+            (\s -> (takeWhile (/= '=') s, drop 1 $ dropWhile (/= '=') s))
+            (optDefines opts)
+          , ctxModules      = modules
+          , ctxVerbose      = optVerbose opts
+          , ctxNoCompile    = optNoCompile opts
+          , ctxNoLink       = optNoLink opts
+          , ctxDumpAst      = optDumpAst opts
+          , ctxNoCcache     = optNoCcache opts
+          , ctxRun          = optRun opts
+          }
 
       result  <- tryCompile ctx
       endTime <- getCurrentTime

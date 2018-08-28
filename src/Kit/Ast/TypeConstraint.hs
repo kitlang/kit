@@ -70,4 +70,3 @@ typeClassNumericMixed =
   TypeTraitConstraint ((["kit", "numeric"], "NumericMixed"), [])
 typeClassIterable v =
   TypeTraitConstraint ((["kit", "iterator"], "Iterable"), [])
-typeClassStringy = TypeTraitConstraint ((["kit", "string"], "Stringy"), [])

@@ -7,7 +7,9 @@ import Data.IORef
 import Data.List
 import qualified Data.Text as T
 import System.Directory
+import System.Environment
 import System.FilePath
+import System.Info
 import Kit.Ast
 import Kit.Compiler.Binding
 import Kit.Compiler.Module
@@ -266,3 +268,24 @@ objDir ctx = (ctxOutputDir ctx) </> "obj"
 
 objPath :: CompileContext -> ModulePath -> FilePath
 objPath ctx mod = (objDir ctx) </> (moduleFilePath mod -<.> ".o")
+
+findStd :: IO [FilePath]
+findStd = do
+  -- check for overriding environment variable
+  override <- lookupEnv "KIT_STD_PATH"
+  case override of
+    Just x  -> return [x]
+    Nothing -> do
+      -- check for local installation
+      exePath <- getExecutablePath
+      let exeDir   = takeDirectory exePath
+      let localDir = exeDir </> "std"
+      local <- doesDirectoryExist (localDir </> "kit")
+      if local
+        then return [localDir]
+        else
+          -- fall back to OS default
+             return $ case os of
+          "linux"  -> ["/usr/lib/kit"]
+          "darwin" -> ["/usr/local/lib/kit"]
+          _        -> []

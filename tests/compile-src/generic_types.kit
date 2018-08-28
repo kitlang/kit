@@ -119,7 +119,6 @@ function main() {
     var g: WrapperEnum[Int] = OneValue(1);
     // generic pattern matching issue
     g.which("%i");
-    // bug here: discriminant should only be generated once, not per monomorph
     var h: WrapperEnum[Float] = TwoValues(2.0, 3.0);
     h.which("%.1f");
     var i: WrapperEnum = OneValue(4);
@@ -128,7 +127,7 @@ function main() {
     j.which("%.1f");
 
     var k: WrapperAbstract[Int] = 1;
-    var l: WrapperAbstract = "hello";
+    var l: WrapperAbstract = "hello" as WrapperAbstract[CString];
     k.hello("%i");
     l.hello("%s");
 }
