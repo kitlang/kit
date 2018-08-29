@@ -1,6 +1,7 @@
 module Kit.Compiler.Typers.TypeExpression where
 
 import Control.Applicative
+import Control.Exception
 import Control.Monad
 import Data.IORef
 import Data.List
@@ -673,12 +674,11 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                     -- trait <- followTrait ctx tctx' (modPath mod) traitDef
                     t <- mapType (follow ctx tctx') (inferredType x)
                     return $ typed
-                      { tImplicits   = (makeExprTyped
-                                         (BoxedValue traitDef r1)
-                                         (TypePtr $ TypeBasicType BasicTypeVoid)
-                                         pos
-                                       )
-                        : tImplicits typed
+                      { tImplicits   = [ makeExprTyped
+                                           (BoxedValue traitDef r1)
+                                           (TypePtr $ TypeBasicType BasicTypeVoid)
+                                           pos
+                                       ]
                       , inferredType = t
                       }
                   Nothing -> throwk $ TypingError
@@ -689,10 +689,22 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                 ("Field access is not allowed on " ++ show x)
                 pos
 
-                  -- TODO: if we have a module function called `fieldName` that
-                  -- takes e1 as the first argument, fall back to that
-
-        typeFieldAccess (inferredType r1) fieldName
+        result <-
+          (try $ typeFieldAccess (inferredType r1) fieldName) :: IO
+            (Either KitError TypedExpr)
+        case result of
+          Right r   -> return r
+          Left  err -> do
+            binding <- resolveVar ctx (tctxScopes tctx) mod fieldName
+            print r1
+            case binding of
+              Just (Binding { bindingConcrete = ct@(TypeFunction _ _ _ _), bindingNamespace = n })
+                -> return
+                  ((makeExprTyped (Identifier (Var fieldName) n) ct pos)
+                    { tImplicits = [r1]
+                    }
+                  )
+              _ -> throw err
 
     (Field e1 _) -> do
       throwk $ InternalError

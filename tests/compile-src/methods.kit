@@ -6,6 +6,10 @@ struct MyStruct {
     }
 }
 
+function staticExtension(m: MyStruct, i: Int) {
+    printf("static extension called with %i and %i\n", m.a, i);
+}
+
 function main() {
     var s1 = struct MyStruct {a: 1};
     s1.myMethod();
@@ -15,4 +19,7 @@ function main() {
     using implicit s3 {
         MyStruct.myMethod();
     }
+
+    staticExtension(s1, 5);
+    s2.staticExtension(6);
 }

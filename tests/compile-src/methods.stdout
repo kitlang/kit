@@ -1,3 +1,5 @@
 a = 1
 a = 2
 a = 3
+static extension called with 1 and 5
+static extension called with 2 and 6
