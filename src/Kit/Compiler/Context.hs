@@ -43,7 +43,7 @@ data CompileContext = CompileContext {
   ctxTypeVariables :: HashTable Int TypeVarInfo,
   ctxTypedDecls :: HashTable TypePath TypedDecl,
   ctxTraitSpecializations :: HashTable TypePath (ConcreteType, Span),
-  ctxImpls :: HashTable TypePath (HashTable ConcreteType (TraitImplementation TypedExpr ConcreteType)),
+  ctxImpls :: HashTable TraitConstraint (HashTable ConcreteType (TraitImplementation TypedExpr ConcreteType)),
   ctxGlobalNames :: HashTable Str Span,
   ctxPendingGenerics :: IORef [(TypePath, [ConcreteType])],
   ctxCompleteGenerics :: HashTable (TypePath, [ConcreteType]) (),

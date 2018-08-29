@@ -2,6 +2,12 @@ trait GenericPrinter[T] {
     public function print(value: T): Void;
 }
 
+implement GenericPrinter[Int] for Int {
+    public function print(value: Int) {
+        printf("%i %i\n", this, value);
+    }
+}
+
 implement GenericPrinter[Float] for Int {
     public function print(value: Float) {
         printf("%.2f %.2f\n", this as Float, value);
@@ -16,14 +22,18 @@ implement GenericPrinter[CString] for CString {
 
 function main() {
     var a: Int = 1;
-    var aBox: Box[GenericPrinter[Float]] = a;
+    var aBox: Box[GenericPrinter[Int]] = a;
     aBox.print(2);
 
-    var b = "hello";
-    var bBox: Box[GenericPrinter[CString]] = b;
-    bBox.print("world");
+    var b: Int = 1;
+    var bBox: Box[GenericPrinter[Float]] = b;
+    bBox.print(3);
 
-    var c = "hi";
-    var cBox: Box[GenericPrinter] = c;
-    cBox.print("there");
+    var c = "hello";
+    var cBox: Box[GenericPrinter[CString]] = c;
+    cBox.print("world");
+
+    var d = "hi";
+    var dBox: Box[GenericPrinter[CString]] = d;
+    dBox.print("there");
 }

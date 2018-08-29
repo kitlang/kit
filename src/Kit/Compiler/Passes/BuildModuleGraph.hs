@@ -266,7 +266,9 @@ addStmtToModuleInterface ctx mod s = do
 
     TraitDeclaration d@(TraitDefinition { traitName = name }) -> do
       subNamespace <- getSubScope (modScope mod) [name]
-      converted    <- convertTraitDefinition (\_ -> interfaceConverter) (modPath mod) d
+      converted    <- convertTraitDefinition (\_ -> interfaceConverter)
+                                             (modPath mod)
+                                             d
       forM_
         (traitMethods converted)
         (\method' ->
@@ -316,7 +318,9 @@ addStmtToModuleInterface ctx mod s = do
 
     FunctionDeclaration d@(FunctionDefinition { functionName = name, functionArgs = args, functionVarargs = varargs })
       -> do
-        converted <- convertFunctionDefinition (\_ -> interfaceConverter) (modPath mod) d
+        converted <- convertFunctionDefinition (\_ -> interfaceConverter)
+                                               (modPath mod)
+                                               d
         let extern = hasMeta "extern" (functionMeta d)
         when extern $ recordGlobalName name
         addToInterface

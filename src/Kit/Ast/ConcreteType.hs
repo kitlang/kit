@@ -72,6 +72,28 @@ instance Show ConcreteType where
   show (TypeBox tp params) = "box: " ++ (s_unpack $ showTypePath tp) ++ showParams params
   show (TypeSelf) = "Self"
 
+-- concreteTypeAbbreviation t = case t of
+--   TypeAtom = "m"
+--   TypeInstance (m,n) params = (intercalate "_" $ map s_unpack m) ++ n ++ (show $ length params) ++ (foldr (++) "" params)
+--   TypeAnonStruct [(Str, ConcreteType)]
+--   TypeAnonUnion [(Str, ConcreteType)]
+--   TypeAnonEnum [Str]
+--   TypeTypedef TypePath [ConcreteType]
+--   TypeFunction ConcreteType ConcreteArgs Bool [ConcreteType]
+--   TypeBasicType t = "b" ++ basicTypeAbbreviation t
+--   TypePtr t = "p" ++ concreteTypeAbbreviation t
+--   TypeArr t s = "a" ++ case s of {Just x -> show x; Nothing -> "_"} ++ concreteTypeAbbreviation t
+--   TypeEnumConstructor TypePath Str ConcreteArgs [ConcreteType]
+--   TypeRange
+--   TypeTraitConstraint TraitConstraint
+--   TypeTuple [ConcreteType]
+--   TypeTypeOf TypePath
+--   TypeTypeVar TypeVar
+--   TypeTypeParam TypePath
+--   TypeRuleSet TypePath
+--   TypeBox TypePath [ConcreteType]
+--   TypeSelf
+
 showParams []     = ""
 showParams params = "[" ++ (intercalate ", " (map show params)) ++ "]"
 

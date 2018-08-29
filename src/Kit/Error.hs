@@ -171,3 +171,21 @@ displayFileSnippet span  = do
         hPutStrLn stderr "    ... rewritten from ..."
         displayFileSnippet x
       Nothing -> hPutStrLn stderr ""
+
+forMWithErrors :: [a] -> (a -> IO b) -> IO [b]
+forMWithErrors l f = do
+  results <- foldM
+    (\(errs, results) x -> do
+      result <- try $ f x
+      case result of
+        Left  err -> return (err : errs, results)
+        Right r   -> return (errs, r : results)
+    )
+    ([], [])
+    l
+
+  if null $ fst results
+    then return $ reverse $ snd results
+    else throwk $ KitErrors $ reverse $ fst results
+
+mapMWithErrors f l = forMWithErrors l f

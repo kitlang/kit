@@ -34,9 +34,7 @@ mangleName ctx namespace s =
 monomorphName :: CompileContext -> Str -> [ConcreteType] -> Str
 monomorphName ctx name p = if null p
   then name
-  else if ctxNameMangling ctx
-    then s_concat [name, "__", monomorphSuffix p]
-    else s_join "__" (name : (map (s_pack . show) p))
+  else s_concat [name, "__", monomorphSuffix p]
 
 monomorphSuffix :: [ConcreteType] -> Str
 monomorphSuffix p = s_hash $ s_concat (map (s_pack . show) p)

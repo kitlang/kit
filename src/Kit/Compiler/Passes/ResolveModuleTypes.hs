@@ -61,9 +61,9 @@ flattenSpecializations ctx = do
 findImpls
   :: CompileContext
   -> HashTable
-       TypePath
+       TraitConstraint
        (HashTable ConcreteType (TraitImplementation TypedExpr ConcreteType))
-  -> TypePath
+  -> TraitConstraint
   -> IO
        ( HashTable
            ConcreteType
@@ -82,7 +82,7 @@ findImpls ctx memos t = do
           forM_ childList $ \(ct, impl) -> do
             h_insert impls ct impl
             case ct of
-              TypeTraitConstraint (tp, params) -> do
+              TypeTraitConstraint tp -> do
                 indirects    <- findImpls ctx memos tp
                 indirectList <- h_toList indirects
                 forM_ indirectList $ \(ct, impl) -> do
@@ -330,8 +330,9 @@ addImplementation ctx mod impl@(TraitImplementation { implTrait = Just (TypeSpec
     tctx       <- newTypeContext []
     foundTrait <- resolveModuleBinding ctx tctx mod (tpTrait)
     case foundTrait of
-      Just (Binding { bindingType = TraitBinding def, bindingConcrete = TypeTraitConstraint (tpTrait, tpParams) })
+      Just (Binding { bindingType = TraitBinding def, bindingConcrete = TypeTraitConstraint (tpTrait, _) })
         -> do
+          paramsTrait <- mapM (resolveType ctx tctx mod) paramsTrait
           let paramTctx =
                 (addTypeParams
                   tctx
@@ -347,21 +348,26 @@ addImplementation ctx mod impl@(TraitImplementation { implTrait = Just (TypeSpec
               return ()
             _ -> return ()
           let selfTctx = paramTctx { tctxSelf = Just ct }
-          existing <- h_lookup (ctxImpls ctx) tpTrait
-          impl'    <- convertTraitImplementation
+          existing <- h_lookup (ctxImpls ctx) (tpTrait, paramsTrait)
+          impl <- convertTraitImplementation
             (converter (convertExpr ctx selfTctx mod)
                        (resolveMaybeType ctx selfTctx mod)
             )
             (modPath mod)
-            impl
-          let impl = impl' { implMod = modPath mod }
+            (impl { implMod = modPath mod })
+
+          debugLog ctx
+            $  "Found implementation of "
+            ++ show (TypeTraitConstraint (tpTrait, paramsTrait))
+            ++ " for "
+            ++ show ct
 
           case existing of
             Just ht -> h_insert ht ct impl
             Nothing -> do
               impls <- h_new
-              h_insert impls          ct      impl
-              h_insert (ctxImpls ctx) tpTrait impls
+              h_insert impls          ct                     impl
+              h_insert (ctxImpls ctx) (tpTrait, paramsTrait) impls
       _ -> throwk $ BasicError ("Couldn't resolve trait: " ++ show tpTrait)
                                (Just posTrait)
 

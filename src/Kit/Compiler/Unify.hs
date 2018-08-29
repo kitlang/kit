@@ -210,5 +210,6 @@ resolveConstraintOrThrow ctx tctx t@(TypeEq a' b' reason pos) = do
 resolveTraitConstraint
   :: CompileContext -> TypeContext -> TraitConstraint -> ConcreteType -> IO Bool
 resolveTraitConstraint ctx tctx (tp, params) ct = do
-  impl <- getTraitImpl ctx tctx tp ct
+  params <- forM params $ mapType $ follow ctx tctx
+  impl   <- getTraitImpl ctx tctx (tp, params) ct
   return $ impl /= Nothing

@@ -105,10 +105,11 @@ resolveType ctx tctx mod t = do
                       -- search other modules
                       bound <- resolveBinding (map modScope importedMods) s
                       case bound of
-                        Just (Binding { bindingType = TypeBinding _, bindingConcrete = t })
-                          -> follow ctx tctx t
-                        Just (Binding { bindingType = TraitBinding _, bindingConcrete = t })
-                          -> follow ctx tctx t
+                        Just (Binding { bindingType = TypeBinding _, bindingConcrete = TypeInstance tp p })
+                          -> return $ TypeInstance tp (p ++ resolvedParams)
+                        Just (Binding { bindingType = TraitBinding _, bindingConcrete = TypeTraitConstraint (tp, p) })
+                          -> return
+                            $ TypeTraitConstraint (tp, (p ++ resolvedParams))
                         _ -> do
                           builtin <- builtinToConcreteType ctx
                                                            tctx
@@ -127,6 +128,9 @@ resolveType ctx tctx mod t = do
                     TypeBox tp@(modPath, name) p -> do
                       params <- makeGeneric ctx tp (typeSpecPosition t) p
                       return $ TypeBox tp (map snd params)
+                    TypeTraitConstraint (tp@(modPath, name), p) -> do
+                      params <- makeGeneric ctx tp (typeSpecPosition t) p
+                      return $ TypeTraitConstraint (tp, (map snd params))
                     _ -> return ct
         m -> do
           -- search only a specific module for this type
@@ -331,7 +335,7 @@ builtinToConcreteType ctx tctx mod s p pos = do
 getTraitImpl
   :: CompileContext
   -> TypeContext
-  -> TypePath
+  -> TraitConstraint
   -> ConcreteType
   -> IO (Maybe (TraitImplementation TypedExpr ConcreteType))
 getTraitImpl ctx tctx trait ct = do
@@ -344,6 +348,7 @@ getTraitImpl ctx tctx trait ct = do
         Just y -> return $ Just y
         _      -> return Nothing
     Nothing -> return Nothing
+  t <- h_toList (ctxImpls ctx)
   case result of
     Just impl -> return $ Just impl
     Nothing   -> do

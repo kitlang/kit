@@ -99,8 +99,7 @@ makeBox
 makeBox ctx tctx tp params ex = do
   if tIsLvalue ex
     then do
-      -- TODO: params
-      impl <- getTraitImpl ctx tctx tp (inferredType ex)
+      impl <- getTraitImpl ctx tctx (tp, params) (inferredType ex)
       case impl of
         Just impl -> do
           params <- makeGeneric ctx tp (tPos ex) params

@@ -89,7 +89,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
     (Block children) -> do
       blockScope <- newScope (scopeNamespace $ head $ tctxScopes tctx)
       let tctx' = tctx { tctxScopes = blockScope : tctxScopes tctx }
-      typedChildren <- forM children $ \child -> do
+      typedChildren <- forMWithErrors children $ \child -> do
         tmp    <- newIORef []
         result <- typeExpr ctx (tctx' { tctxTemps = Just tmp }) mod child
         temps  <- readIORef tmp
