@@ -1,0 +1,29 @@
+trait GenericPrinter[T] {
+    public function print(value: T): Void;
+}
+
+implement GenericPrinter[Float] for Int {
+    public function print(value: Float) {
+        printf("%.2f %.2f\n", this as Float, value);
+    }
+}
+
+implement GenericPrinter[CString] for CString {
+    public function print(value: CString) {
+        printf("%s %s\n", this, value);
+    }
+}
+
+function main() {
+    var a: Int = 1;
+    var aBox: Box[GenericPrinter[Float]] = a;
+    aBox.print(2);
+
+    var b = "hello";
+    var bBox: Box[GenericPrinter[CString]] = b;
+    bBox.print("world");
+
+    var c = "hi";
+    var cBox: Box[GenericPrinter] = c;
+    cBox.print("there");
+}

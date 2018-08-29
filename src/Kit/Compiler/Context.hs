@@ -65,7 +65,8 @@ data CompileContext = CompileContext {
   ctxDumpAst :: Bool,
   ctxNoCcache :: Bool,
   ctxRecursionLimit :: Int,
-  ctxRun :: Bool
+  ctxRun :: Bool,
+  ctxNameMangling :: Bool
 }
 
 newCompileContext :: IO CompileContext
@@ -115,6 +116,7 @@ newCompileContext = do
     , ctxNoCcache             = False
     , ctxRecursionLimit       = 256
     , ctxRun                  = True
+    , ctxNameMangling         = True
     }
 
 ctxSourceModules :: CompileContext -> IO [Module]
@@ -194,7 +196,6 @@ makeGeneric
   -> [ConcreteType]
   -> IO [(TypePath, ConcreteType)]
 makeGeneric ctx tp@(modPath, name) pos existing = do
-  print (tp, existing)
   defMod  <- getMod ctx modPath
   binding <- resolveLocal (modScope defMod) name
   let params = case binding of

@@ -44,6 +44,8 @@ typeTraitMonomorph ctx mod def params = do
   debugLog ctx
     $  "generating trait monomorph for "
     ++ s_unpack (traitName def)
+    ++ " with params "
+    ++ show params
     ++ " in "
     ++ show mod
   -- let selfType = TypeInstance (modPath mod, typeName def) params
@@ -57,8 +59,8 @@ typeTraitMonomorph ctx mod def params = do
         )
         -- { tctxSelf = Just selfType
         -- }
-  -- monomorph <- followType ctx tctx (modPath mod) def
-  typeTraitDefinition ctx tctx mod def
+  monomorph <- followTrait ctx tctx (modPath mod) def
+  typeTraitDefinition ctx tctx mod monomorph
 
 {-
   Type checks a trait specification.

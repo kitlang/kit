@@ -31,7 +31,11 @@ generateDeclIr ctx mod t = do
   let paramConverter = \p -> converter'
   case t of
     DeclType def@(TypeDefinition { typeName = name }) -> do
-      debugLog ctx $ "generating IR for " ++ s_unpack name ++ " in " ++ show mod
+      debugLog ctx
+        $  "generating IR for type "
+        ++ s_unpack name
+        ++ " in "
+        ++ show mod
       converted    <- convertTypeDefinition paramConverter (modPath mod) def
       staticFields <- forM
         (typeStaticFields def)
@@ -52,7 +56,7 @@ generateDeclIr ctx mod t = do
         t@(Enum { enumVariants = variants }) -> do
           let newName n = if modIsCModule mod
                 then n
-                else mangleName (modPath mod ++ [typeName converted]) n
+                else mangleName ctx (modPath mod ++ [typeName converted]) n
           let variants' =
                 [ variant { variantName = newName $ variantName variant }
                 | variant <- variants
@@ -99,7 +103,7 @@ generateDeclIr ctx mod t = do
           ]
         else return
           [ DeclFunction $ converted
-              { functionName = mangleName (functionNamespace f) name
+              { functionName = mangleName ctx (functionNamespace f) name
               , functionType = if isMain
                 then BasicTypeCInt
                 else functionType converted
@@ -115,15 +119,19 @@ generateDeclIr ctx mod t = do
 
       converted <- convertVarDefinition converter' v
       return
-        [DeclVar $ converted { varName = mangleName (varNamespace v) name }]
+        [DeclVar $ converted { varName = mangleName ctx (varNamespace v) name }]
 
     DeclTrait (      TraitDefinition { traitMethods = [] }) -> return []
     DeclTrait trait@(TraitDefinition { traitName = name } ) -> do
-      -- FIXME: params
+      debugLog ctx
+        $  "generating IR for trait "
+        ++ s_unpack name
+        ++ " in "
+        ++ show mod
       converted <- convertTraitDefinition paramConverter (modPath mod) trait
       -- trait declarations become struct definitions for the box/vtable
-      let boxName    = mangleName ((modPath mod) ++ [name]) "box"
-      let vtableName = mangleName ((modPath mod) ++ [name]) "vtable"
+      let boxName    = mangleName ctx ((modPath mod) ++ [name]) "box"
+      let vtableName = mangleName ctx ((modPath mod) ++ [name]) "vtable"
       let
         traitBox = newTypeDefinition
           { typeName    = boxName
@@ -165,12 +173,13 @@ generateDeclIr ctx mod t = do
       -- FIXME: for now we're indexing trait implementations by basic type, but
       -- different concrete types of the same basic type could each have their own
         for <- findUnderlyingType ctx mod (Just $ implPos i) ct
-        let name = monomorphName traitName traitParams
+        let name = monomorphName ctx traitName traitParams
         let implName =
-              (mangleName (mp ++ [name, "impl"] ++ implMod)
+              (mangleName ctx
+                          (mp ++ [name, "impl"] ++ implMod)
                           (s_pack $ basicTypeAbbreviation for)
               )
-        let vtableName = mangleName ((modPath mod) ++ [name]) "vtable"
+        let vtableName = mangleName ctx ((modPath mod) ++ [name]) "vtable"
         methods <- forM (implMethods i) $ \method -> do
           f' <- convertFunctionDefinition paramConverter (modPath mod) method
           let
@@ -191,6 +200,7 @@ generateDeclIr ctx mod t = do
               f'
           let name' =
                 (mangleName
+                  ctx
                   (  mp
                   ++ [name, "impl"]
                   ++ implMod

@@ -52,6 +52,8 @@ typeFunctionMonomorph ctx mod f params = do
   debugLog ctx
     $  "generating function monomorph for "
     ++ s_unpack (functionName f)
+    ++ " with params "
+    ++ show params
     ++ " in "
     ++ show mod
   tctx <- modTypeContext ctx mod

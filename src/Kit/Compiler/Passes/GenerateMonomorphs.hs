@@ -44,7 +44,9 @@ generateMonomorphs ctx = do
               (Just (DeclFunction x), _) -> Just
                 ( definitionMod
                 , [ DeclFunction $ x
-                      { functionName = monomorphName (functionName def) params
+                      { functionName = monomorphName ctx
+                                                     (functionName def)
+                                                     params
                       }
                   ]
                 )
@@ -56,7 +58,7 @@ generateMonomorphs ctx = do
               (Just (DeclType x), _) -> Just
                 ( definitionMod
                 , [ DeclType
-                      $ x { typeName = monomorphName (typeName def) params }
+                      $ x { typeName = monomorphName ctx (typeName def) params }
                   ]
                 )
               _ -> Nothing
@@ -66,8 +68,9 @@ generateMonomorphs ctx = do
             return $ case x of
               (Just (DeclTrait x), _) -> Just
                 ( definitionMod
-                , [ DeclTrait
-                      $ x { traitName = monomorphName (traitName def) params }
+                , [ DeclTrait $ x
+                      { traitName = monomorphName ctx (traitName def) params
+                      }
                   ]
                 )
               _ -> Nothing

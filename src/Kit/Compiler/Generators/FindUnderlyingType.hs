@@ -28,6 +28,7 @@ import Kit.Str
 findUnderlyingType
   :: CompileContext -> Module -> Maybe Span -> ConcreteType -> IO BasicType
 findUnderlyingType ctx mod pos t = do
+  modTctx     <- modTypeContext ctx mod
   x <- case t of
     TypeBasicType b       -> return b
     TypeAtom              -> return $ BasicTypeAtom
@@ -50,7 +51,6 @@ findUnderlyingType ctx mod pos t = do
     TypeInstance (modPath, name) p -> do
       templateDef <- getTypeDefinition ctx modPath name
       mod         <- getMod ctx modPath
-      modTctx     <- modTypeContext ctx mod
       params      <- forM p (mapType $ follow ctx modTctx)
       let tctx = addTypeParams
             modTctx
@@ -58,7 +58,7 @@ findUnderlyingType ctx mod pos t = do
             | (param, value) <- zip (typeParams templateDef) params
             ]
       def <- followType ctx tctx modPath templateDef
-      let typeName = if null params then name else monomorphName name params
+      let typeName = if null params then name else monomorphName ctx name params
       case typeSubtype def of
         Struct { structFields = fields } -> do
           fields <- forM fields $ \field -> do
@@ -115,7 +115,8 @@ findUnderlyingType ctx mod pos t = do
         )
       return $ BasicTypeFunction rt' args' var
     TypeBox (modPath, name) params -> do
-      let name' = (mangleName (modPath ++ [monomorphName name params]) "box")
+      params <- forM params $ mapType $ follow ctx modTctx
+      let name' = (mangleName ctx (modPath ++ [monomorphName ctx name params]) "box")
       return $ BasicTypeStruct name'
     TypeTypeParam t -> do
       throwk $ InternalError

@@ -54,6 +54,8 @@ typeTypeMonomorph ctx mod def params = do
   debugLog ctx
     $  "generating type monomorph for "
     ++ s_unpack (typeName def)
+    ++ " with params "
+    ++ show params
     ++ " in "
     ++ show mod
   let selfType = TypeInstance (modPath mod, typeName def) params

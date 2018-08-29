@@ -74,17 +74,20 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
           (Just pos)
         TypeFunction rt args varargs params | not (null params) -> do
           -- generic function
-          tctx   <- newTypeContext []
+          tctx   <- modTypeContext ctx mod
           params <- mapM (mapType $ follow ctx tctx) params
-          return $ IrIdentifier $ mangleName namespace $ monomorphName v params
-        _ -> return $ IrIdentifier (mangleName namespace v)
+          return $ IrIdentifier $ mangleName ctx namespace $ monomorphName
+            ctx
+            v
+            params
+        _ -> return $ IrIdentifier (mangleName ctx namespace v)
       (Method e1 (modPath, typeName) name) -> case t of
         TypeFunction rt args varargs params -> do
-          tctx   <- newTypeContext []
+          tctx   <- modTypeContext ctx mod
           params <- forM params $ mapType $ follow ctx tctx
           return
             $ IrIdentifier
-            $ mangleName (modPath ++ [monomorphName typeName params])
+            $ mangleName ctx (modPath ++ [monomorphName ctx typeName params])
             $ name
       (Identifier     (MacroVar v _) _) -> return $ IrIdentifier v
       (TypeAnnotation e1             t) -> throw $ KitError $ BasicError
@@ -128,7 +131,7 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
         r1 <- r e1
         r2 <- r e2
         return $ IrBinop op r1 r2
-      (For e1@(TypedExpr {tExpr = Identifier (Var id) []}) (TypedExpr { tExpr = RangeLiteral eFrom eTo }) e3)
+      (For e1@(TypedExpr { tExpr = Identifier (Var id) [] }) (TypedExpr { tExpr = RangeLiteral eFrom eTo }) e3)
         -> do
           t     <- findUnderlyingType ctx mod (Just $ tPos e1) (inferredType e1)
           rFrom <- r eFrom
@@ -300,13 +303,16 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
         return $ IrField r1 (s_pack $ "__slot" ++ show slot)
       (Box (TraitImplementation { implTrait = TypeTraitConstraint ((modPath, traitName), params), implFor = for, implMod = implMod }) e1)
         -> do
-          r1  <- r e1
-          for <- findUnderlyingType ctx mod (Just pos) for
-          let name = monomorphName traitName params
-          let structName = (mangleName (modPath ++ [name]) "box")
+          r1     <- r e1
+          for    <- findUnderlyingType ctx mod (Just pos) for
+          tctx   <- modTypeContext ctx mod
+          params <- forM params $ mapType (follow ctx tctx)
+          let name       = monomorphName ctx traitName params
+          let structName = (mangleName ctx (modPath ++ [name]) "box")
           -- TODO: fix name
           let implName =
-                (mangleName (modPath ++ [name, "impl"] ++ implMod)
+                (mangleName ctx
+                            (modPath ++ [name, "impl"] ++ implMod)
                             (s_pack $ basicTypeAbbreviation for)
                 )
           return $ IrStructInit

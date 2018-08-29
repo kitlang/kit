@@ -34,7 +34,8 @@ data Options = Options {
   optNoLink :: Bool,
   optDumpAst :: Bool,
   optNoCcache :: Bool,
-  optRun :: Bool
+  optRun :: Bool,
+  optNoMangle :: Bool
 } deriving (Eq, Show)
 
 options :: Parser Options
@@ -101,7 +102,7 @@ options =
           )
     <*> switch
           (long "run" <> help "run the program after successful compilation")
-
+    <*> switch (long "no-mangle" <> help "disables name mangling")
 
 sourceDirParser = strOption
   (long "src" <> short 's' <> metavar "DIR" <> help
@@ -172,6 +173,7 @@ main = do
           , ctxDumpAst      = optDumpAst opts
           , ctxNoCcache     = optNoCcache opts
           , ctxRun          = optRun opts
+          , ctxNameMangling = not $ optNoMangle opts
           }
 
       result  <- tryCompile ctx
