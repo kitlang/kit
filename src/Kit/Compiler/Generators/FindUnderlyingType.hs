@@ -28,8 +28,8 @@ import Kit.Str
 findUnderlyingType
   :: CompileContext -> Module -> Maybe Span -> ConcreteType -> IO BasicType
 findUnderlyingType ctx mod pos t = do
-  modTctx     <- modTypeContext ctx mod
-  x <- case t of
+  modTctx <- modTypeContext ctx mod
+  x       <- case t of
     TypeBasicType b       -> return b
     TypeAtom              -> return $ BasicTypeAtom
     TypeAnonStruct fields -> do
@@ -48,17 +48,17 @@ findUnderlyingType ctx mod pos t = do
           return (name, t')
         )
       return $ BasicTypeAnonUnion fields'
-    TypeInstance (modPath, name) p -> do
+    TypeInstance tp@(modPath, name) p -> do
       templateDef <- getTypeDefinition ctx modPath name
       mod         <- getMod ctx modPath
       params      <- forM p (mapType $ follow ctx modTctx)
       let tctx = addTypeParams
             modTctx
-            [ (typeSubPath modPath templateDef $ paramName param, value)
+            [ (typeSubPath templateDef $ paramName param, value)
             | (param, value) <- zip (typeParams templateDef) params
             ]
-      def <- followType ctx tctx modPath templateDef
-      let typeName = if null params then name else monomorphName ctx name params
+      def <- followType ctx tctx templateDef
+      let typeName = monomorphName tp params
       case typeSubtype def of
         Struct { structFields = fields } -> do
           fields <- forM fields $ \field -> do
@@ -102,9 +102,7 @@ findUnderlyingType ctx mod pos t = do
         _ -> findUnderlyingType ctx mod pos known
     TypeTuple t -> do
       slots <- forM t (findUnderlyingType ctx mod pos)
-      return $ BasicTypeTuple
-        (s_pack (basicTypeAbbreviation $ BasicTypeTuple "" slots))
-        slots
+      return $ BasicTypeTuple (tupleName slots) slots
     TypeFunction rt args var params -> do
       rt'   <- findUnderlyingType ctx mod pos rt
       args' <- forM
@@ -114,10 +112,9 @@ findUnderlyingType ctx mod pos t = do
           return (name, t')
         )
       return $ BasicTypeFunction rt' args' var
-    TypeBox (modPath, name) params -> do
+    TypeBox tp params -> do
       params <- forM params $ mapType $ follow ctx modTctx
-      let name' = (mangleName ctx (modPath ++ [monomorphName ctx name params]) "box")
-      return $ BasicTypeStruct name'
+      return $ BasicTypeStruct $ subPath (monomorphName tp params) "box"
     TypeTypeParam t -> do
       throwk $ InternalError
         (  "Couldn't find underlying type for type param "

@@ -27,8 +27,9 @@ typeTrait
   -> TraitDefinition TypedExpr ConcreteType
   -> IO (Maybe TypedDecl, Bool)
 typeTrait ctx mod def = do
+  debugLog ctx $ "typing trait " ++ s_unpack (showTypePath $ traitName def)
   tctx <- modTypeContext ctx mod
-  typeTraitDefinition ctx tctx mod def
+  typeTraitDefinition ctx tctx mod (TypeTraitConstraint (traitName def, [])) def
 
 {-
   Type checks a specific monomorph of a generic trait, with a known set of
@@ -43,24 +44,24 @@ typeTraitMonomorph
 typeTraitMonomorph ctx mod def params = do
   debugLog ctx
     $  "generating trait monomorph for "
-    ++ s_unpack (traitName def)
+    ++ s_unpack (showTypePath $ traitName def)
     ++ " with params "
     ++ show params
-    ++ " in "
-    ++ show mod
   -- let selfType = TypeInstance (modPath mod, typeName def) params
   tctx' <- modTypeContext ctx mod
   let tctx =
         (addTypeParams
           tctx'
-          [ (traitSubPath (modPath mod) def $ paramName param, ct)
+          [ (traitSubPath def $ paramName param, ct)
           | (param, ct) <- zip (traitParams def) params
           ]
         )
-        -- { tctxSelf = Just selfType
-        -- }
-  monomorph <- followTrait ctx tctx (modPath mod) def
-  typeTraitDefinition ctx tctx mod monomorph
+  monomorph <- followTrait ctx tctx def
+  typeTraitDefinition ctx
+                      tctx
+                      mod
+                      (TypeTraitConstraint (traitName def, params))
+                      monomorph
 
 {-
   Type checks a trait specification.
@@ -69,9 +70,11 @@ typeTraitDefinition
   :: CompileContext
   -> TypeContext
   -> Module
+  -> ConcreteType
   -> TraitDefinition TypedExpr ConcreteType
   -> IO (Maybe TypedDecl, Bool)
-typeTraitDefinition ctx tctx mod def = do
+typeTraitDefinition ctx tctx' mod selfType def = do
+  let tctx = tctx' { tctxSelf = Just selfType, tctxThis = Just selfType }
   methods <- forM
     (traitMethods def)
     (\method -> do

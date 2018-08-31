@@ -71,30 +71,16 @@ newCMod fp = do
 includeToModulePath :: FilePath -> ModulePath
 includeToModulePath fp = "c" : (map s_pack $ splitDirectories (fp -<.> ""))
 
-addToInterface
-  :: Module
-  -> Str
-  -> BindingType
-  -> Bool
-  -> ConcreteType
-  -> Span
-  -> Bool
-  -> IO ()
-addToInterface mod name b namespace ct pos allowCollisions =
+addToInterface :: Module -> Str -> Binding -> Bool -> Bool -> IO ()
+addToInterface mod name b namespace allowCollisions =
   (do
     unless allowCollisions $ do
       existing <- resolveLocal (modScope mod) name
       case existing of
-        Just (Binding { bindingPos = pos2 }) ->
-          throwk $ DuplicateDeclarationError (modPath mod) name pos2 pos
+        Just x -> throwk $ DuplicateDeclarationError (modPath mod)
+                                                     name
+                                                     (bindingPos x)
+                                                     (bindingPos b)
         _ -> return ()
-    bindToScope
-      (modScope mod)
-      name
-      (newBinding (modPath mod, name)
-                  b
-                  ct
-                  (if namespace then (modPath mod) else [])
-                  pos
-      )
+    bindToScope (modScope mod) name b
   )

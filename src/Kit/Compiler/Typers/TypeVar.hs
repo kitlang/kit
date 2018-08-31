@@ -27,7 +27,7 @@ typeVar
   -> Module
   -> VarDefinition TypedExpr ConcreteType
   -> IO (Maybe TypedDecl, Bool)
-typeVar ctx mod def@(VarDefinition { varName = name, varNamespace = namespace })
+typeVar ctx mod def@(VarDefinition { varName = name })
   = do
     tctx              <- newTypeContext []
     (typed, complete) <- typeVarDefinition ctx tctx mod def

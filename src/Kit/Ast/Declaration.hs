@@ -1,6 +1,7 @@
 module Kit.Ast.Declaration where
 
 import Kit.Ast.Definitions
+import Kit.Ast.TypePath
 import Kit.Ast.UsingType
 import Kit.Parser.Span
 import Kit.Str
@@ -16,13 +17,12 @@ data Declaration a b
   | DeclTuple b
   deriving (Eq, Show)
 
-
 declName :: (Show b) => Declaration a b -> Str
-declName (DeclVar      v) = varName v
-declName (DeclFunction v) = functionName v
-declName (DeclType     v) = typeName v
-declName (DeclTrait    v) = traitName v
+declName (DeclVar      v) = tpName $ varName v
+declName (DeclFunction v) = tpName $ functionName v
+declName (DeclType     v) = tpName $ typeName v
+declName (DeclTrait    v) = tpName $ traitName v
 declName (DeclImpl     v) = "()"
-declName (DeclRuleSet  v) = ruleSetName v
+declName (DeclRuleSet  v) = tpName $ ruleSetName v
 declName (DeclTuple    b) = s_pack $ show b
 declName (DeclUsing    v) = "()"

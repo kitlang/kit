@@ -48,8 +48,8 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
 
     case et of
       (Block children) -> do
-        children' <- forM children $ \child -> do
-          temps  <- mapM r $ tTemps child
+        children' <- forMWithErrors children $ \child -> do
+          temps  <- mapMWithErrors r $ tTemps child
           result <- r child
           return $ temps ++ [result]
         return $ IrBlock $ foldr (++) [] children'
@@ -64,37 +64,31 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
         _ -> return (IrLiteral (FloatValue v f))
       (Literal (StringValue s)) -> return $ IrLiteral (StringValue s)
       (Literal (BoolValue   b)) -> return $ IrLiteral (BoolValue b)
-      (This                   ) -> return $ IrIdentifier "__this"
+      (This                   ) -> return $ IrIdentifier ([], "__this")
       (Self                   ) -> throw $ KitError $ BasicError
         ("unexpected `Self` in typed AST")
         (Just pos)
-      (Identifier (Var v) namespace) -> case t of
+      (Identifier (Var v)) -> case t of
         TypeTypeOf x -> throwk $ BasicError
           "Names of types can't be used as runtime values"
           (Just pos)
         TypeFunction rt args varargs params | not (null params) -> do
           -- generic function
           tctx   <- modTypeContext ctx mod
-          params <- mapM (mapType $ follow ctx tctx) params
-          return $ IrIdentifier $ mangleName ctx namespace $ monomorphName
-            ctx
-            v
-            params
-        _ -> return $ IrIdentifier (mangleName ctx namespace v)
-      (Method e1 (modPath, typeName) name) -> case t of
+          params <- mapMWithErrors (mapType $ follow ctx tctx) params
+          return $ IrIdentifier $ monomorphName v params
+        _ -> return $ IrIdentifier v
+      (Method e1 tp name) -> case t of
         TypeFunction rt args varargs params -> do
           tctx   <- modTypeContext ctx mod
-          params <- forM params $ mapType $ follow ctx tctx
-          return
-            $ IrIdentifier
-            $ mangleName ctx (modPath ++ [monomorphName ctx typeName params])
-            $ name
-      (Identifier     (MacroVar v _) _) -> return $ IrIdentifier v
-      (TypeAnnotation e1             t) -> throw $ KitError $ BasicError
+          params <- forMWithErrors params $ mapType $ follow ctx tctx
+          return $ IrIdentifier $ subPath (monomorphName tp params) $ name
+      (Identifier (MacroVar v _)) -> return $ IrIdentifier ([], v)
+      (TypeAnnotation e1 t      ) -> throw $ KitError $ BasicError
         ("unexpected type annotation in typed AST")
         (Just pos)
       (PreUnop Ref (TypedExpr { tExpr = This })) -> do
-        return $ IrIdentifier thisPtrName
+        return $ IrIdentifier ([], thisPtrName)
       (PreUnop op e1) -> do
         r1 <- r e1
         return $ IrPreUnop op r1
@@ -117,9 +111,9 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
               [t1, t2]
         case maxFloat of
           64 -> do
-            return $ IrCall (IrIdentifier "fmod") [r1, r2]
+            return $ IrCall (IrIdentifier ([], "fmod")) [r1, r2]
           32 -> do
-            return $ IrCall (IrIdentifier "fmodf") [r1, r2]
+            return $ IrCall (IrIdentifier ([], "fmodf")) [r1, r2]
           _ -> return $ IrBinop Mod r1 r2
       (Binop Eq (TypedExpr { tExpr = Literal (StringValue s) }) e2) -> do
         r2 <- r e2
@@ -131,13 +125,13 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
         r1 <- r e1
         r2 <- r e2
         return $ IrBinop op r1 r2
-      (For e1@(TypedExpr { tExpr = Identifier (Var id) [] }) (TypedExpr { tExpr = RangeLiteral eFrom eTo }) e3)
+      (For e1@(TypedExpr { tExpr = Identifier (Var id) }) (TypedExpr { tExpr = RangeLiteral eFrom eTo }) e3)
         -> do
           t     <- findUnderlyingType ctx mod (Just $ tPos e1) (inferredType e1)
           rFrom <- r eFrom
           rTo   <- r eTo
           r3    <- r e3
-          return $ IrFor id t rFrom rTo r3
+          return $ IrFor (tpName id) t rFrom rTo r3
       (For   e1 e2 e3) -> return $ undefined -- TODO
       (While e1 e2 d ) -> do
         r1 <- r e1
@@ -161,7 +155,7 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
         case matchType of
           BasicTypeComplexEnum _ -> do
             -- complex match with ADT
-            cases' <- forM cases $ \c -> do
+            cases' <- forMWithErrors cases $ \c -> do
               (conditions, exprs) <- patternMatch ctx
                                                   mod
                                                   r
@@ -201,7 +195,7 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
                 (Just pos)
           _ -> do
             -- simple match
-            cases' <- forM cases $ \c -> do
+            cases' <- forMWithErrors cases $ \c -> do
               pattern <- r $ matchPattern c
               body    <- r $ matchBody c
               return (pattern, body)
@@ -226,14 +220,14 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
       (InlineCall e1   ) -> return $ undefined -- TODO
       (Field e1 (Var v)) -> do
         r1 <- r e1
-        return $ IrField r1 v
+        return $ IrField r1 (tpName v)
       (Field e1 (MacroVar v _)) -> throwk $ InternalError
         ("unexpected macro var (" ++ (s_unpack v) ++ ") in typed AST")
         (Just pos)
       (ArrayAccess e1 e2  ) -> return $ undefined -- TODO
       (Call        e1 args) -> do
         r1    <- r e1
-        args' <- mapM r args
+        args' <- mapMWithErrors r args
         return $ IrCall r1 args'
       (Cast e1 t2) -> do
         r1  <- r e1
@@ -244,11 +238,11 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
       (RangeLiteral e1 e2) -> throwk
         $ BasicError ("unexpected range literal in typed AST") (Just pos)
       (VectorLiteral items) -> do
-        items' <- mapM r items
+        items' <- mapMWithErrors r items
         return $ IrCArrLiteral items'
       (VarDeclaration (Var name) ts def) -> do
         def <- maybeR def
-        return $ IrVarDeclaration name f def
+        return $ IrVarDeclaration (tpName name) f def
       (VarDeclaration (MacroVar v _) _ _) -> do
         throwk $ BasicError
           ("unexpected macro var (" ++ (s_unpack v) ++ ") in typed AST")
@@ -256,42 +250,32 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
       (Defer x) -> do
         throwk $ InternalError "Not yet implemented" (Just pos)
       (StructInit t fields) -> do
-        resolvedFields <- forM
+        resolvedFields <- forMWithErrors
           fields
           (\(name, e1) -> do
             r1 <- r e1
             return (name, r1)
           )
         return $ IrStructInit f resolvedFields
-      (EnumInit (TypeInstance tp p) d args) -> do
-        discriminant <- enumDiscriminantName ctx tp p d
-        resolvedArgs <- forM args $ \(name, x) -> do
+      (EnumInit (TypeInstance tp p) discriminant args) -> do
+        tctx           <- modTypeContext ctx mod
+        resolvedParams <- forM p $ mapType $ follow ctx tctx
+        let disc = if null $ tpNamespace discriminant
+              then discriminant
+              else subPath (monomorphName tp resolvedParams)
+                           (tpName discriminant)
+        resolvedArgs <- forMWithErrors args $ \(name, x) -> do
           x <- r x
           return (name, x)
-        f' <- case f of
-          BasicTypeComplexEnum n -> do
-            return $ BasicTypeComplexEnum n
-          f -> return f
-        return $ IrEnumInit f' discriminant resolvedArgs
-      (EnumDiscriminant x) -> do
-        r1       <- r x
-        enumType <- findUnderlyingType ctx mod (Just pos) (inferredType x)
-        case enumType of
-          BasicTypeSimpleEnum  _ -> return r1
-          BasicTypeAnonEnum    _ -> return r1
-          BasicTypeComplexEnum _ -> return $ IrField r1 discriminantFieldName
+        return $ IrEnumInit f disc resolvedArgs
       (EnumField x variantName fieldName) -> do
         r1 <- r x
         let (TypeInstance tp params) = inferredType x
-        variantName <- enumDiscriminantName ctx tp params variantName
         return
-          $ IrField
-              ( IrField (IrField r1 variantFieldName)
-              $ discriminantMemberName variantName
-              )
+          $ IrField (IrField (IrField r1 variantFieldName) variantName)
           $ fieldName
       (TupleInit slots) -> do
-        resolvedSlots <- forM
+        resolvedSlots <- forMWithErrors
           slots
           (\s -> do
             r1 <- r s
@@ -301,24 +285,25 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
       (TupleSlot x slot) -> do
         r1 <- r x
         return $ IrField r1 (s_pack $ "__slot" ++ show slot)
-      (Box (TraitImplementation { implTrait = TypeTraitConstraint ((modPath, traitName), params), implFor = for, implMod = implMod }) e1)
+      (Box i@(TraitImplementation { implTrait = TypeTraitConstraint ((modPath, traitName), params) }) e1)
         -> do
           r1     <- r e1
-          for    <- findUnderlyingType ctx mod (Just pos) for
+          for    <- findUnderlyingType ctx mod (Just pos) $ implFor i
           tctx   <- modTypeContext ctx mod
-          params <- forM params $ mapType (follow ctx tctx)
-          let name       = monomorphName ctx traitName params
-          let structName = (mangleName ctx (modPath ++ [name]) "box")
-          -- TODO: fix name
-          let implName =
-                (mangleName ctx
-                            (modPath ++ [name, "impl"] ++ implMod)
-                            (s_pack $ basicTypeAbbreviation for)
-                )
+          params <- forMWithErrors params $ mapType (follow ctx tctx)
+          let structName =
+                subPath (monomorphName (modPath, traitName) params) "box"
           return $ IrStructInit
             (BasicTypeStruct structName)
-            [ (valuePointerName , (IrPreUnop Ref r1))
-            , (vtablePointerName, IrPreUnop Ref (IrIdentifier implName))
+            [ (valuePointerName, (IrPreUnop Ref r1))
+            , ( vtablePointerName
+              , IrPreUnop
+                Ref
+                (IrIdentifier $ monomorphName
+                  (monomorphName (modPath, traitName) params)
+                  [implFor i]
+                )
+              )
             ]
       (Box t _) -> throwk $ InternalError
         ("Invalid boxed implementation: " ++ show t)

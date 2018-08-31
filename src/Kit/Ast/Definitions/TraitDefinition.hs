@@ -13,7 +13,7 @@ import Kit.Parser.Span
 import Kit.Str
 
 data TraitDefinition a b = TraitDefinition {
-  traitName :: Str,
+  traitName :: TypePath,
   traitPos :: Span,
   traitDoc :: Maybe Str,
   traitMeta :: [Metadata],
@@ -23,8 +23,8 @@ data TraitDefinition a b = TraitDefinition {
   traitMethods :: [FunctionDefinition a b]
 } deriving (Eq, Show)
 
-traitSubPath :: ModulePath -> TraitDefinition a b -> Str -> TypePath
-traitSubPath mp def s = (mp ++ [traitName def], s)
+traitSubPath :: TraitDefinition a b -> Str -> TypePath
+traitSubPath def s = subPath (traitName def) s
 
 newTraitDefinition = TraitDefinition
   { traitName      = undefined
@@ -40,12 +40,10 @@ newTraitDefinition = TraitDefinition
 convertTraitDefinition
   :: (Monad m)
   => ParameterizedConverter m a b c d
-  -> ModulePath
   -> TraitDefinition a b
   -> m (TraitDefinition c d)
-convertTraitDefinition paramConverter mp t = do
-  let params =
-        [ traitSubPath mp t $ paramName param | param <- traitParams t ]
+convertTraitDefinition paramConverter t = do
+  let params = [ traitSubPath t $ paramName param | param <- traitParams t ]
   let
     converter@(Converter { exprConverter = exprConverter, typeConverter = typeConverter })
       = paramConverter params
@@ -54,8 +52,7 @@ convertTraitDefinition paramConverter mp t = do
   methods <- forM
     (traitMethods t)
     (\f -> convertFunctionDefinition methodParamConverter
-                                     (mp ++ [traitName t])
-                                     f
+      $ f { functionName = traitSubPath t (tpName $ functionName f) }
     )
   return $ (newTraitDefinition) { traitName      = traitName t
                                 , traitPos       = traitPos t

@@ -41,6 +41,8 @@ patternMatch ctx mod typer pattern t ex = do
   case tExpr pattern of
     EnumInit (TypeInstance tp@(modPath, typeName) params) discriminant args ->
       do
+        tctx           <- modTypeContext ctx mod
+        resolvedParams <- forM params $ mapType $ follow ctx tctx
         let
           enumDiscriminant = case t of
             BasicTypeSimpleEnum  _ -> ex
@@ -48,18 +50,19 @@ patternMatch ctx mod typer pattern t ex = do
             BasicTypeComplexEnum _ -> (IrField ex discriminantFieldName)
             _ -> throwk $ InternalError "Unexpected value used as enum"
                                         (Just $ tPos pattern)
-        discriminant' <- enumDiscriminantName ctx tp params discriminant
         let enumField fieldName = IrField
               ( IrField (IrField ex variantFieldName)
-              $ discriminantMemberName discriminant'
+              $ discriminantMemberName discriminant
               )
               fieldName
         def <- getTypeDefinition ctx modPath typeName
         case typeSubtype def of
           Enum { enumVariants = variants } -> do
-            let
-              variant =
-                find (\variant -> variantName variant == discriminant) variants
+            let variant = find
+                  (\variant ->
+                    (tpName $ variantName variant) == tpName discriminant
+                  )
+                  variants
             case variant of
               Just variant -> do
                 args' <-
@@ -68,10 +71,9 @@ patternMatch ctx mod typer pattern t ex = do
                         modTctx <- modTypeContext ctx mod
                         let tctx = addTypeParams
                               modTctx
-                              [ ( typeSubPath modPath def $ paramName param
-                                , value
-                                )
-                              | (param, value) <- zip (typeParams def) params
+                              [ (typeSubPath def $ paramName param, value)
+                              | (param, value) <- zip (typeParams def)
+                                                      resolvedParams
                               ]
                         t  <- mapType (follow ctx tctx) $ argType arg
                         at <- findUnderlyingType ctx mod (Just $ tPos pattern) t
@@ -82,14 +84,22 @@ patternMatch ctx mod typer pattern t ex = do
                                      at
                                      (enumField $ argName arg)
                 return $ mergeResults
-                  ( ( [IrBinop Eq enumDiscriminant (IrIdentifier discriminant')]
+                  ( ( [ IrBinop
+                          Eq
+                          enumDiscriminant
+                          (IrIdentifier $ subPath
+                            (monomorphName (variantParent variant) resolvedParams
+                            )
+                            (tpName $ variantName variant)
+                          )
+                      ]
                     , []
                     )
                   : args'
                   )
     -- TODO: tuple destructure
     -- TODO: struct/union destructure
-    Identifier (Var x) [] -> do
+    Identifier (Var ([], x)) -> do
       return $ ([], [IrVarDeclaration x t (Just ex)])
     Literal (BoolValue   True ) -> return ([ex], [])
     Literal (BoolValue   False) -> return ([IrPreUnop Invert ex], [])

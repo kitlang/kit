@@ -157,9 +157,7 @@ defineTypedef ctx mod typeSpec pos (name, declr) = do
   case t' of
     TypeBasicType BasicTypeUnknown -> unknownTypeWarning ctx mod name pos
     _                              -> return ()
-  bindToScope (modScope mod)
-              name
-              (newBinding (modPath mod, name) (TypedefBinding) t' [] pos)
+  bindToScope (modScope mod) name (TypedefBinding t' pos)
 
 parseType :: ModulePath -> [CTypeSpec] -> [CDerivedDeclr] -> ConcreteType
 parseType m typeSpec declr =
@@ -249,7 +247,8 @@ addCDecl ctx mod name t pos = do
   let bindingData = case t of
         TypeFunction t argTypes isVariadic _ -> FunctionBinding
           (newFunctionDefinition
-            { functionName    = name
+            { functionName    = (modPath mod, name)
+            , functionMeta    = [metaExtern]
             , functionPos     = pos
             , functionType    = t
             , functionArgs    = [ newArgSpec { argName    = argName
@@ -262,15 +261,14 @@ addCDecl ctx mod name t pos = do
             }
           )
         _ -> VarBinding
-          (newVarDefinition { varName    = name
+          (newVarDefinition { varName    = (modPath mod, name)
+                            , varMeta    = [metaExtern]
                             , varPos     = pos
                             , varType    = t
                             , varDefault = Nothing
                             }
           )
-  bindToScope (modScope mod)
-              name
-              (newBinding (modPath mod, name) bindingData t [] pos)
+  bindToScope (modScope mod) name bindingData
   return ()
 
 isTypedef :: [CStorageSpec] -> Bool
@@ -289,77 +287,55 @@ defineNamedStructsEnumsUnions ctx mod pos (h : t) = do
             Just f  -> f
             Nothing -> []
       let fields =
-            [ (newVarDefinition) { varName      = fieldName
-                                 , varType      = fieldType
-                                 , varNamespace = []
+            [ (newVarDefinition) { varName = (modPath mod, fieldName)
+                                 , varType = fieldType
                                  }
             | field                  <- fields'
             , (fieldName, fieldType) <- decomposeStructField (modPath mod) field
             ]
       let typeDef =
             ((newTypeDefinition)
-              { typeName      = s_pack name
-              , typeNamespace = []
-              , typeSubtype   = if tag == CStructTag
+              { typeName    = (modPath mod, s_pack name)
+              , typeMeta    = [metaExtern]
+              , typeSubtype = if tag == CStructTag
                 then Struct {structFields = fields}
                 else Union {unionFields = fields}
               }
             )
-      bindToScope
-        (modScope mod)
-        (s_pack name)
-        (newBinding (modPath mod, s_pack name)
-                    (TypeBinding typeDef)
-                    (TypeInstance (modPath mod, s_pack name) [])
-                    []
-                    pos
-        )
+      bindToScope (modScope mod) (s_pack name) (TypeBinding typeDef)
       noisyDebugLog ctx $ "define struct " ++ name
     (CEnumType (CEnum (Just (Ident name _ _)) variants _ _) _) -> do
       let variants' = case variants of
             Just v  -> v
             Nothing -> []
       let
-        typeDef =
-          (((newTypeDefinition) :: TypeDefinition TypedExpr ConcreteType)
-            { typeName      = s_pack name
-            , typeNamespace = []
-            , typeSubtype   = Enum
-              { enumUnderlyingType = TypeBasicType BasicTypeVoid
-              , enumVariants       = [ newEnumVariant
-                                         { variantName = s_pack variantName
-                                         }
-                                     | (Ident variantName _ _, _) <- variants'
-                                     ]
+        typeDef
+          = (((newTypeDefinition) :: TypeDefinition TypedExpr ConcreteType)
+              { typeName    = (modPath mod, s_pack name)
+              , typeMeta    = [metaExtern]
+              , typeSubtype = Enum
+                { enumUnderlyingType = TypeBasicType BasicTypeVoid
+                , enumVariants       = [ newEnumVariant
+                                           { variantName = ([], s_pack variantName)
+                                           , variantMeta = [metaExtern]
+                                           }
+                                       | (Ident variantName _ _, _) <- variants'
+                                       ]
+                }
               }
-            }
-          )
+            )
       let ct = (TypeInstance (modPath mod, s_pack name) [])
-      bindToScope
-        (modScope mod)
-        (s_pack name)
-        (newBinding (modPath mod, s_pack name) (TypeBinding typeDef) ct [] pos)
+      bindToScope (modScope mod) (s_pack name) (TypeBinding typeDef)
       noisyDebugLog ctx $ "define enum " ++ name
       forM_
         (enumVariants $ typeSubtype typeDef)
         (\variant -> do
-          bindToScope
-            (modScope mod)
-            (variantName variant)
-            (newBinding
-              (modPath mod, s_pack name)
-              (EnumConstructor variant)
-              (TypeEnumConstructor (modPath mod, typeName typeDef)
-                                   (variantName variant)
-                                   []
-                                   []
-              )
-              []
-              pos
-            )
+          bindToScope (modScope mod)
+                      (tpName $ variantName variant)
+                      (EnumConstructor variant)
           noisyDebugLog ctx
             $  "define enum constructor "
-            ++ (s_unpack $ variantName variant)
+            ++ (s_unpack $ tpName $ variantName variant)
         )
     _ -> return ()
   defineNamedStructsEnumsUnions ctx mod pos t

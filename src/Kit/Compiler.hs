@@ -115,7 +115,7 @@ compile ctx = do
     Generate header and code files from IR.
   -}
   printLog "generating code"
-  generateCode ctx ir
+  generated <- generateCode ctx ir
 
   {-
     Compile the generated code.
@@ -126,7 +126,7 @@ compile ctx = do
       return Nothing
     else do
       printLog "compiling"
-      compileCode ctx
+      compileCode ctx generated
 
   printLog "finished"
 

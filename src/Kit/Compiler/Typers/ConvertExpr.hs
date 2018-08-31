@@ -89,13 +89,13 @@ convertExpr ctx tctx mod e = do
       return $ m (Literal (BoolValue b)) (TypeBasicType BasicTypeBool)
     This -> container0 This
     Self -> container0 Self
-    Identifier Hole            namespace -> container0 (Identifier Hole namespace)
-    Identifier (Var id       ) namespace -> container0 (Identifier (Var id) namespace)
-    Identifier (MacroVar id t) namespace -> do
+    Identifier Hole            -> container0 (Identifier Hole)
+    Identifier (Var id       ) -> container0 (Identifier (Var id))
+    Identifier (MacroVar id t) -> do
       t <- case t of
         Just x  -> resolveType ctx tctx mod x
         Nothing -> return $ TypeBasicType BasicTypeUnknown
-      return $ m (Identifier (MacroVar id t) namespace) t
+      return $ m (Identifier (MacroVar id t)) t
     TypeAnnotation e1 t -> do
       t  <- typeOrTypeVar t
       r1 <- r e1

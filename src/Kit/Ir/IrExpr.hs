@@ -8,7 +8,7 @@ data IrExpr
   = IrBlock [IrExpr]
   | IrCompound [IrExpr]
   | IrLiteral (ValueLiteral BasicType)
-  | IrIdentifier Str
+  | IrIdentifier TypePath
   | IrPreUnop Operator IrExpr
   | IrPostUnop Operator IrExpr
   | IrBinop Operator IrExpr IrExpr
@@ -25,7 +25,7 @@ data IrExpr
   | IrCArrLiteral [IrExpr]
   | IrVarDeclaration Str BasicType (Maybe IrExpr)
   | IrStructInit BasicType [(Str, IrExpr)]
-  | IrEnumInit BasicType Str [(Str, IrExpr)]
+  | IrEnumInit BasicType TypePath [(Str, IrExpr)]
   | IrTupleInit BasicType [IrExpr]
   | IrSizeOf BasicType
   | IrSwitch IrExpr [(IrExpr, IrExpr)] (Maybe IrExpr)

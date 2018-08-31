@@ -15,7 +15,7 @@ import Kit.Parser.Span
 import Kit.Str
 
 data TypeDefinition a b = TypeDefinition {
-  typeName :: Str,
+  typeName :: TypePath,
   typePos :: Span,
   typeDoc :: Maybe Str,
   typeMeta :: [Metadata],
@@ -25,12 +25,11 @@ data TypeDefinition a b = TypeDefinition {
   typeStaticMethods :: [FunctionDefinition a b],
   typeRules :: [RewriteRule a b],
   typeSubtype :: TypeDefinitionType a b,
-  typeParams :: [TypeParam],
-  typeNamespace :: [Str]
+  typeParams :: [TypeParam]
 } deriving (Eq, Show)
 
-typeSubPath :: ModulePath -> TypeDefinition a b -> Str -> TypePath
-typeSubPath mp def s = (mp ++ [typeName def], s)
+typeSubPath :: TypeDefinition a b -> Str -> TypePath
+typeSubPath def s = subPath (typeName def) s
 
 data TypeDefinitionType a b
   = Atom
@@ -51,7 +50,6 @@ newTypeDefinition = TypeDefinition
   , typeRules         = []
   , typeParams        = []
   , typeSubtype       = undefined
-  , typeNamespace     = []
   , typePos           = NoPos
   }
 
@@ -70,12 +68,10 @@ implicitifyInstanceMethods thisName thisType body def = def
 convertTypeDefinition
   :: (Monad m)
   => ParameterizedConverter m a b c d
-  -> ModulePath
   -> TypeDefinition a b
   -> m (TypeDefinition c d)
-convertTypeDefinition paramConverter modPath t = do
-  let params =
-        [ typeSubPath modPath t $ paramName param | param <- typeParams t ]
+convertTypeDefinition paramConverter t = do
+  let params = [ typeSubPath t $ paramName param | param <- typeParams t ]
   let
     (converter@(Converter { exprConverter = exprConverter, typeConverter = typeConverter }))
       = paramConverter params
@@ -92,24 +88,35 @@ convertTypeDefinition paramConverter modPath t = do
     Enum { enumVariants = variants, enumUnderlyingType = t' } -> do
       variants       <- forM variants (convertEnumVariant converter)
       underlyingType <- typeConverter (typePos t) t'
-      return
-        $ Enum {enumVariants = variants, enumUnderlyingType = underlyingType}
+      return $ Enum
+        { enumVariants       = [ variant
+                                   { variantName   = typeSubPath t
+                                     $ tpName
+                                     $ variantName variant
+                                   , variantParent = typeName t
+                                   }
+                               | variant <- variants
+                               ]
+        , enumUnderlyingType = underlyingType
+        }
     Abstract { abstractUnderlyingType = ut } -> do
       u <- typeConverter (typePos t) ut
       return $ Abstract {abstractUnderlyingType = u}
 
-  staticFields  <- forM (typeStaticFields t) (convertVarDefinition converter)
+  staticFields <- forM
+    (typeStaticFields t)
+    (\v -> convertVarDefinition converter
+      $ v { varName = typeSubPath t (tpName $ varName v) }
+    )
   staticMethods <- forM
     (typeStaticMethods t)
     (\f -> convertFunctionDefinition methodParamConverter
-                                     (modPath ++ [typeName t])
-                                     f
+      $ f { functionName = typeSubPath t (tpName $ functionName f) }
     )
   instanceMethods <- forM
     (typeMethods t)
     (\f -> convertFunctionDefinition methodParamConverter
-                                     (modPath ++ [typeName t])
-                                     f
+      $ f { functionName = typeSubPath t (tpName $ functionName f) }
     )
 
   -- since they are untyped, rulesets will not be converted and will be lost
@@ -118,7 +125,6 @@ convertTypeDefinition paramConverter modPath t = do
                                , typeMeta          = typeMeta t
                                , typeModifiers     = typeModifiers t
                                , typeParams        = typeParams t
-                               , typeNamespace     = typeNamespace t
                                , typeSubtype       = newType
                                , typePos           = typePos t
                                , typeStaticFields  = staticFields

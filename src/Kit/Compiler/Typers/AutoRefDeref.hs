@@ -47,7 +47,7 @@ autoRefDeref ctx tctx toType fromType original temps ex = do
           tmp <- makeTmpVar (head $ tctxScopes tctx)
           let temp =
                 (makeExprTyped
-                  (VarDeclaration (Var tmp)
+                  (VarDeclaration (Var ([], tmp))
                                   (inferredType ex)
                                   (Just $ ex { tTemps = [] })
                   )
@@ -55,7 +55,7 @@ autoRefDeref ctx tctx toType fromType original temps ex = do
                   (tPos ex)
                 )
           autoRefDeref ctx tctx a b original (temp : temps)
-            $ (makeExprTyped (Identifier (Var tmp) [])
+            $ (makeExprTyped (Identifier (Var ([], tmp)))
                              (inferredType ex)
                              (tPos ex)
               ) { tIsLvalue = True

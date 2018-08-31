@@ -18,20 +18,20 @@ spec = parallel $ do
   describe "Parse expressions" $ do
     it "parses identifiers" $ do
       testParseExpr "apple"
-        `shouldBe` (pe (sp "" 1 1 1 5) $ Identifier (Var "apple") [])
+        `shouldBe` (pe (sp "" 1 1 1 5) $ Identifier $ Var ([], "apple"))
       testParseExpr "this" `shouldBe` (pe (sp "" 1 1 1 4) $ This)
       testParseExpr "Self" `shouldBe` (pe (sp "" 1 1 1 4) $ Self)
 
     it "parses type annotations" $ do
       testParseExpr "x : T"
         `shouldBe` (pe (sp "" 1 1 1 5) $ TypeAnnotation
-                     (pe (sp "" 1 1 1 1) $ Identifier (Var "x") [])
+                     (pe (sp "" 1 1 1 1) $ Identifier $ Var ([], "x"))
                      (Just $ TypeSpec (([], "T")) [] NoPos)
                    )
 
       testParseExpr "x : T[A, B, C, D[E]]"
         `shouldBe` (pe (sp "" 1 1 1 20) $ TypeAnnotation
-                     (pe (sp "" 1 1 1 1) $ Identifier (Var "x") [])
+                     (pe (sp "" 1 1 1 1) $ Identifier $ Var ([], "x"))
                      (Just $ TypeSpec
                        (([], "T"))
                        [ TypeSpec (([], "A")) [] NoPos
@@ -53,7 +53,7 @@ spec = parallel $ do
       testParseExpr "a = 1 + 2.0 * 'abc def'"
         `shouldBe` (pe (sp "" 1 1 1 23) $ Binop
                      Assign
-                     (e $ Identifier (Var "a") [])
+                     (e $ Identifier $ Var ([], "a"))
                      (e $ Binop
                        Add
                        (e $ Literal $ IntValue 1 Nothing)
@@ -106,7 +106,7 @@ spec = parallel $ do
     it "parses tuple type specs" $ do
       testParseExpr "__: (A, B, C)"
         `shouldBe` (pe (sp "" 1 1 1 13) $ TypeAnnotation
-                     (pe (sp "" 1 1 1 2) $ Identifier (Var "__") [])
+                     (pe (sp "" 1 1 1 2) $ Identifier $ Var ([], "__"))
                      (Just
                        (TupleTypeSpec
                          [ TypeSpec ([], "A") [] (sp "" 1 5 1 5)
@@ -121,7 +121,7 @@ spec = parallel $ do
     it "parses function type specs with no args" $ do
       testParseExpr "__: function () -> A"
         `shouldBe` (e $ TypeAnnotation
-                     (e $ Identifier (Var "__") [])
+                     (e $ Identifier $ Var ([], "__"))
                      (Just
                        (FunctionTypeSpec (TypeSpec ([], "A") [] NoPos)
                                          []
@@ -134,7 +134,7 @@ spec = parallel $ do
     it "parses function type specs with one arg" $ do
       testParseExpr "__: function (Int) -> A"
         `shouldBe` (e $ TypeAnnotation
-                     (e $ Identifier (Var "__") [])
+                     (e $ Identifier $ Var ([], "__"))
                      (Just
                        (FunctionTypeSpec (TypeSpec ([], "A") [] NoPos)
                                          [(TypeSpec ([], "Int") [] NoPos)]
@@ -147,7 +147,7 @@ spec = parallel $ do
     it "parses function type specs with args" $ do
       testParseExpr "__: function (Int, Float) -> A"
         `shouldBe` (e $ TypeAnnotation
-                     (e $ Identifier (Var "__") [])
+                     (e $ Identifier $ Var ([], "__"))
                      (Just
                        (FunctionTypeSpec
                          (TypeSpec ([], "A") [] NoPos)
@@ -163,7 +163,7 @@ spec = parallel $ do
     it "parses nested function type specs" $ do
       testParseExpr "__: function (function (A, B) -> C, Float) -> A"
         `shouldBe` (e $ TypeAnnotation
-                     (e $ Identifier (Var "__") [])
+                     (e $ Identifier $ Var ([], "__"))
                      (Just
                        (FunctionTypeSpec
                          (TypeSpec ([], "A") [] NoPos)
@@ -186,7 +186,7 @@ spec = parallel $ do
     it "parses variadic function type specs" $ do
       testParseExpr "__: function (Int, ...) -> A"
         `shouldBe` (e $ TypeAnnotation
-                     (e $ Identifier (Var "__") [])
+                     (e $ Identifier $ Var ([], "__"))
                      (Just
                        (FunctionTypeSpec (TypeSpec ([], "A") [] NoPos)
                                          [(TypeSpec ([], "Int") [] NoPos)]
@@ -235,7 +235,7 @@ spec = parallel $ do
                            Expr
                            (Maybe TypeSpec)
                        )
-                         { functionName      = "abc"
+                         { functionName      = ([], "abc")
                          , functionDoc       = Just "test"
                          , functionMeta      = [ Metadata
                                                    { metaName = "meta"
@@ -279,12 +279,12 @@ spec = parallel $ do
                                                ]
                          , functionType      = Just $ makeTypeSpec "Something"
                          , functionBody      = Just $ e $ Block
-                           [ e $ Call (e $ Identifier (Var "print") [])
-                                      [e $ Identifier (Var "a") []]
-                           , e $ Call (e $ Identifier (Var "print") [])
-                                      [e $ Identifier (Var "b") []]
-                           , e $ Call (e $ Identifier (Var "print") [])
-                                      [e $ Identifier (Var "c") []]
+                           [ e $ Call (e $ Identifier (Var ([], "print")))
+                                      [e $ Identifier (Var ([], "a"))]
+                           , e $ Call (e $ Identifier (Var ([], "print")))
+                                      [e $ Identifier (Var ([], "b"))]
+                           , e $ Call (e $ Identifier (Var ([], "print")))
+                                      [e $ Identifier (Var ([], "c"))]
                            ]
                          , functionVarargs   = True
                          }
@@ -318,7 +318,7 @@ spec = parallel $ do
     it "parses atoms" $ do
       testParse "atom MyAtom;"
         `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition)
-                       { typeName      = "MyAtom"
+                       { typeName      = ([], "MyAtom")
                        , typeSubtype   = Atom
                        , typeDoc       = Nothing
                        , typeMeta      = []
@@ -329,7 +329,7 @@ spec = parallel $ do
                    ]
       testParse "public atom MyAtom;"
         `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition)
-                       { typeName      = "MyAtom"
+                       { typeName      = ([], "MyAtom")
                        , typeSubtype   = Atom
                        , typeDoc       = Nothing
                        , typeMeta      = []
@@ -340,7 +340,7 @@ spec = parallel $ do
                    ]
       testParse "/** Doc*/ atom MyAtom;"
         `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition)
-                       { typeName      = "MyAtom"
+                       { typeName      = ([], "MyAtom")
                        , typeSubtype   = Atom
                        , typeDoc       = Just "Doc"
                        , typeMeta      = []
@@ -351,7 +351,7 @@ spec = parallel $ do
                    ]
       testParse "/** Doc*/ #[meta] public atom MyAtom;"
         `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition)
-                       { typeName      = "MyAtom"
+                       { typeName      = ([], "MyAtom")
                        , typeSubtype   = Atom
                        , typeDoc       = Just "Doc"
                        , typeMeta      = [ Metadata
@@ -373,7 +373,7 @@ spec = parallel $ do
             \    /**Abc*/ Strawberry = 1;\n\
             \}"
         `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition)
-                       { typeName      = "MyEnum"
+                       { typeName      = ([], "MyEnum")
                        , typeDoc       = Nothing
                        , typeMeta      = []
                        , typeModifiers = []
@@ -382,7 +382,8 @@ spec = parallel $ do
                        , typeSubtype   = Enum
                          { enumUnderlyingType = Just (makeTypeSpec "Float")
                          , enumVariants       = [ newEnumVariant
-                                                  { variantName      = "Apple"
+                                                  { variantName = ([], "Apple")
+                                                  , variantParent = ([], "MyEnum")
                                                   , variantDoc       = Nothing
                                                   , variantArgs      = []
                                                   , variantMeta      = []
@@ -390,8 +391,9 @@ spec = parallel $ do
                                                   , variantValue     = Nothing
                                                   }
                                                 , newEnumVariant
-                                                  { variantName      = "Banana"
-                                                  , variantDoc       = Nothing
+                                                  { variantName = ([], "Banana")
+                                                  , variantParent = ([], "MyEnum")
+                                                  , variantDoc = Nothing
                                                   , variantArgs = [ newArgSpec
                                                                       { argName = "i"
                                                                       , argType = Just
@@ -400,12 +402,13 @@ spec = parallel $ do
                                                                         )
                                                                       }
                                                                   ]
-                                                  , variantMeta      = []
+                                                  , variantMeta = []
                                                   , variantModifiers = []
-                                                  , variantValue     = Nothing
+                                                  , variantValue = Nothing
                                                   }
                                                 , newEnumVariant
-                                                  { variantName = "Strawberry"
+                                                  { variantName = ([], "Strawberry")
+                                                  , variantParent = ([], "MyEnum")
                                                   , variantDoc = Just "Abc"
                                                   , variantArgs = []
                                                   , variantMeta = []
@@ -429,24 +432,23 @@ spec = parallel $ do
             \    static function jkl() {}\n\
             \}"
         `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition)
-                       { typeName          = "MyStruct"
+                       { typeName          = ([], "MyStruct")
                        , typeDoc           = Nothing
                        , typeMeta          = []
                        , typeModifiers     = []
                        , typeRules         = []
                        , typeParams        = []
                        , typeStaticFields  = [ newVarDefinition
-                                                 { varName      = "ghi"
+                                                 { varName      = ([], "ghi")
                                                  , varDoc       = Nothing
                                                  , varMeta      = []
                                                  , varModifiers = [Static]
                                                  , varType      = Nothing
                                                  , varDefault   = Nothing
-                                                 , varNamespace = []
                                                  }
                                              ]
                        , typeStaticMethods = [ newFunctionDefinition
-                                                 { functionName      = "jkl"
+                                                 { functionName = ([], "jkl")
                                                  , functionDoc       = Nothing
                                                  , functionMeta      = []
                                                  , functionModifiers = [Static]
@@ -456,7 +458,6 @@ spec = parallel $ do
                                                  , functionBody      = Just
                                                    (e $ Block [])
                                                  , functionVarargs   = False
-                                                 , functionNamespace = []
                                                  , functionThis      = Nothing
                                                  , functionSelf      = Nothing
                                                  }
@@ -466,7 +467,7 @@ spec = parallel $ do
                                                 Expr
                                                 (Maybe TypeSpec)
                                             )
-                                            { varName      = "abc"
+                                            { varName      = ([], "abc")
                                             , varDoc       = Nothing
                                             , varMeta      = []
                                             , varModifiers = []
@@ -477,7 +478,7 @@ spec = parallel $ do
                                                 Expr
                                                 (Maybe TypeSpec)
                                             )
-                                            { varName      = "def"
+                                            { varName      = ([], "def")
                                             , varDoc       = Nothing
                                             , varMeta      = []
                                             , varModifiers = [Public]
@@ -488,7 +489,7 @@ spec = parallel $ do
                                                 Expr
                                                 (Maybe TypeSpec)
                                             )
-                                            { varName      = "ghi"
+                                            { varName      = ([], "ghi")
                                             , varDoc       = Just "test "
                                             , varMeta      = [ Metadata
                                                                  { metaName = "meta"

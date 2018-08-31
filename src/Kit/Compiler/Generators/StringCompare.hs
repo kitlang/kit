@@ -8,7 +8,7 @@ stringCompare :: IrExpr -> Str -> IrExpr
 stringCompare ex s = IrBinop
   Eq
   (IrCall
-    (IrIdentifier "strncmp")
+    (IrIdentifier ([], "strncmp"))
     [ ex
     , IrLiteral $ StringValue s
     , IrLiteral $ IntValue (fromIntegral $ s_length s) BasicTypeCInt

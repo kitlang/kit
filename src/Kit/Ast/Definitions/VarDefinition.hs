@@ -6,20 +6,24 @@ import Kit.Ast.Definitions.Base
 import Kit.Ast.Metadata
 import Kit.Ast.Modifier
 import Kit.Ast.ModulePath
+import Kit.Ast.TypePath
 import Kit.Ast.TypeSpec
 import Kit.Parser.Span
 import Kit.Str
 
 data VarDefinition a b = VarDefinition {
-  varName :: Str,
+  varName :: TypePath,
   varPos :: Span,
   varDoc :: Maybe Str,
   varMeta :: [Metadata],
   varModifiers :: [Modifier],
   varType :: b,
-  varDefault :: Maybe a,
-  varNamespace :: [Str]
+  varDefault :: Maybe a
 } deriving (Eq, Show)
+
+varRealName f = if hasMeta "extern" (varMeta f)
+  then ([], tpName $ varName f)
+  else varName f
 
 newVarDefinition :: VarDefinition a b
 newVarDefinition = VarDefinition
@@ -29,7 +33,6 @@ newVarDefinition = VarDefinition
   , varModifiers = [Public]
   , varType      = undefined
   , varDefault   = Nothing
-  , varNamespace = []
   , varPos       = NoPos
   }
 
@@ -48,6 +51,5 @@ convertVarDefinition (Converter { exprConverter = exprConverter, typeConverter =
                                 , varModifiers = varModifiers v
                                 , varType      = newType
                                 , varDefault   = newDefault
-                                , varNamespace = varNamespace v
                                 , varPos       = varPos v
                                 }

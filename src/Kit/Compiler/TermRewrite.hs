@@ -84,24 +84,24 @@ ruleMatch pattern te thisType typeResolver = do
         (Just [])
   let r x y = ruleMatch x y thisType typeResolver
   case (expr pattern, tExpr te) of
-    (Identifier (MacroVar x (Just t)) [], y) -> do
+    (Identifier (MacroVar x (Just t)), y) -> do
       -- ${var: type} - match and bind only if the type matches
       macroVarType <- typeResolver t
       if macroVarType == inferredType te
         then return $ Just [(x, te)]
         else return Nothing
-    (Identifier (MacroVar "this" Nothing) [], y) -> case thisType of
+    (Identifier (MacroVar "this" Nothing), y) -> case thisType of
       -- $this - match and bind if type matches "this" in context
       Just thisType -> if thisType == inferredType te
         then return $ Just [("this", te)]
         else return Nothing
       Nothing -> return $ Just [("this", te)]
-    (Identifier (MacroVar x Nothing) [], y) ->
+    (Identifier (MacroVar x Nothing), y) ->
       -- $var - match and bind anything
       return $ Just [(x, te)]
-    (Identifier (Var x) n, Identifier (Var y) m) ->
-      return $ if (x, n) == (y, m) then Just [] else Nothing
-    (Identifier _ _, Identifier _ _) -> return Nothing
+    (Identifier (Var x), Identifier (Var y)) ->
+      return $ if x == y then Just [] else Nothing
+    (Identifier _, Identifier _) -> return Nothing
     (Literal a, Literal b) -> return $ if valueEq a b then Just [] else Nothing
     (Binop op1 a b, Binop op2 c d) -> if op1 == op2
       then do

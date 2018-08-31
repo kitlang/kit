@@ -37,16 +37,14 @@ generateMonomorphs ctx = do
         h_insert (ctxCompleteGenerics ctx) (tp, params) ()
         definitionMod <- getMod ctx modPath
         binding       <- scopeGet (modScope definitionMod) name
-        case bindingType binding of
+        case binding of
           FunctionBinding def -> do
             x <- typeFunctionMonomorph ctx definitionMod def params
             return $ case x of
               (Just (DeclFunction x), _) -> Just
                 ( definitionMod
                 , [ DeclFunction $ x
-                      { functionName = monomorphName ctx
-                                                     (functionName def)
-                                                     params
+                      { functionName = monomorphName (functionName def) params
                       }
                   ]
                 )
@@ -58,7 +56,7 @@ generateMonomorphs ctx = do
               (Just (DeclType x), _) -> Just
                 ( definitionMod
                 , [ DeclType
-                      $ x { typeName = monomorphName ctx (typeName def) params }
+                      $ x { typeName = monomorphName (typeName def) params }
                   ]
                 )
               _ -> Nothing
@@ -68,9 +66,8 @@ generateMonomorphs ctx = do
             return $ case x of
               (Just (DeclTrait x), _) -> Just
                 ( definitionMod
-                , [ DeclTrait $ x
-                      { traitName = monomorphName ctx (traitName def) params
-                      }
+                , [ DeclTrait
+                      $ x { traitName = monomorphName (traitName def) params }
                   ]
                 )
               _ -> Nothing

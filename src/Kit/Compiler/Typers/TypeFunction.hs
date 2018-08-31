@@ -28,11 +28,7 @@ typeFunction
   -> FunctionDefinition TypedExpr ConcreteType
   -> IO (Maybe TypedDecl, Bool)
 typeFunction ctx mod f = do
-  debugLog ctx
-    $  "typing function "
-    ++ s_unpack (functionName f)
-    ++ " in "
-    ++ show mod
+  debugLog ctx $ "typing function " ++ s_unpack (showTypePath $ functionName f)
   tctx              <- modTypeContext ctx mod
   (typed, complete) <- typeFunctionDefinition ctx tctx mod f
   --modifyIORef (modTypedContents mod) ((:) $ DeclFunction typed)
@@ -51,14 +47,14 @@ typeFunctionMonomorph
 typeFunctionMonomorph ctx mod f params = do
   debugLog ctx
     $  "generating function monomorph for "
-    ++ s_unpack (functionName f)
+    ++ s_unpack (showTypePath $ functionName f)
     ++ " with params "
     ++ show params
     ++ " in "
     ++ show mod
   tctx <- modTypeContext ctx mod
   let tctx' = tctx
-        { tctxTypeParams = [ (functionSubPath (modPath mod) f $ paramName param, ct)
+        { tctxTypeParams = [ (functionSubPath f $ paramName param, ct)
                            | (param, ct) <- zip (functionParams f) params
                            ]
         }
@@ -74,8 +70,9 @@ typeFunctionDefinition
 typeFunctionDefinition ctx tctx' mod f = do
   let fPos = functionPos f
   let isMain =
-        (functionName f == "main") && (ctxMainModule ctx == modPath mod) && not
-          (ctxIsLibrary ctx)
+        (functionName f == ([], "main"))
+          && (ctxMainModule ctx == modPath mod)
+          && not (ctxIsLibrary ctx)
   functionScope <- newScope (modPath mod)
   let tctx = tctx' { tctxScopes = functionScope : tctxScopes tctx' }
 
@@ -87,16 +84,10 @@ typeFunctionDefinition ctx tctx' mod f = do
     (\arg -> bindToScope
       functionScope
       (argName arg)
-      (newBinding
-        ([], argName arg)
-        (VarBinding $ newVarDefinition { varName = argName arg
-                                       , varType = argType arg
-                                       , varPos  = argPos arg
-                                       }
-        )
-        (argType arg)
-        []
-        (argPos arg)
+      (VarBinding $ newVarDefinition { varName = ([], argName arg)
+                                     , varType = argType arg
+                                     , varPos  = argPos arg
+                                     }
       )
     )
   returnType <- follow ctx tctx $ functionType f
@@ -105,7 +96,7 @@ typeFunctionDefinition ctx tctx' mod f = do
               , tctxReturnType = Just returnType
               }
         )
-  body <- typeMaybeExpr ctx ftctx mod (functionBody f)
+  body        <- typeMaybeExpr ctx ftctx mod (functionBody f)
   unification <- unify ctx ftctx returnType voidType
   case unification of
     Just _ -> do
@@ -119,10 +110,9 @@ typeFunctionDefinition ctx tctx' mod f = do
         )
     _ -> return ()
   return
-    $ ( f { functionBody      = body
-          , functionArgs      = args
-          , functionType      = returnType
-          , functionNamespace = (if isMain then [] else functionNamespace f)
+    $ ( f { functionBody = body
+          , functionArgs = args
+          , functionType = returnType
           }
       , True
       )

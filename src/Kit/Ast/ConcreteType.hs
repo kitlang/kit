@@ -33,7 +33,7 @@ data ConcreteType
   | TypeBasicType BasicType
   | TypePtr ConcreteType
   | TypeArr ConcreteType (Maybe Int)
-  | TypeEnumConstructor TypePath Str ConcreteArgs [ConcreteType]
+  | TypeEnumConstructor TypePath TypePath ConcreteArgs [ConcreteType]
   | TypeRange
   | TypeTraitConstraint TraitConstraint
   | TypeTuple [ConcreteType]
@@ -61,7 +61,7 @@ instance Show ConcreteType where
   show (TypePtr t) = "Ptr[" ++ (show t) ++ "]"
   show (TypeArr t (Just i)) = "Arr[" ++ (show t) ++ "] of length " ++ (show i)
   show (TypeArr t Nothing) = "Arr[" ++ (show t) ++ "]"
-  show (TypeEnumConstructor tp d _ params) = "enum " ++ (show tp) ++ " constructor " ++ (s_unpack d) ++ "[" ++ (intercalate ", " (map show params)) ++ "]"
+  show (TypeEnumConstructor tp d _ params) = "enum " ++ (s_unpack $ showTypePath tp) ++ " constructor " ++ (s_unpack $ showTypePath d) ++ "[" ++ (intercalate ", " (map show params)) ++ "]"
   show (TypeRange) = "range"
   show (TypeTraitConstraint (tp, params)) = "trait " ++ s_unpack (showTypePath tp) ++ showParams params
   show (TypeTuple t) = "(" ++ intercalate ", " (map show t) ++ ")"
@@ -69,7 +69,7 @@ instance Show ConcreteType where
   show (TypeTypeVar i) = "type var #" ++ show i
   show (TypeTypeParam tp) = "type param " ++ s_unpack (showTypePath tp)
   show (TypeRuleSet tp) = "rules " ++ (s_unpack $ showTypePath tp)
-  show (TypeBox tp params) = "box: " ++ (s_unpack $ showTypePath tp) ++ showParams params
+  show (TypeBox tp params) = "Box[" ++ (s_unpack $ showTypePath tp) ++ showParams params ++ "]"
   show (TypeSelf) = "Self"
 
 -- concreteTypeAbbreviation t = case t of
@@ -146,6 +146,9 @@ mapType f (TypeEnumConstructor tp s args p) = do
 mapType f (TypeBox tp p) = do
   p' <- mapM f p
   f $ TypeBox tp p'
+mapType f (TypeTuple p) = do
+  p' <- mapM f p
+  f $ TypeTuple p'
 mapType f t = f t
 
 substituteParams

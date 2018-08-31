@@ -28,13 +28,21 @@ import Kit.Str
   Generates declarations in interediate representation for each typed module.
 -}
 generateIr
-  :: CompileContext -> [(Module, [TypedDecl])] -> IO [(Module, [IrDecl])]
+  :: CompileContext -> [(Module, [TypedDecl])] -> IO [(Module, [DeclBundle])]
 generateIr ctx modContent = forM modContent (generateModuleIr ctx)
 
 generateModuleIr
-  :: CompileContext -> (Module, [TypedDecl]) -> IO (Module, [IrDecl])
+  :: CompileContext -> (Module, [TypedDecl]) -> IO (Module, [DeclBundle])
 generateModuleIr ctx (mod, decls) = do
   debugLog ctx $ "generating IR for " ++ show mod
   decls  <- forM decls (generateDeclIr ctx mod)
   tuples <- h_toList (modTuples mod)
-  return (mod, [ DeclTuple t | (_, t) <- tuples ] ++ (foldr (++) [] decls))
+  return
+    ( mod
+    , [ DeclBundle ([], n)
+                   [DeclTuple t]
+                   (foldr (++) [] $ map (typeDeps True) parts)
+      | (_, t@(BasicTypeTuple n parts)) <- tuples
+      ]
+      ++ (foldr (++) [] decls)
+    )

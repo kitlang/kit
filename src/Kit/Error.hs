@@ -189,3 +189,18 @@ forMWithErrors l f = do
     else throwk $ KitErrors $ reverse $ fst results
 
 mapMWithErrors f l = forMWithErrors l f
+
+forMWithErrors_ :: [a] -> (a -> IO b) -> IO ()
+forMWithErrors_ l f = do
+  results <- foldM
+    (\errs x -> do
+      result <- try $ f x
+      case result of
+        Left err -> return $ err : errs
+        _        -> return errs
+    )
+    []
+    l
+  unless (null $ results) $ throwk $ KitErrors $ reverse results
+
+mapMWithErrors_ f l = forMWithErrors_ l f

@@ -140,7 +140,11 @@ spec = do
       (\(label, name, ct) -> it label $ do
         header  <- testHeader
         binding <- scopeGet (modScope header) name
-        bindingConcrete binding `shouldBe` ct
+        (case binding of
+            FunctionBinding f -> Just $ functionConcrete f
+            VarBinding      v -> Just $ varType v
+          )
+          `shouldBe` Just ct
       )
 
     forM_
@@ -148,21 +152,18 @@ spec = do
         , "Struct1"
         , TypeInstance (["c"], "Struct1") []
         , Just $ DeclType $ (newTypeDefinition)
-          { typeName      = "Struct1"
-          , typeNamespace = []
-          , typeSubtype   = Struct
+          { typeName    = ([], "Struct1")
+          , typeSubtype = Struct
             { structFields = [ newVarDefinition
-                               { varName      = "field1"
-                               , varNamespace = []
-                               , varType      = Just
+                               { varName = ([], "field1")
+                               , varType = Just
                                  $ ConcreteType
                                  $ TypeBasicType
                                  $ BasicTypeCChar
                                }
                              , newVarDefinition
-                               { varName      = "field2"
-                               , varNamespace = []
-                               , varType      = Just
+                               { varName = ([], "field2")
+                               , varType = Just
                                  $ ConcreteType
                                  $ TypeBasicType
                                  $ BasicTypeUint 16
@@ -183,22 +184,20 @@ spec = do
         , "Struct3"
         , TypeInstance (["c"], "Struct3") []
         , Just $ DeclType $ (newTypeDefinition)
-          { typeName      = "Struct3"
-          , typeNamespace = []
-          , typeSubtype   = Struct {structFields = []}
+          { typeName    = ([], "Struct3")
+          , typeSubtype = Struct {structFields = []}
           }
         )
       , ( "Parses enum definitions"
         , "Enum1"
         , TypeInstance (["c"], "Enum1") []
         , Just $ DeclType $ (newTypeDefinition)
-          { typeName      = "Enum1"
-          , typeNamespace = []
-          , typeSubtype   = Enum
-            { enumVariants       = [ newEnumVariant { variantName = "apple" }
-                                   , newEnumVariant { variantName = "banana" }
-                                   , newEnumVariant { variantName = "cherry" }
-                                   ]
+          { typeName    = ([], "Enum1")
+          , typeSubtype = Enum
+            { enumVariants = [ newEnumVariant { variantName = ([], "apple") }
+                             , newEnumVariant { variantName = ([], "banana") }
+                             , newEnumVariant { variantName = ([], "cherry") }
+                             ]
             , enumUnderlyingType = Nothing
             }
           }
@@ -213,11 +212,9 @@ spec = do
         header <- testHeader
         x      <- resolveLocal (modScope header) name
         (case x of
-            Just (Binding { bindingType = TypeBinding _, bindingConcrete = ct' })
-              -> Just ct'
-            Just (Binding { bindingType = TypedefBinding, bindingConcrete = ct' })
-              -> Just ct'
-            _ -> Nothing
+            Just (TypeBinding t      ) -> Just $ TypeInstance (typeName t) []
+            Just (TypedefBinding ct _) -> Just ct
+            _                          -> Nothing
           )
           `shouldBe` Just ct
       )

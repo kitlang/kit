@@ -6,6 +6,7 @@ import Data.List
 import Kit.Ast
 import Kit.Compiler.Binding
 import Kit.Compiler.Context
+import Kit.Compiler.Generators.NameMangling
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
@@ -30,14 +31,14 @@ typeType
   -> TypeDefinition TypedExpr ConcreteType
   -> IO (Maybe TypedDecl, Bool)
 typeType ctx mod def = do
-  debugLog ctx $ "typing " ++ s_unpack (typeName def) ++ " in " ++ show mod
+  debugLog ctx $ "typing type " ++ s_unpack (showTypePath $ typeName def)
   tctx    <- modTypeContext ctx mod
-  binding <- scopeGet (modScope mod) (typeName def)
+  binding <- scopeGet (modScope mod) (tpName $ typeName def)
   typeTypeDefinition
     ctx
-    (tctx { tctxSelf = Just $ TypeInstance (modPath mod, typeName def) [] })
+    (tctx { tctxSelf = Just $ TypeInstance (typeName def) [] })
     mod
-    (bindingConcrete binding)
+    (TypeInstance (typeName def) [])
     def
 
 {-
@@ -53,22 +54,22 @@ typeTypeMonomorph
 typeTypeMonomorph ctx mod def params = do
   debugLog ctx
     $  "generating type monomorph for "
-    ++ s_unpack (typeName def)
+    ++ s_unpack (showTypePath $ typeName def)
     ++ " with params "
     ++ show params
-    ++ " in "
-    ++ show mod
-  let selfType = TypeInstance (modPath mod, typeName def) params
+  let selfType = TypeInstance (typeName def) params
   tctx' <- modTypeContext ctx mod
   let tctx = (addTypeParams
                tctx'
-               [ (typeSubPath (modPath mod) def $ paramName param, ct)
+               [ (typeSubPath def $ paramName param, ct)
                | (param, ct) <- zip (typeParams def) params
                ]
-             ) { tctxSelf = Just selfType
-               }
-  monomorph <- followType ctx tctx (modPath mod) def
-  typeTypeDefinition ctx tctx mod selfType monomorph
+             )
+        { tctxSelf = Just selfType
+        }
+  monomorph <- followType ctx tctx def
+  typeTypeDefinition ctx tctx mod selfType
+    $ monomorph { typeName = monomorphName (typeName monomorph) params }
 
 typeTypeDefinition
   :: CompileContext
@@ -84,13 +85,15 @@ typeTypeDefinition ctx tctx mod selfType def@(TypeDefinition { typeName = name }
       (typeStaticFields def)
       (\field -> do
         (typed, complete) <- typeVarDefinition ctx tctx mod field
-        return typed
+        return $ typed { varName = typeSubPath def $ tpName $ varName typed }
       )
     staticMethods <- forM
       (typeStaticMethods def)
       (\method -> do
         (typed, complete) <- typeFunctionDefinition ctx tctx mod method
-        return typed
+        return $ typed
+          { functionName = typeSubPath def $ tpName $ functionName typed
+          }
       )
     instanceMethods <- forM
       (typeMethods def)
@@ -99,7 +102,9 @@ typeTypeDefinition ctx tctx mod selfType def@(TypeDefinition { typeName = name }
         (typed, complete) <- typeFunctionDefinition ctx tctx' mod method
         -- revise self type in instance methods
         -- return $ reimplicitify (TypePtr selfType) typed
-        return typed
+        return $ typed
+          { functionName = typeSubPath def $ tpName $ functionName typed
+          }
       )
     let s = typeSubtype def
     subtype <- case s of

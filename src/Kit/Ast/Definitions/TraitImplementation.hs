@@ -6,14 +6,15 @@ import Kit.Ast.Definitions.FunctionDefinition
 import Kit.Ast.Metadata
 import Kit.Ast.Modifier
 import Kit.Ast.ModulePath
+import Kit.Ast.TypePath
 import Kit.Ast.TypeSpec
 import Kit.Parser.Span
 import Kit.Str
 
 data TraitImplementation a b = TraitImplementation {
+  implName :: TypePath,
   implTrait :: b,
   implFor :: b,
-  implMod :: ModulePath,
   implMethods :: [FunctionDefinition a b],
   implDoc :: Maybe Str,
   implPos :: Span
@@ -22,7 +23,6 @@ data TraitImplementation a b = TraitImplementation {
 newTraitImplementation = TraitImplementation
   { implTrait   = undefined
   , implFor     = undefined
-  , implMod     = undefined
   , implMethods = []
   , implDoc     = Nothing
   , implPos     = NoPos
@@ -31,19 +31,17 @@ newTraitImplementation = TraitImplementation
 convertTraitImplementation
   :: (Monad m)
   => Converter m a b c d
-  -> ModulePath
   -> TraitImplementation a b
   -> m (TraitImplementation c d)
-convertTraitImplementation converter@(Converter { exprConverter = exprConverter, typeConverter = typeConverter }) mp i
+convertTraitImplementation converter@(Converter { exprConverter = exprConverter, typeConverter = typeConverter }) i
   = do
     trait   <- typeConverter (implPos i) (implTrait i)
     for     <- typeConverter (implPos i) (implFor i)
-    -- TODO: impl needs a name
     methods <- forM (implMethods i)
-                    (\f -> convertFunctionDefinition (\p -> converter) mp f)
-    return $ (newTraitImplementation) { implTrait   = trait
+                    (\f -> convertFunctionDefinition (\p -> converter) f)
+    return $ (newTraitImplementation) { implName    = implName i
+                                      , implTrait   = trait
                                       , implFor     = for
-                                      , implMod     = implMod i
                                       , implMethods = methods
                                       , implDoc     = implDoc i
                                       , implPos     = implPos i

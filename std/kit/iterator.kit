@@ -1,3 +1,5 @@
+import kit.option;
+
 /**
  * An Iterable is something, generally a collection, which can be iterated
  * over, e.g. using a for loop. `Iterable`s produce an `Iterator` which
@@ -9,7 +11,7 @@
  * unnecessary `Iterator` instances.
  */
 trait Iterable[T] {
-    public function iterator(): Iterator[T];
+    public function iterator(): Box[Iterator[T]];
 }
 
 /**
@@ -17,7 +19,5 @@ trait Iterable[T] {
  * of values. Each call to `next` should return the next value, or None.
  */
 trait Iterator[T] {
-    public function next(): Option[T];
+    public function next(): (Box[Iterator[T]], Option[T]);
 }
-
-specialize Iterator[T] as CArray[T];

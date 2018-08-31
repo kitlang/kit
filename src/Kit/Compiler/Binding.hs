@@ -13,30 +13,20 @@ import Kit.Str
 
   Types in these bindings will be type variables; expressions are meaningless.
 -}
-data Binding = Binding {
-  bindingType :: BindingType,
-  bindingPath :: TypePath,
-  bindingConcrete :: ConcreteType,
-  bindingNamespace :: [Str],
-  bindingPos :: Span
-} deriving (Eq, Show)
-
-data BindingType
+data Binding
   = VarBinding (VarDefinition TypedExpr ConcreteType)
   | FunctionBinding (FunctionDefinition TypedExpr ConcreteType)
   | TypeBinding (TypeDefinition TypedExpr ConcreteType)
   | TraitBinding (TraitDefinition TypedExpr ConcreteType)
   | EnumConstructor (EnumVariant TypedExpr ConcreteType)
   | RuleSetBinding (RuleSet Expr (Maybe TypeSpec))
-  | TypedefBinding
+  | TypedefBinding ConcreteType Span
   deriving (Show, Eq)
 
-newBinding
-  :: TypePath -> BindingType -> ConcreteType -> [Str] -> Span -> Binding
-newBinding path b ct ns pos = Binding
-  { bindingType      = b
-  , bindingPath      = path
-  , bindingConcrete  = ct
-  , bindingNamespace = ns
-  , bindingPos       = pos
-  }
+bindingPos (VarBinding      x   ) = varPos x
+bindingPos (FunctionBinding x   ) = functionPos x
+bindingPos (TypeBinding     x   ) = typePos x
+bindingPos (TraitBinding    x   ) = traitPos x
+bindingPos (EnumConstructor x   ) = variantPos x
+bindingPos (RuleSetBinding  x   ) = ruleSetPos x
+bindingPos (TypedefBinding _ pos) = pos

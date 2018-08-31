@@ -9,6 +9,7 @@ function f(i: Int): Float {
  * Takes f + its arg and applies.
  */
 function g(func: function (Int) -> Float, i: Int): Float {
+    f(1);
     return func(i);
 }
 

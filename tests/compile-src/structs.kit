@@ -8,6 +8,15 @@ struct MyStruct {
     var e: Ptr[Float];
 }
 
+struct MyStruct2 {
+    var a: MyStruct;
+}
+
+struct MyStruct3 {
+    var a: MyStruct2;
+    var b: Ptr[MyStruct];
+}
+
 function main() {
     var f = 5_f32;
     var a = struct MyStruct {
@@ -24,4 +33,7 @@ function main() {
 
     var b: Ptr[MyStruct] = &a;
     var y = b.a;
+
+    var s2 = struct MyStruct2 {a};
+    var s3 = struct MyStruct3 {a: s2, b: a};
 }

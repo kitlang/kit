@@ -5,12 +5,20 @@ enum Option[T] {
     Some(value: T);
     None;
 
-    rules {
-        (this.isNone()) => match this {
-            None => true;
-            default => false;
+    public function isSome(): Bool {
+        match this {
+            None => return false;
+            default => return true;
         }
+    }
+    public function isNone(): Bool {
+        match this {
+            None => return true;
+            default => return false;
+        }
+    }
 
+    rules {
         (this.isSome()) => !this.isNone();
 
         (this.unwrap()): T => match this {

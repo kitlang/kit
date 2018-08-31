@@ -17,6 +17,6 @@ trait Eq[T] {
      * the inverse of `eq`.
      */
     public function neq(other: T) {
-        return !eq(other);
+        return !this.eq(other);
     }
 }

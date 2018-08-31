@@ -12,25 +12,20 @@ import Kit.HashTable
 import Kit.Parser
 import Kit.Str
 
-newVar s = newBinding
-  ([], "")
-  (VarBinding
-    (newVarDefinition { varName = s, varType = TypeBasicType BasicTypeVoid })
+newVar s = VarBinding
+  (newVarDefinition { varName = ([], s), varType = TypeBasicType BasicTypeVoid }
   )
-  (TypeBasicType BasicTypeVoid)
-  []
-  NoPos
 
 spec :: Spec
 spec = do
   describe "CompileContext" $ do
     it "generates headers/code in the correct directories" $ do
       ctx <- newCompileContext
-      includePath ctx ["apple"] `shouldBe` "build/include/apple.h"
-      includePath ctx ["apple", "banana"]
+      includePath ctx ([]       , "apple") `shouldBe` "build/include/apple.h"
+      includePath ctx (["apple"], "banana")
         `shouldBe` "build/include/apple/banana.h"
-      libPath ctx ["apple"] `shouldBe` "build/lib/apple.c"
-      libPath ctx ["apple", "banana"] `shouldBe` "build/lib/apple/banana.c"
+      libPath ctx ([]       , "apple") `shouldBe` "build/lib/apple.c"
+      libPath ctx (["apple"], "banana") `shouldBe` "build/lib/apple/banana.c"
 
   describe "Variable resolution" $ do
     it "resolves variables to scopes, falling back to modules" $ do

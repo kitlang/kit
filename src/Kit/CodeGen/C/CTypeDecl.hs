@@ -4,6 +4,7 @@ import Data.List
 import Language.C
 import Kit.Ast
 import Kit.CodeGen.C.CExpr
+import Kit.Compiler.Generators.NameMangling
 import Kit.Ir
 import Kit.Str
 
@@ -13,31 +14,35 @@ makeSUFields fields = [ cDecl t (Just n) Nothing | (n, t) <- fields ]
 
 cTypeDecl :: TypeDefinition IrExpr BasicType -> [CDecl]
 cTypeDecl t@(TypeDefinition { typeName = name }) = case typeSubtype t of
-  Struct { structFields = fields } ->
-    [ u $ CDecl
-        [ CTypeSpec $ u $ CSUType $ u $ CStruct
-            CStructTag
-            (Just $ internalIdent $ s_unpack name)
-            (Just $ makeSUFields [(varName field, varType field) | field <- fields])
-            []
-        ]
-        []
-    ]
+  Struct { structFields = fields }
+    -> [ u $ CDecl
+           [ CTypeSpec $ u $ CSUType $ u $ CStruct
+               CStructTag
+               (Just $ internalIdent $ s_unpack $ mangleName name)
+               (Just $ makeSUFields
+                 [ (varName field, varType field) | field <- fields ]
+               )
+               []
+           ]
+           []
+       ]
 
-  Union { unionFields = fields } ->
-    [ u $ CDecl
-        [ CTypeSpec $ u $ CSUType $ u $ CStruct
-            CUnionTag
-            (Just $ internalIdent $ s_unpack name)
-            (Just $ makeSUFields [(varName field, varType field) | field <- fields])
-            []
-        ]
-        []
-    ]
+  Union { unionFields = fields }
+    -> [ u $ CDecl
+           [ CTypeSpec $ u $ CSUType $ u $ CStruct
+               CUnionTag
+               (Just $ internalIdent $ s_unpack $ mangleName name)
+               (Just $ makeSUFields
+                 [ (varName field, varType field) | field <- fields ]
+               )
+               []
+           ]
+           []
+       ]
 
   {- Simple enums (no variant has any fields) will generate a C enum. -}
   e@(Enum { enumVariants = variants }) | enumIsSimple e ->
-    [enumDiscriminant (Just name) (map variantName variants)]
+    [enumDiscriminant (Just $ mangleName name) (map variantName variants)]
 
   {-
     Complex enums will generate the same C enum for the discriminant, but the
@@ -52,17 +57,15 @@ cTypeDecl t@(TypeDefinition { typeName = name }) = case typeSubtype t of
   -}
   e@(Enum { enumVariants = variants }) ->
     (declareEnumVariants name variants)
-      ++ [ (enumDiscriminant (Just discriminantName)
-                             (map variantName variants)
-           )
-         , (enum_struct name discriminantName variants)
+      ++ [ (enumDiscriminant (Just discriminantName) (map variantName variants))
+         , (enumStruct name discriminantName variants)
          ]
    where
-    discriminantName = (s_concat [name, "_Discriminant"])
-    enum_struct name discriminantName variants = u $ CDecl
+    discriminantName = (s_concat [mangleName name, "_Discriminant"])
+    enumStruct name discriminantName variants = u $ CDecl
       [ CTypeSpec $ u $ CSUType $ u $ CStruct
           CStructTag
-          (Just $ internalIdent $ s_unpack name)
+          (Just $ internalIdent $ s_unpack $ mangleName name)
           (Just f)
           []
       ]
@@ -86,7 +89,7 @@ cTypeDecl t@(TypeDefinition { typeName = name }) = case typeSubtype t of
       , u $ CDecl
         [ CTypeSpec $ u $ CSUType $ u $ CStruct CUnionTag
                                                 Nothing
-                                                (Just variant_fields)
+                                                (Just variantFields)
                                                 []
         ]
         [ ( Just $ u $ CDeclr
@@ -99,20 +102,20 @@ cTypeDecl t@(TypeDefinition { typeName = name }) = case typeSubtype t of
           )
         ]
       ]
-    variant_fields =
+    variantFields =
       [ u $ CDecl
           [ CTypeSpec $ u $ CSUType $ u $ CStruct
               CStructTag
-              (Just $ internalIdent $ s_unpack $ enumVariantName
-                name
+              (Just $ internalIdent $ s_unpack $ mangleName $ subPath
                 (variantName variant)
+                "data"
               )
               Nothing
               []
           ]
           [ ( Just $ u $ CDeclr
               (Just $ internalIdent $ s_unpack $ s_concat
-                ["variant_", (variantName variant)]
+                ["variant_", tpName $ variantName variant]
               )
               []
               Nothing
@@ -127,9 +130,9 @@ cTypeDecl t@(TypeDefinition { typeName = name }) = case typeSubtype t of
       (\variant -> head
         (cTypeDecl
           (newTypeDefinition
-            { typeName    = enumVariantName name (variantName variant)
+            { typeName    = subPath (variantName variant) "data"
             , typeSubtype = Struct
-              { structFields = [ newVarDefinition { varName = argName arg
+              { structFields = [ newVarDefinition { varName = ([], argName arg)
                                                   , varType = argType arg
                                                   }
                                | arg <- (variantArgs variant)
@@ -151,13 +154,14 @@ enumDiscriminant name variantNames = u $ CDecl
         Just name -> Just $ internalIdent $ s_unpack name
         Nothing   -> Nothing
       )
-      (Just [ (internalIdent $ s_unpack v, Nothing) | v <- variantNames ])
+      (Just
+        [ (internalIdent $ s_unpack $ mangleName v, Nothing)
+        | v <- variantNames
+        ]
+      )
       []
   ]
   []
-
-enumVariantName enum_name variantName =
-  s_concat [enum_name, "_Variant_", variantName]
 
 cTupleDecl name slots =
   [ u $ CDecl
@@ -165,7 +169,7 @@ cTupleDecl name slots =
           CStructTag
           (Just $ internalIdent $ s_unpack name)
           (Just $ makeSUFields
-            [ (s_pack $ "__slot" ++ show i, slot)
+            [ (([], s_pack $ "__slot" ++ show i), slot)
             | (i, slot) <- zip [0 ..] slots
             ]
           )

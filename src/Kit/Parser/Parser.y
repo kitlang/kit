@@ -137,7 +137,7 @@ Statement :: {Statement}
   }
   | DocMetaMods atom upper_identifier ';' {
     ps (fp [p $1, p $2, p $4]) $ TypeDeclaration $ (newTypeDefinition) {
-      typeName = extract_upper_identifier $3,
+      typeName = ns $ extract_upper_identifier $3,
       typeDoc = doc $1,
       typeMeta = reverse $ metas $1,
       typeModifiers = reverse $ mods $1,
@@ -152,7 +152,7 @@ Statement :: {Statement}
   }
   | DocMetaMods enum upper_identifier TypeParams TypeAnnotation '{' RulesMethodsVariants '}' {
     ps (fp [p $1, p $2, p $8]) $ TypeDeclaration $ (newTypeDefinition) {
-      typeName = extract_upper_identifier $3,
+      typeName = ns $ extract_upper_identifier $3,
       typeDoc = doc $1,
       typeMeta = reverse $ metas $1,
       typeModifiers = reverse $ mods $1,
@@ -163,14 +163,14 @@ Statement :: {Statement}
       typeParams = fst $4,
       typePos = snd $2 <+> snd $3,
       typeSubtype = Enum {
-        enumVariants = reverse $ extractVariants $7,
+        enumVariants = [v { variantParent = ns $ extract_upper_identifier $3} | v <- reverse $ extractVariants $7],
         enumUnderlyingType = case fst $5 of {Just x -> Just x; Nothing -> Just (TypeSpec ([], "Int") [] NoPos)}
       }
     }
   }
   | DocMetaMods struct upper_identifier TypeParams RulesMethodsFieldsBody {
     ps (fp [p $1, p $2, p $5]) $ TypeDeclaration $ (newTypeDefinition) {
-      typeName = extract_upper_identifier $3,
+      typeName = ns $ extract_upper_identifier $3,
       typeDoc = doc $1,
       typeMeta = reverse $ metas $1,
       typeModifiers = reverse $ mods $1,
@@ -187,7 +187,7 @@ Statement :: {Statement}
   }
   | DocMetaMods union upper_identifier TypeParams RulesMethodsFieldsBody {
     ps (fp [p $1, p $2, p $5]) $ TypeDeclaration $ (newTypeDefinition) {
-      typeName = extract_upper_identifier $3,
+      typeName = ns $ extract_upper_identifier $3,
       typeDoc = doc $1,
       typeMeta = reverse $ metas $1,
       typeModifiers = reverse $ mods $1,
@@ -204,7 +204,7 @@ Statement :: {Statement}
   }
   | DocMetaMods abstract upper_identifier TypeParams TypeAnnotation RulesMethodsBody {
     ps (fp [p $1, p $2, p $6]) $ TypeDeclaration $ (newTypeDefinition) {
-      typeName = extract_upper_identifier $3,
+      typeName = ns $ extract_upper_identifier $3,
       typeDoc = doc $1,
       typeMeta = reverse $ metas $1,
       typeModifiers = reverse $ mods $1,
@@ -220,8 +220,8 @@ Statement :: {Statement}
     }
   }
   | DocMetaMods trait upper_identifier TypeParams RulesMethodsBody {
-    ps (fp [p $1, p $2, p $5]) $ TraitDeclaration $ TraitDefinition {
-      traitName = extract_upper_identifier $3,
+    ps (fp [p $1, p $2, p $5]) $ TraitDeclaration $ newTraitDefinition {
+      traitName = ns $ extract_upper_identifier $3,
       traitDoc = doc $1,
       traitMeta = reverse $ metas $1,
       traitModifiers = reverse $ mods $1,
@@ -232,7 +232,7 @@ Statement :: {Statement}
     }
   }
   | DocMetaMods implement TypeSpec for TypeSpec MethodsBody {
-    ps (fp [p $1, p $2, p $6]) $ Implement $ TraitImplementation {
+    ps (fp [p $1, p $2, p $6]) $ Implement $ newTraitImplementation {
       implTrait = Just $ fst $3,
       implFor = Just $ fst $5,
       implMethods = reverse $ extractMethods $ fst $6,
@@ -245,7 +245,7 @@ Statement :: {Statement}
   }
   | MaybeDoc rules upper_identifier '{' ShortRules '}' {
     ps (snd $2 <+> snd $3) $ RuleSetDeclaration $ newRuleSet {
-      ruleSetName = extract_upper_identifier $3,
+      ruleSetName = ns $ extract_upper_identifier $3,
       ruleSetPos = snd $2 <+> snd $3,
       ruleSetDoc = $1,
       ruleSetRules = $5
@@ -270,7 +270,7 @@ StandaloneExpr :: {Expr}
   | using UsingClauses StandaloneExpr {pe (snd $1 <+> snd $2) $ Using (reverse $ fst $2) $3}
   | if BinopTermOr ExprBlock else ExprBlock {pe (p $1 <+> pos $5) $ If $2 $3 (Just $5)}
   | if BinopTermOr ExprBlock {pe (p $1 <+> pos $3) $ If $2 $3 (Nothing)}
-  | for Identifier in Expr ExprBlock {pe (p $1 <+> pos $5) $ For (pe (snd $2) (Identifier (fst $2) [])) $4 $5}
+  | for Identifier in Expr ExprBlock {pe (p $1 <+> pos $5) $ For (pe (snd $2) (Identifier (fst $2))) $4 $5}
   | while Expr ExprBlock {pe (p $1 <+> pos $3) $ While $2 $3 False}
   | do ExprBlock while Expr ';' {pe (p $1 <+> p $5) $ While $4 $2 True}
   | match Expr '{' MatchCases DefaultMatchCase '}' {pe (p $1 <+> p $6) $ Match $2 (reverse $4) $5}
@@ -287,7 +287,7 @@ UsingClause :: {(UsingType Expr (Maybe TypeSpec), Span)}
 FunctionDecl :: {Statement}
   : DocMetaMods function identifier TypeParams '(' VarArgs ')' TypeAnnotation OptionalBody {
     ps (fp [p $2 <+> p $3]) $ FunctionDeclaration $ (newFunctionDefinition :: FunctionDefinition Expr (Maybe TypeSpec)) {
-      functionName = extract_identifier $3,
+      functionName = ns $ extract_identifier $3,
       functionDoc = doc $1,
       functionMeta = reverse $ metas $1,
       functionModifiers = reverse $ mods $1,
@@ -303,7 +303,7 @@ FunctionDecl :: {Statement}
 StaticFunctionDecl :: {FunctionDefinition Expr (Maybe TypeSpec)}
   : StaticDocMetaMods function identifier TypeParams '(' VarArgs ')' TypeAnnotation OptionalBody {
     (newFunctionDefinition :: FunctionDefinition Expr (Maybe TypeSpec)) {
-      functionName = extract_identifier $3,
+      functionName = ns $ extract_identifier $3,
       functionDoc = doc $1,
       functionMeta = reverse $ metas $1,
       functionModifiers = reverse $ mods $1,
@@ -328,7 +328,7 @@ DefaultMatchCase :: {Maybe Expr}
   | default "=>" TopLevelExpr {Just $3}
 
 ExprBlock :: {Expr}
-  : '{' MacroIdentifier '}' {pe (snd $1 <+> snd $3) $ Identifier (fst $2) []}
+  : '{' MacroIdentifier '}' {pe (snd $1 <+> snd $3) $ Identifier (fst $2)}
   | '{' TopLevelExprs '}' {pe (p $1 <+> p $3) $ Block $ reverse $2}
 
 TopLevelExprs :: {[Expr]}
@@ -445,7 +445,7 @@ TypePath :: {(TypePath, Span)}
 VarDefinition :: {VarDefinition Expr (Maybe TypeSpec)}
   : DocMetaMods var UpperOrLowerIdentifier TypeAnnotation OptionalDefault ';' {
     newVarDefinition {
-      varName = fst $ $3,
+      varName = ns $ fst $ $3,
       varDoc = doc $1,
       varMeta = reverse (metas $1),
       varType = fst $4,
@@ -458,7 +458,7 @@ VarDefinition :: {VarDefinition Expr (Maybe TypeSpec)}
 StaticVarDefinition :: {VarDefinition Expr (Maybe TypeSpec)}
   : StaticDocMetaMods var UpperOrLowerIdentifier TypeAnnotation OptionalDefault ';' {
     newVarDefinition {
-      varName = fst $ $3,
+      varName = ns $ fst $ $3,
       varDoc = doc $1,
       varMeta = reverse (metas $1),
       varType = fst $4,
@@ -481,8 +481,8 @@ EnumPrefix :: {((DocMetaMod, Str), Span)}
 
 EnumVariant :: {EnumVariant Expr (Maybe TypeSpec)}
   : EnumPrefix ';' {
-      EnumVariant {
-        variantName = snd $ fst $1,
+      newEnumVariant {
+        variantName = ([], snd $ fst $1),
         variantDoc = doc $ fst $ fst $1,
         variantMeta = reverse $ metas $ fst $ fst $1,
         variantModifiers = reverse $ mods $ fst $ fst $1,
@@ -492,8 +492,8 @@ EnumVariant :: {EnumVariant Expr (Maybe TypeSpec)}
       }
     }
   | EnumPrefix '=' Expr ';' {
-      EnumVariant {
-        variantName = snd $ fst $1,
+      newEnumVariant {
+        variantName = ([], snd $ fst $1),
         variantDoc = doc $ fst $ fst $1,
         variantMeta = reverse $ metas $ fst $ fst $1,
         variantModifiers = reverse $ mods $ fst $ fst $1,
@@ -503,8 +503,8 @@ EnumVariant :: {EnumVariant Expr (Maybe TypeSpec)}
       }
     }
   | EnumPrefix '(' Args ')' ';' {
-      EnumVariant {
-        variantName = snd $ fst $1,
+      newEnumVariant {
+        variantName = ([], snd $ fst $1),
         variantDoc = doc $ fst $ fst $1,
         variantMeta = reverse $ metas $ fst $ fst $1,
         variantModifiers = reverse $ mods $ fst $ fst $1,
@@ -721,11 +721,11 @@ BaseExpr :: {Expr}
   : Term {pe (snd $1) (Literal $ fst $1)}
   | this {pe (snd $1) This}
   | Self {pe (snd $1) Self}
-  | Identifier {pe (snd $1) $ Identifier (fst $1) []}
+  | Identifier {pe (snd $1) $ Identifier (fst $1)}
   | unsafe Expr {pe (p $1 <+> pos $2) (Unsafe $2)}
   | sizeof TypeSpec {pe (snd $1 <+> snd $2) (SizeOf $ Just $ fst $2)}
   | '(' Expr ParenthesizedExprs ')' {if null $3 then $2 else pe (snd $1 <+> snd $4) (TupleInit ($2 : reverse $3)) }
-  | null {pe (snd $1) $ Unsafe $ pe (snd $1) $ Identifier (Var "NULL") []}
+  | null {pe (snd $1) $ Unsafe $ pe (snd $1) $ Identifier (Var ([], "NULL"))}
   | struct TypeSpec '{' StructInitFields '}' {pe (p $1 <+> p $5) $ StructInit (Just $ fst $2) $4}
   | implicit TypeSpec {pe (snd $1 <+> snd $2) $ Implicit $ Just $ fst $2}
 
@@ -750,10 +750,10 @@ OneOrMoreStructInitFields :: {[(Str, Expr)]}
 
 StructInitField :: {(Str, Expr)}
   : UpperOrLowerIdentifier ':' Expr {(fst $1, $3)}
-  | UpperOrLowerIdentifier {(fst $1, pe (snd $1) $ Identifier (Var $ fst $1) [])}
+  | UpperOrLowerIdentifier {(fst $1, pe (snd $1) $ Identifier (Var $ ([], fst $1)))}
 
 Identifier :: {(Identifier (Maybe TypeSpec), Span)}
-  : UpperOrLowerIdentifier {(Var $ fst $1, snd $1)}
+  : UpperOrLowerIdentifier {(Var $ ([], fst $1), snd $1)}
   | MacroIdentifier {$1}
   | '_' {(Hole, snd $1)}
 
@@ -905,6 +905,8 @@ extract_custom_op (Op (Custom x),_) = x
 extract_doc_comment (DocComment x,_) = x
 numSpec (Just x) = Just $ TypeSpec ([], s_pack $ show x) [] NoPos
 numSpec Nothing = Nothing
+
+ns x = ([], x)
 
 tc :: [Token] -> [TokenClass]
 tc t = [fst t' | t' <- t]

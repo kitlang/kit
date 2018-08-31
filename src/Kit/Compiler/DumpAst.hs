@@ -34,7 +34,7 @@ dumpModuleDecl ctx mod indent decl = do
                   [ show modifier ++ " " | modifier <- functionModifiers f ]
            )
         ++ "function "
-        ++ (s_unpack $ functionName f)
+        ++ (s_unpack $ showTypePath $ functionName f)
         ++ ": "
       if null $ functionArgs f
         then putStr "() -> "
@@ -58,7 +58,7 @@ dumpModuleDecl ctx mod indent decl = do
 
     DeclVar v -> do
       t <- dumpCt ctx (varType v)
-      putStrLn $ i ++ "  var " ++ (s_unpack $ varName v) ++ ": " ++ t ++ "\n"
+      putStrLn $ i ++ "  var " ++ (s_unpack $ showTypePath $ varName v) ++ ": " ++ t ++ "\n"
       case varDefault v of
         Just x -> do
           out <- dumpAst ctx (indent + 2) x
@@ -66,10 +66,7 @@ dumpModuleDecl ctx mod indent decl = do
         _ -> return ()
 
     DeclType t -> do
-      putStrLn
-        $  i
-        ++ "  type "
-        ++ (s_unpack $ showTypePath (modPath mod, typeName t))
+      putStrLn $ i ++ "  type " ++ (s_unpack $ showTypePath $ typeName t)
       forM_
         (typeStaticMethods t)
         (\method -> dumpModuleDecl ctx mod (indent + 1) (DeclFunction method))
@@ -77,7 +74,11 @@ dumpModuleDecl ctx mod indent decl = do
         (typeStaticFields t)
         (\v -> do
           t <- dumpCt ctx (varType v)
-          putStrLn $ "    static var " ++ (s_unpack $ varName v) ++ ": " ++ t
+          putStrLn
+            $  "    static var "
+            ++ (s_unpack $ showTypePath $ varName v)
+            ++ ": "
+            ++ t
           case varDefault v of
             Just x -> do
               out <- dumpAst ctx (indent + 3) x
@@ -95,7 +96,11 @@ dumpModuleDecl ctx mod indent decl = do
             f
             (\v -> do
               t <- dumpCt ctx (varType v)
-              putStrLn $ "    var " ++ (s_unpack $ varName v) ++ ": " ++ t
+              putStrLn
+                $  "    var "
+                ++ (s_unpack $ showTypePath $ varName v)
+                ++ ": "
+                ++ t
               case varDefault v of
                 Just x -> do
                   out <- dumpAst ctx 3 x
@@ -107,7 +112,11 @@ dumpModuleDecl ctx mod indent decl = do
             f
             (\v -> do
               t <- dumpCt ctx (varType v)
-              putStrLn $ "    var " ++ (s_unpack $ varName v) ++ ": " ++ t
+              putStrLn
+                $  "    var "
+                ++ (s_unpack $ showTypePath $ varName v)
+                ++ ": "
+                ++ t
               case varDefault v of
                 Just x -> do
                   out <- dumpAst ctx 3 x
@@ -138,13 +147,11 @@ dumpAst ctx indent e@(TypedExpr { tExpr = texpr, inferredType = t, tPos = pos })
             return $ intercalate "\n" $ (f x) : children'
           )
     result <- case texpr of
-      Block   x      -> i "{}" x
-      Literal v      -> return $ f $ show v
-      This           -> return $ f "this"
-      Self           -> return $ f "Self"
-      Identifier x n -> return $ f $ "identifier " ++ intercalate
-        "."
-        (map s_unpack n ++ [show x])
+      Block   x         -> i "{}" x
+      Literal v         -> return $ f $ show v
+      This              -> return $ f "this"
+      Self              -> return $ f "Self"
+      Identifier x      -> return $ f $ "identifier " ++ show x
       PreUnop  op a     -> i ("pre " ++ show op) [a]
       PostUnop op a     -> i ("post " ++ show op) [a]
       Binop op a b      -> i ("binary " ++ show op) [a, b]
@@ -165,7 +172,7 @@ dumpAst ctx indent e@(TypedExpr { tExpr = texpr, inferredType = t, tPos = pos })
       StructInit (TypeInstance tp _) fields ->
         i ("struct " ++ s_unpack (showTypePath tp)) (map snd fields)
       EnumInit _ constructor fields ->
-        i ("enum " ++ s_unpack constructor) (map snd fields)
+        i ("enum " ++ (s_unpack $ showTypePath constructor)) (map snd fields)
       ArrayAccess a b       -> i "array access" [a, b]
       Call        a args    -> i "call" (a : args)
       Cast        a _       -> i "cast" [a]
@@ -199,9 +206,9 @@ dumpCt ctx t = case t of
     p <- mapM (dumpCt ctx) params
     return
       $  "enum constructor "
+      ++ s_unpack (showTypePath d)
+      ++ " of "
       ++ s_unpack (showTypePath tp)
-      ++ "."
-      ++ s_unpack d
       ++ "["
       ++ intercalate ", " p
       ++ "]"

@@ -43,7 +43,7 @@ data ExprType a b
   | This
   | Self
   -- identifier, namespace
-  | Identifier (Identifier b) [Str]
+  | Identifier (Identifier b)
   -- expression, optional type annotation; blank to infer type
   | TypeAnnotation a b
   | PreUnop Operator a
@@ -63,8 +63,7 @@ data ExprType a b
   | InlineCall a
   | Field a (Identifier b)
   | StructInit b [(Str, a)]
-  | EnumInit b Str [(Str, a)]
-  | EnumDiscriminant a
+  | EnumInit b TypePath [(Str, a)]
   | EnumField a Str Str
   | TupleInit [a]
   | TupleSlot a Int
@@ -95,7 +94,7 @@ exprDiscriminant et = case et of
   Literal _            -> 4
   This                 -> 5
   Self                 -> 6
-  Identifier     _ _   -> 7
+  Identifier _         -> 7
   TypeAnnotation _ _   -> 8
   PreUnop        _ _   -> 9
   PostUnop       _ _   -> 10
@@ -112,7 +111,6 @@ exprDiscriminant et = case et of
   Field      _ _       -> 21
   StructInit _ _       -> 22
   EnumInit _ _ _       -> 23
-  EnumDiscriminant _   -> 39
   EnumField _ _ _      -> 40
   ArrayAccess _ _      -> 24
   Call        _ _      -> 25
@@ -151,7 +149,6 @@ exprChildren et = case et of
   Field      x _              -> [x]
   StructInit _ fields         -> map snd fields
   EnumInit _ _ x              -> map snd x
-  EnumDiscriminant x          -> [x]
   EnumField x _ _             -> [x]
   ArrayAccess x y             -> [x, y]
   Call        x args          -> x : args

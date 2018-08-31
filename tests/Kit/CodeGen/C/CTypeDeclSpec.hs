@@ -18,7 +18,7 @@ showstruct x = intercalate
 showdisc name variantNames =
   renderStyle (Style {mode = LeftMode}) $ pretty $ enumDiscriminant
     (Just name)
-    variantNames
+    [ ([], v) | v <- variantNames ]
 
 spec :: Spec
 spec = do
@@ -26,12 +26,12 @@ spec = do
     it "Transpiles structs" $ do
       showstruct
           (newTypeDefinition
-            { typeName    = "MyStruct"
+            { typeName    = ([], "MyStruct")
             , typeSubtype = Struct
-              { structFields = [ newVarDefinition { varName = "a"
+              { structFields = [ newVarDefinition { varName = ([], "a")
                                                   , varType = BasicTypeInt 8
                                                   }
-                               , newVarDefinition { varName = "b"
+                               , newVarDefinition { varName = ([], "b")
                                                   , varType = BasicTypeUint 8
                                                   }
                                ]
@@ -47,13 +47,16 @@ spec = do
     it "Transpiles simple enums" $ do
       showstruct
           (newTypeDefinition
-            { typeName    = "MyEnum"
+            { typeName    = ([], "MyEnum")
             , typeSubtype = Enum
-              { enumVariants = [ newEnumVariant { variantName = "Option1" }
-                               , newEnumVariant { variantName = "AnotherOption"
+              { enumVariants = [ newEnumVariant { variantName = ([], "Option1")
                                                 }
-                               , newEnumVariant { variantName = "TheThirdOption"
-                                                }
+                               , newEnumVariant
+                                 { variantName = ([], "AnotherOption")
+                                 }
+                               , newEnumVariant
+                                 { variantName = ([], "TheThirdOption")
+                                 }
                                ]
               }
             }
@@ -64,11 +67,13 @@ spec = do
       shouldBe
         (showstruct
           (newTypeDefinition
-            { typeName    = "MyEnum"
+            { typeName    = ([], "MyEnum")
             , typeSubtype = Enum
-              { enumVariants = [ newEnumVariant { variantName = "Variant1" }
+              { enumVariants = [ newEnumVariant
+                                 { variantName = (["MyEnum"], "Variant1")
+                                 }
                                , newEnumVariant
-                                 { variantName = "Variant2"
+                                 { variantName = (["MyEnum"], "Variant2")
                                  , variantArgs = [ newArgSpec
                                                    { argName = "field1"
                                                    , argType = BasicTypeCChar
@@ -84,7 +89,7 @@ spec = do
             }
           )
         )
-        "struct MyEnum_Variant_Variant2 {\nchar field1; uint8_t field2;\n}\n\
-        \enum MyEnum_Discriminant {\nVariant1, Variant2\n}\n\
-        \struct MyEnum {\nenum MyEnum_Discriminant __dsc;\nunion {\nstruct MyEnum_Variant_Variant2 variant_Variant2;\n} __var;\n}"
+        "struct MyEnum_Variant2__data {\nchar field1; uint8_t field2;\n}\n\
+        \enum MyEnum_Discriminant {\nMyEnum__Variant1, MyEnum__Variant2\n}\n\
+        \struct MyEnum {\nenum MyEnum_Discriminant __dsc;\nunion {\nstruct MyEnum_Variant2__data variant_Variant2;\n} __var;\n}"
 

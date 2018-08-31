@@ -8,6 +8,7 @@ import System.Directory
 import System.Environment
 import System.FilePath
 import System.Process
+import Kit.Ast
 import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.Utils
@@ -20,54 +21,58 @@ import Kit.Str
 {-
   Compile the generated C code.
 -}
-compileCode :: CompileContext -> IO (Maybe FilePath)
-compileCode ctx = do
+compileCode :: CompileContext -> [TypePath] -> IO (Maybe FilePath)
+compileCode ctx names = do
   compiler      <- findCompiler ctx
   ccache        <- findCcache ctx
   compilerFlags <- getCompilerFlags ctx
   linkerFlags   <- getLinkerFlags ctx
   createDirectoryIfMissing True (buildDir ctx)
-  debugLog                 ctx  ("found C compiler at " ++ compiler)
-  mods <- ctxSourceModules ctx
-  forM_ mods (compileModule ctx ccache compiler compilerFlags)
+  debugLog ctx ("found C compiler at " ++ compiler)
+  forM_ names (compileBundle ctx ccache compiler compilerFlags)
   if ctxNoLink ctx
     then return Nothing
     else do
-      binPath <- link ctx compiler linkerFlags mods
+      binPath <- link ctx compiler linkerFlags names
       return $ Just binPath
 
-compileModule
-  :: CompileContext -> Maybe FilePath -> FilePath -> [String] -> Module -> IO ()
-compileModule ctx ccache cc' args mod = do
-  let objFilePath = objPath ctx (modPath mod)
+compileBundle
+  :: CompileContext
+  -> Maybe FilePath
+  -> FilePath
+  -> [String]
+  -> TypePath
+  -> IO ()
+compileBundle ctx ccache cc' args name = do
+  let objFilePath = objPath ctx name
   createDirectoryIfMissing True (takeDirectory objFilePath)
   let args' =
         args
           ++ [ "-I" ++ includeDir ctx
              , "-c"
-             , libPath ctx (modPath mod)
+             , libPath ctx name
              , "-o"
-             , objPath ctx (modPath mod)
+             , objPath ctx name
              , "-std=c99"
              ]
           ++ (if (ctxIsLibrary ctx) then ["-fPIC"] else [])
           ++ compilerSpecificArgs cc'
-  printLog $ "compiling " ++ show mod
+  printLog $ "compiling " ++ s_unpack (showTypePath name)
   let (cc, args) = case ccache of
         Just x  -> (x, cc' : args')
         Nothing -> (cc', args')
   traceLog $ showCommandForUser cc args
   callProcess cc args
 
-link :: CompileContext -> FilePath -> [String] -> [Module] -> IO FilePath
-link ctx cc args mods = do
+link :: CompileContext -> FilePath -> [String] -> [TypePath] -> IO FilePath
+link ctx cc args names = do
   let args' = if (ctxIsLibrary ctx)
         then
-          [ objPath ctx (modPath mod) | mod <- mods ]
+          [ objPath ctx name | name <- names ]
           ++ ["-I" ++ includeDir ctx, "-shared", "-obuild/main.so"]
           ++ args
         else
-          [ objPath ctx (modPath mod) | mod <- mods ]
+          [ objPath ctx name | name <- names ]
           ++ ["-I" ++ includeDir ctx, "-obuild/main"]
           ++ args
   printLog $ "linking"
@@ -122,4 +127,4 @@ findCcache ctx =
 
 compilerSpecificArgs :: FilePath -> [String]
 compilerSpecificArgs "clang" = ["-Wno-error=unused-command-line-argument"]
-compilerSpecificArgs _ = []
+compilerSpecificArgs _       = []

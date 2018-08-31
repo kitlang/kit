@@ -3,7 +3,18 @@ module Kit.Ast.TypePath where
 import Kit.Ast.ModulePath
 import Kit.Str
 
+-- FIXME: there's some bending over backwards to ise these lists in the
+-- "wrong" direction; would be better to reverse the namespace list
+
 -- (Optional module path or empty, type name)
 type TypePath = (ModulePath, Str)
 showTypePath ([], s) = s
 showTypePath (mp, s) = s_concat [showModulePath mp, ".", s]
+
+tpName (_, s) = s
+tpNamespace (n, _) = n
+subPath (tp, n) s = (tp ++ [n], s)
+addNamespace n (_, s) = (n, s)
+
+tpShift ([], s) = undefined
+tpShift (n , s) = let (h : t) = reverse n in (reverse t, h)

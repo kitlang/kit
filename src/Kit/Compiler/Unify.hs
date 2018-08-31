@@ -45,7 +45,7 @@ getAbstractParents ctx tctx t = do
         Abstract { abstractUnderlyingType = t' } -> do
           let tctx' = addTypeParams
                 tctx
-                [ (typeSubPath modPath def $ paramName param, value)
+                [ (typeSubPath def $ paramName param, value)
                 | (param, value) <- zip (typeParams def) params
                 ]
           t       <- mapType (follow ctx tctx') t'
@@ -87,7 +87,8 @@ unify ctx tctx a' b' = do
       return $ if elem t (map fst $ typeVarConstraints info)
         then Just []
         else Just [TypeVarConstraint i t]
-    (TypeTypeVar a, TypeTypeVar b) -> do
+    (TypeTypeVar a, TypeTypeVar b) | a == b -> return $ Just []
+    (TypeTypeVar a, TypeTypeVar b)          -> do
       info1 <- getTypeVar ctx a
       info2 <- getTypeVar ctx b
       return $ if (typeVarId info1 == typeVarId info2)

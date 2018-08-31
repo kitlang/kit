@@ -11,7 +11,7 @@ import Kit.Parser.Span
 import Kit.Str
 
 data FunctionDefinition a b = FunctionDefinition {
-  functionName :: Str,
+  functionName :: TypePath,
   functionPos :: Span,
   functionDoc :: Maybe Str,
   functionMeta :: [Metadata],
@@ -21,13 +21,18 @@ data FunctionDefinition a b = FunctionDefinition {
   functionType :: b,
   functionBody :: Maybe a,
   functionVarargs :: Bool,
-  functionNamespace :: [Str],
   functionThis :: Maybe b,
   functionSelf :: Maybe b
 } deriving (Eq, Show)
 
-functionSubPath :: ModulePath -> FunctionDefinition a b -> Str -> TypePath
-functionSubPath mp def s = (mp ++ [functionName def], s)
+functionSubPath :: FunctionDefinition a b -> Str -> TypePath
+functionSubPath def s = if hasMeta "extern" (functionMeta def)
+  then ([], s)
+  else subPath (functionName def) s
+
+functionRealName f = if hasMeta "extern" (functionMeta f)
+  then ([], tpName $ functionName f)
+  else functionName f
 
 newFunctionDefinition :: FunctionDefinition a b
 newFunctionDefinition = FunctionDefinition
@@ -40,7 +45,6 @@ newFunctionDefinition = FunctionDefinition
   , functionType      = undefined
   , functionBody      = Nothing
   , functionVarargs   = False
-  , functionNamespace = []
   , functionThis      = Nothing
   , functionSelf      = Nothing
   , functionPos       = NoPos
@@ -49,14 +53,11 @@ newFunctionDefinition = FunctionDefinition
 convertFunctionDefinition
   :: (Monad m)
   => ParameterizedConverter m a b c d
-  -> ModulePath
   -> FunctionDefinition a b
   -> m (FunctionDefinition c d)
-convertFunctionDefinition paramConverter modPath f = do
+convertFunctionDefinition paramConverter f = do
   let params =
-        [ functionSubPath modPath f $ paramName param
-        | param <- functionParams f
-        ]
+        [ functionSubPath f $ paramName param | param <- functionParams f ]
   let
     converter@(Converter { exprConverter = exprConverter, typeConverter = typeConverter })
       = paramConverter params
@@ -72,7 +73,6 @@ convertFunctionDefinition paramConverter modPath f = do
                                    , functionType      = rt
                                    , functionBody      = body
                                    , functionVarargs   = functionVarargs f
-                                   , functionNamespace = functionNamespace f
                                    , functionPos       = functionPos f
                                    }
 
@@ -128,3 +128,10 @@ reimplicitify selfType def = def
   { functionArgs = ((head $ functionArgs def) { argType = selfType })
     : (tail $ functionArgs def)
   }
+
+-- functionConcrete :: FunctionDefinition TypedExpr ConcreteType -> ConcreteType
+-- functionConcrete f = TypeFunction
+--   (functionType f)
+--   [ (argName arg, argType arg) | arg <- functionArgs f ]
+--   Bool
+--   []

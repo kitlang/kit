@@ -7,18 +7,19 @@ import Numeric
 import Language.C
 import Language.C.Data.Position
 import Kit.Ast
+import Kit.Compiler.Generators.NameMangling
 import Kit.Ir
 import Kit.Parser.Span
 import Kit.Str
 
-cDecl :: BasicType -> Maybe Str -> Maybe (CInitializer NodeInfo) -> CDecl
+cDecl :: BasicType -> Maybe TypePath -> Maybe (CInitializer NodeInfo) -> CDecl
 cDecl t ident body = u
   $ CDecl (map CTypeSpec typeSpec) [(Just cdeclr, body, Nothing)]
  where
   (typeSpec, derivedDeclr) = ctype t
   cdeclr                   = u $ CDeclr
     (case ident of
-      Just x  -> Just $ internalIdent $ s_unpack x
+      Just x  -> Just $ internalIdent $ s_unpack $ mangleName x
       Nothing -> Nothing
     )
     derivedDeclr
@@ -44,51 +45,54 @@ ctype (BasicTypeFloat 64) = ([u CDoubleType], [])
 ctype (BasicTypeFloat _ ) = undefined
 ctype (BasicTypeAtom    ) = ([u CUnsigType, u CLongType], [])
 ctype (BasicTypeStruct name) =
-  ( [ u $ CSUType $ u $ CStruct CStructTag
-                                (Just $ internalIdent $ s_unpack name)
-                                Nothing
-                                []
+  ( [ u $ CSUType $ u $ CStruct
+        CStructTag
+        (Just $ internalIdent $ s_unpack $ mangleName name)
+        Nothing
+        []
     ]
   , []
   )
-ctype (BasicTypeAnonStruct args)
-  = ( [ u $ CSUType $ u $ CStruct
-          CStructTag
-          Nothing
-          (Just
-            [ cDecl argType (Just argName) Nothing
-            | (argName, argType) <- args
-            ]
-          )
-          []
-      ]
-    , []
-    )
+ctype (BasicTypeAnonStruct args) =
+  ( [ u $ CSUType $ u $ CStruct
+        CStructTag
+        Nothing
+        (Just
+          [ cDecl argType (Just ([], argName)) Nothing
+          | (argName, argType) <- args
+          ]
+        )
+        []
+    ]
+  , []
+  )
 ctype (BasicTypeUnion name) =
-  ( [ u $ CSUType $ u $ CStruct CUnionTag
-                                (Just $ internalIdent $ s_unpack name)
-                                Nothing
-                                []
+  ( [ u $ CSUType $ u $ CStruct
+        CUnionTag
+        (Just $ internalIdent $ s_unpack $ mangleName name)
+        Nothing
+        []
     ]
   , []
   )
-ctype (BasicTypeAnonUnion args)
-  = ( [ u $ CSUType $ u $ CStruct
-          CUnionTag
-          Nothing
-          (Just
-            [ cDecl argType (Just argName) Nothing
-            | (argName, argType) <- args
-            ]
-          )
-          []
-      ]
-    , []
-    )
+ctype (BasicTypeAnonUnion args) =
+  ( [ u $ CSUType $ u $ CStruct
+        CUnionTag
+        Nothing
+        (Just
+          [ cDecl argType (Just ([], argName)) Nothing
+          | (argName, argType) <- args
+          ]
+        )
+        []
+    ]
+  , []
+  )
 ctype (BasicTypeSimpleEnum name) =
-  ( [ u $ CEnumType $ u $ CEnum (Just (internalIdent $ s_unpack name))
-                                Nothing
-                                []
+  ( [ u $ CEnumType $ u $ CEnum
+        (Just (internalIdent $ s_unpack $ mangleName name))
+        Nothing
+        []
     ]
   , []
   )
@@ -125,7 +129,8 @@ ctype (BasicTypeUnknown) = undefined
 intFlags f = foldr (\f acc -> setFlag f acc) noFlags f
 
 transpileExpr :: IrExpr -> CExpr
-transpileExpr (IrIdentifier s) = u $ CVar $ internalIdent $ s_unpack s
+transpileExpr (IrIdentifier s) =
+  u $ CVar $ internalIdent $ s_unpack $ mangleName s
 transpileExpr (IrLiteral (BoolValue b)) =
   CConst $ u $ CIntConst $ cInteger (if b then 1 else 0)
 transpileExpr (IrLiteral (IntValue i t@(BasicTypeFloat _))) =
@@ -198,13 +203,10 @@ transpileExpr (IrEnumInit t@(BasicTypeComplexEnum name) discriminant fields) =
           $  CMemberDesig
           $  internalIdent
           $  s_unpack (s_concat [variantFieldName, ".variant_"])
-          ++ (s_unpack discriminant)
+          ++ (s_unpack $ tpName discriminant)
         ]
       , u $ CInitExpr $ transpileExpr
-        (IrStructInit
-          (BasicTypeStruct $ s_concat [name, "_Variant_", discriminant])
-          fields
-        )
+        (IrStructInit (BasicTypeStruct $ subPath discriminant "data") fields)
       )
     ]
 transpileExpr (IrTupleInit t vals) = u $ CCompoundLit
@@ -236,9 +238,11 @@ transpileStmt (IrIf cond e1 Nothing) =
 transpileStmt (IrWhile cond e d) =
   u $ CWhile (transpileExpr cond) (transpileStmt e) d
 transpileStmt (IrFor v idType start end body) = u $ CFor
-  (Right $ cDecl idType (Just v) (Just $ u $ CInitExpr $ transpileExpr start))
-  (Just $ transpileExpr (IrBinop Lt (IrIdentifier v) (end)))
-  (Just $ transpileExpr (IrPreUnop Inc (IrIdentifier v)))
+  ( Right
+  $ cDecl idType (Just ([], v)) (Just $ u $ CInitExpr $ transpileExpr start)
+  )
+  (Just $ transpileExpr (IrBinop Lt (IrIdentifier ([], v)) (end)))
+  (Just $ transpileExpr (IrPreUnop Inc (IrIdentifier ([], v))))
   (transpileStmt body)
 transpileStmt (IrSwitch val cases def) = u $ CSwitch
   (transpileExpr val)
@@ -274,7 +278,7 @@ var_to_cdeclr x =
 
 transpileBlockItem :: IrExpr -> CBlockItem
 transpileBlockItem (IrVarDeclaration v t varDefault) = CBlockDecl
-  $ cDecl t (Just v) body
+  $ cDecl t (Just ([], v)) body
  where
   body = case varDefault of
     Just x  -> Just $ u $ CInitExpr $ transpileExpr x

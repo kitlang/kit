@@ -6,6 +6,7 @@ import Kit.Ast.Definitions.Base
 import Kit.Ast.Metadata
 import Kit.Ast.Modifier
 import Kit.Ast.ModulePath
+import Kit.Ast.TypePath
 import Kit.Ast.TypeSpec
 import Kit.Parser.Span
 import Kit.Str
@@ -40,7 +41,7 @@ newRewriteRule = RewriteRule
 --                             }
 
 data RuleSet a b = RuleSet {
-  ruleSetName :: Str,
+  ruleSetName :: TypePath,
   ruleSetPos :: Span,
   ruleSetDoc :: Maybe Str,
   ruleSetThis :: Maybe ConcreteType,

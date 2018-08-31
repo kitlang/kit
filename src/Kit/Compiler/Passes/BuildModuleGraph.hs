@@ -207,68 +207,54 @@ addStmtToModuleInterface ctx mod s = do
           makeTypeVar ctx pos
         )
   decls <- case stmt s of
-    TypeDeclaration d@(TypeDefinition { typeName = name, typeSubtype = subtype, typeRules = rules })
-      -> do
-        let ct = TypeInstance (modPath mod, name) []
-              -- [TypeTypeParam (paramName p) | p <- typeParams d ]
+    TypeDeclaration d -> do
+      let extern = hasMeta "extern" (typeMeta d)
+      let name   = tpName $ typeName d
+      let tp     = (if extern then [] else modPath mod, name)
 
-        converted <- do
-          c <- convertTypeDefinition (\_ -> interfaceConverter) (modPath mod) d
-          if null (typeMethods d)
-            then return c
-            else do
-              return $ implicitifyInstanceMethods thisArgName
-                                                  (TypePtr TypeSelf)
-                                                  (\_ -> id)
-                                                  c
+      converted <- do
+        c <- convertTypeDefinition (\_ -> interfaceConverter)
+                                   (d { typeName = tp })
+        if null (typeMethods d)
+          then return c
+          else do
+            return $ implicitifyInstanceMethods thisArgName
+                                                (TypePtr TypeSelf)
+                                                (\_ -> id)
+                                                c
 
-        let b      = TypeBinding converted
-        let extern = hasMeta "extern" (typeMeta d)
-        when extern $ recordGlobalName name
-        addToInterface mod name b (not extern) ct pos False
+      let b = TypeBinding converted
+      when extern $ recordGlobalName $ name
+      addToInterface mod name b (not extern) False
 
-        subNamespace <- getSubScope (modScope mod) [name]
-        forM_
-          (typeStaticFields converted)
-          (\field -> do
-            bindToScope
-              (subNamespace)
-              (varName field)
-              (newBinding (modPath mod ++ [name], varName field)
-                          (VarBinding field)
-                          (varType field)
-                          (modPath mod ++ [name])
-                          (varPos field)
-              )
-          )
-        forM_
-          (typeStaticMethods converted ++ typeMethods converted)
-          (\method -> do
-            bindToScope
-              (subNamespace)
-              (functionName method)
-              (newBinding
-                (modPath mod ++ [name], functionName method)
-                (FunctionBinding method)
-                (TypeFunction
-                  (functionType method)
-                  [ (argName arg, argType arg) | arg <- functionArgs method ]
-                  (functionVarargs method)
-                  []
-                )
-                (modPath mod ++ [name])
-                (functionPos method)
-              )
-          )
+      subNamespace <- getSubScope (modScope mod) [name]
+      forM_
+        (typeStaticFields converted)
+        (\field -> do
+          bindToScope (subNamespace) (tpName $ varName field) (VarBinding field)
+        )
+      forM_
+        (typeStaticMethods converted ++ typeMethods converted)
+        (\method -> do
+          bindToScope (subNamespace)
+                      (tpName $ functionName method)
+                      (FunctionBinding method)
+        )
 
-        return
-          [DeclType $ d { typeNamespace = if extern then [] else modPath mod }]
+      return
+        [ DeclType $ d
+            { typeName = if extern
+              then (typeName d)
+              else (modPath mod, tpName $ typeName d)
+            }
+        ]
 
-    TraitDeclaration d@(TraitDefinition { traitName = name }) -> do
+    TraitDeclaration d -> do
+      let name = tpName $ traitName d
+      let tp   = (modPath mod, name)
       subNamespace <- getSubScope (modScope mod) [name]
       converted    <- convertTraitDefinition (\_ -> interfaceConverter)
-                                             (modPath mod)
-                                             d
+                                             (d { traitName = tp })
       forM_
         (traitMethods converted)
         (\method' ->
@@ -277,78 +263,55 @@ addStmtToModuleInterface ctx mod s = do
                 (TypePtr $ TypeBasicType BasicTypeVoid)
                 (\_ -> id)
                 method'
-          in
-            bindToScope
-              (subNamespace)
-              (functionName method)
-              (newBinding
-                (modPath mod ++ [name], functionName method)
-                (FunctionBinding method)
-                (TypeFunction
-                  (functionType method)
-                  [ (argName arg, argType arg) | arg <- functionArgs method ]
-                  (functionVarargs method)
-                  []
-                )
-                (modPath mod ++ [name])
-                (functionPos method)
-              )
+          in  bindToScope (subNamespace)
+                          (tpName $ functionName method)
+                          (FunctionBinding method)
         )
-      addToInterface mod
-                     name
-                     (TraitBinding converted)
-                     (False)
-                     (TypeTraitConstraint ((modPath mod, name), []))
-                     pos
-                     False
+      addToInterface mod name (TraitBinding converted) False False
       return [DeclTrait d]
 
-    ModuleVarDeclaration d@(VarDefinition { varName = name }) -> do
-      converted <- convertVarDefinition interfaceConverter d
+    ModuleVarDeclaration d -> do
       let extern = hasMeta "extern" (varMeta d)
+      let name   = tpName $ varName d
+      let tp     = (if extern then [] else modPath mod, name)
+      converted <- convertVarDefinition interfaceConverter (d { varName = tp })
       when extern $ recordGlobalName name
-      addToInterface mod
-                     name
-                     (VarBinding converted)
-                     (not extern)
-                     (varType converted)
-                     pos
-                     False
-      return [DeclVar $ d { varNamespace = if extern then [] else modPath mod }]
+      addToInterface mod name (VarBinding converted) (not extern) False
+      return
+        [ DeclVar $ d
+            { varName = if extern
+              then (varName d)
+              else (modPath mod, tpName $ varName d)
+            }
+        ]
 
-    FunctionDeclaration d@(FunctionDefinition { functionName = name, functionArgs = args, functionVarargs = varargs })
-      -> do
+    FunctionDeclaration d@(FunctionDefinition { functionVarargs = varargs }) ->
+      do
+        let
+          isMain =
+            functionName d == ([], "main") && (ctxMainModule ctx == modPath mod)
+        let extern = (hasMeta "extern" (functionMeta d)) || isMain
+        let name   = tpName $ functionName d
+        let tp     = (if extern then [] else modPath mod, name)
         converted <- convertFunctionDefinition (\_ -> interfaceConverter)
-                                               (modPath mod)
-                                               d
-        let extern = hasMeta "extern" (functionMeta d)
+                                               (d { functionName = tp })
         when extern $ recordGlobalName name
-        addToInterface
-          mod
-          name
-          (FunctionBinding converted)
-          (not extern)
-          (TypeFunction
-            (functionType converted)
-            [ (argName arg, argType arg) | arg <- functionArgs converted ]
-            varargs
-            []
-          )
-          pos
-          False
+        addToInterface mod name (FunctionBinding converted) (not extern) False
         return
           [ DeclFunction d
-              { functionNamespace = if extern then [] else modPath mod
+              { functionName = if extern
+                then (functionName d)
+                else (addNamespace (modPath mod) $ functionName d)
               }
           ]
 
     RuleSetDeclaration r -> do
+      let name = tpName $ ruleSetName r
+      let tp   = (modPath mod, name)
       addToInterface mod
-                     (ruleSetName r)
-                     (RuleSetBinding r)
-                     (False)
-                     (TypeRuleSet (modPath mod, ruleSetName r))
-                     pos
+                     name
+                     (RuleSetBinding $ r { ruleSetName = tp })
+                     False
                      False
       return [DeclRuleSet r]
 
@@ -357,8 +320,17 @@ addStmtToModuleInterface ctx mod s = do
       return []
 
     Implement i -> do
-      modifyIORef (modImpls mod) (\l -> i : l)
-      return [DeclImpl (i { implMod = modPath mod })]
+      let
+        impl = i
+          { implName = ( modPath mod
+                       , s_hash
+                         ( s_concat
+                         $ map (s_pack . show) [implTrait i, implFor i]
+                         )
+                       )
+          }
+      modifyIORef (modImpls mod) (\l -> impl : l)
+      return [DeclImpl impl]
 
     ModuleUsing using -> do
       return [DeclUsing using]

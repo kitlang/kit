@@ -94,22 +94,21 @@ resolveType ctx tctx mod t = do
                 _ -> do
                   scoped <- resolveBinding (tctxScopes tctx) s
                   ct     <- case scoped of
-                    Just x ->
-                      -- named binding exists locally; resolve and return it
-                              return $ case bindingConcrete x of
-                      TypeInstance x p -> TypeInstance x (p ++ resolvedParams)
-                      TypeTraitConstraint (x, p) ->
-                        TypeTraitConstraint (x, (p ++ resolvedParams))
-                      x -> x
-                    Nothing -> do
+                    Just (TypeBinding t) ->
+                      return $ TypeInstance (typeName t) resolvedParams
+                    Just (TraitBinding t) ->
+                      return $ TypeTraitConstraint (traitName t, resolvedParams)
+                    Just (VarBinding v) -> return $ varType v
+                    Just (RuleSetBinding r) ->
+                      return $ TypeRuleSet (ruleSetName r)
+                    _ -> do
                       -- search other modules
                       bound <- resolveBinding (map modScope importedMods) s
                       case bound of
-                        Just (Binding { bindingType = TypeBinding _, bindingConcrete = TypeInstance tp p })
-                          -> return $ TypeInstance tp (p ++ resolvedParams)
-                        Just (Binding { bindingType = TraitBinding _, bindingConcrete = TypeTraitConstraint (tp, p) })
-                          -> return
-                            $ TypeTraitConstraint (tp, (p ++ resolvedParams))
+                        Just (TypeBinding t) ->
+                          return $ TypeInstance (typeName t) resolvedParams
+                        Just (TraitBinding t) -> return
+                          $ TypeTraitConstraint (traitName t, resolvedParams)
                         _ -> do
                           builtin <- builtinToConcreteType ctx
                                                            tctx
@@ -136,10 +135,9 @@ resolveType ctx tctx mod t = do
           -- search only a specific module for this type
           result <- resolveBinding (map modScope importedMods) s
           case result of
-            Just (Binding { bindingType = TypeBinding _, bindingConcrete = t })
-              -> follow ctx tctx t
-            Just (Binding { bindingType = TypedefBinding, bindingConcrete = t })
-              -> follow ctx tctx t
+            Just (TypeBinding t) ->
+              follow ctx tctx $ TypeInstance (typeName t) []
+            Just (TypedefBinding t _) -> follow ctx tctx t
             _ -> unknownType (s_unpack $ showTypePath (m, s)) pos
 
     FunctionTypeSpec rt args isVariadic pos -> do
@@ -200,6 +198,9 @@ follow ctx tctx t = do
     TypePtr t -> do
       resolved <- follow ctx tctx t
       return $ TypePtr resolved
+    TypeBox tp params -> do
+      resolvedParams <- forM params (follow ctx tctx)
+      return $ TypeBox tp resolvedParams
     TypeArr t len -> do
       resolved <- follow ctx tctx t
       return $ TypeArr resolved len
@@ -216,24 +217,23 @@ follow ctx tctx t = do
       defMod  <- getMod ctx modPath
       binding <- resolveLocal (modScope defMod) name
       case binding of
-        Just binding -> return $ bindingConcrete binding
-        _            -> throwk $ InternalError
-          ("Unexpected missing type: " ++ (s_unpack $ showTypePath tp))
+        Just (TypedefBinding t _) -> follow ctx tctx t
+        _                         -> throwk $ InternalError
+          ("Unexpected missing typedef: " ++ (s_unpack $ showTypePath tp))
           Nothing
+    TypeTuple t -> do
+      resolvedT <- forM t $ follow ctx tctx
+      return $ TypeTuple resolvedT
     _ -> return t
 
-followType ctx tctx modPath = convertTypeDefinition
+followType ctx tctx = convertTypeDefinition
   (\_ -> converter return (\_ -> mapType $ follow ctx tctx))
-  modPath
-followFunction ctx tctx modPath = convertFunctionDefinition
+followFunction ctx tctx = convertFunctionDefinition
   (\_ -> converter return (\_ -> mapType $ follow ctx tctx))
-  modPath
-followTrait ctx tctx modPath = convertTraitDefinition
+followTrait ctx tctx = convertTraitDefinition
   (\_ -> converter return (\_ -> mapType $ follow ctx tctx))
-  modPath
-followVariant ctx tctx modPath = convertEnumVariant
-  (converter return (\_ -> mapType $ follow ctx tctx))
-  modPath
+followVariant ctx tctx =
+  convertEnumVariant (converter return (\_ -> mapType $ follow ctx tctx))
 
 addUsing
   :: CompileContext
@@ -255,7 +255,7 @@ addUsing ctx tctx using = case using of
       --                   )
       --       : tctxRules tctx
       --     }
-      Just (Binding { bindingType = RuleSetBinding r }) -> do
+      Just (RuleSetBinding r) -> do
         return $ tctx { tctxRules = r : tctxRules tctx }
       _ -> return tctx
   UsingImplicit x -> return $ tctx { tctxImplicits = x : tctxImplicits tctx }
@@ -359,9 +359,15 @@ getTraitImpl ctx tctx trait ct = do
             Abstract { abstractUnderlyingType = u } -> do
               let tctx' = addTypeParams
                     tctx
-                    [ (typeSubPath modPath def (paramName param), value)
+                    [ (typeSubPath def (paramName param), value)
                     | (param, value) <- zip (typeParams def) params
                     ]
               getTraitImpl ctx tctx' trait u
             _ -> return Nothing
         _ -> return Nothing
+
+functionConcrete f = TypeFunction
+  (functionType f)
+  [ (argName arg, argType arg) | arg <- functionArgs f ]
+  (functionVarargs f)
+  []

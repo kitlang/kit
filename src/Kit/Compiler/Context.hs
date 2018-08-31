@@ -199,10 +199,9 @@ makeGeneric ctx tp@(modPath, name) pos existing = do
   defMod  <- getMod ctx modPath
   binding <- resolveLocal (modScope defMod) name
   let params = case binding of
-        Just (Binding { bindingType = TypeBinding def }) -> typeParams def
-        Just (Binding { bindingType = FunctionBinding def }) ->
-          functionParams def
-        Just (Binding { bindingType = TraitBinding def }) -> traitParams def
+        Just (TypeBinding     def) -> typeParams def
+        Just (FunctionBinding def) -> functionParams def
+        Just (TraitBinding    def) -> traitParams def
   if null params
     then return []
     else do
@@ -236,8 +235,8 @@ getTypeDefinition ctx modPath typeName = do
   defMod  <- getMod ctx modPath
   binding <- resolveLocal (modScope defMod) typeName
   case binding of
-    Just (Binding { bindingType = TypeBinding def }) -> return def
-    _ -> throwk $ InternalError
+    Just (TypeBinding def) -> return def
+    _                      -> throwk $ InternalError
       (  "Unexpected missing type: "
       ++ (s_unpack $ showTypePath (modPath, typeName))
       )
@@ -256,20 +255,26 @@ addGlobalName ctx mod pos name = do
 includeDir :: CompileContext -> FilePath
 includeDir ctx = (ctxOutputDir ctx) </> "include"
 
-includePath :: CompileContext -> ModulePath -> FilePath
-includePath ctx mod = ((includeDir ctx) </> (moduleFilePath mod -<.> ".h"))
+includePath :: CompileContext -> TypePath -> FilePath
+includePath ctx (n, s) =
+  (includeDir ctx)
+    </>  (foldr (</>) "" (map s_unpack n))
+    </>  s_unpack s
+    -<.> ".h"
 
 libDir :: CompileContext -> FilePath
 libDir ctx = (ctxOutputDir ctx) </> "lib"
 
-libPath :: CompileContext -> ModulePath -> FilePath
-libPath ctx mod = (libDir ctx) </> (moduleFilePath mod -<.> ".c")
+libPath :: CompileContext -> TypePath -> FilePath
+libPath ctx (n, s) =
+  (libDir ctx) </> (foldr (</>) "" (map s_unpack n)) </> s_unpack s -<.> ".c"
 
 objDir :: CompileContext -> FilePath
 objDir ctx = (ctxOutputDir ctx) </> "obj"
 
-objPath :: CompileContext -> ModulePath -> FilePath
-objPath ctx mod = (objDir ctx) </> (moduleFilePath mod -<.> ".o")
+objPath :: CompileContext -> TypePath -> FilePath
+objPath ctx (n, s) =
+  (objDir ctx) </> (foldr (</>) "" (map s_unpack n)) </> s_unpack s -<.> ".o"
 
 findStd :: IO [FilePath]
 findStd = do
