@@ -25,6 +25,9 @@ implement Iterator[Int] for List[Int] {
             }
             default => {
                 printf("wtf\n");
+                var box: Box[Iterator[Int]] = this;
+                var x: (Box[Iterator[Int]], Option[Int]) = (box, None);
+                return x;
             }
         }
     }
@@ -60,6 +63,9 @@ implement Iterator[Int] for ListIterator {
             }
             default => {
                 printf("wtf\n");
+                var box: Box[Iterator[Int]] = this;
+                var x: (Box[Iterator[Int]], Option[Int]) = (box, None);
+                return x;
             }
         }
     }
