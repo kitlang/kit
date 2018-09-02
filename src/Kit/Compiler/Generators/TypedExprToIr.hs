@@ -132,7 +132,6 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
           rTo   <- r eTo
           r3    <- r e3
           return $ IrFor (tpName id) t rFrom rTo r3
-      (For   e1 e2 e3) -> return $ undefined -- TODO
       (While e1 e2 d ) -> do
         r1 <- r e1
         r2 <- r e2

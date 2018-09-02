@@ -1,0 +1,108 @@
+implement Iterable(Int) for List[Int] {
+    public function iterator(): Box[Iterator[Int]] {
+        // FIXME: autorefderef on return values
+        var box: Box[Iterator[Int]] = this;
+        return box;
+    }
+}
+
+// iterator style one: use lists themselves as iterators
+implement Iterator[Int] for List[Int] {
+    public function next(): (Box[Iterator[Int]], Option[Int]) {
+        printf("%s\n", "list iterator: next");
+        match this {
+            Cons(h, t) => {
+                printf("returning %i\n", h);
+                var box: Box[Iterator[Int]] = *t;
+                var x: (Box[Iterator[Int]], Option[Int]) = (box, Some(h));
+                return x;
+            }
+            Empty => {
+                printf("empty\n");
+                var box: Box[Iterator[Int]] = this;
+                var x: (Box[Iterator[Int]], Option[Int]) = (box, None);
+                return x;
+            }
+            default => {
+                printf("wtf\n");
+            }
+        }
+    }
+}
+
+// iterator style two: use a struct to store iterator state
+struct ListIterator {
+    var listPtr: Ptr[List[Int]];
+}
+
+implement Iterable(Int) for ListIterator {
+    public function iterator(): Box[Iterator[Int]] {
+        return this as Box[Iterator[Int]];
+    }
+}
+
+implement Iterator[Int] for ListIterator {
+    public function next(): (Box[Iterator[Int]], Option[Int]) {
+        printf("%s\n", "struct iterator: next");
+        match *(this.listPtr) {
+            Cons(h, t) => {
+                printf("returning %i\n", h);
+                this.listPtr = t;
+                var box: Box[Iterator[Int]] = this;
+                var x: (Box[Iterator[Int]], Option[Int]) = (box, Some(h));
+                return x;
+            }
+            Empty => {
+                printf("empty\n");
+                var box: Box[Iterator[Int]] = this;
+                var x: (Box[Iterator[Int]], Option[Int]) = (box, None);
+                return x;
+            }
+            default => {
+                printf("wtf\n");
+            }
+        }
+    }
+}
+
+function main() {
+    var list: List[Int] = Cons(1, &Cons(2, &Cons(3, &Empty)));
+    var iterable: Box[Iterable[Int]] = list;
+    var iterator: Box[Iterator[Int]] = iterable.iterator();
+    // manual iteration
+    (iterator, _) = iterator.next();
+    (iterator, _) = iterator.next();
+    (iterator, _) = iterator.next();
+    (iterator, _) = iterator.next();
+
+    // refresh the iterator
+    iterator = iterable.iterator();
+
+    printf("%zu\n", list.getLength());
+
+    for current in list {
+        printf("for loop: %i\n", current);
+    }
+    printf("done\n");
+
+
+    var iteratorStruct: ListIterator = struct ListIterator {
+        listPtr: list
+    };
+    iterator = iteratorStruct;
+    (iterator, _) = iterator.next();
+    (iterator, _) = iterator.next();
+    (iterator, _) = iterator.next();
+    (iterator, _) = iterator.next();
+
+    iteratorStruct.listPtr = list;
+    iterator = iteratorStruct;
+
+    for x in iteratorStruct {
+        if x == 1 {
+            continue;
+        }
+        printf("for loop: %i\n", x);
+    }
+    printf("done\n");
+}

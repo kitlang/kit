@@ -69,4 +69,13 @@ typeClassRange exp = TypeTraitConstraint
 typeClassNumericMixed =
   TypeTraitConstraint ((["kit", "numeric"], "NumericMixed"), [])
 typeClassIterable v =
-  TypeTraitConstraint ((["kit", "iterator"], "Iterable"), [])
+  TypeTraitConstraint (typeClassIterablePath, [v])
+
+typeClassIterablePath :: TypePath
+typeClassIterablePath = (["kit", "iterator"], "Iterable")
+
+typeClassIteratorPath :: TypePath
+typeClassIteratorPath = (["kit", "iterator"], "Iterator")
+
+typeOptionPath :: TypePath
+typeOptionPath = (["kit", "option"], "Option")

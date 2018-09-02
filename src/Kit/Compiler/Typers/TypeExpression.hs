@@ -18,6 +18,7 @@ import Kit.Compiler.TypedExpr
 import Kit.Compiler.Typers.AutoRefDeref
 import Kit.Compiler.Typers.Base
 import Kit.Compiler.Typers.ConvertExpr
+import Kit.Compiler.Typers.ForLoopIteration
 import Kit.Compiler.Typers.TypeLiteral
 import Kit.Compiler.Typers.TypeOp
 import Kit.Compiler.Unify
@@ -332,8 +333,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         return $ makeExprTyped (Binop op r1 r2) tv pos
 
     (For e1@(TypedExpr { tExpr = Identifier (Var id) }) e2 e3) -> do
-      r2    <- r e2
-      scope <- newScope (modPath mod)
+      r2 <- r e2
       let tv = inferredType e1
       case tExpr r2 of
         RangeLiteral eFrom eTo -> do
@@ -342,25 +342,35 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
             (inferredType x)
             "For identifier must match the iterator's type"
             (tPos x)
+
+          scope <- newScope (modPath mod)
           bindToScope scope (tpName id)
             $ VarBinding (newVarDefinition { varName = id, varType = tv })
-          return ()
+          r3 <- typeExpr
+            ctx
+            (tctx { tctxScopes    = scope : (tctxScopes tctx)
+                  , tctxLoopCount = (tctxLoopCount tctx) + 1
+                  }
+            )
+            mod
+            e3
+
+          return $ makeExprTyped (For e1 r2 r3) voidType pos
         _ -> do
-          resolve $ TypeEq (typeClassIterable tv)
-                           (inferredType r2)
-                           "For statements must iterate over an Iterable type"
-                           (tPos r2)
-          bindToScope scope (tpName id)
-            $ VarBinding (newVarDefinition { varName = id, varType = tv })
-      r3 <- typeExpr
-        ctx
-        (tctx { tctxScopes    = scope : (tctxScopes tctx)
-              , tctxLoopCount = (tctxLoopCount tctx) + 1
-              }
-        )
-        mod
-        e3
-      return $ makeExprTyped (For e1 r2 r3) voidType pos
+          box <- autoRefDeref ctx
+                              tctx
+                              (TypeBox typeClassIterablePath [tv])
+                              (inferredType r2)
+                              r2
+                              []
+                              r2
+          case inferredType box of
+            TypeBox tp p | tp == typeClassIterablePath -> do
+              makeGeneric ctx typeOptionPath pos [tv]
+              r $ iterationTransform box tv pos e1 e3
+            _ -> throwk $ TypingError
+              "For statements must iterate over an `Iterable` type"
+              pos
 
     (While e1 e2 d) -> do
       r1    <- r e1

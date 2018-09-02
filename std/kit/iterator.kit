@@ -22,3 +22,11 @@ trait Iterable(IteratorT) {
 trait Iterator[T] {
     public function next(): (Box[Iterator[T]], Option[T]);
 }
+
+/*
+implement Iterable(T) for Iterator[T] {
+    public function iterator(): Box[Iterator[T]] {
+        return this;
+    }
+}
+*/

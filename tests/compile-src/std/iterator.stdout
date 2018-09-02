@@ -1,0 +1,40 @@
+list iterator: next
+returning 1
+list iterator: next
+returning 2
+list iterator: next
+returning 3
+list iterator: next
+empty
+3
+list iterator: next
+returning 1
+for loop: 1
+list iterator: next
+returning 2
+for loop: 2
+list iterator: next
+returning 3
+for loop: 3
+list iterator: next
+empty
+done
+struct iterator: next
+returning 1
+struct iterator: next
+returning 2
+struct iterator: next
+returning 3
+struct iterator: next
+empty
+struct iterator: next
+returning 1
+struct iterator: next
+returning 2
+for loop: 2
+struct iterator: next
+returning 3
+for loop: 3
+struct iterator: next
+empty
+done

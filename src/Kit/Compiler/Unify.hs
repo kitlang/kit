@@ -103,8 +103,15 @@ unify ctx tctx a' b' = do
           unify ctx tctx (TypeTraitConstraint (tp, params)) x
         )
       return $ checkResults ((Just $ [TypeVarIs i x]) : results)
-    (_                    , TypeTypeVar _) -> unify ctx tctx b a
-    (TypeTraitConstraint t, x            ) -> do
+    (_, TypeTypeVar _      ) -> unify ctx tctx b a
+    (TypeTraitConstraint (tp1, params1), TypeBox tp2 params2) -> do
+      if (tp1 == tp2) && (length params1 == length params2)
+        then do
+          paramMatch <- mapM (\(a, b) -> unify ctx tctx a b)
+                             (zip params1 params2)
+          return $ checkResults paramMatch
+        else return Nothing
+    (TypeTraitConstraint t, x) -> do
       impl <- resolveTraitConstraint ctx tctx t x
       if impl then return $ Just [] else fallBackToAbstractParent a b
     (_, TypeTraitConstraint v) -> unify ctx tctx b a

@@ -17,6 +17,7 @@ import Kit.Str
 data MatchCase a = MatchCase {matchPattern :: a, matchBody :: a} deriving (Eq, Show)
 
 newMatchCase = MatchCase {matchPattern = undefined, matchBody = undefined}
+matchCase x y = MatchCase {matchPattern = x, matchBody = y}
 
 {-
   All AST structures use the convention of two type parameters, a and b.
@@ -110,7 +111,7 @@ exprDiscriminant et = case et of
   InlineCall _         -> 20
   Field      _ _       -> 21
   StructInit _ _       -> 22
-  EnumInit _ _ _       -> 23
+  EnumInit  _ _ _      -> 23
   EnumField _ _ _      -> 40
   ArrayAccess _ _      -> 24
   Call        _ _      -> 25
@@ -148,7 +149,7 @@ exprChildren et = case et of
   InlineCall x                -> [x]
   Field      x _              -> [x]
   StructInit _ fields         -> map snd fields
-  EnumInit _ _ x              -> map snd x
+  EnumInit  _ _ x             -> map snd x
   EnumField x _ _             -> [x]
   ArrayAccess x y             -> [x, y]
   Call        x args          -> x : args
