@@ -517,3 +517,37 @@ spec = parallel $ do
                    , makeStmt $ Import ["c"] False
                    , makeStmt $ Import ["d"] False
                    ]
+
+  describe "Parses trait declarations" $ do
+    it "parses associated types in trait declarations" $ do
+      testParse "trait MyTrait[T, U](OtherT, OtherU);"
+        `shouldBe` [ makeStmt $ TraitDeclaration
+                       (newTraitDefinition
+                         { traitName = ([], "MyTrait")
+                         , traitParams = [makeTypeParam "T", makeTypeParam "U"]
+                         , traitAssocParams = [ makeTypeParam "OtherT"
+                                              , makeTypeParam "OtherU"
+                                              ]
+                         }
+                       )
+                   ]
+      testParse "trait MyTrait[T, U];"
+        `shouldBe` [ makeStmt $ TraitDeclaration
+                       (newTraitDefinition
+                         { traitName = ([], "MyTrait")
+                         , traitParams = [makeTypeParam "T", makeTypeParam "U"]
+                         , traitAssocParams = []
+                         }
+                       )
+                   ]
+      testParse "trait MyTrait(OtherT, OtherU);"
+        `shouldBe` [ makeStmt $ TraitDeclaration
+                       (newTraitDefinition
+                         { traitName        = ([], "MyTrait")
+                         , traitParams      = []
+                         , traitAssocParams = [ makeTypeParam "OtherT"
+                                              , makeTypeParam "OtherU"
+                                              ]
+                         }
+                       )
+                   ]

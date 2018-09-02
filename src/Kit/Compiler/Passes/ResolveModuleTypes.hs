@@ -139,10 +139,14 @@ resolveTypesForMod ctx (mod, contents) = do
           converted <- convertTraitImplementation varConverter i
           case implTrait converted of
             TypeTraitConstraint (tp, p) -> do
+              def <- getTraitDefinition ctx tp
+              useImpl ctx tctx (implPos converted) def converted p
               let name = subPath tp $ hashParams [implFor converted]
               let i    = converted { implName = name }
               -- correct the inferface name
-              e1 <- h_get (ctxImpls ctx) (tp, p)
+              e1 <- h_get
+                (ctxImpls ctx)
+                (tp, take (length p - (length $ implAssocTypes i)) p)
               e2 <- h_get e1 (implFor converted)
               h_insert e1 (implFor converted) i
               return $ Just $ DeclImpl $ i
@@ -271,8 +275,12 @@ resolveTypesForMod ctx (mod, contents) = do
               let
                 tctx' = tctx
                   { tctxTypeParams = [ (tp, TypeTypeParam $ tp)
-                                     | p <- traitParams t
-                                     , let tp = subPath (modPath mod, tpName $ traitName t) $ paramName p
+                                     | p <- traitAllParams t
+                                     , let
+                                       tp =
+                                         subPath
+                                             (modPath mod, tpName $ traitName t)
+                                           $ paramName p
                                      ]
                     ++ tctxTypeParams tctx
                   , tctxSelf       = Just TypeSelf
@@ -336,29 +344,34 @@ addImplementation ctx mod impl@(TraitImplementation { implTrait = Just (TypeSpec
     case foundTrait of
       Just (TraitBinding def) -> do
         let tpTrait = traitName def
-        paramsTrait <- mapM (resolveType ctx tctx mod) paramsTrait
+        paramsTrait <- mapM (resolveType ctx tctx mod) (paramsTrait)
         let paramTctx =
               (addTypeParams
                 tctx
                 [ let p = traitSubPath def $ paramName param
                   in  (p, TypeTypeParam $ p)
-                | param <- traitParams def
+                | param <- traitAllParams def
                 ]
               )
         ct <- resolveType ctx tctx mod implFor
-        case ct of
-          TypeTraitConstraint (tp, params) | not (null params) -> do
-            makeGeneric ctx tp (implPos impl) params
-            return ()
-          _ -> return ()
-
         let selfTctx = paramTctx { tctxSelf = Just ct }
-        existing <- h_lookup (ctxImpls ctx) (tpTrait, paramsTrait)
-        impl     <- convertTraitImplementation
+        impl <- convertTraitImplementation
           (converter (convertExpr ctx selfTctx mod)
                      (resolveMaybeType ctx selfTctx mod)
           )
           (impl { implName = subPath (tpTrait) (tpName $ implName impl) })
+        let assocParams = implAssocTypes impl
+
+        case implTrait impl of
+          TypeTraitConstraint (tp, params) -> do
+            useImpl ctx tctx (implPos impl) def impl params
+
+        case ct of
+          TypeTraitConstraint (tp, params) | not (null params) -> do
+            makeGeneric ctx tp (implPos impl) (params ++ assocParams)
+            return ()
+          _ -> return ()
+        existing <- h_lookup (ctxImpls ctx) (tpTrait, paramsTrait)
 
         debugLog ctx
           $  "Found implementation of "

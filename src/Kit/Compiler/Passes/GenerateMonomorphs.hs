@@ -28,49 +28,57 @@ generateMonomorphs ctx = do
   pendingGenerics <- readIORef (ctxPendingGenerics ctx)
   writeIORef (ctxPendingGenerics ctx) []
   decls <- forM (reverse pendingGenerics) $ \(tp@(modPath, name), params') -> do
-    tctx     <- newTypeContext []
-    params   <- forM params' (mapType $ follow ctx tctx)
-    existing <- h_lookup (ctxCompleteGenerics ctx) (tp, params)
-    case existing of
-      Just x -> return Nothing
-      _      -> do
-        h_insert (ctxCompleteGenerics ctx) (tp, params) ()
-        definitionMod <- getMod ctx modPath
-        binding       <- scopeGet (modScope definitionMod) name
-        case binding of
-          FunctionBinding def -> do
-            x <- typeFunctionMonomorph ctx definitionMod def params
-            return $ case x of
-              (Just (DeclFunction x), _) -> Just
-                ( definitionMod
-                , [ DeclFunction $ x
-                      { functionName = monomorphName (functionName def) params
-                      }
-                  ]
-                )
-              _ -> Nothing
+    tctx       <- newTypeContext []
+    params     <- forM params' (mapType $ follow ctx tctx)
+    unresolved <- forM params $ typeUnresolved ctx tctx
+    if or unresolved
+      -- don't try to generate a monomorph if the params contain unresolved
+      -- type variables; if we needed this, it'll blow up elsewhere
+      then return Nothing
+      else do
+        existing <- h_lookup (ctxCompleteGenerics ctx) (tp, params)
+        case existing of
+          Just x -> return Nothing
+          _      -> do
+            h_insert (ctxCompleteGenerics ctx) (tp, params) ()
+            definitionMod <- getMod ctx modPath
+            binding       <- scopeGet (modScope definitionMod) name
+            case binding of
+              FunctionBinding def -> do
+                x <- typeFunctionMonomorph ctx definitionMod def params
+                return $ case x of
+                  (Just (DeclFunction x), _) -> Just
+                    ( definitionMod
+                    , [ DeclFunction $ x
+                          { functionName = monomorphName (functionName def)
+                                                         params
+                          }
+                      ]
+                    )
+                  _ -> Nothing
 
-          TypeBinding def -> do
-            x <- typeTypeMonomorph ctx definitionMod def params
-            return $ case x of
-              (Just (DeclType x), _) -> Just
-                ( definitionMod
-                , [ DeclType
-                      $ x { typeName = monomorphName (typeName def) params }
-                  ]
-                )
-              _ -> Nothing
+              TypeBinding def -> do
+                x <- typeTypeMonomorph ctx definitionMod def params
+                return $ case x of
+                  (Just (DeclType x), _) -> Just
+                    ( definitionMod
+                    , [ DeclType
+                          $ x { typeName = monomorphName (typeName def) params }
+                      ]
+                    )
+                  _ -> Nothing
 
-          TraitBinding def -> do
-            x <- typeTraitMonomorph ctx definitionMod def params
-            return $ case x of
-              (Just (DeclTrait x), _) -> Just
-                ( definitionMod
-                , [ DeclTrait
-                      $ x { traitName = monomorphName (traitName def) params }
-                  ]
-                )
-              _ -> Nothing
-          _ -> return Nothing
+              TraitBinding def -> do
+                x <- typeTraitMonomorph ctx definitionMod def params
+                return $ case x of
+                  (Just (DeclTrait x), _) -> Just
+                    ( definitionMod
+                    , [ DeclTrait $ x
+                          { traitName = monomorphName (traitName def) params
+                          }
+                      ]
+                    )
+                  _ -> Nothing
+              _ -> return Nothing
 
   return $ catMaybes decls

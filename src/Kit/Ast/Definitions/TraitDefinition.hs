@@ -19,6 +19,7 @@ data TraitDefinition a b = TraitDefinition {
   traitMeta :: [Metadata],
   traitModifiers :: [Modifier],
   traitParams :: [TypeParam],
+  traitAssocParams :: [TypeParam],
   traitRules :: [RewriteRule a b],
   traitMethods :: [FunctionDefinition a b]
 } deriving (Eq, Show)
@@ -26,15 +27,19 @@ data TraitDefinition a b = TraitDefinition {
 traitSubPath :: TraitDefinition a b -> Str -> TypePath
 traitSubPath def s = subPath (traitName def) s
 
+traitAllParams t = traitParams t ++ traitAssocParams t
+traitExplicitParams def = take (length $ traitParams def)
+
 newTraitDefinition = TraitDefinition
-  { traitName      = undefined
-  , traitPos       = NoPos
-  , traitDoc       = Nothing
-  , traitMeta      = []
-  , traitModifiers = []
-  , traitParams    = []
-  , traitRules     = []
-  , traitMethods   = []
+  { traitName        = undefined
+  , traitPos         = NoPos
+  , traitDoc         = Nothing
+  , traitMeta        = []
+  , traitModifiers   = []
+  , traitParams      = []
+  , traitAssocParams = []
+  , traitRules       = []
+  , traitMethods     = []
   }
 
 convertTraitDefinition
@@ -54,13 +59,14 @@ convertTraitDefinition paramConverter t = do
     (\f -> convertFunctionDefinition methodParamConverter
       $ f { functionName = traitSubPath t (tpName $ functionName f) }
     )
-  return $ (newTraitDefinition) { traitName      = traitName t
-                                , traitPos       = traitPos t
-                                , traitDoc       = traitDoc t
-                                , traitMeta      = traitMeta t
-                                , traitModifiers = traitModifiers t
-                                , traitParams    = traitParams t
-                                , traitMethods   = methods
+  return $ (newTraitDefinition) { traitName        = traitName t
+                                , traitPos         = traitPos t
+                                , traitDoc         = traitDoc t
+                                , traitMeta        = traitMeta t
+                                , traitModifiers   = traitModifiers t
+                                , traitParams      = traitParams t
+                                , traitAssocParams = traitAssocParams t
+                                , traitMethods     = methods
                                 }
 
 valuePointerName :: Str

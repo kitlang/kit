@@ -74,6 +74,7 @@ import Kit.Str
   this {(KeywordThis,_)}
   throw {(KeywordThrow,_)}
   trait {(KeywordTrait,_)}
+  type {(KeywordType,_)}
   typedef {(KeywordTypedef,_)}
   union {(KeywordUnion,_)}
   unsafe {(KeywordUnsafe,_)}
@@ -219,23 +220,25 @@ Statement :: {Statement}
       }
     }
   }
-  | DocMetaMods trait upper_identifier TypeParams RulesMethodsBody {
-    ps (fp [p $1, p $2, p $5]) $ TraitDeclaration $ newTraitDefinition {
+  | DocMetaMods trait upper_identifier TypeParams AssocTypeDeclarations RulesMethodsBody {
+    ps (fp [p $1, p $2, p $6]) $ TraitDeclaration $ newTraitDefinition {
       traitName = ns $ extract_upper_identifier $3,
       traitDoc = doc $1,
       traitMeta = reverse $ metas $1,
       traitModifiers = reverse $ mods $1,
       traitParams = fst $4,
+      traitAssocParams = reverse $5,
       traitPos = snd $2 <+> snd $3,
-      traitRules = reverse $ extractRules $ fst $5,
-      traitMethods = reverse $ extractMethods $ fst $5
+      traitRules = reverse $ extractRules $ fst $6,
+      traitMethods = reverse $ extractMethods $ fst $6
     }
   }
-  | DocMetaMods implement TypeSpec for TypeSpec MethodsBody {
+  | DocMetaMods implement TypeSpec AssocTypes for TypeSpec MethodsBody {
     ps (fp [p $1, p $2, p $6]) $ Implement $ newTraitImplementation {
       implTrait = Just $ fst $3,
-      implFor = Just $ fst $5,
-      implMethods = reverse $ extractMethods $ fst $6,
+      implFor = Just $ fst $6,
+      implAssocTypes = map Just $ reverse $4,
+      implMethods = reverse $ extractMethods $ fst $7,
       implDoc = doc $1,
       implPos = snd $2 <+> snd $3
     }
@@ -254,6 +257,14 @@ Statement :: {Statement}
   | VarDefinition {ps (varPos $1) $ ModuleVarDeclaration $ $1}
   | FunctionDecl {$1}
 
+AssocTypes :: {[TypeSpec]}
+  : {[]}
+  | '(' CommaDelimitedTypes ')' {reverse $2}
+
+AssocTypeDeclarations :: {[TypeParam]}
+  : {[]}
+  | '(' TypeParams_ ')' {$2}
+
 TopLevelExpr :: {Expr}
   : StandaloneExpr {$1}
   | var Identifier TypeAnnotation OptionalStandaloneDefault {pe (p $1 <+> p $4) $ VarDeclaration (fst $2) (fst $3) (fst $4)}
@@ -268,7 +279,7 @@ TopLevelExpr :: {Expr}
 StandaloneExpr :: {Expr}
   : ExprBlock {$1}
   | using UsingClauses StandaloneExpr {pe (snd $1 <+> snd $2) $ Using (reverse $ fst $2) $3}
-  | if BinopTermOr ExprBlock else ExprBlock {pe (p $1 <+> pos $5) $ If $2 $3 (Just $5)}
+  | if BinopTermOr ExprBlock else StandaloneExpr {pe (p $1 <+> pos $5) $ If $2 $3 (Just $5)}
   | if BinopTermOr ExprBlock {pe (p $1 <+> pos $3) $ If $2 $3 (Nothing)}
   | for Identifier in Expr ExprBlock {pe (p $1 <+> pos $5) $ For (pe (snd $2) (Identifier (fst $2))) $4 $5}
   | while Expr ExprBlock {pe (p $1 <+> pos $3) $ While $2 $3 False}

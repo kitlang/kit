@@ -99,11 +99,13 @@ makeBox
 makeBox ctx tctx tp params ex = do
   if tIsLvalue ex
     then do
+      traitDef <- getTraitDefinition ctx tp
       impl <- getTraitImpl ctx tctx (tp, params) (inferredType ex)
       case impl of
         Just impl -> do
           params <- makeGeneric ctx tp (tPos ex) params
-          let t' = TypeBox tp (map snd params)
+          useImpl ctx tctx (tPos ex) traitDef impl (map snd params)
+          t' <- mapType (follow ctx tctx) $ TypeBox tp $ map snd $ params
           return $ Just $ ex
             { tExpr        = Box
               (impl { implTrait = TypeTraitConstraint (tp, map snd params) })

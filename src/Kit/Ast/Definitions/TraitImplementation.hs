@@ -3,6 +3,7 @@ module Kit.Ast.Definitions.TraitImplementation where
 import Control.Monad
 import Kit.Ast.Definitions.Base
 import Kit.Ast.Definitions.FunctionDefinition
+import Kit.Ast.Definitions.TraitDefinition
 import Kit.Ast.Metadata
 import Kit.Ast.Modifier
 import Kit.Ast.ModulePath
@@ -15,17 +16,25 @@ data TraitImplementation a b = TraitImplementation {
   implName :: TypePath,
   implTrait :: b,
   implFor :: b,
+  implAssocTypes :: [b],
   implMethods :: [FunctionDefinition a b],
   implDoc :: Maybe Str,
   implPos :: Span
 } deriving (Eq, Show)
 
+associatedTypes traitDef impl =
+  [ (traitSubPath traitDef $ paramName p, t)
+  | (p, t) <- zip (traitAssocParams traitDef) (implAssocTypes impl)
+  ]
+
 newTraitImplementation = TraitImplementation
-  { implTrait   = undefined
-  , implFor     = undefined
-  , implMethods = []
-  , implDoc     = Nothing
-  , implPos     = NoPos
+  { implName       = undefined
+  , implTrait      = undefined
+  , implFor        = undefined
+  , implAssocTypes = []
+  , implMethods    = []
+  , implDoc        = Nothing
+  , implPos        = NoPos
   }
 
 convertTraitImplementation
@@ -35,16 +44,18 @@ convertTraitImplementation
   -> m (TraitImplementation c d)
 convertTraitImplementation converter@(Converter { exprConverter = exprConverter, typeConverter = typeConverter }) i
   = do
-    trait   <- typeConverter (implPos i) (implTrait i)
-    for     <- typeConverter (implPos i) (implFor i)
-    methods <- forM (implMethods i)
-                    (\f -> convertFunctionDefinition (\p -> converter) f)
-    return $ (newTraitImplementation) { implName    = implName i
-                                      , implTrait   = trait
-                                      , implFor     = for
-                                      , implMethods = methods
-                                      , implDoc     = implDoc i
-                                      , implPos     = implPos i
+    trait      <- typeConverter (implPos i) (implTrait i)
+    for        <- typeConverter (implPos i) (implFor i)
+    assocTypes <- forM (implAssocTypes i) $ typeConverter (implPos i)
+    methods    <- forM (implMethods i)
+                       (\f -> convertFunctionDefinition (\p -> converter) f)
+    return $ (newTraitImplementation) { implName       = implName i
+                                      , implTrait      = trait
+                                      , implFor        = for
+                                      , implAssocTypes = assocTypes
+                                      , implMethods    = methods
+                                      , implDoc        = implDoc i
+                                      , implPos        = implPos i
                                       }
 
 vThisArgName :: Str

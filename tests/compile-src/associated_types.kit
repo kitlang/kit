@@ -1,0 +1,45 @@
+trait IdTrait(AssocT) {
+    public function id(): AssocT;
+}
+
+implement IdTrait(Int) for Int {
+    public function id() {
+        return this;
+    }
+}
+
+implement IdTrait(Int) for Float {
+    public function id() {
+        return this as Int;
+    }
+}
+
+implement IdTrait(CString) for CString {
+    public function id() {
+        return this;
+    }
+}
+
+trait ConsTrait[T](AssocT) {
+    public function cons(v1: T, v2: AssocT);
+}
+
+implement ConsTrait[Int](Float) for Int {
+    public function cons(v1: Int, v2: Float) {
+        printf("%i %i %.1f\n", this, v1, v2);
+    }
+}
+
+function main() {
+    var a = 1_i as Box[IdTrait];
+    var b: Box[IdTrait] = 2_f32;
+    var c: Box[IdTrait] = "hello";
+
+    printf("%i\n", a.id());
+    printf("%i\n", b.id());
+    printf("%s\n", c.id());
+
+    var i: Int = 1;
+    var x: Box[ConsTrait[Int]] = i;
+    x.cons(2_i, 3_f32);
+}

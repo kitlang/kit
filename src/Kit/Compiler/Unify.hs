@@ -136,6 +136,13 @@ unify ctx tctx a' b' = do
                                (zip params1 params2)
             return $ checkResults paramMatch
           else return Nothing
+    (TypeBox tp1 params1, TypeBox tp2 params2) -> do
+      if (tp1 == tp2) && (length params1 == length params2)
+        then do
+          paramMatch <- mapM (\(a, b) -> unify ctx tctx a b)
+                             (zip params1 params2)
+          return $ checkResults paramMatch
+        else return Nothing
     (a, b) | a == b -> return $ Just []
     _               -> return Nothing
  where
@@ -214,3 +221,21 @@ resolveTraitConstraint ctx tctx (tp, params) ct = do
   params <- forM params $ mapType $ follow ctx tctx
   impl   <- getTraitImpl ctx tctx (tp, params) ct
   return $ impl /= Nothing
+
+{-
+  Unify associated types when a trait implementation is selected.
+-}
+useImpl
+  :: CompileContext
+  -> TypeContext
+  -> Span
+  -> TraitDefinition a ConcreteType
+  -> TraitImplementation a ConcreteType
+  -> [ConcreteType]
+  -> IO ()
+useImpl ctx tctx pos traitDef impl params = do
+  let assocParams = drop (length $ traitParams traitDef) params
+  forM_ (zip (implAssocTypes impl) assocParams) $ \(p, val) -> resolveConstraint
+    ctx
+    tctx
+    (TypeEq p val "Trait implementation has associated type" pos)

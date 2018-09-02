@@ -338,9 +338,11 @@ getTraitImpl
   -> TraitConstraint
   -> ConcreteType
   -> IO (Maybe (TraitImplementation TypedExpr ConcreteType))
-getTraitImpl ctx tctx trait ct = do
-  ct         <- follow ctx tctx ct
-  traitImpls <- h_lookup (ctxImpls ctx) trait
+getTraitImpl ctx tctx trait@(traitTp, params) ct = do
+  traitDef <- getTraitDefinition ctx traitTp
+  ct       <- mapType (follow ctx tctx) ct
+  let explicitParams = traitExplicitParams traitDef params
+  traitImpls <- h_lookup (ctxImpls ctx) (traitTp, explicitParams)
   result     <- case traitImpls of
     Just x -> do
       lookup <- h_lookup x ct
@@ -371,3 +373,9 @@ functionConcrete f = TypeFunction
   [ (argName arg, argType arg) | arg <- functionArgs f ]
   (functionVarargs f)
   []
+
+typeUnresolved ctx tctx ct = do
+  t <- mapType (follow ctx tctx) ct
+  case t of
+    TypeTypeVar _ -> return True
+    _ -> return False

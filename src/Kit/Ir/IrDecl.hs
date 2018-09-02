@@ -24,13 +24,12 @@ data IncludeDependency
 
 exprDeps :: IrExpr -> [IncludeDependency]
 exprDeps irExpr = case irExpr of
-  IrBlock    x -> foldr (++) [] $ map exprDeps x
-  IrCompound x -> foldr (++) [] $ map exprDeps x
-  IrIdentifier tp ->
-    if not $ null (tpNamespace tp) then [DefDependency tp] else []
-  IrPreUnop  _ x -> exprDeps x
-  IrPostUnop _ x -> exprDeps x
-  IrBinop _ x y  -> exprDeps x ++ exprDeps y
+  IrBlock      x  -> foldr (++) [] $ map exprDeps x
+  IrCompound   x  -> foldr (++) [] $ map exprDeps x
+  IrIdentifier tp -> [DefDependency tp]
+  IrPreUnop  _ x  -> exprDeps x
+  IrPostUnop _ x  -> exprDeps x
+  IrBinop _ x y   -> exprDeps x ++ exprDeps y
   IrFor _ t x y z ->
     (typeDeps True t) ++ (exprDeps x ++ exprDeps y ++ exprDeps z)
   IrWhile x y _                 -> exprDeps x ++ exprDeps y

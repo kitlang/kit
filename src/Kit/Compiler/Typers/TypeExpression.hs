@@ -127,7 +127,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
     (This) -> do
       case tctxThis tctx of
-        Just t -> return $ makeExprTyped This t pos
+        Just t -> return $ (makeExprTyped This t pos) { tIsLvalue = True }
         Nothing ->
           throwk $ TypingError ("`this` can only be used in methods") pos
 
@@ -180,6 +180,12 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           "Annotated expressions must match their type annotation"
           (tPos r1)
         return $ r1 { inferredType = t }
+
+    (PreUnop Ref e1@(TypedExpr { tExpr = This })) -> do
+      -- referencing `this` gives us a pointer that's also an lvalue
+      r1 <- r e1
+      return $ (makeExprTyped (PreUnop Ref r1) (TypePtr $ inferredType r1) pos) { tIsLvalue = True
+                                                                                }
 
     (PreUnop op e1) -> do
       r1 <- r e1
@@ -629,7 +635,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                   tctx' = (addTypeParams
                             tctx
                             [ (traitSubPath traitDef $ paramName param, val)
-                            | (param, val) <- zip (traitParams traitDef) params
+                            | (param, val) <- zip (traitAllParams traitDef)
+                                                  params
                             ]
                           )
                     { tctxSelf = Just t
@@ -754,7 +761,18 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         let cast = return $ makeExprTyped (Cast r1 t) t pos
         case (inferredType r1, t) of
           (TypePtr (TypeBasicType BasicTypeVoid), TypePtr _) -> cast
-          (x, y        ) -> do
+          (x, y@(TypeBox tp params)) -> do
+            box <- autoRefDeref ctx tctx y x r1 [] r1
+            case inferredType box of
+              TypeBox _ _ -> return box
+              _           -> throwk $ TypingError
+                (  show x
+                ++ " can't be converted to a "
+                ++ show y
+                ++ "; no matching trait implementation found"
+                )
+                pos
+          (x, y) -> do
             t' <- unify ctx tctx x y
             x' <- unify ctx tctx x (typeClassNumeric)
             y' <- unify ctx tctx y (typeClassNumeric)

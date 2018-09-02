@@ -152,6 +152,7 @@ generateDeclIr ctx mod t = do
       debugLog ctx
         $  "generating IR for trait "
         ++ (s_unpack $ showTypePath name)
+      tctx <- modTypeContext ctx mod
       converted <- convertTraitDefinition paramConverter trait
       -- trait declarations become struct definitions for the box/vtable
       let boxName    = subPath name "box"
@@ -191,17 +192,24 @@ generateDeclIr ctx mod t = do
             }
           }
 
-      methodBundles <- forM (traitMethods trait)
-        $ \x -> generateDeclIr ctx mod $ DeclFunction x
-      let deps = foldr (++) [] $ map bundleDependencies $ foldr (++)
-                                                                []
-                                                                methodBundles
+      let
+        methodDeps = map
+          (\method ->
+            foldr (++) []
+              $ ( (typeDeps False (functionType method))
+                : (map ((typeDeps False) . argType) (functionArgs method))
+                )
+          )
+          (traitMethods converted)
+      let deps = foldr (++) [] methodDeps
 
       return $ [DeclBundle name [DeclType $ traitBox, DeclType $ vtable] deps]
 
     DeclImpl (TraitImplementation { implMethods = [] }) -> return []
     DeclImpl i'@(TraitImplementation { implTrait = TypeTraitConstraint (traitName, traitParams), implFor = ct })
       -> do
+        tctx <- modTypeContext ctx mod
+        traitParams <- forM traitParams $ mapType (follow ctx tctx)
         let
           i = i'
             { implName = monomorphName (monomorphName traitName traitParams)

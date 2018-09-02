@@ -201,7 +201,7 @@ makeGeneric ctx tp@(modPath, name) pos existing = do
   let params = case binding of
         Just (TypeBinding     def) -> typeParams def
         Just (FunctionBinding def) -> functionParams def
-        Just (TraitBinding    def) -> traitParams def
+        Just (TraitBinding    def) -> traitAllParams def
   if null params
     then return []
     else do
@@ -240,6 +240,17 @@ getTypeDefinition ctx modPath typeName = do
       (  "Unexpected missing type: "
       ++ (s_unpack $ showTypePath (modPath, typeName))
       )
+      Nothing
+
+getTraitDefinition
+  :: CompileContext -> TypePath -> IO (TraitDefinition TypedExpr ConcreteType)
+getTraitDefinition ctx tp@(modPath, traitName) = do
+  defMod  <- getMod ctx modPath
+  binding <- resolveLocal (modScope defMod) traitName
+  case binding of
+    Just (TraitBinding def) -> return def
+    _                       -> throwk $ InternalError
+      ("Unexpected missing trait: " ++ (s_unpack $ showTypePath tp))
       Nothing
 
 addGlobalName :: CompileContext -> Module -> Span -> Str -> IO ()

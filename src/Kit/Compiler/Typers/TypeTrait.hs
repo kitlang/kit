@@ -42,18 +42,19 @@ typeTraitMonomorph
   -> [ConcreteType]
   -> IO (Maybe TypedDecl, Bool)
 typeTraitMonomorph ctx mod def params = do
+  tctx' <- modTypeContext ctx mod
+  params <- forM params $ mapType $ follow ctx tctx'
   debugLog ctx
     $  "generating trait monomorph for "
     ++ s_unpack (showTypePath $ traitName def)
     ++ " with params "
     ++ show params
-  -- let selfType = TypeInstance (modPath mod, typeName def) params
-  tctx' <- modTypeContext ctx mod
+
   let tctx =
         (addTypeParams
           tctx'
           [ (traitSubPath def $ paramName param, ct)
-          | (param, ct) <- zip (traitParams def) params
+          | (param, ct) <- zip (traitAllParams def) params
           ]
         )
   monomorph <- followTrait ctx tctx def

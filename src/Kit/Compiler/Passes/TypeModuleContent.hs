@@ -58,7 +58,7 @@ typeIterative ctx input output limit = do
               DeclVar      v -> typeVar ctx mod v
               DeclFunction f | null (functionParams f) -> typeFunction ctx mod f
               DeclType     t | null (typeParams t) -> typeType ctx mod t
-              DeclTrait    t | null (traitParams t) -> typeTrait ctx mod t
+              DeclTrait    t | null (traitAllParams t) -> typeTrait ctx mod t
               DeclImpl     i -> typeImpl ctx mod i
               DeclRuleSet  rs -> return (Nothing, True)
               _ -> return (Nothing, True)
