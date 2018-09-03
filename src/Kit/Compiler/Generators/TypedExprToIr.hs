@@ -223,7 +223,10 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
       (Field e1 (MacroVar v _)) -> throwk $ InternalError
         ("unexpected macro var (" ++ (s_unpack v) ++ ") in typed AST")
         (Just pos)
-      (ArrayAccess e1 e2  ) -> return $ undefined -- TODO
+      (ArrayAccess e1 e2  ) -> do
+        r1 <- r e1
+        r2 <- r e2
+        return $ IrArrayAccess r1 r2
       (Call        e1 args) -> do
         r1    <- r e1
         args' <- mapMWithErrors r args

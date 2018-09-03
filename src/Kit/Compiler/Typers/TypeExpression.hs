@@ -742,7 +742,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
     (ArrayAccess e1 e2) -> do
       r1 <- r e1
-      case (inferredType r1, tExpr e2) of
+      r2 <- r e2
+      case (inferredType r1, tExpr r2) of
         (TypeTuple t, Literal (IntValue i _)) ->
           -- compile-time tuple slot access
                                                  if (i >= 0) && (i < length t)
@@ -761,9 +762,31 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         (TypeTuple t, _) -> throwk $ TypingError
           "Array access on tuples is only allowed using int literals"
           pos
+        (TypePtr t, _) -> do
+          resolveConstraint
+            ctx
+            tctx
+            (TypeEq t
+                    (inferredType ex)
+                    "Array access on a pointer will dereference the pointer"
+                    (tPos ex)
+            )
+          resolveConstraint
+            ctx
+            tctx
+            (TypeEq typeClassIntegral
+                    (inferredType r2)
+                    "Array access on a pointer requires an Integral argument"
+                    (tPos r2)
+            )
+          return $ makeExprTyped (ArrayAccess r1 r2) (inferredType ex) pos
         _ -> do
           r2 <- r e2
-          throwk $ InternalError "Not yet implemented" (Just pos)
+          throwk $ TypingError
+            (  "Array access is not supported on values of type "
+            ++ show (inferredType r1)
+            )
+            pos
 
     (Cast e1 t) -> do
       r1 <- r e1
