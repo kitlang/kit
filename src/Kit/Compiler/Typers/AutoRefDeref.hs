@@ -29,6 +29,8 @@ import Kit.Str
   Attempts to convert expression `ex` from `toType` to `fromType`; returns
   either a new typed expression of type `fromType` or the original if the
   conversion wasn't possible.
+
+  FIXME: return a IO (Maybe TypedExpr) to denote success
 -}
 autoRefDeref
   :: CompileContext
@@ -87,6 +89,7 @@ autoRefDeref ctx tctx toType fromType original temps ex = do
         -- don't try to deref a void pointer
         return original
       (a, TypePtr b) -> autoRefDeref ctx tctx a b original temps (addDeref ex)
+      -- TODO: autorefderef tuples
       _              -> return original
 
 makeBox

@@ -444,6 +444,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       r1 <- typeMaybeExpr ctx tctx mod e1
       case (tctxReturnType tctx, r1) of
         (Just rt, Just r1) -> do
+          r1 <- autoRefDeref ctx tctx rt (inferredType r1) r1 [] r1
           resolve $ TypeEq (rt)
                            (inferredType r1)
                            "Return type should match function return type"

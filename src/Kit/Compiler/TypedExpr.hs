@@ -13,6 +13,7 @@ data TypedExpr = TypedExpr {
   rewrittenBy :: Maybe (RewriteRule (Expr) (Maybe TypeSpec)),
   tIsLvalue :: Bool,
   tTemps :: [TypedExpr]
+  -- tSubTypes :: [ConcreteType]
 } deriving (Eq, Show)
 
 makeExprTyped :: TypedExprType -> ConcreteType -> Span -> TypedExpr

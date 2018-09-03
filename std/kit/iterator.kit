@@ -17,7 +17,7 @@ trait Iterable(IteratorT) {
     rules {
         (for $ident in this {$e}) => {
             var __iter = this.iterator();
-            var __current; Option[IteratorT];
+            var __current: Option[IteratorT];
             do {
                 (__iter, __current) = __iter.next();
                 match __current {

@@ -1,8 +1,6 @@
 implement Iterable(Int) for List[Int] {
     public function iterator(): Box[Iterator[Int]] {
-        // FIXME: autorefderef on return values
-        var box: Box[Iterator[Int]] = this;
-        return box;
+        return this as Box[Iterator[Int]];
     }
 }
 
@@ -14,20 +12,17 @@ implement Iterator[Int] for List[Int] {
             Cons(h, t) => {
                 printf("returning %i\n", h);
                 var box: Box[Iterator[Int]] = *t;
-                var x: (Box[Iterator[Int]], Option[Int]) = (box, Some(h));
-                return x;
+                return (box, Some(h));
             }
             Empty => {
                 printf("empty\n");
                 var box: Box[Iterator[Int]] = this;
-                var x: (Box[Iterator[Int]], Option[Int]) = (box, None);
-                return x;
+                return (box, None);
             }
             default => {
                 printf("wtf\n");
                 var box: Box[Iterator[Int]] = this;
-                var x: (Box[Iterator[Int]], Option[Int]) = (box, None);
-                return x;
+                return (box, None);
             }
         }
     }
@@ -52,20 +47,17 @@ implement Iterator[Int] for ListIterator {
                 printf("returning %i\n", h);
                 this.listPtr = t;
                 var box: Box[Iterator[Int]] = this;
-                var x: (Box[Iterator[Int]], Option[Int]) = (box, Some(h));
-                return x;
+                return (box, Some(h));
             }
             Empty => {
                 printf("empty\n");
                 var box: Box[Iterator[Int]] = this;
-                var x: (Box[Iterator[Int]], Option[Int]) = (box, None);
-                return x;
+                return (box, None);
             }
             default => {
                 printf("wtf\n");
                 var box: Box[Iterator[Int]] = this;
-                var x: (Box[Iterator[Int]], Option[Int]) = (box, None);
-                return x;
+                return (box, None);
             }
         }
     }
