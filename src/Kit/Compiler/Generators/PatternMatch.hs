@@ -101,6 +101,8 @@ patternMatch ctx mod typer pattern t ex = do
     -- TODO: struct/union destructure
     Identifier (Var ([], x)) -> do
       return $ ([], [IrVarDeclaration x t (Just ex)])
+    Identifier Hole -> do
+      return ([], [])
     Literal (BoolValue   True ) -> return ([ex], [])
     Literal (BoolValue   False) -> return ([IrPreUnop Invert ex], [])
     Literal (StringValue s    ) -> return ([stringCompare ex s], [])

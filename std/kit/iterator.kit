@@ -13,6 +13,20 @@
  */
 trait Iterable(IteratorT) {
     public function iterator(): Box[Iterator[IteratorT]];
+
+    rules {
+        (for $ident in this {$e}) => {
+            var __iter = this.iterator();
+            var __current; Option[IteratorT];
+            do {
+                (__iter, __current) = __iter.next();
+                match __current {
+                    Some($ident) => $e;
+                    default => break;
+                }
+            } while true;
+        }
+    }
 }
 
 /**

@@ -3,32 +3,32 @@ enum Either[A, B] {
     Right(b: B);
 
     public function isLeft() {
-        return match this {
-            Left(_) => true;
-            Right(_) => false;
+        match this {
+            Left(_) => return true;
+            default => return false;
         }
     }
 
     public function isRight() {
-        return match this {
-            Left(_) => false;
-            Right(_) => true;
+        match this {
+            Left(_) => return false;
+            default => return true;
         }
     }
 
-    public function unwrapLeft() {
-        return match this {
-            Left(l) => l;
-            Right(_) => throw WrongValueError;
-        }
-    }
+    // public function unwrapLeft() {
+    //     return match this {
+    //         Left(l) => l;
+    //         Right(_) => throw WrongValueError;
+    //     }
+    // }
 
-    public function unwrapRight() {
-        return match this {
-            Left(_) => throw WrongValueError;
-            Right(r) => r;
-        }
-    }
+    // public function unwrapRight() {
+    //     return match this {
+    //         Left(_) => throw WrongValueError;
+    //         Right(r) => r;
+    //     }
+    // }
 }
 
 atom WrongValueError;

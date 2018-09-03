@@ -1,0 +1,22 @@
+function main() {
+    var a: Either[Int, CString] = Left(123);
+
+    match a {
+        Left(x) => {
+            printf("expected: %i\n", x);
+        }
+        default => {
+            printf("unexpected!\n");
+        }
+    }
+
+    a = Right("stringvalue");
+    match a {
+        Right(x) => {
+            printf("expected: %s\n", x);
+        }
+        default => {
+            printf("unexpected!\n");
+        }
+    }
+}
