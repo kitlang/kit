@@ -11,18 +11,15 @@ implement Iterator[Int] for List[Int] {
         match this {
             Cons(h, t) => {
                 printf("returning %i\n", h);
-                var box: Box[Iterator[Int]] = *t;
-                return (box, Some(h));
+                return ((*t) as Box[Iterator[Int]], Some(h));
             }
             Empty => {
                 printf("empty\n");
-                var box: Box[Iterator[Int]] = this;
-                return (box, None);
+                return (this as Box[Iterator[Int]], None);
             }
             default => {
                 printf("wtf\n");
-                var box: Box[Iterator[Int]] = this;
-                return (box, None);
+                return (this as Box[Iterator[Int]], None);
             }
         }
     }
@@ -46,18 +43,15 @@ implement Iterator[Int] for ListIterator {
             Cons(h, t) => {
                 printf("returning %i\n", h);
                 this.listPtr = t;
-                var box: Box[Iterator[Int]] = this;
-                return (box, Some(h));
+                return (this as Box[Iterator[Int]], Some(h));
             }
             Empty => {
                 printf("empty\n");
-                var box: Box[Iterator[Int]] = this;
-                return (box, None);
+                return (this as Box[Iterator[Int]], None);
             }
             default => {
                 printf("wtf\n");
-                var box: Box[Iterator[Int]] = this;
-                return (box, None);
+                return (this as Box[Iterator[Int]], None);
             }
         }
     }

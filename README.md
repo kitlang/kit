@@ -33,8 +33,6 @@ Why you should use Kit in place of:
 | A sane, easy to use build system. Kit features modules, imports, and standard package structure, plus a simple but powerful build tool: manage your project via a simple YAML configuration file and `kit build`, `kit test`, or `kit run`. (coming soon...) | Take advantage of existing C libraries without any wrappers; just include the header and directly use types/functions/variables. |
 
 ```kit
-include "stdio.h";
-
 function main() {
     var s: CString = "Hello from Kit!";
     printf("%s\n", s);
@@ -51,11 +49,11 @@ Kit is licensed under the GNU Lesser General Public License; see the accompanyin
 Design goals and philosophy
 ---------------------------
 
-- Kit prefers "magic" and expressiveness over boilerplate and code that maps 1:1 to its runtime semantics. Using syntax transformation, developers should write the most concise and declarative version of their code, and it should compile to what a performance-conscious developer would've written by hand.
+- Magic and abstracting away complexity are good! Developers should write the most concise and declarative version of their code, and use syntax transformations to convert it into what a performance-conscious developer would've written by hand.
 
-- Expose enough low-level details to write high performance code, but make it possible to abstract them away. Memory management in Kit is manual, but optional features like smart pointers exist (and can be defined in user space) to make it less painful.
+- Expose the necessary low-level details to write high performance code, and make it easy to abstract them away without entirely giving up control.
 
-- Verify that the program is safe at compile time, but not at the expense of ergonomics.
+- Kit provides more compile-time safety than C, but never chooses safety at the expense of ergonomics. Kit gives you plenty of rope to hang yourself with. Use it to climb a mountain, not hang yourself! (If you do hang yourself, a detailed error message will let you know.)
 
 
 Building from source

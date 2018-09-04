@@ -9,6 +9,7 @@ import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
+import Kit.Compiler.TypedExpr
 import Kit.Error
 import Kit.HashTable
 import Kit.Log
@@ -246,3 +247,44 @@ useImpl ctx tctx pos traitDef impl params = do
     ctx
     tctx
     (TypeEq p val "Trait implementation has associated type" pos)
+
+
+mergeVarInfo
+  :: CompileContext
+  -> TypeContext
+  -> VarDefinition TypedExpr ConcreteType
+  -> VarDefinition TypedExpr ConcreteType
+  -> String
+  -> IO ()
+mergeVarInfo ctx tctx var1 var2 msg = resolveConstraint
+  ctx
+  tctx
+  (TypeEq (varType var1) (varType var2) msg (varPos var1))
+
+mergeArgInfo
+  :: CompileContext
+  -> TypeContext
+  -> ArgSpec TypedExpr ConcreteType
+  -> ArgSpec TypedExpr ConcreteType
+  -> String
+  -> IO ()
+mergeArgInfo ctx tctx arg1 arg2 msg = do
+  resolveConstraint ctx
+                    tctx
+                    (TypeEq (argType arg1) (argType arg2) msg (argPos arg1))
+
+mergeFunctionInfo
+  :: CompileContext
+  -> TypeContext
+  -> FunctionDefinition TypedExpr ConcreteType
+  -> FunctionDefinition TypedExpr ConcreteType
+  -> String
+  -> String
+  -> IO ()
+mergeFunctionInfo ctx tctx f1 f2 rtMsg argMsg = do
+  resolveConstraint
+    ctx
+    tctx
+    (TypeEq (functionType f1) (functionType f2) rtMsg (functionPos f1))
+  forM_ (zip (functionArgs f1) (functionArgs f2))
+        (\(arg1, arg2) -> mergeArgInfo ctx tctx arg1 arg2 argMsg)
