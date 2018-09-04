@@ -25,7 +25,7 @@ typeTrait
   :: CompileContext
   -> Module
   -> TraitDefinition TypedExpr ConcreteType
-  -> IO (Maybe TypedDecl, Bool)
+  -> IO (Maybe TypedDecl)
 typeTrait ctx mod def = do
   debugLog ctx $ "typing trait " ++ s_unpack (showTypePath $ traitName def)
   tctx <- modTypeContext ctx mod
@@ -40,7 +40,7 @@ typeTraitMonomorph
   -> Module
   -> TraitDefinition TypedExpr ConcreteType
   -> [ConcreteType]
-  -> IO (Maybe TypedDecl, Bool)
+  -> IO (Maybe TypedDecl)
 typeTraitMonomorph ctx mod def params = do
   tctx' <- modTypeContext ctx mod
   params <- forM params $ mapType $ follow ctx tctx'
@@ -73,13 +73,13 @@ typeTraitDefinition
   -> Module
   -> ConcreteType
   -> TraitDefinition TypedExpr ConcreteType
-  -> IO (Maybe TypedDecl, Bool)
+  -> IO (Maybe TypedDecl)
 typeTraitDefinition ctx tctx' mod selfType def = do
   let tctx = tctx' { tctxSelf = Just selfType, tctxThis = Just selfType }
   methods <- forM
     (traitMethods def)
     (\method -> do
-      (typed, complete) <- typeFunctionDefinition ctx tctx mod method
+      typed <- typeFunctionDefinition ctx tctx mod method
       return typed
     )
-  return (Just $ DeclTrait $ def { traitMethods = methods }, True)
+  return $ Just $ DeclTrait $ def { traitMethods = methods }

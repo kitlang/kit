@@ -60,13 +60,12 @@ typeIterative ctx input output limit = do
               DeclType     t | null (typeParams t) -> typeType ctx mod t
               DeclTrait    t | null (traitAllParams t) -> typeTrait ctx mod t
               DeclImpl     i -> typeImpl ctx mod i
-              DeclRuleSet  rs -> return (Nothing, True)
-              _ -> return (Nothing, True)
-            ) :: IO (Either KitError (Maybe TypedDecl, Bool))
+              DeclRuleSet  rs -> return Nothing
+              _ -> return Nothing
+            ) :: IO (Either KitError (Maybe TypedDecl))
           case result of
-            Left  e                 -> return $ Incomplete d (Just e)
-            Right (d       , True ) -> return $ Complete d
-            Right ((Just x), False) -> return $ Incomplete x Nothing
+            Left  e -> return $ Incomplete d (Just e)
+            Right d -> return $ Complete d
         )
       return (mod, results)
     )

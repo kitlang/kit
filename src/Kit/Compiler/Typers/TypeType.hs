@@ -29,7 +29,7 @@ typeType
   :: CompileContext
   -> Module
   -> TypeDefinition TypedExpr ConcreteType
-  -> IO (Maybe TypedDecl, Bool)
+  -> IO (Maybe TypedDecl)
 typeType ctx mod def = do
   debugLog ctx $ "typing type " ++ s_unpack (showTypePath $ typeName def)
   tctx    <- modTypeContext ctx mod
@@ -50,7 +50,7 @@ typeTypeMonomorph
   -> Module
   -> TypeDefinition TypedExpr ConcreteType
   -> [ConcreteType]
-  -> IO (Maybe TypedDecl, Bool)
+  -> IO (Maybe TypedDecl)
 typeTypeMonomorph ctx mod def params = do
   debugLog ctx
     $  "generating type monomorph for "
@@ -77,20 +77,20 @@ typeTypeDefinition
   -> Module
   -> ConcreteType
   -> TypeDefinition TypedExpr ConcreteType
-  -> IO (Maybe TypedDecl, Bool)
+  -> IO (Maybe TypedDecl)
 typeTypeDefinition ctx tctx mod selfType def@(TypeDefinition { typeName = name })
   = do
     let r = typeExpr ctx tctx mod
     staticFields <- forM
       (typeStaticFields def)
       (\field -> do
-        (typed, complete) <- typeVarDefinition ctx tctx mod field
+        typed <- typeVarDefinition ctx tctx mod field
         return $ typed { varName = typeSubPath def $ tpName $ varName typed }
       )
     staticMethods <- forM
       (typeStaticMethods def)
       (\method -> do
-        (typed, complete) <- typeFunctionDefinition ctx tctx mod method
+        typed <- typeFunctionDefinition ctx tctx mod method
         return $ typed
           { functionName = typeSubPath def $ tpName $ functionName typed
           }
@@ -99,7 +99,7 @@ typeTypeDefinition ctx tctx mod selfType def@(TypeDefinition { typeName = name }
       (typeMethods def)
       (\method -> do
         let tctx' = tctx { tctxThis = Just selfType }
-        (typed, complete) <- typeFunctionDefinition ctx tctx' mod method
+        typed <- typeFunctionDefinition ctx tctx' mod method
         -- revise self type in instance methods
         -- return $ reimplicitify (TypePtr selfType) typed
         return $ typed
@@ -133,13 +133,10 @@ typeTypeDefinition ctx tctx mod selfType def@(TypeDefinition { typeName = name }
       --     variant
       --   return $ s { enumVariants = variants }
       _ -> return $ typeSubtype def
-    return
-      $ ( Just $ DeclType
-          (def { typeStaticFields  = staticFields
-               , typeStaticMethods = staticMethods
-               , typeMethods       = instanceMethods
-               , typeSubtype       = subtype
-               }
-          )
-        , True
-        )
+    return $ Just $ DeclType
+      (def { typeStaticFields  = staticFields
+           , typeStaticMethods = staticMethods
+           , typeMethods       = instanceMethods
+           , typeSubtype       = subtype
+           }
+      )

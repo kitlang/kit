@@ -26,23 +26,19 @@ typeVar
   :: CompileContext
   -> Module
   -> VarDefinition TypedExpr ConcreteType
-  -> IO (Maybe TypedDecl, Bool)
+  -> IO (Maybe TypedDecl)
 typeVar ctx mod def@(VarDefinition { varName = name })
   = do
     tctx              <- newTypeContext []
-    (typed, complete) <- typeVarDefinition ctx tctx mod def
-    if complete
-      then do
-        -- modifyIORef (modTypedContents mod) ((:) $ DeclVar typed)
-        return (Just $ DeclVar typed, True)
-      else return (Just $ DeclVar typed, False)
+    typed <- typeVarDefinition ctx tctx mod def
+    return $ Just $ DeclVar typed
 
 typeVarDefinition
   :: CompileContext
   -> TypeContext
   -> Module
   -> VarDefinition TypedExpr ConcreteType
-  -> IO (VarDefinition TypedExpr ConcreteType, Bool)
+  -> IO (VarDefinition TypedExpr ConcreteType)
 typeVarDefinition ctx tctx mod def = do
   case varDefault def of
     Just x -> do
@@ -56,5 +52,5 @@ typeVarDefinition ctx tctx mod def = do
           "Variable and field default values must match the variable's type"
           (varPos def)
         )
-      return (def { varDefault = Just typed }, True)
-    _ -> return (def, True)
+      return $def { varDefault = Just typed }
+    _ -> return def

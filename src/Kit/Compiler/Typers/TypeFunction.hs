@@ -26,13 +26,12 @@ typeFunction
   :: CompileContext
   -> Module
   -> FunctionDefinition TypedExpr ConcreteType
-  -> IO (Maybe TypedDecl, Bool)
+  -> IO (Maybe TypedDecl)
 typeFunction ctx mod f = do
   debugLog ctx $ "typing function " ++ s_unpack (showTypePath $ functionName f)
-  tctx              <- modTypeContext ctx mod
-  (typed, complete) <- typeFunctionDefinition ctx tctx mod f
-  --modifyIORef (modTypedContents mod) ((:) $ DeclFunction typed)
-  return $ (Just $ DeclFunction typed, complete)
+  tctx  <- modTypeContext ctx mod
+  typed <- typeFunctionDefinition ctx tctx mod f
+  return $ Just $ DeclFunction typed
 
 {-
   Type checks a specific monomorph of a generic function, with a known set of
@@ -43,7 +42,7 @@ typeFunctionMonomorph
   -> Module
   -> FunctionDefinition TypedExpr ConcreteType
   -> [ConcreteType]
-  -> IO (Maybe TypedDecl, Bool)
+  -> IO (Maybe TypedDecl)
 typeFunctionMonomorph ctx mod f params = do
   debugLog ctx
     $  "generating function monomorph for "
@@ -58,15 +57,15 @@ typeFunctionMonomorph ctx mod f params = do
                            | (param, ct) <- zip (functionParams f) params
                            ]
         }
-  (typed, complete) <- typeFunctionDefinition ctx tctx' mod f
-  return $ (Just $ DeclFunction typed, complete)
+  typed <- typeFunctionDefinition ctx tctx' mod f
+  return $ Just $ DeclFunction typed
 
 typeFunctionDefinition
   :: CompileContext
   -> TypeContext
   -> Module
   -> FunctionDefinition TypedExpr ConcreteType
-  -> IO (FunctionDefinition TypedExpr ConcreteType, Bool)
+  -> IO (FunctionDefinition TypedExpr ConcreteType)
 typeFunctionDefinition ctx tctx' mod f = do
   let fPos = functionPos f
   let isMain =
@@ -109,10 +108,8 @@ typeFunctionDefinition ctx tctx' mod f = do
                 fPos
         )
     _ -> return ()
-  return
-    $ ( f { functionBody = body
-          , functionArgs = args
-          , functionType = returnType
-          }
-      , True
-      )
+  return $ f { functionBody = body
+             , functionArgs = args
+             , functionType = returnType
+             }
+

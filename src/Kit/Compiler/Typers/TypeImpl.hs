@@ -23,7 +23,7 @@ typeImpl
   :: CompileContext
   -> Module
   -> TraitImplementation TypedExpr ConcreteType
-  -> IO (Maybe TypedDecl, Bool)
+  -> IO (Maybe TypedDecl)
 typeImpl ctx mod def = do
   tctx'              <- modTypeContext ctx mod
   (traitDef, params) <- case implTrait def of
@@ -52,7 +52,7 @@ typeImpl ctx mod def = do
   methods <- forMWithErrors
     (implMethods def)
     (\method -> do
-      (typed, complete) <- typeFunctionDefinition ctx tctx mod method
+      typed <- typeFunctionDefinition ctx tctx mod method
       case
           findMethodByName (traitMethods traitDef)
                            (tpName $ functionName method)
@@ -70,8 +70,7 @@ typeImpl ctx mod def = do
       return typed
     )
 
-  -- TODO: we're not actually verifying that this matches the trait...
-  return (Just $ DeclImpl $ def { implMethods = methods }, True)
+  return $ Just $ DeclImpl $ def { implMethods = methods }
 
 findMethodByName
   :: [FunctionDefinition TypedExpr ConcreteType]

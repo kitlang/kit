@@ -47,7 +47,7 @@ generateMonomorphs ctx = do
               FunctionBinding def -> do
                 x <- typeFunctionMonomorph ctx definitionMod def params
                 return $ case x of
-                  (Just (DeclFunction x), _) -> Just
+                  Just (DeclFunction x) -> Just
                     ( definitionMod
                     , [ DeclFunction $ x
                           { functionName = monomorphName (functionName def)
@@ -60,7 +60,7 @@ generateMonomorphs ctx = do
               TypeBinding def -> do
                 x <- typeTypeMonomorph ctx definitionMod def params
                 return $ case x of
-                  (Just (DeclType x), _) -> Just
+                  Just (DeclType x) -> Just
                     ( definitionMod
                     , [ DeclType
                           $ x { typeName = monomorphName (typeName def) params }
@@ -71,7 +71,7 @@ generateMonomorphs ctx = do
               TraitBinding def -> do
                 x <- typeTraitMonomorph ctx definitionMod def params
                 return $ case x of
-                  (Just (DeclTrait x), _) -> Just
+                  Just (DeclTrait x) -> Just
                     ( definitionMod
                     , [ DeclTrait $ x
                           { traitName = monomorphName (traitName def) params
