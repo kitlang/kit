@@ -224,6 +224,9 @@ follow ctx tctx t = do
     TypeTuple t -> do
       resolvedT <- forM t $ follow ctx tctx
       return $ TypeTuple resolvedT
+    TypeTraitConstraint (tp, params) -> do
+      resolvedParams <- forM params (follow ctx tctx)
+      return $ TypeTraitConstraint (tp, resolvedParams)
     _ -> return t
 
 followType ctx tctx = convertTypeDefinition

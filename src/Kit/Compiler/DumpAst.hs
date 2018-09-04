@@ -58,12 +58,32 @@ dumpModuleDecl ctx mod indent decl = do
 
     DeclVar v -> do
       t <- dumpCt ctx (varType v)
-      putStrLn $ i ++ "  var " ++ (s_unpack $ showTypePath $ varName v) ++ ": " ++ t ++ "\n"
+      putStrLn
+        $  i
+        ++ "  var "
+        ++ (s_unpack $ showTypePath $ varName v)
+        ++ ": "
+        ++ t
+        ++ "\n"
       case varDefault v of
         Just x -> do
           out <- dumpAst ctx (indent + 2) x
           putStrLn out
         _ -> return ()
+
+    DeclTrait t -> do
+      putStrLn $ i ++ "  trait " ++ (s_unpack $ showTypePath $ traitName t)
+      forM_
+        (traitMethods t)
+        (\method -> dumpModuleDecl ctx mod (indent + 1) (DeclFunction method))
+
+    DeclImpl t -> do
+      traitName <- dumpCt ctx $ implTrait t
+      forName   <- dumpCt ctx $ implFor t
+      putStrLn $ i ++ "  impl " ++ traitName ++ " for " ++ forName
+      forM_
+        (implMethods t)
+        (\method -> dumpModuleDecl ctx mod (indent + 1) (DeclFunction method))
 
     DeclType t -> do
       putStrLn $ i ++ "  type " ++ (s_unpack $ showTypePath $ typeName t)
@@ -246,5 +266,8 @@ dumpCt ctx t = case t of
       ++ intercalate ", " [ s_unpack name ++ ": " ++ t | (name, t) <- args ]
       ++ ") -> "
       ++ rt
+  TypePtr t -> do
+    t' <- dumpCt ctx t
+    return $ "Ptr[" ++ t' ++ "]"
   _ -> return $ show t
 

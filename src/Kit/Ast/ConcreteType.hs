@@ -149,6 +149,9 @@ mapType f (TypeBox tp p) = do
 mapType f (TypeTuple p) = do
   p' <- mapM f p
   f $ TypeTuple p'
+mapType f (TypeTraitConstraint (tp, p)) = do
+  p' <- mapM f p
+  f $ TypeTraitConstraint (tp, p')
 mapType f t = f t
 
 substituteParams

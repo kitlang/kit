@@ -4,6 +4,7 @@ import Control.Applicative
 import Control.Monad
 import Data.IORef
 import Data.List
+import Data.Maybe
 import Kit.Ast
 import Kit.Compiler.Binding
 import Kit.Compiler.Context
@@ -73,8 +74,8 @@ _autoRefDeref ctx tctx toType fromType temps ex = do
           Just v -> do
             modifyIORef v (\val -> val ++ reverse temps)
         return $ Just ex
-  toType   <- follow ctx tctx toType
-  fromType <- follow ctx tctx fromType
+  toType   <- mapType (follow ctx tctx) toType
+  fromType <- mapType (follow ctx tctx) fromType
   result   <- unify ctx tctx toType fromType
   case result of
     Just _ -> finalizeResult ex
@@ -95,8 +96,30 @@ _autoRefDeref ctx tctx toType fromType temps ex = do
         -- don't try to deref a void pointer
         return Nothing
       (a, TypePtr b) -> _autoRefDeref ctx tctx a b temps (addDeref ex)
-      -- TODO: autorefderef tuples
-      _              -> return Nothing
+      (TypeTuple a, TypeTuple b) | (length a == length b) && (isTupleInit ex) ->
+        case tExpr ex of
+          TupleInit t -> do
+            parts <- forM (zip t (zip a b)) $ \(val, (toType, fromType)) ->
+              _autoRefDeref ctx tctx toType fromType temps val
+            if all isJust parts
+              then do
+                forMWithErrors_ (zip parts a) $ \(Just part, t) -> do
+                  resolveConstraint
+                    ctx
+                    tctx
+                    (TypeEq t
+                            (inferredType part)
+                            "Tuple parts must match declared type"
+                            (tPos part)
+                    )
+                finalizeResult $ makeExprTyped (TupleInit $ catMaybes parts)
+                                               (TypeTuple a)
+                                               (tPos ex)
+              else return Nothing
+      _ -> return Nothing
+
+isTupleInit (TypedExpr { tExpr = TupleInit _ }) = True
+isTupleInit _ = False
 
 makeBox
   :: CompileContext
