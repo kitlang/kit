@@ -20,28 +20,34 @@ import Kit.HashTable
 import Kit.Parser
 import Kit.Str
 
+tryAutoRefDeref ctx tctx toType ex = do
+  x <- _autoRefDeref ctx tctx toType (inferredType ex) [] ex
+  case x of
+    Just x  -> return x
+    Nothing -> return ex
+
+autoRefDeref ctx tctx toType ex =
+  _autoRefDeref ctx tctx toType (inferredType ex) [] ex
+
 {-
   Used to automatically perform specific implicit conversions:
 
   - referencing/dereferencing pointers
   - creating a Box pointer
 
-  Attempts to convert expression `ex` from `toType` to `fromType`; returns
+  Attempts to convert expression `ex` from `fromType` to `toType`; returns
   either a new typed expression of type `fromType` or the original if the
   conversion wasn't possible.
-
-  FIXME: return a IO (Maybe TypedExpr) to denote success
 -}
-autoRefDeref
+_autoRefDeref
   :: CompileContext
   -> TypeContext
   -> ConcreteType
   -> ConcreteType
-  -> TypedExpr
   -> [TypedExpr]
   -> TypedExpr
-  -> IO TypedExpr
-autoRefDeref ctx tctx toType fromType original temps ex = do
+  -> IO (Maybe TypedExpr)
+_autoRefDeref ctx tctx toType fromType temps ex = do
   let
     tryLvalue a b = do
       case tctxTemps tctx of
@@ -56,7 +62,7 @@ autoRefDeref ctx tctx toType fromType original temps ex = do
                   (inferredType ex)
                   (tPos ex)
                 )
-          autoRefDeref ctx tctx a b original (temp : temps)
+          _autoRefDeref ctx tctx a b (temp : temps)
             $ (makeExprTyped (Identifier (Var ([], tmp)))
                              (inferredType ex)
                              (tPos ex)
@@ -66,7 +72,7 @@ autoRefDeref ctx tctx toType fromType original temps ex = do
         case tctxTemps tctx of
           Just v -> do
             modifyIORef v (\val -> val ++ reverse temps)
-        return ex
+        return $ Just ex
   toType   <- follow ctx tctx toType
   fromType <- follow ctx tctx fromType
   result   <- unify ctx tctx toType fromType
@@ -79,18 +85,18 @@ autoRefDeref ctx tctx toType fromType original temps ex = do
             box <- makeBox ctx tctx tp params ex
             case box of
               Just x  -> finalizeResult x
-              Nothing -> return original
+              Nothing -> return Nothing
           else tryLvalue toType fromType
-      (TypePtr a, TypePtr b) -> autoRefDeref ctx tctx a b original temps ex
+      (TypePtr a, TypePtr b) -> _autoRefDeref ctx tctx a b temps ex
       (TypePtr a, b        ) -> if tIsLvalue ex
-        then autoRefDeref ctx tctx a b original temps (addRef ex)
+        then _autoRefDeref ctx tctx a b temps (addRef ex)
         else tryLvalue toType fromType
       (a, TypePtr (TypeBasicType BasicTypeVoid)) ->
         -- don't try to deref a void pointer
-        return original
-      (a, TypePtr b) -> autoRefDeref ctx tctx a b original temps (addDeref ex)
+        return Nothing
+      (a, TypePtr b) -> _autoRefDeref ctx tctx a b temps (addDeref ex)
       -- TODO: autorefderef tuples
-      _              -> return original
+      _              -> return Nothing
 
 makeBox
   :: CompileContext
@@ -103,7 +109,7 @@ makeBox ctx tctx tp params ex = do
   if tIsLvalue ex
     then do
       traitDef <- getTraitDefinition ctx tp
-      impl <- getTraitImpl ctx tctx (tp, params) (inferredType ex)
+      impl     <- getTraitImpl ctx tctx (tp, params) (inferredType ex)
       case impl of
         Just impl -> do
           params <- makeGeneric ctx tp (tPos ex) params

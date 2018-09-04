@@ -27,7 +27,7 @@ script:
 - "ccache --version"
 - stack build kitlang:kitc
 - stack exec kitc -- -h
-- stack test
+- TEST_RUNS=3 stack test
 
 notifications:
   webhooks:

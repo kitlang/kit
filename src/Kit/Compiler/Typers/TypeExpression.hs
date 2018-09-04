@@ -264,13 +264,10 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                 pos
           _ -> do
             r1        <- r e1
-            converted <- autoRefDeref ctx
-                                      tctx
-                                      (inferredType r1)
-                                      (inferredType r2)
-                                      r2
-                                      []
-                                      r2
+            converted <- tryAutoRefDeref ctx
+                                         tctx
+                                         (inferredType r1)
+                                         r2
             resolve $ TypeEq (inferredType r1)
                              (inferredType converted)
                              "Both sides of an assignment must unify"
@@ -360,12 +357,9 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           box <- autoRefDeref ctx
                               tctx
                               (TypeBox typeClassIterablePath [tv])
-                              (inferredType r2)
                               r2
-                              []
-                              r2
-          case inferredType box of
-            TypeBox tp p | tp == typeClassIterablePath -> do
+          case box of
+            Just box -> do
               makeGeneric ctx typeOptionPath pos [tv]
               r $ iterationTransform box tv pos e1 e3
             _ -> throwk $ TypingError
@@ -444,7 +438,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       r1 <- typeMaybeExpr ctx tctx mod e1
       case (tctxReturnType tctx, r1) of
         (Just rt, Just r1) -> do
-          r1 <- autoRefDeref ctx tctx rt (inferredType r1) r1 [] r1
+          r1 <- tryAutoRefDeref ctx tctx rt r1
           resolve $ TypeEq (rt)
                            (inferredType r1)
                            "Return type should match function return type"
@@ -797,10 +791,10 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           (TypePtr (TypeBasicType BasicTypeVoid), TypePtr _) -> cast
           (TypePtr _, TypeBasicType BasicTypeCSize) -> cast
           (x, y@(TypeBox tp params)       ) -> do
-            box <- autoRefDeref ctx tctx y x r1 [] r1
-            case inferredType box of
-              TypeBox _ _ -> return box
-              _           -> throwk $ TypingError
+            box <- autoRefDeref ctx tctx y r1
+            case box of
+              Just box -> return box
+              _        -> throwk $ TypingError
                 (  show x
                 ++ " can't be converted to a "
                 ++ show y
@@ -841,7 +835,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       init' <- case init of
         Just e1 -> do
           r1        <- r e1
-          converted <- autoRefDeref ctx tctx varType (inferredType r1) r1 [] r1
+          converted <- tryAutoRefDeref ctx tctx varType r1
           resolve $ TypeEq
             varType
             (inferredType converted)
@@ -921,13 +915,10 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
             typedFields
             (\((name, expr), fieldType) -> do
               r1        <- r expr
-              converted <- autoRefDeref ctx
-                                        tctx
-                                        fieldType
-                                        (inferredType r1)
-                                        r1
-                                        []
-                                        r1
+              converted <- tryAutoRefDeref ctx
+                                           tctx
+                                           fieldType
+                                           r1
               resolve $ TypeEq
                 fieldType
                 (inferredType converted)
@@ -1000,7 +991,7 @@ findImplicit
   -> IO (Maybe (TypedExpr, TypedExpr))
 findImplicit ctx tctx ct []      = return Nothing
 findImplicit ctx tctx ct (h : t) = do
-  converted <- autoRefDeref ctx tctx ct (inferredType h) h [] h
+  converted <- tryAutoRefDeref ctx tctx ct h
   match     <- unify ctx tctx ct (inferredType converted)
   case match of
     Just _ -> do
@@ -1062,13 +1053,8 @@ typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = ft@(TypeFunction rt 
     converted <- forMWithErrors
       (zip (map Just argTypes ++ repeat Nothing) aligned)
       (\(arg, argValue) -> case arg of
-        Just (_, argType) -> autoRefDeref ctx
-                                          tctx
-                                          argType
-                                          (inferredType argValue)
-                                          argValue
-                                          []
-                                          argValue
+        Just (_, argType) ->
+          tryAutoRefDeref ctx tctx argType argValue
         Nothing -> return argValue
       )
     forMWithErrors_
