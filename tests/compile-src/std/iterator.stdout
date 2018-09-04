@@ -1,3 +1,5 @@
+list iterator manual iteration
+length = 3
 list iterator: next
 returning 1
 list iterator: next
@@ -6,7 +8,8 @@ list iterator: next
 returning 3
 list iterator: next
 empty
-3
+list iterator for loop iteration
+length = 3
 list iterator: next
 returning 1
 for loop: 1
@@ -19,6 +22,8 @@ for loop: 3
 list iterator: next
 empty
 done
+struct iterator for loop iteration
+length = 3
 struct iterator: next
 returning 1
 struct iterator: next
@@ -27,6 +32,8 @@ struct iterator: next
 returning 3
 struct iterator: next
 empty
+struct iterator manual iteration
+length = 3
 struct iterator: next
 returning 1
 struct iterator: next

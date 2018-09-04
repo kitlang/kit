@@ -64,7 +64,7 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
         _ -> return (IrLiteral (FloatValue v f))
       (Literal (StringValue s)) -> return $ IrLiteral (StringValue s)
       (Literal (BoolValue   b)) -> return $ IrLiteral (BoolValue b)
-      (This                   ) -> return $ IrIdentifier ([], "__this")
+      (This) -> return $ IrPreUnop Deref $ IrIdentifier ([], thisPtrName)
       (Self                   ) -> throw $ KitError $ BasicError
         ("unexpected `Self` in typed AST")
         (Just pos)
@@ -132,7 +132,7 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
           rTo   <- r eTo
           r3    <- r e3
           return $ IrFor (tpName id) t rFrom rTo r3
-      (While e1 e2 d ) -> do
+      (While e1 e2 d) -> do
         r1 <- r e1
         r2 <- r e2
         return $ IrWhile r1 r2 d
@@ -162,8 +162,13 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
                                                   matchType
                                                   r1
               body <- r $ matchBody c
-              let mergeConditions (h : t) =
-                    if null t then h else (IrBinop And h (mergeConditions t))
+              let mergeConditions x = if null x
+                    then (IrLiteral $ BoolValue True)
+                    else
+                      let (h, t) = (head x, tail x)
+                      in  if null t
+                            then h
+                            else (IrBinop And h (mergeConditions t))
               return $ (mergeConditions conditions, (IrBlock $ exprs ++ [body]))
             let ifX ((cond, body) : t) =
                   IrIf cond body (if null t then r2 else Just $ ifX t)
@@ -223,11 +228,11 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
       (Field e1 (MacroVar v _)) -> throwk $ InternalError
         ("unexpected macro var (" ++ (s_unpack v) ++ ") in typed AST")
         (Just pos)
-      (ArrayAccess e1 e2  ) -> do
+      (ArrayAccess e1 e2) -> do
         r1 <- r e1
         r2 <- r e2
         return $ IrArrayAccess r1 r2
-      (Call        e1 args) -> do
+      (Call e1 args) -> do
         r1    <- r e1
         args' <- mapMWithErrors r args
         return $ IrCall r1 args'
@@ -297,7 +302,12 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
                 subPath (monomorphName (modPath, traitName) params) "box"
           return $ IrStructInit
             (BasicTypeStruct structName)
-            [ (valuePointerName, (IrPreUnop Ref r1))
+            [ ( valuePointerName
+              , (case tExpr e1 of
+                  This -> IrIdentifier $ ([], thisPtrName)
+                  _    -> IrPreUnop Ref r1
+                )
+              )
             , ( vtablePointerName
               , IrPreUnop
                 Ref

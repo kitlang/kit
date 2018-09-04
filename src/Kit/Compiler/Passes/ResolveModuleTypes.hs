@@ -156,7 +156,11 @@ resolveTypesForMod ctx (mod, contents) = do
             (VarBinding vi, DeclVar v) -> do
               converted <- convertVarDefinition varConverter
                 $ v { varName = addNamespace (modPath mod) (varName v) }
-              mergeVarInfo ctx tctx vi converted "Variable type must match its annotation"
+              mergeVarInfo ctx
+                           tctx
+                           vi
+                           converted
+                           "Variable type must match its annotation"
               bindToScope (modScope mod) (declName decl) (VarBinding converted)
               return $ Just $ DeclVar converted
 
@@ -172,7 +176,13 @@ resolveTypesForMod ctx (mod, contents) = do
                   (if extern then [] else modPath mod)
                   (functionName f)
                 }
-              mergeFunctionInfo ctx tctx fi converted "Function return type must match its annotation" "Function argument type must match its annotation"
+              mergeFunctionInfo
+                ctx
+                tctx
+                fi
+                converted
+                "Function return type must match its annotation"
+                "Function argument type must match its annotation"
               bindToScope (modScope mod)
                           (declName decl)
                           (FunctionBinding converted)
@@ -203,64 +213,71 @@ resolveTypesForMod ctx (mod, contents) = do
                     -- thisType <- makeTypeVar ctx (typePos t)
                     let thisType = TypeSelf
                     let m f x t = makeExprTyped x t (functionPos f)
-                    return $ implicitifyInstanceMethods
-                      thisPtrName
-                      (TypePtr thisType)
-                      (\f x -> m
-                        f
-                        (Block
-                          [ m
-                            f
-                            (VarDeclaration
-                              (Var ([], thisArgName))
-                              thisType
-                              (Just $ m
-                                f
-                                (PreUnop
-                                  Deref
-                                  (m f
-                                     (Identifier (Var ([], thisPtrName)))
-                                     (TypePtr thisType)
-                                  )
-                                )
-                                thisType
-                              )
-                            )
-                            (thisType)
-                          , x
-                          ]
-                        )
-                        (inferredType x)
-                      )
-                      c
+                    return $ implicitifyInstanceMethods thisPtrName
+                                                        (TypePtr thisType)
+                                                        (\f x -> x)
+                                                        c
 
               forM_
                 (zip (typeStaticFields ti) (typeStaticFields converted))
-                (\(field1, field2) -> mergeVarInfo ctx tctx' field1 field2 "Static field type must match its annotation")
+                (\(field1, field2) -> mergeVarInfo
+                  ctx
+                  tctx'
+                  field1
+                  field2
+                  "Static field type must match its annotation"
+                )
               forM_
                 (zip (typeStaticMethods ti) (typeStaticMethods converted))
-                (\(method1, method2) ->
-                  mergeFunctionInfo ctx tctx' method1 method2 "Static method return type must match its annotation" "Static method argument type must match its annotation"
+                (\(method1, method2) -> mergeFunctionInfo
+                  ctx
+                  tctx'
+                  method1
+                  method2
+                  "Static method return type must match its annotation"
+                  "Static method argument type must match its annotation"
                 )
               forM_
                 (zip (typeMethods ti) (typeMethods converted))
-                (\(method1, method2) ->
-                  mergeFunctionInfo ctx tctx' method1 method2 "Method return type must match its annotation"  "Method argument type must match its annotation"
+                (\(method1, method2) -> mergeFunctionInfo
+                  ctx
+                  tctx'
+                  method1
+                  method2
+                  "Method return type must match its annotation"
+                  "Method argument type must match its annotation"
                 )
               case (typeSubtype ti, typeSubtype converted) of
                 (Struct { structFields = fields1 }, Struct { structFields = fields2 })
                   -> forM_
                     (zip fields1 fields2)
-                    (\(field1, field2) -> mergeVarInfo ctx tctx' field1 field2 "Struct field type must match its annotation")
+                    (\(field1, field2) -> mergeVarInfo
+                      ctx
+                      tctx'
+                      field1
+                      field2
+                      "Struct field type must match its annotation"
+                    )
                 (Union { unionFields = fields1 }, Union { unionFields = fields2 })
                   -> forM_
                     (zip fields1 fields2)
-                    (\(field1, field2) -> mergeVarInfo ctx tctx' field1 field2 "Union field type must match its annotation")
+                    (\(field1, field2) -> mergeVarInfo
+                      ctx
+                      tctx'
+                      field1
+                      field2
+                      "Union field type must match its annotation"
+                    )
                 (Enum { enumVariants = variants1 }, Enum { enumVariants = variants2 })
                   -> forM_ (zip variants1 variants2) $ \(variant1, variant2) ->
                     do
                       forM_ (zip (variantArgs variant1) (variantArgs variant2))
-                        $ \(arg1, arg2) -> mergeArgInfo ctx tctx' arg1 arg2 "Enum constructor argument type must match its annotation"
+                        $ \(arg1, arg2) -> mergeArgInfo
+                            ctx
+                            tctx'
+                            arg1
+                            arg2
+                            "Enum constructor argument type must match its annotation"
                       addToInterface mod
                                      (tpName $ variantName variant1)
                                      (EnumConstructor variant2)
@@ -292,8 +309,13 @@ resolveTypesForMod ctx (mod, contents) = do
                 $ t { traitName = (modPath mod, tpName $ traitName t) }
               forM_
                 (zip (traitMethods ti) (traitMethods converted))
-                (\(method1, method2) ->
-                  mergeFunctionInfo ctx tctx' method1 method2 "Trait method return type must match its annotation" "Trait method argument type must match its annotation"
+                (\(method1, method2) -> mergeFunctionInfo
+                  ctx
+                  tctx'
+                  method1
+                  method2
+                  "Trait method return type must match its annotation"
+                  "Trait method argument type must match its annotation"
                 )
               bindToScope (modScope mod)
                           (declName decl)

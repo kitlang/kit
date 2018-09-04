@@ -229,10 +229,6 @@ generateDeclIr ctx mod t = do
                   thisPtrName
                   (CPtr for)
                   (Just $ IrCast (IrIdentifier ([], vThisArgName)) (CPtr for))
-                , IrVarDeclaration
-                  thisArgName
-                  for
-                  (Just $ IrPreUnop Deref (IrIdentifier ([], thisPtrName)))
                 , x
                 ]
               )

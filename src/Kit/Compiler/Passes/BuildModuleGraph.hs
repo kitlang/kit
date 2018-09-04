@@ -218,7 +218,7 @@ addStmtToModuleInterface ctx mod s = do
         if null (typeMethods d)
           then return c
           else do
-            return $ implicitifyInstanceMethods thisArgName
+            return $ implicitifyInstanceMethods thisPtrName
                                                 (TypePtr TypeSelf)
                                                 (\_ -> id)
                                                 c

@@ -795,7 +795,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         let cast = return $ makeExprTyped (Cast r1 t) t pos
         case (inferredType r1, t) of
           (TypePtr (TypeBasicType BasicTypeVoid), TypePtr _) -> cast
-          (x, y@(TypeBox tp params)) -> do
+          (TypePtr _, TypeBasicType BasicTypeCSize) -> cast
+          (x, y@(TypeBox tp params)       ) -> do
             box <- autoRefDeref ctx tctx y x r1 [] r1
             case inferredType box of
               TypeBox _ _ -> return box

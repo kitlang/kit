@@ -2,6 +2,7 @@ module Kit.CompilerSpec where
 
 import Control.Monad
 import System.Directory
+import System.Environment
 import System.FilePath
 import System.Process
 import Test.Hspec
@@ -30,24 +31,29 @@ testFiles = readDir "tests/compile-src"
 spec :: Spec
 spec = parallel $ do
   describe "Successful compile tests" $ do
+    testRunsArg <- runIO $ lookupEnv "TEST_RUNS"
+    let testRuns = case testRunsArg of
+          Just x  -> read x
+          Nothing -> 1
     paths <- runIO testFiles
     forM_ (paths) $ \path -> do
       it path $ do
-        ctx    <- newCompileContext
-        result <- tryCompile
-          (ctx { ctxSourcePaths = [takeDirectory path, "std"]
-               , ctxMainModule  = [s_pack $ takeFileName path -<.> ""]
-               , ctxCompilerFlags = ["-Werror"]
-               , ctxLinkerFlags  = ["-lm", "-Werror"]
-               }
-          )
-        (case result of
-            Left  err -> Just err
-            Right ()  -> Nothing
-          )
-          `shouldBe` Nothing
-        out               <- readProcess ("build" </> "main") [] ""
-        outTemplateExists <- doesFileExist (path -<.> "stdout")
-        when (outTemplateExists) $ do
-          outTemplate <- readFile (path -<.> "stdout")
-          out `shouldBe` outTemplate
+        forM_ [1 .. testRuns] $ \_ -> do
+          ctx    <- newCompileContext
+          result <- tryCompile
+            (ctx { ctxSourcePaths   = [takeDirectory path, "std"]
+                 , ctxMainModule    = [s_pack $ takeFileName path -<.> ""]
+                 , ctxCompilerFlags = ["-Werror"]
+                 , ctxLinkerFlags   = ["-lm", "-Werror"]
+                 }
+            )
+          (case result of
+              Left  err -> Just err
+              Right ()  -> Nothing
+            )
+            `shouldBe` Nothing
+          out               <- readProcess ("build" </> "main") [] ""
+          outTemplateExists <- doesFileExist (path -<.> "stdout")
+          when (outTemplateExists) $ do
+            outTemplate <- readFile (path -<.> "stdout")
+            out `shouldBe` outTemplate

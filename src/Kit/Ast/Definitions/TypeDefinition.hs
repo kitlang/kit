@@ -139,7 +139,5 @@ typeRuleSet t = newRuleSet { ruleSetName  = typeName t
                            , ruleSetRules = typeRules t
                            }
 
-thisArgName :: Str
-thisArgName = "__this"
 thisPtrName :: Str
-thisPtrName = "__thisPtr"
+thisPtrName = "__this"
