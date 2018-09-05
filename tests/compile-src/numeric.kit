@@ -5,6 +5,7 @@ function main() {
     var d = 100000;
     var e = 127_u64;
     var f = 127_f32;
+    var g = 100_s;
 
     if ++a == -128 {
         printf("a overflow\n");
@@ -23,4 +24,5 @@ function main() {
     }
     f += 1.0;
     printf("%.1f\n", f);
+    printf("%zu\n", g);
 }

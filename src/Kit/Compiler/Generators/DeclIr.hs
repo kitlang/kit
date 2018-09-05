@@ -152,7 +152,7 @@ generateDeclIr ctx mod t = do
       debugLog ctx
         $  "generating IR for trait "
         ++ (s_unpack $ showTypePath name)
-      tctx <- modTypeContext ctx mod
+      tctx      <- modTypeContext ctx mod
       converted <- convertTraitDefinition paramConverter trait
       -- trait declarations become struct definitions for the box/vtable
       let boxName    = subPath name "box"
@@ -178,7 +178,7 @@ generateDeclIr ctx mod t = do
           , typeSubtype = Struct
             { structFields = [ newVarDefinition
                                  { varName = ([], tpName $ functionName f)
-                                 , varType = CPtr $ BasicTypeFunction
+                                 , varType = BasicTypeFunction
                                    (functionType f)
                                    ( (vThisArgName, CPtr BasicTypeVoid)
                                    : [ (argName arg, argType arg)
@@ -208,7 +208,7 @@ generateDeclIr ctx mod t = do
     DeclImpl (TraitImplementation { implMethods = [] }) -> return []
     DeclImpl i'@(TraitImplementation { implTrait = TypeTraitConstraint (traitName, traitParams), implFor = ct })
       -> do
-        tctx <- modTypeContext ctx mod
+        tctx        <- modTypeContext ctx mod
         traitParams <- forM traitParams $ mapType (follow ctx tctx)
         let
           i = i'

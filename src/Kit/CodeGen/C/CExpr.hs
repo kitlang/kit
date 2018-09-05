@@ -116,13 +116,14 @@ ctype (CPtr x) = (fst t, (u $ CPtrDeclr []) : snd t) where t = ctype x
 ctype (BasicTypeFunction rt args var) =
   let (rta, rtb) = ctype rt
   in  ( rta
-      , [ u $ CFunDeclr
-            (Right ([ cDecl t Nothing Nothing | (name, t) <- args ], var))
-            []
-        ]
-        ++ rtb
+      , (u $ CPtrDeclr [])
+      : (u $ CFunDeclr
+          (Right ([ cDecl t Nothing Nothing | (name, t) <- args ], var))
+          []
+        )
+      : rtb
       )
-ctype (BasicTypeCFile) = ([u $ CTypeDef (internalIdent $ "FILE")], [])
+ctype (BasicTypeCFile  ) = ([u $ CTypeDef (internalIdent $ "FILE")], [])
 -- TODO: CArray
 ctype (CArray _ _      ) = undefined
 ctype (BasicTypeUnknown) = undefined

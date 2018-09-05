@@ -452,6 +452,15 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       let implicits = tImplicits r1 ++ tctxImplicits tctx
       typedArgs <- mapM r args
       tryRewrite (unknownTyped $ Call r1 typedArgs) $ case inferredType r1 of
+        TypePtr t@(TypeFunction _ _ _ _) ->
+          -- function pointer call
+                                            typeFunctionCall
+          ctx
+          tctx
+          mod
+          (r1 { inferredType = t })
+          implicits
+          typedArgs
         TypeFunction _ _ _ _ ->
           typeFunctionCall ctx tctx mod r1 implicits typedArgs
         TypeEnumConstructor tp discriminant argTypes params ->

@@ -1,18 +1,26 @@
-trait Allocator[T] {
-    function alloc[U: T](): Ptr[U];
-    function free[U: T](ptr: Ptr[U]): Void;
+include "stdlib.h";
+
+trait Allocator(T) {
+    // function alloc[U: T](): Ptr[U];
+    function allocBytes(n: Size): Ptr[T];
+    // function free[U: T](ptr: Ptr[U]): Void;
 }
 
-implement Allocator[Ptr[Void]] for (function (Uint64) -> Ptr[Void], function (Ptr[Void]) -> Void) {
-    public function alloc[U: T]() {
-        return (this[0])(sizeof U);
-    }
-
-    public function free[U: T](ptr: Ptr[U]) {
-        (this[1])(ptr);
-    }
+struct SimpleAllocator {
+    public var alloc: function (Size) -> Ptr[Void];
+    public var free: function (Ptr[Void]) -> Void;
 }
 
-// everything that takes an allocator argument will default to malloc
-var mallocator: Box[Allocator] = (malloc, free);
-using implicit mallocator;
+implement Allocator(Void) for SimpleAllocator {
+    // public function alloc[U](): Ptr[U] {
+    //     return (this[0])(sizeof U);
+    // }
+
+    public function allocBytes(n: Size): Ptr[Void] {
+        (this.alloc)(n);
+    }
+
+    // public function free[U](ptr: Ptr[U]) {
+    //     (this.free)(ptr);
+    // }
+}
