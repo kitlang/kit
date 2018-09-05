@@ -12,6 +12,7 @@ import Kit.Compiler.TypedExpr
 import Kit.Compiler.Typers.Base
 import Kit.Compiler.Typers.TypeFunction
 import Kit.Compiler.Unify
+import Kit.Compiler.Utils
 import Kit.Error
 import Kit.Parser
 import Kit.Str
@@ -35,6 +36,12 @@ typeImpl ctx mod def = do
       ("Couldn't find trait " ++ show (implTrait def))
       (implPos def)
   let tctx = (addTypeParams tctx' params) { tctxThis = Just $ implFor def }
+
+  debugLog ctx
+    $  "typing trait implemention of "
+    ++ s_unpack (showTypePath $ traitName traitDef)
+    ++ " for "
+    ++ show (implFor def)
 
   forMWithErrors_ (traitMethods traitDef) $ \method ->
     case findMethodByName (implMethods def) (tpName $ functionName method) of

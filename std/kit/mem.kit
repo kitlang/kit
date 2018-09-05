@@ -17,7 +17,7 @@ implement Allocator(Void) for SimpleAllocator {
     // }
 
     public function allocBytes(n: Size): Ptr[Void] {
-        (this.alloc)(n);
+        return (this.alloc)(n);
     }
 
     // public function free[U](ptr: Ptr[U]) {
