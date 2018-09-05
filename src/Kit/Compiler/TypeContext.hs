@@ -302,6 +302,7 @@ builtinToConcreteType ctx tctx mod s p pos = do
     ("Uint64" , []) -> return $ Just $ TypeBasicType $ BasicTypeUint 64
     ("Float32", []) -> return $ Just $ TypeBasicType $ BasicTypeFloat 32
     ("Float64", []) -> return $ Just $ TypeBasicType $ BasicTypeFloat 64
+    ("FILE"   , []) -> return $ Just $ TypeBasicType $ BasicTypeCFile
     -- aliases
     ("Byte"   , []) -> builtinToConcreteType ctx tctx mod "Uint8" [] pos
     ("Short"  , []) -> builtinToConcreteType ctx tctx mod "Int16" [] pos
@@ -381,4 +382,4 @@ typeUnresolved ctx tctx ct = do
   t <- mapType (follow ctx tctx) ct
   case t of
     TypeTypeVar _ -> return True
-    _ -> return False
+    _             -> return False

@@ -1,7 +1,13 @@
+/**
+ * An abstract reader.
+ */
 trait Reader[T] {
     public function read(): T;
 }
 
+/**
+ * An abstract writer.
+ */
 trait Writer[T] {
     public function write(value: T): Void;
 }

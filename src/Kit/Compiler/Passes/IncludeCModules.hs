@@ -212,6 +212,7 @@ _parseDeclSpec modPath (h : t) width signed float = case h of
     "uint16_t" -> TypeBasicType $ BasicTypeUint 16
     "uint32_t" -> TypeBasicType $ BasicTypeUint 32
     "uint64_t" -> TypeBasicType $ BasicTypeUint 64
+    "FILE"     -> TypeBasicType $ BasicTypeCFile
     _          -> TypeTypedef (modPath, (s_pack x)) []
   -- anonymous structs/enums; TODO: need to generate a stub declaration for these
   (CSUType (CStruct tag (Just (Ident x _ _)) _ _ _) _) ->

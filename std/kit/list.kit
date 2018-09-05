@@ -118,28 +118,21 @@ enum List[T] {
     }
 }
 
-// implement Iterable[T] for List[T] {
+// implement(T) Iterable(T) for List[T] {
 //     public function iterator() {
-//         return ListIterator.new(this);
+//         return this;
 //     }
 // }
 
-// struct ListIterator[T] {
-//     public var current: Ptr[List[T]];
-
-//     public static function new(list: Ptr[List[T]]) {
-//         return struct Self {current: list};
-//     }
-// }
-
-// implement Iterator[T] for ArrayIterator[T] {
-//     public function next(): Null[T] {
-//         return match list {
+// implement(T) Iterator[T] for List[T] {
+//     public function next(): (Box[Iterator[T]], Option[T]) {
+//         match list {
 //             Cons(h, t) => {
-//                 current = t;
-//                 Some(h);
+//                 return (*t, Some(h));
 //             }
-//             Empty => None;
+//             default => {
+//              return (this, None);
+//             }
 //         }
 //     }
 // }

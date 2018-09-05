@@ -184,7 +184,7 @@ convertExpr ctx tctx mod e = do
     --   return $ m (Box impl' r1) (TypeBox tp params)
     SizeOf (Just t) -> do
       t' <- resolveType ctx tctx mod t
-      return $ m (SizeOf t') (TypeBasicType $ BasicTypeUint 16)
+      return $ m (SizeOf t') (TypeBasicType $ BasicTypeCSize)
     SizeOf Nothing -> do
       throwk $ BasicError "sizeof keyword requires a type" (Just pos')
     Method e1 tp n -> do
