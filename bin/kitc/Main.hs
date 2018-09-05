@@ -147,17 +147,14 @@ main = do
       modules     <- h_new
       stdPath     <- findStd
       baseContext <- newCompileContext
-      inc         <- lookupEnv "INCLUDE_PATH"
-      let baseIncludePaths = case inc of
-            Just x  -> [x]
-            Nothing -> ["/usr/include"]
+      defaultIncludes <- defaultIncludePaths
       let
         ctx = baseContext
           { ctxMainModule   = parseModulePath $ s_pack $ optMainModule opts
           , ctxIsLibrary    = optIsLibrary opts
           , ctxOutputDir    = optOutputDir opts
           , ctxCompilerPath = optCompilerPath opts
-          , ctxIncludePaths = optIncludePaths opts ++ baseIncludePaths
+          , ctxIncludePaths = optIncludePaths opts ++ defaultIncludes
           , ctxSourcePaths  = (if null $ optSourcePaths opts
                                 then ["src"]
                                 else optSourcePaths opts

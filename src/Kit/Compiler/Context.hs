@@ -175,7 +175,7 @@ resolveVar ctx scopes mod s = do
 
 getModImports :: CompileContext -> Module -> IO [Module]
 getModImports ctx mod = do
-  imports   <- mapM (getMod ctx) (map fst $ modImports mod)
+  imports <- mapM (getMod ctx) (map fst $ modImports mod)
   externs <- getMod ctx externModPath
   return $ mod : (imports ++ [externs])
 
@@ -297,3 +297,16 @@ findStd = do
           "linux"  -> ["/usr/lib/kit"]
           "darwin" -> ["/usr/local/lib/kit"]
           _        -> []
+
+defaultIncludePaths :: IO [FilePath]
+defaultIncludePaths = do
+  inc <- lookupEnv "INCLUDE_PATH"
+  case inc of
+    Just x  -> return $ splitDirs x
+    Nothing -> case os of
+      "linux"  -> return ["/usr/include/x86_64-linux-gnu", "/usr/include"]
+      "darwin" -> return ["/usr/include"]
+
+splitDirs f = case break (== ',') f of
+  (a, ',' : b) -> a : splitDirs b
+  (a, ""     ) -> [a]

@@ -76,10 +76,14 @@ includeCHeader ctx mod path = do
 
 parseCHeader :: CompileContext -> Module -> FilePath -> IO ()
 parseCHeader ctx mod path = do
-  parseResult <- parseCFile (newGCC "gcc")
-                            Nothing
-                            [ "-I" ++ dir | dir <- ctxIncludePaths ctx ]
-                            path
+  parseResult <- parseCFile
+    (newGCC "gcc")
+    Nothing
+    -- TODO: defines
+    (  [ "-I" ++ dir | dir <- ctxIncludePaths ctx ]
+    ++ ["-D_GNU_SOURCE", "-D_BSD_SOURCE", "-D_DEFAULT_SOURCE"]
+    )
+    path
   case parseResult of
     Left e -> throwk $ BasicError
       ("Parsing C header " ++ show path ++ " failed: " ++ show e)
