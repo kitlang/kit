@@ -53,8 +53,8 @@ instance Show ConcreteType where
   show (TypeAnonStruct f) = "(anon struct)"
   show (TypeAnonEnum variants) = "(anon enum {" ++ (intercalate ", " (map s_unpack variants)) ++ "})"
   show (TypeAnonUnion f) = "(anon union)"
-  show (TypeTypedef tp []) = (s_unpack $ showTypePath tp)
-  show (TypeTypedef tp params) = (s_unpack $ showTypePath tp) ++ showParams params
+  show (TypeTypedef tp []) = "typedef " ++ (s_unpack $ showTypePath tp)
+  show (TypeTypedef tp params) = "typedef " ++ (s_unpack $ showTypePath tp) ++ showParams params
   show (TypeFunction rt args var params) = "function (" ++ (intercalate ", " [s_unpack name ++ ": " ++ (show t) | (name, t) <- args]) ++ (if var then ", ..." else "") ++ ") -> " ++ show rt
   show (TypeBasicType t) = show t
   show (TypePtr (TypeBasicType (BasicTypeInt 8))) = "CString"

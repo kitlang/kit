@@ -63,13 +63,16 @@ newMod path fp = do
 
 emptyMod = newMod [] undefined
 
-newCMod :: FilePath -> IO Module
-newCMod fp = do
-  mod <- newMod (includeToModulePath fp) fp
+externModPath :: ModulePath
+externModPath = ["extern"]
+
+newCMod :: IO Module
+newCMod = do
+  mod <- newMod externModPath "(extern)"
   return $ mod { modIsCModule = True }
 
-includeToModulePath :: FilePath -> ModulePath
-includeToModulePath fp = "c" : (map s_pack $ splitDirectories (fp -<.> ""))
+-- includeToModulePath :: FilePath -> ModulePath
+-- includeToModulePath fp = "extern" : (map s_pack $ splitDirectories (fp -<.> ""))
 
 addToInterface :: Module -> Str -> Binding -> Bool -> Bool -> IO ()
 addToInterface mod name b namespace allowCollisions =

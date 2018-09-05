@@ -156,15 +156,17 @@ generateHeaderDef ctx headerFile decl = case decl of
     let decls = cTypeDecl def
     mapM_ (\d -> hPutStrLn headerFile (render $ pretty $ CDeclExt d)) decls
 
-  DeclFunction def@(FunctionDefinition { functionName = name, functionType = t, functionArgs = args, functionVarargs = varargs })
+  DeclFunction def@(FunctionDefinition { functionType = t, functionArgs = args, functionVarargs = varargs })
     -> do
       hPutStrLn
         headerFile
-        (render $ pretty $ CDeclExt $ cfunDecl name (functionBasicType def))
+        (render $ pretty $ CDeclExt $ cfunDecl (functionRealName def)
+                                               (functionBasicType def)
+        )
 
-  DeclVar def@(VarDefinition { varName = name, varType = t }) -> hPutStrLn
+  DeclVar def@(VarDefinition { varType = t }) -> hPutStrLn
     headerFile
-    (render $ pretty $ CDeclExt $ cDecl t (Just name) Nothing)
+    (render $ pretty $ CDeclExt $ cDecl t (Just $ varRealName def) Nothing)
 
   _ -> return ()
 

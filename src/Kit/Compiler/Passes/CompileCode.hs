@@ -53,6 +53,9 @@ compileBundle ctx ccache cc' args name = do
              , libPath ctx name
              , "-o"
              , objPath ctx name
+             , "-D_GNU_SOURCE"
+             , "-D_BSD_SOURCE"
+             , "-D_DEFAULT_SOURCE"
              , "-std=c99"
              ]
           ++ (if (ctxIsLibrary ctx) then ["-fPIC"] else [])

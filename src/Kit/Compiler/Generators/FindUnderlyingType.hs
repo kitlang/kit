@@ -58,7 +58,7 @@ findUnderlyingType ctx mod pos t = do
             | (param, value) <- zip (typeParams templateDef) params
             ]
       def <- followType ctx tctx templateDef
-      let typeName = monomorphName tp params
+      let typeName = monomorphName (typeRealName templateDef) params
       case typeSubtype def of
         Struct { structFields = fields } -> do
           fields <- forM fields $ \field -> do

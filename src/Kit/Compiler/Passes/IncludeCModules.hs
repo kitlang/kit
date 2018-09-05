@@ -45,34 +45,34 @@ instance Errable IncludeError where
 includeCModules :: CompileContext -> IO ()
 includeCModules ctx = do
   includes <- readIORef (ctxIncludes ctx)
-  forM_ includes (includeCHeader ctx)
+  existing <- h_lookup (ctxModules ctx) externModPath
+  mod      <- case existing of
+    Just x  -> return x
+    Nothing -> do
+      mod <- newCMod
+      h_insert (ctxModules ctx) externModPath mod
+      return mod
+  forM_ (nub includes) $ includeCHeader ctx mod
   return ()
 
-includeCHeader :: CompileContext -> FilePath -> IO Module
-includeCHeader ctx path = do
-  let modPath = includeToModulePath path
-  existing <- h_lookup (ctxModules ctx) modPath
-  case existing of
-    Just x -> do
-      return x
-    Nothing -> do
-      found <- findSourceFile path (ctxIncludePaths ctx)
-      case found of
-        Just f -> do
-          debugLog ctx $ "found header " ++ show path ++ " at " ++ show f
-          mod <- newCMod path
-          parseCHeader ctx              mod     f
-          h_insert     (ctxModules ctx) modPath mod
-          names <- bindingNames (modScope mod)
-          forM_
-            names
-            (\name -> do
-              binding <- scopeGet (modScope mod) name
-              addGlobalName ctx mod (bindingPos binding) name
-            )
-          return mod
-        Nothing -> throwk
-          $ IncludeError path [ (dir </> path) | dir <- ctxIncludePaths ctx ]
+includeCHeader :: CompileContext -> Module -> FilePath -> IO ()
+includeCHeader ctx mod path = do
+  found <- findSourceFile path (ctxIncludePaths ctx)
+  case found of
+    Just f -> do
+      debugLog ctx $ "found header " ++ show path ++ " at " ++ show f
+      parseCHeader ctx mod f
+      names <- bindingNames (modScope mod)
+      forM_
+        names
+        (\name -> do
+          binding <- scopeGet (modScope mod) name
+          -- ignore global name collisions here
+          (try $ addGlobalName ctx mod (bindingPos binding) name) :: IO
+              (Either KitError ())
+        )
+    Nothing ->
+      throwk $ IncludeError path [ (dir </> path) | dir <- ctxIncludePaths ctx ]
 
 parseCHeader :: CompileContext -> Module -> FilePath -> IO ()
 parseCHeader ctx mod path = do
@@ -154,9 +154,8 @@ defineTypedef
 defineTypedef ctx mod typeSpec pos (name, declr) = do
   let t' = parseType (modPath mod) typeSpec declr
   noisyDebugLog ctx $ "typedef " ++ (s_unpack name) ++ ": " ++ (show t')
-  case t' of
-    TypeBasicType BasicTypeUnknown -> unknownTypeWarning ctx mod name pos
-    _                              -> return ()
+  when (t' == TypeBasicType BasicTypeUnknown)
+    $ unknownTypeWarning ctx mod name pos
   bindToScope (modScope mod) name (TypedefBinding t' pos)
 
 parseType :: ModulePath -> [CTypeSpec] -> [CDerivedDeclr] -> ConcreteType

@@ -17,7 +17,7 @@ testHeader = do
   --   ctxIncludePaths = ["tests/Kit/Compiler/Passes"]
   -- }
   let testHeader = "tests/Kit/Compiler/Passes/test_header.h"
-  mod <- newCMod ""
+  mod <- newCMod
   parseCHeader ctx mod testHeader
   return mod
 
@@ -72,9 +72,9 @@ spec = do
         )
       , ( "Parses struct vars"
         , "struct_var1"
-        , (TypeInstance (["c"], "Struct1") [])
+        , (TypeInstance (externModPath, "Struct1") [])
         )
-      , ("Parses enum vars", "enum_var1", (TypeInstance (["c"], "Enum1") []))
+      , ("Parses enum vars", "enum_var1", (TypeInstance (externModPath, "Enum1") []))
       , ( "Parses pointer vars"
         , "pointer_var1"
         , (TypePtr (TypeBasicType $ BasicTypeInt 16))
@@ -113,8 +113,8 @@ spec = do
         )
       , ( "Parses functions with struct return value/arguments"
         , "struct_func"
-        , TypeFunction (TypeInstance (["c"], "Struct1") [])
-                       [("a", TypeInstance (["c"], "Struct2") [])]
+        , TypeFunction (TypeInstance (externModPath, "Struct1") [])
+                       [("a", TypeInstance (externModPath, "Struct2") [])]
                        False
                        []
         )
@@ -150,7 +150,7 @@ spec = do
     forM_
       [ ( "Parses struct declarations"
         , "Struct1"
-        , TypeInstance (["c"], "Struct1") []
+        , TypeInstance (externModPath, "Struct1") []
         , Just $ DeclType $ (newTypeDefinition)
           { typeName    = ([], "Struct1")
           , typeSubtype = Struct
@@ -182,7 +182,7 @@ spec = do
         )
       , ( "Parses empty struct typedefs"
         , "Struct3"
-        , TypeInstance (["c"], "Struct3") []
+        , TypeInstance (externModPath, "Struct3") []
         , Just $ DeclType $ (newTypeDefinition)
           { typeName    = ([], "Struct3")
           , typeSubtype = Struct {structFields = []}
@@ -190,7 +190,7 @@ spec = do
         )
       , ( "Parses enum definitions"
         , "Enum1"
-        , TypeInstance (["c"], "Enum1") []
+        , TypeInstance (externModPath, "Enum1") []
         , Just $ DeclType $ (newTypeDefinition)
           { typeName    = ([], "Enum1")
           , typeSubtype = Enum

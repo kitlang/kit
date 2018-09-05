@@ -31,6 +31,10 @@ data TypeDefinition a b = TypeDefinition {
 typeSubPath :: TypeDefinition a b -> Str -> TypePath
 typeSubPath def s = subPath (typeName def) s
 
+typeRealName f = if hasMeta "extern" (typeMeta f)
+  then ([], tpName $ typeName f)
+  else typeName f
+
 data TypeDefinitionType a b
   = Atom
   | Struct {structFields :: [VarDefinition a b]}

@@ -137,15 +137,6 @@ getMod ctx mod = do
       ("Unexpected missing module: " ++ s_unpack (showModulePath mod))
       Nothing
 
-getCMod :: CompileContext -> FilePath -> IO Module
-getCMod ctx fp = do
-  let modPath = includeToModulePath fp
-  m <- h_lookup (ctxModules ctx) modPath
-  case m of
-    Just m' -> return m'
-    Nothing ->
-      throwk $ InternalError ("Unexpected missing C module: " ++ fp) Nothing
-
 makeTypeVar :: CompileContext -> Span -> IO ConcreteType
 makeTypeVar ctx NoPos = throwk $ InternalError
   -- type vars from nowhere are impossible to debug, so disallow them
@@ -185,9 +176,8 @@ resolveVar ctx scopes mod s = do
 getModImports :: CompileContext -> Module -> IO [Module]
 getModImports ctx mod = do
   imports   <- mapM (getMod ctx) (map fst $ modImports mod)
-  includes' <- readIORef (modIncludes mod)
-  includes  <- mapM (getCMod ctx) (map fst $ includes')
-  return $ mod : (imports ++ includes)
+  externs <- getMod ctx externModPath
+  return $ mod : (imports ++ [externs])
 
 makeGeneric
   :: CompileContext
