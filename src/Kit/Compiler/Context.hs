@@ -171,14 +171,16 @@ resolveVar ctx scopes mod s = do
   case local of
     Just _  -> return local
     Nothing -> do
-      imports <- mapM (getMod ctx) (map fst $ modImports mod)
+      imports <- getModImports ctx mod
       resolveBinding (map modScope (mod : imports)) s
 
 getModImports :: CompileContext -> Module -> IO [Module]
 getModImports ctx mod = do
   imports <- mapM (getMod ctx) (map fst $ modImports mod)
-  externs <- getMod ctx externModPath
-  return $ mod : (imports ++ [externs])
+  m       <- h_lookup (ctxModules ctx) externModPath
+  case m of
+    Just externs -> return $ mod : (imports ++ [externs])
+    Nothing      -> return $ mod : imports
 
 makeGeneric
   :: CompileContext

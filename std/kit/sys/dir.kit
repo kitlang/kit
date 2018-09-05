@@ -7,7 +7,7 @@ struct DirectoryReader {
     var dirEntry: Ptr[dirent];
     var dir: Ptr[DIR];
 
-    public static function new (path: CString) {
+    public static function new(path: CString) {
         var dir = opendir(path);
         return struct Self {
             path,
@@ -20,7 +20,7 @@ struct DirectoryReader {
 implement Iterator for DirectoryReader {
     public function next(): CString {
         this.dirEntry = readdir(this.dir);
-        if (this.dirEntry != null) {
+        if this.dirEntry != null {
             return this.dirEntry;
         } else {
             return null;

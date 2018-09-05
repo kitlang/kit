@@ -264,10 +264,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                 pos
           _ -> do
             r1        <- r e1
-            converted <- tryAutoRefDeref ctx
-                                         tctx
-                                         (inferredType r1)
-                                         r2
+            converted <- tryAutoRefDeref ctx tctx (inferredType r1) r2
             resolve $ TypeEq (inferredType r1)
                              (inferredType converted)
                              "Both sides of an assignment must unify"
@@ -354,10 +351,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
           return $ makeExprTyped (For e1 r2 r3) voidType pos
         _ -> do
-          box <- autoRefDeref ctx
-                              tctx
-                              (TypeBox typeClassIterablePath [tv])
-                              r2
+          box <- autoRefDeref ctx tctx (TypeBox typeClassIterablePath [tv]) r2
           case box of
             Just box -> do
               makeGeneric ctx typeOptionPath pos [tv]
@@ -791,6 +785,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           (TypePtr (TypeBasicType BasicTypeVoid), TypePtr _) -> cast
           (TypePtr _, TypeBasicType BasicTypeCSize) -> cast
           (x, y@(TypeBox tp params)       ) -> do
+            print r1
             box <- autoRefDeref ctx tctx y r1
             case box of
               Just box -> return box
@@ -831,38 +826,62 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       throwk $ InternalError "Not yet implemented" (Just pos)
 
     (VarDeclaration (Var vname) _ init) -> do
-      let varType = inferredType ex
-      init' <- case init of
-        Just e1 -> do
-          r1        <- r e1
-          converted <- tryAutoRefDeref ctx tctx varType r1
-          resolve $ TypeEq
-            varType
-            (inferredType converted)
-            "A variable's initial value must match the variable's type"
-            (tPos r1)
-          return $ Just converted
-        Nothing -> return Nothing
-      existing <- resolveLocal (head $ tctxScopes tctx) (tpName vname)
-      case existing of
-        Just x -> throwk $ DuplicateDeclarationError (modPath mod)
-                                                     (tpName vname)
-                                                     pos
-                                                     (bindingPos x)
-        _ -> bindToScope
-          (head $ tctxScopes tctx)
-          (tpName vname)
-          (VarBinding
-            (newVarDefinition { varName    = vname
-                              , varType    = varType
-                              , varDefault = init'
-                              , varPos     = pos
-                              }
+      let
+        typeVarDec
+          = (do
+              let varType = inferredType ex
+              init' <- case init of
+                Just e1 -> do
+                  r1        <- r e1
+                  converted <- tryAutoRefDeref ctx tctx varType r1
+                  resolve $ TypeEq
+                    varType
+                    (inferredType converted)
+                    "A variable's initial value must match the variable's type"
+                    (tPos r1)
+                  return $ Just converted
+                Nothing -> return Nothing
+              existing <- resolveLocal (head $ tctxScopes tctx) (tpName vname)
+              case existing of
+                Just x -> throwk $ DuplicateDeclarationError (modPath mod)
+                                                             (tpName vname)
+                                                             pos
+                                                             (bindingPos x)
+                _ -> bindToScope
+                  (head $ tctxScopes tctx)
+                  (tpName vname)
+                  (VarBinding
+                    (newVarDefinition { varName    = vname
+                                      , varType    = varType
+                                      , varDefault = init'
+                                      , varPos     = pos
+                                      }
+                    )
+                  )
+              return $ makeExprTyped
+                (VarDeclaration (Var vname) (varType) init')
+                varType
+                pos
             )
-          )
-      return $ makeExprTyped (VarDeclaration (Var vname) (varType) init')
-                             varType
-                             pos
+      result <- (try $ typeVarDec) :: IO (Either KitError TypedExpr)
+      case result of
+        Left err -> do
+          -- leave a dummy binding in the scope; since we're going to fail
+          -- anyway, we may be able to get more type info and will avoid
+          -- spurious "unknown identifier" errors downstream
+          bindToScope
+            (head $ tctxScopes tctx)
+            (tpName vname)
+            (VarBinding
+              (newVarDefinition { varName    = vname
+                                , varType    = inferredType ex
+                                , varDefault = Nothing
+                                , varPos     = pos
+                                }
+              )
+            )
+          throwk err
+        Right x -> return x
 
     (Defer e1) -> do
       throwk $ InternalError "Not yet implemented" (Just pos)
@@ -915,10 +934,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
             typedFields
             (\((name, expr), fieldType) -> do
               r1        <- r expr
-              converted <- tryAutoRefDeref ctx
-                                           tctx
-                                           fieldType
-                                           r1
+              converted <- tryAutoRefDeref ctx tctx fieldType r1
               resolve $ TypeEq
                 fieldType
                 (inferredType converted)
@@ -1053,9 +1069,8 @@ typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = ft@(TypeFunction rt 
     converted <- forMWithErrors
       (zip (map Just argTypes ++ repeat Nothing) aligned)
       (\(arg, argValue) -> case arg of
-        Just (_, argType) ->
-          tryAutoRefDeref ctx tctx argType argValue
-        Nothing -> return argValue
+        Just (_, argType) -> tryAutoRefDeref ctx tctx argType argValue
+        Nothing           -> return argValue
       )
     forMWithErrors_
       (zip argTypes converted)
