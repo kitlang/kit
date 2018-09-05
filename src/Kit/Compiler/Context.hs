@@ -85,12 +85,13 @@ newCompileContext = do
   pendingGenerics  <- newIORef []
   completeGenerics <- h_new
   unresolved       <- h_new
+  defaultIncludes  <- defaultIncludePaths
   return $ CompileContext
     { ctxMainModule           = ["main"]
     , ctxIsLibrary            = False
     , ctxSourcePaths          = ["src"]
     , ctxCompilerPath         = Nothing
-    , ctxIncludePaths         = ["/usr/include"]
+    , ctxIncludePaths         = defaultIncludes
     , ctxOutputDir            = "build"
     , ctxDefines              = []
     , ctxModules              = mods
