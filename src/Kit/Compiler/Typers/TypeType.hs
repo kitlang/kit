@@ -109,6 +109,9 @@ typeTypeDefinition ctx tctx mod selfType def@(TypeDefinition { typeName = name }
     let s = typeSubtype def
     subtype <- case s of
       Struct { structFields = f } -> do
+        when (null f) $ throwk $ TypingError
+          ("Can't declare a struct with no fields")
+          (typePos def)
         fields <- forM
           f
           (\field -> case varDefault field of
@@ -127,6 +130,11 @@ typeTypeDefinition ctx tctx mod selfType def@(TypeDefinition { typeName = name }
             Nothing -> return field
           )
         return $ s { structFields = fields }
+      Union { unionFields = f } -> do
+        when (null f) $ throwk $ TypingError
+          ("Can't declare a union with no fields")
+          (typePos def)
+        return s
       -- Enum { enumVariants = variants } -> do
       --   variants <- forM variants $ \variant -> convertEnumVariant
       --     (converter (typeExpr ctx tctx mod) (\_ -> mapType $ follow ctx tctx))

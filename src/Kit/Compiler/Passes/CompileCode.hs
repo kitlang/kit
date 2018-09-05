@@ -57,6 +57,7 @@ compileBundle ctx ccache cc' args name = do
              , "-D_BSD_SOURCE"
              , "-D_DEFAULT_SOURCE"
              , "-std=c99"
+             , "-pedantic"
              ]
           ++ (if (ctxIsLibrary ctx) then ["-fPIC"] else [])
           ++ compilerSpecificArgs cc'

@@ -136,6 +136,9 @@ generateHeaderForwardDecl ctx headerFile decl = do
 
     DeclType def@(TypeDefinition { typeName = name }   ) -> do
       case typeBasicType def of
+        Just (BasicTypeSimpleEnum _) ->
+          -- ISO C forbids forward references to enum types
+          return ()
         Just x ->
           let decl = cDecl x Nothing Nothing
           in  hPutStrLn headerFile (render $ pretty $ CDeclExt $ decl)
