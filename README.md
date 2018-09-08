@@ -69,7 +69,13 @@ To run the compiler unit tests:
 
     stack test
 
-To point Kit to its standard library, you have a few options:
+To install:
+
+    stack install
+
+This will copy the `kitc` binary to Stack's binary install directory (~/.local/bin on Linux); make sure this directory is part of your executable paths.
+
+You'll need to point Kit to its standard library; you have a few options:
 
 - Set an environment variable, KIT_STD_PATH
 - Put the kitc binary next to its standard library
