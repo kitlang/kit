@@ -6,7 +6,7 @@ import Data.List
 import Kit.Ast
 import Kit.Compiler.Binding
 import Kit.Compiler.Context
-import Kit.Compiler.Generators.NameMangling
+import Kit.NameMangling
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
@@ -27,13 +27,18 @@ import Kit.Str
 -}
 typeType
   :: CompileContext
+  -> TypeContext
   -> Module
   -> TypeDefinition TypedExpr ConcreteType
-  -> IO (Maybe TypedDecl)
-typeType ctx mod def = do
-  debugLog ctx $ "typing type " ++ s_unpack (showTypePath $ typeName def)
-  tctx    <- modTypeContext ctx mod
-  binding <- scopeGet (modScope mod) (tpName $ typeName def)
+  -> IO TypedDecl
+typeType ctx tctx mod def = do
+  debugLog ctx
+    $  "typing type "
+    ++ s_unpack (showTypePath $ typeName def)
+    ++ (case typeMonomorph def of
+         [] -> ""
+         x  -> " monomorph " ++ show x
+       )
   typeTypeDefinition
     ctx
     (tctx { tctxSelf = Just $ TypeInstance (typeName def) [] })
@@ -41,71 +46,15 @@ typeType ctx mod def = do
     (TypeInstance (typeName def) [])
     def
 
-{-
-  Type checks a specific monomorph of a generic type, with a known set of
-  parameters. By this point the final types of the parameters must be known.
--}
-typeTypeMonomorph
-  :: CompileContext
-  -> Module
-  -> TypeDefinition TypedExpr ConcreteType
-  -> [ConcreteType]
-  -> IO (Maybe TypedDecl)
-typeTypeMonomorph ctx mod def params = do
-  debugLog ctx
-    $  "generating type monomorph for "
-    ++ s_unpack (showTypePath $ typeName def)
-    ++ " with params "
-    ++ show params
-  let selfType = TypeInstance (typeName def) params
-  tctx' <- modTypeContext ctx mod
-  let tctx = (addTypeParams
-               tctx'
-               [ (typeSubPath def $ paramName param, ct)
-               | (param, ct) <- zip (typeParams def) params
-               ]
-             )
-        { tctxSelf = Just selfType
-        }
-  monomorph <- followType ctx tctx def
-  typeTypeDefinition ctx tctx mod selfType
-    $ monomorph { typeName = monomorphName (typeName monomorph) params }
-
 typeTypeDefinition
   :: CompileContext
   -> TypeContext
   -> Module
   -> ConcreteType
   -> TypeDefinition TypedExpr ConcreteType
-  -> IO (Maybe TypedDecl)
+  -> IO TypedDecl
 typeTypeDefinition ctx tctx mod selfType def@(TypeDefinition { typeName = name })
   = do
-    let r = typeExpr ctx tctx mod
-    staticFields <- forM
-      (typeStaticFields def)
-      (\field -> do
-        typed <- typeVarDefinition ctx tctx mod field
-        return $ typed { varName = typeSubPath def $ tpName $ varName typed }
-      )
-    staticMethods <- forM
-      (typeStaticMethods def)
-      (\method -> do
-        typed <- typeFunctionDefinition ctx tctx mod method
-        return $ typed
-          { functionName = typeSubPath def $ tpName $ functionName typed
-          }
-      )
-    instanceMethods <- forM
-      (typeMethods def)
-      (\method -> do
-        let tctx' = tctx { tctxThis = Just selfType }
-        typed <- typeFunctionDefinition ctx tctx' mod method
-        -- revise self type in instance methods
-        -- return $ reimplicitify (TypePtr selfType) typed
-        return $ typed
-          { functionName = typeSubPath def $ tpName $ functionName typed
-          }
-      )
     let s = typeSubtype def
     subtype <- case s of
       Struct { structFields = f } -> do
@@ -116,7 +65,7 @@ typeTypeDefinition ctx tctx mod selfType def@(TypeDefinition { typeName = name }
           f
           (\field -> case varDefault field of
             Just x -> do
-              def <- r x
+              def <- typeExpr ctx tctx mod x
               resolveConstraint
                 ctx
                 tctx
@@ -141,10 +90,4 @@ typeTypeDefinition ctx tctx mod selfType def@(TypeDefinition { typeName = name }
       --     variant
       --   return $ s { enumVariants = variants }
       _ -> return $ typeSubtype def
-    return $ Just $ DeclType
-      (def { typeStaticFields  = staticFields
-           , typeStaticMethods = staticMethods
-           , typeMethods       = instanceMethods
-           , typeSubtype       = subtype
-           }
-      )
+    return $ DeclType $ def { typeSubtype = subtype }

@@ -7,7 +7,7 @@ import Numeric
 import Language.C
 import Language.C.Data.Position
 import Kit.Ast
-import Kit.Compiler.Generators.NameMangling
+import Kit.NameMangling
 import Kit.Ir
 import Kit.Parser.Span
 import Kit.Str

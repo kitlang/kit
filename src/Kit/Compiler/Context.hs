@@ -23,28 +23,17 @@ import Kit.Log
 import Kit.Parser.Span
 import Kit.Str
 
-data DuplicateGlobalNameError = DuplicateGlobalNameError ModulePath Str Span Span deriving (Eq, Show)
-instance Errable DuplicateGlobalNameError where
-  logError e@(DuplicateGlobalNameError mod name pos1 pos2) = do
-    logErrorBasic e $ "Duplicate declaration for global name `" ++ s_unpack name ++ "` in " ++ s_unpack (showModulePath mod) ++ "; \n\nFirst declaration:"
-    ePutStrLn "\nSecond declaration:"
-    displayFileSnippet pos2
-    ePutStrLn "\n#[extern] declarations and declarations from included C headers must have globally unique names."
-  errPos (DuplicateGlobalNameError _ _ pos _) = Just pos
-
 data CompileContext = CompileContext {
   -- state
   ctxModules :: HashTable ModulePath Module,
   ctxFailedModules :: HashTable ModulePath (),
   ctxPreludes :: HashTable ModulePath [Statement],
-  ctxModuleGraph :: IORef [ModuleGraphNode],
   ctxIncludes :: IORef [FilePath],
   ctxLastTypeVar :: IORef Int,
   ctxTypeVariables :: HashTable Int TypeVarInfo,
-  ctxTypedDecls :: HashTable TypePath TypedDecl,
   ctxTraitSpecializations :: HashTable TypePath (ConcreteType, Span),
   ctxImpls :: HashTable TraitConstraint (HashTable ConcreteType (TraitImplementation TypedExpr ConcreteType)),
-  ctxGlobalNames :: HashTable Str Span,
+  ctxBindings :: HashTable TypePath Binding,
   ctxPendingGenerics :: IORef [(TypePath, [ConcreteType])],
   ctxCompleteGenerics :: HashTable (TypePath, [ConcreteType]) (),
   ctxUnresolvedTypeVars :: HashTable Int (),
@@ -71,17 +60,16 @@ data CompileContext = CompileContext {
 
 newCompileContext :: IO CompileContext
 newCompileContext = do
-  module_graph     <- newIORef []
   mods             <- h_new
   failed           <- h_new
   preludes         <- h_new
-  typedDecls       <- h_new
   includes         <- newIORef []
   lastTypeVar      <- newIORef 0
-  typeVars         <- h_new
+  typeVars         <- h_newSized 1024
   specs            <- h_new
   impls            <- h_new
-  globals          <- h_new
+  -- make this big so we're less likely to have to resize later
+  bindings         <- h_newSized 4096
   pendingGenerics  <- newIORef []
   completeGenerics <- h_new
   unresolved       <- h_new
@@ -98,15 +86,13 @@ newCompileContext = do
     , ctxFailedModules        = failed
     , ctxPreludes             = preludes
     , ctxVerbose              = 0
-    , ctxModuleGraph          = module_graph
     , ctxIncludes             = includes
     , ctxLastTypeVar          = lastTypeVar
     , ctxUnresolvedTypeVars   = unresolved
     , ctxTypeVariables        = typeVars
-    , ctxTypedDecls           = typedDecls
     , ctxTraitSpecializations = specs
     , ctxImpls                = impls
-    , ctxGlobalNames          = globals
+    , ctxBindings             = bindings
     , ctxPendingGenerics      = pendingGenerics
     , ctxCompleteGenerics     = completeGenerics
     , ctxCompilerFlags        = []
@@ -125,9 +111,33 @@ ctxSourceModules ctx = do
   mods <- (h_toList (ctxModules ctx))
   return $ filter (\m -> not (modIsCModule m)) (map snd mods)
 
-data ModuleGraphNode
-  = ModuleGraphNode ModulePath ModulePath
-  deriving (Show)
+addBinding :: CompileContext -> TypePath -> Binding -> IO ()
+addBinding ctx tp b = h_insert (ctxBindings ctx) tp b
+
+lookupBinding :: CompileContext -> TypePath -> IO (Maybe Binding)
+lookupBinding ctx tp = h_lookup (ctxBindings ctx) tp
+
+getBinding :: CompileContext -> TypePath -> IO Binding
+getBinding ctx tp = do
+  b <- lookupBinding ctx tp
+  case b of
+    Just b  -> return b
+    Nothing -> throwk $ KitError $ InternalError
+      ("Unexpected missing binding for " ++ s_unpack (showTypePath tp))
+      Nothing
+
+addToInterface
+  :: CompileContext -> Module -> Str -> Binding -> Bool -> Bool -> IO ()
+addToInterface ctx mod name b namespace allowCollisions = do
+  unless allowCollisions $ do
+    existing <- h_lookup (ctxBindings ctx) (modPath mod, name)
+    case existing of
+      Just x -> throwk $ DuplicateDeclarationError (modPath mod)
+                                                   name
+                                                   (bindingPos x)
+                                                   (bindingPos b)
+      _ -> return ()
+  h_insert (ctxBindings ctx) (modPath mod, name) b
 
 getMod :: CompileContext -> ModulePath -> IO Module
 getMod ctx mod = do
@@ -172,15 +182,18 @@ resolveVar ctx scopes mod s = do
     Just _  -> return local
     Nothing -> do
       imports <- getModImports ctx mod
-      resolveBinding (map modScope (mod : imports)) s
+      foldM
+        (\acc v -> case acc of
+          Just _  -> return acc
+          Nothing -> lookupBinding ctx (v, s)
+        )
+        Nothing
+        imports
 
-getModImports :: CompileContext -> Module -> IO [Module]
+getModImports :: CompileContext -> Module -> IO [ModulePath]
 getModImports ctx mod = do
-  imports <- mapM (getMod ctx) (map fst $ modImports mod)
-  m       <- h_lookup (ctxModules ctx) externModPath
-  case m of
-    Just externs -> return $ mod : (imports ++ [externs])
-    Nothing      -> return $ mod : imports
+  let imports = map fst $ modImports mod
+  return $ (modPath mod) : (imports ++ [[]])
 
 makeGeneric
   :: CompileContext
@@ -189,12 +202,11 @@ makeGeneric
   -> [ConcreteType]
   -> IO [(TypePath, ConcreteType)]
 makeGeneric ctx tp@(modPath, name) pos existing = do
-  defMod  <- getMod ctx modPath
-  binding <- resolveLocal (modScope defMod) name
+  binding <- getBinding ctx tp
   let params = case binding of
-        Just (TypeBinding     def) -> typeParams def
-        Just (FunctionBinding def) -> functionParams def
-        Just (TraitBinding    def) -> traitAllParams def
+        TypeBinding     def -> typeParams def
+        FunctionBinding def -> functionParams def
+        TraitBinding    def -> traitAllParams def
   if null params
     then return []
     else do
@@ -205,7 +217,7 @@ makeGeneric ctx tp@(modPath, name) pos existing = do
               tv <- case value of
                 Just x  -> return x
                 Nothing -> makeTypeVar ctx pos
-              return ((modPath ++ [name], paramName param), tv)
+              return ((subPath tp $ paramName param), tv)
       let paramTypes = map snd params
       -- if the supplied type parameters are generic, this isn't a real monomorph
       unless
@@ -220,41 +232,24 @@ makeGeneric ctx tp@(modPath, name) pos existing = do
       return params
 
 getTypeDefinition
-  :: CompileContext
-  -> ModulePath
-  -> Str
-  -> IO (TypeDefinition TypedExpr ConcreteType)
-getTypeDefinition ctx modPath typeName = do
-  defMod  <- getMod ctx modPath
-  binding <- resolveLocal (modScope defMod) typeName
+  :: CompileContext -> TypePath -> IO (TypeDefinition TypedExpr ConcreteType)
+getTypeDefinition ctx tp = do
+  binding <- lookupBinding ctx tp
   case binding of
     Just (TypeBinding def) -> return def
     _                      -> throwk $ InternalError
-      (  "Unexpected missing type: "
-      ++ (s_unpack $ showTypePath (modPath, typeName))
-      )
+      ("Unexpected missing type: " ++ (s_unpack $ showTypePath tp))
       Nothing
 
 getTraitDefinition
   :: CompileContext -> TypePath -> IO (TraitDefinition TypedExpr ConcreteType)
-getTraitDefinition ctx tp@(modPath, traitName) = do
-  defMod  <- getMod ctx modPath
-  binding <- resolveLocal (modScope defMod) traitName
+getTraitDefinition ctx tp = do
+  binding <- lookupBinding ctx tp
   case binding of
     Just (TraitBinding def) -> return def
     _                       -> throwk $ InternalError
       ("Unexpected missing trait: " ++ (s_unpack $ showTypePath tp))
       Nothing
-
-addGlobalName :: CompileContext -> Module -> Span -> Str -> IO ()
-addGlobalName ctx mod pos name = do
-  existing <- h_lookup (ctxGlobalNames ctx) name
-  case existing of
-    Just x -> throwk $ DuplicateGlobalNameError (modPath mod) name pos x
-    -- If this is a C module, check for collision, but don't store to avoid
-    -- collisions within the same header
-    Nothing ->
-      unless (modIsCModule mod) $ h_insert (ctxGlobalNames ctx) name pos
 
 includeDir :: CompileContext -> FilePath
 includeDir ctx = (ctxOutputDir ctx) </> "include"

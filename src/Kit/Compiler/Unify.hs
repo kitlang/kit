@@ -40,8 +40,8 @@ getAbstractParents
   :: CompileContext -> TypeContext -> ConcreteType -> IO [ConcreteType]
 getAbstractParents ctx tctx t = do
   case t of
-    TypeInstance (modPath, typeName) params -> do
-      def <- getTypeDefinition ctx modPath typeName
+    TypeInstance tp params -> do
+      def <- getTypeDefinition ctx tp
       case typeSubtype def of
         Abstract { abstractUnderlyingType = t' } -> do
           let tctx' = addTypeParams

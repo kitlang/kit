@@ -7,11 +7,14 @@ import Kit.Ast.Modifier
 import Kit.Ast.ModulePath
 import Kit.Ast.TypePath
 import Kit.Ast.TypeSpec
+import Kit.NameMangling
 import Kit.Parser.Span
 import Kit.Str
 
 data FunctionDefinition a b = FunctionDefinition {
   functionName :: TypePath,
+  functionMonomorph :: [b],
+  functionBundle :: Maybe TypePath,
   functionPos :: Span,
   functionDoc :: Maybe Str,
   functionMeta :: [Metadata],
@@ -20,9 +23,7 @@ data FunctionDefinition a b = FunctionDefinition {
   functionArgs :: [ArgSpec a b],
   functionType :: b,
   functionBody :: Maybe a,
-  functionVarargs :: Bool,
-  functionThis :: Maybe b,
-  functionSelf :: Maybe b
+  functionVarargs :: Bool
 } deriving (Eq, Show)
 
 functionSubPath :: FunctionDefinition a b -> Str -> TypePath
@@ -32,11 +33,14 @@ functionSubPath def s = if hasMeta "extern" (functionMeta def)
 
 functionRealName f = if hasMeta "extern" (functionMeta f)
   then ([], tpName $ functionName f)
-  else functionName f
+  else monomorphName (functionName f) (functionMonomorph f)
+
 
 newFunctionDefinition :: FunctionDefinition a b
 newFunctionDefinition = FunctionDefinition
   { functionName      = undefined
+  , functionMonomorph = []
+  , functionBundle    = Nothing
   , functionDoc       = Nothing
   , functionMeta      = []
   , functionModifiers = [Public]
@@ -45,8 +49,6 @@ newFunctionDefinition = FunctionDefinition
   , functionType      = undefined
   , functionBody      = Nothing
   , functionVarargs   = False
-  , functionThis      = Nothing
-  , functionSelf      = Nothing
   , functionPos       = NoPos
   }
 
@@ -64,7 +66,9 @@ convertFunctionDefinition paramConverter f = do
   rt   <- typeConverter (functionPos f) (functionType f)
   args <- forM (functionArgs f) (convertArgSpec converter)
   body <- maybeConvert exprConverter (functionBody f)
+
   return $ (newFunctionDefinition) { functionName      = functionName f
+                                   , functionBundle    = functionBundle f
                                    , functionDoc       = functionDoc f
                                    , functionMeta      = functionMeta f
                                    , functionModifiers = functionModifiers f

@@ -9,11 +9,13 @@ import Kit.Ast.Modifier
 import Kit.Ast.ModulePath
 import Kit.Ast.TypePath
 import Kit.Ast.TypeSpec
+import Kit.NameMangling
 import Kit.Parser.Span
 import Kit.Str
 
 data TraitDefinition a b = TraitDefinition {
   traitName :: TypePath,
+  traitMonomorph :: [b],
   traitPos :: Span,
   traitDoc :: Maybe Str,
   traitMeta :: [Metadata],
@@ -30,8 +32,11 @@ traitSubPath def s = subPath (traitName def) s
 traitAllParams t = traitParams t ++ traitAssocParams t
 traitExplicitParams def = take (length $ traitParams def)
 
+traitRealName t = monomorphName (traitName t) (traitMonomorph t)
+
 newTraitDefinition = TraitDefinition
   { traitName        = undefined
+  , traitMonomorph   = []
   , traitPos         = NoPos
   , traitDoc         = Nothing
   , traitMeta        = []

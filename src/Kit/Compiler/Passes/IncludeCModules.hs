@@ -62,17 +62,8 @@ includeCHeader ctx mod path = do
     Just f -> do
       debugLog ctx $ "found header " ++ show path ++ " at " ++ show f
       parseCHeader ctx mod f
-      names <- bindingNames (modScope mod)
-      forM_
-        names
-        (\name -> do
-          binding <- scopeGet (modScope mod) name
-          -- ignore global name collisions here
-          (try $ addGlobalName ctx mod (bindingPos binding) name) :: IO
-              (Either KitError ())
-        )
-    Nothing ->
-      throwk $ IncludeError path [ (dir </> path) | dir <- ctxIncludePaths ctx ]
+    Nothing -> throwk
+      $ IncludeError path [ (dir </> path) | dir <- ctxIncludePaths ctx ]
 
 parseCHeader :: CompileContext -> Module -> FilePath -> IO ()
 parseCHeader ctx mod path = do
@@ -137,7 +128,7 @@ parseCDecls ctx mod path (h : t) = do
                 TypeBasicType BasicTypeUnknown ->
                   unknownTypeWarning ctx mod name pos
                 _ -> return ()
-              noisyDebugLog ctx
+              veryNoisyDebugLog ctx
                 $  "bind "
                 ++ (s_unpack name)
                 ++ ": "
@@ -157,10 +148,10 @@ defineTypedef
   -> IO ()
 defineTypedef ctx mod typeSpec pos (name, declr) = do
   let t' = parseType (modPath mod) typeSpec declr
-  noisyDebugLog ctx $ "typedef " ++ (s_unpack name) ++ ": " ++ (show t')
+  veryNoisyDebugLog ctx $ "typedef " ++ (s_unpack name) ++ ": " ++ (show t')
   when (t' == TypeBasicType BasicTypeUnknown)
     $ unknownTypeWarning ctx mod name pos
-  bindToScope (modScope mod) name (TypedefBinding t' pos)
+  addBinding ctx ([], name) (TypedefBinding t' pos)
 
 parseType :: ModulePath -> [CTypeSpec] -> [CDerivedDeclr] -> ConcreteType
 parseType m typeSpec declr =
@@ -251,7 +242,7 @@ addCDecl ctx mod name t pos = do
   let bindingData = case t of
         TypeFunction t argTypes isVariadic _ -> FunctionBinding
           (newFunctionDefinition
-            { functionName    = (modPath mod, name)
+            { functionName    = ([], name)
             , functionMeta    = [metaExtern]
             , functionPos     = pos
             , functionType    = t
@@ -265,14 +256,14 @@ addCDecl ctx mod name t pos = do
             }
           )
         _ -> VarBinding
-          (newVarDefinition { varName    = (modPath mod, name)
+          (newVarDefinition { varName    = ([], name)
                             , varMeta    = [metaExtern]
                             , varPos     = pos
                             , varType    = t
                             , varDefault = Nothing
                             }
           )
-  bindToScope (modScope mod) name bindingData
+  addBinding ctx ([], name) bindingData
   return ()
 
 isTypedef :: [CStorageSpec] -> Bool
@@ -299,15 +290,15 @@ defineNamedStructsEnumsUnions ctx mod pos (h : t) = do
             ]
       let typeDef =
             ((newTypeDefinition)
-              { typeName    = (modPath mod, s_pack name)
+              { typeName    = ([], s_pack name)
               , typeMeta    = [metaExtern]
               , typeSubtype = if tag == CStructTag
                 then Struct {structFields = fields}
                 else Union {unionFields = fields}
               }
             )
-      bindToScope (modScope mod) (s_pack name) (TypeBinding typeDef)
-      noisyDebugLog ctx $ "define struct " ++ name
+      addBinding ctx ([], s_pack name) (TypeBinding typeDef)
+      veryNoisyDebugLog ctx $ "define struct " ++ name
     (CEnumType (CEnum (Just (Ident name _ _)) variants _ _) _) -> do
       let variants' = case variants of
             Just v  -> v
@@ -315,7 +306,7 @@ defineNamedStructsEnumsUnions ctx mod pos (h : t) = do
       let
         typeDef
           = (((newTypeDefinition) :: TypeDefinition TypedExpr ConcreteType)
-              { typeName    = (modPath mod, s_pack name)
+              { typeName    = ([], s_pack name)
               , typeMeta    = [metaExtern]
               , typeSubtype = Enum
                 { enumUnderlyingType = TypeBasicType BasicTypeVoid
@@ -328,16 +319,16 @@ defineNamedStructsEnumsUnions ctx mod pos (h : t) = do
                 }
               }
             )
-      let ct = (TypeInstance (modPath mod, s_pack name) [])
-      bindToScope (modScope mod) (s_pack name) (TypeBinding typeDef)
-      noisyDebugLog ctx $ "define enum " ++ name
+      let ct = (TypeInstance ([], s_pack name) [])
+      addBinding ctx ([], s_pack name) (TypeBinding typeDef)
+      veryNoisyDebugLog ctx $ "define enum " ++ name
       forM_
         (enumVariants $ typeSubtype typeDef)
         (\variant -> do
-          bindToScope (modScope mod)
-                      (tpName $ variantName variant)
-                      (EnumConstructor variant)
-          noisyDebugLog ctx
+          addBinding ctx
+                     ([], tpName $ variantName variant)
+                     (EnumConstructor variant)
+          veryNoisyDebugLog ctx
             $  "define enum constructor "
             ++ (s_unpack $ tpName $ variantName variant)
         )

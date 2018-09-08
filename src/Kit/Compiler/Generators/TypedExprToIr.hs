@@ -9,7 +9,7 @@ import Kit.Ast
 import Kit.Compiler.Binding
 import Kit.Compiler.Context
 import Kit.Compiler.Generators.FindUnderlyingType
-import Kit.Compiler.Generators.NameMangling
+import Kit.NameMangling
 import Kit.Compiler.Generators.PatternMatch
 import Kit.Compiler.Generators.StringCompare
 import Kit.Compiler.Module

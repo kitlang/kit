@@ -43,6 +43,12 @@ implement Greeter for Bool {
     }
 }
 
+implement Greeter for (Int, Int) {
+    public function greet() {
+        printf("hello from two ints: (%i, %i)\n", this[0], this[1]);
+    }
+}
+
 function greet(x: Box[Greeter]) {
     x.greet();
 }
@@ -61,4 +67,6 @@ function main() {
 
     greet(true);
     greet(false);
+
+    greet((3_i, 5_i));
 }

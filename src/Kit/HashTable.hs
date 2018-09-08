@@ -11,7 +11,7 @@ type HashTable k v = H.CuckooHashTable k v
 
 -- defaulting a bit larger so we don't have to resize as frequently
 h_new :: (Eq k, Hashable k) => IO (HashTable k v)
-h_new = H.newSized 16
+h_new = H.newSized 32
 
 h_newSized :: (Eq k, Hashable k) => Int -> IO (HashTable k v)
 h_newSized n = H.newSized n

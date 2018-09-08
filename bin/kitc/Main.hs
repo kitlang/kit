@@ -54,7 +54,7 @@ options =
             (  long "verbose"
             <> short 'v'
             <> help
-                 "show extra debugging output; use multiple times (-vv) for even more output"
+                 "show extra debugging output; can be used multiple times (-vvv) for even more output"
             )
           )
         )

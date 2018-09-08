@@ -29,19 +29,20 @@ spec = do
 
   describe "Variable resolution" $ do
     it "resolves variables to scopes, falling back to modules" $ do
-      m <- newMod ["abc"] ""
-      -- if we look for a binding in brokenMod, the test will fail
-      let brokenMod = undefined--Module {}
-      bindToScope (modScope m) "a" (newVar "a1")
-      bindToScope (modScope m) "b" (newVar "b1")
-      bindToScope (modScope m) "c" (newVar "c1")
-      s1 <- newScope []
-      bindToScope s1 "a" (newVar "a2")
-      bindToScope s1 "b" (newVar "b2")
-      s2 <- newScope []
-      bindToScope s2 "a" (newVar "a3")
-      let scopes = [s2, s1]
       ctx <- newCompileContext
+      m   <- newMod ["abc"] ""
+      h_insert (ctxModules ctx) (modPath m) m
+      -- if we look for a binding in brokenMod, the test will fail
+      let brokenMod = undefined
+      addBinding ctx (modPath m, "a") $ newVar "a1"
+      addBinding ctx (modPath m, "b") $ newVar "b1"
+      addBinding ctx (modPath m, "c") $ newVar "c1"
+      s1 <- newScope
+      bindToScope s1 "a" $ newVar "a2"
+      bindToScope s1 "b" $ newVar "b2"
+      s2 <- newScope
+      bindToScope s2 "a" $ newVar "a3"
+      let scopes = [s2, s1]
       fa  <- resolveVar ctx scopes brokenMod "a"
       fb  <- resolveVar ctx scopes brokenMod "b"
       fc  <- resolveVar ctx scopes m "c"

@@ -5,6 +5,7 @@ import Control.Monad
 import Data.IORef
 import Data.List
 import Data.Maybe
+import Data.Ord
 import Language.C
 import System.Directory
 import System.FilePath
@@ -14,7 +15,7 @@ import Kit.Ast
 import Kit.CodeGen.C
 import Kit.Compiler.Context
 import Kit.Compiler.Generators.DeclIr
-import Kit.Compiler.Generators.NameMangling
+import Kit.NameMangling
 import Kit.Compiler.Module
 import Kit.Compiler.Utils
 import Kit.Error
@@ -34,9 +35,10 @@ generateCode ctx ir = do
     when exists $ removeDirectoryRecursive d
   -- memoize bundle names; assumption is that subpaths, if they don't have
   -- their own bundle, will be provided by a parent
-  bundlesMemo <- h_new
+  bundlesMemo <- h_newSized (length ir)
   forM_ ir $ \(_, bundles) ->
-    forM_ bundles $ \x -> h_insert bundlesMemo (bundleTp x) ()
+    forM_ bundles $ \x -> do
+      h_insert bundlesMemo (bundleTp x) ()
   mods  <- ctxSourceModules ctx
   names <- forM ir $ generateModule ctx bundlesMemo
   return $ foldr (++) [] names
@@ -105,9 +107,19 @@ generateBundleHeader ctx mod name decls bundles deps = do
         _ -> return Nothing
   forM_ (nub $ catMaybes deps) $ hPutStrLn handle
   -- definitions
-  forM_ decls $ generateHeaderDef ctx handle
+  forM_ (sortHeaderDefs decls) $ generateHeaderDef ctx handle
   hPutStrLn handle "#endif"
   hClose handle
+
+sortHeaderDefs :: [IrDecl] -> [IrDecl]
+sortHeaderDefs = sortBy
+  (comparing
+    (\x -> case x of
+      DeclVar      v -> 1
+      DeclFunction f -> 1
+      _              -> 0
+    )
+  )
 
 findBundleFor :: HashTable TypePath () -> TypePath -> IO (Maybe TypePath)
 findBundleFor bundles b = do
@@ -163,7 +175,7 @@ generateHeaderDef ctx headerFile decl = case decl of
     -> do
       hPutStrLn
         headerFile
-        (render $ pretty $ CDeclExt $ cfunDecl (functionRealName def)
+        (render $ pretty $ CDeclExt $ cfunDecl (functionName def)
                                                (functionBasicType def)
         )
 

@@ -9,7 +9,7 @@ import Kit.Ast
 import Kit.Compiler.Binding
 import Kit.Compiler.Context
 import Kit.Compiler.Generators.FindUnderlyingType
-import Kit.Compiler.Generators.NameMangling
+import Kit.NameMangling
 import Kit.Compiler.Generators.TypedExprToIr
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
@@ -30,7 +30,12 @@ generateDeclIr ctx mod t = do
                              (\pos -> findUnderlyingType ctx mod (Just pos))
   let paramConverter = \p -> converter'
   case t of
-    DeclType def@(TypeDefinition { typeName = name }) -> do
+    DeclType def' -> do
+      let
+        def =
+          def' { typeName = monomorphName (typeName def') (typeMonomorph def') }
+      let name = typeName def
+
       debugLog ctx $ "generating IR for type " ++ (s_unpack $ showTypePath name)
       converted    <- convertTypeDefinition paramConverter def
       staticFields <- forM (typeStaticFields def)
@@ -43,9 +48,8 @@ generateDeclIr ctx mod t = do
         (\method -> generateDeclIr ctx mod $ DeclFunction method)
       subtype <- case typeSubtype converted of
         t@(Enum { enumVariants = variants }) -> do
-          let newName n = if modIsCModule mod
-                then n
-                else subPath (typeName converted) (tpName n)
+          let newName n =
+                if modIsCModule mod then n else subPath name (tpName n)
           let variants' =
                 [ variant { variantName = newName $ variantName variant }
                 | variant <- variants
@@ -75,7 +79,12 @@ generateDeclIr ctx mod t = do
               (foldr (++) [] $ staticFields ++ staticMethods ++ instanceMethods)
           ]
 
-    DeclFunction f@(FunctionDefinition { functionName = name }) -> do
+    DeclFunction f' -> do
+      let f = f'
+            { functionName = monomorphName (functionName f')
+                                           (functionMonomorph f')
+            }
+      let name = functionName f
       debugLog ctx
         $  "generating IR for function "
         ++ (s_unpack $ showTypePath name)
@@ -132,7 +141,10 @@ generateDeclIr ctx mod t = do
       else
         return
           $ [ DeclBundle
-                name
+                (case functionBundle f of
+                  Just x -> x
+                  _      -> name
+                )
                 [ DeclFunction $ converted
                     { functionType = if isMain
                       then BasicTypeCInt
@@ -145,10 +157,23 @@ generateDeclIr ctx mod t = do
     DeclVar v@(VarDefinition { varName = name }) -> do
       debugLog ctx $ "generating IR for var " ++ (s_unpack $ showTypePath name)
       converted <- convertVarDefinition converter' v
-      return $ [DeclBundle (varName converted) [DeclVar $ converted] []]
+      return
+        $ [ DeclBundle
+              (case varBundle v of
+                Just x -> x
+                _      -> varName converted
+              )
+              [DeclVar $ converted]
+              []
+          ]
 
-    DeclTrait (      TraitDefinition { traitMethods = [] }) -> return []
-    DeclTrait trait@(TraitDefinition { traitName = name } ) -> do
+    DeclTrait (TraitDefinition { traitMethods = [] }) -> return []
+    DeclTrait trait' -> do
+      let trait = trait'
+            { traitName = monomorphName (traitName trait')
+                                        (traitMonomorph trait')
+            }
+      let name = traitName trait
       debugLog ctx
         $  "generating IR for trait "
         ++ (s_unpack $ showTypePath name)

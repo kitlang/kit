@@ -20,6 +20,15 @@ import Kit.Log
 import Kit.Parser
 import Kit.Str
 
+data DuplicateGlobalNameError = DuplicateGlobalNameError ModulePath Str Span Span deriving (Eq, Show)
+instance Errable DuplicateGlobalNameError where
+  logError e@(DuplicateGlobalNameError mod name pos1 pos2) = do
+    logErrorBasic e $ "Duplicate declaration for global name `" ++ s_unpack name ++ "` in " ++ s_unpack (showModulePath mod) ++ "; \n\nFirst declaration:"
+    ePutStrLn "\nSecond declaration:"
+    displayFileSnippet pos2
+    ePutStrLn "\n#[extern] declarations and declarations from included C headers must have globally unique names."
+  errPos (DuplicateGlobalNameError _ _ pos _) = Just pos
+
 type SyntacticDecl = Declaration Expr (Maybe TypeSpec)
 
 {-
@@ -72,12 +81,6 @@ loadModule ctx mod pos = do
                )
           else
             return ()
-          forM_
-            (modImports m)
-            (\(mod', _) -> modifyIORef
-              (ctxModuleGraph ctx)
-              (\current -> ModuleGraphNode mod mod' : current)
-            )
           includes <- readIORef (modIncludes m)
           forM_
             includes
@@ -225,20 +228,17 @@ addStmtToModuleInterface ctx mod s = do
 
       let b = TypeBinding converted
       when extern $ recordGlobalName $ name
-      addToInterface mod name b (not extern) False
+      addToInterface ctx mod name b (not extern) False
 
-      subNamespace <- getSubScope (modScope mod) [name]
       forM_
         (typeStaticFields converted)
         (\field -> do
-          bindToScope (subNamespace) (tpName $ varName field) (VarBinding field)
+          addBinding ctx (varName field) (VarBinding field)
         )
       forM_
         (typeStaticMethods converted ++ typeMethods converted)
         (\method -> do
-          bindToScope (subNamespace)
-                      (tpName $ functionName method)
-                      (FunctionBinding method)
+          addBinding ctx (functionName method) (FunctionBinding method)
         )
 
       return
@@ -252,9 +252,8 @@ addStmtToModuleInterface ctx mod s = do
     TraitDeclaration d -> do
       let name = tpName $ traitName d
       let tp   = (modPath mod, name)
-      subNamespace <- getSubScope (modScope mod) [name]
-      converted    <- convertTraitDefinition (\_ -> interfaceConverter)
-                                             (d { traitName = tp })
+      converted <- convertTraitDefinition (\_ -> interfaceConverter)
+                                          (d { traitName = tp })
       forM_
         (traitMethods converted)
         (\method' ->
@@ -263,11 +262,9 @@ addStmtToModuleInterface ctx mod s = do
                 (TypePtr $ TypeBasicType BasicTypeVoid)
                 (\_ -> id)
                 method'
-          in  bindToScope (subNamespace)
-                          (tpName $ functionName method)
-                          (FunctionBinding method)
+          in  addBinding ctx (functionName method) (FunctionBinding method)
         )
-      addToInterface mod name (TraitBinding converted) False False
+      addToInterface ctx mod name (TraitBinding converted) False False
       return [DeclTrait d]
 
     ModuleVarDeclaration d -> do
@@ -276,7 +273,7 @@ addStmtToModuleInterface ctx mod s = do
       let tp     = (if extern then [] else modPath mod, name)
       converted <- convertVarDefinition interfaceConverter (d { varName = tp })
       when extern $ recordGlobalName name
-      addToInterface mod name (VarBinding converted) (not extern) False
+      addToInterface ctx mod name (VarBinding converted) (not extern) False
       return
         [ DeclVar $ d
             { varName = if extern
@@ -296,7 +293,12 @@ addStmtToModuleInterface ctx mod s = do
         converted <- convertFunctionDefinition (\_ -> interfaceConverter)
                                                (d { functionName = tp })
         when extern $ recordGlobalName name
-        addToInterface mod name (FunctionBinding converted) (not extern) False
+        addToInterface ctx
+                       mod
+                       name
+                       (FunctionBinding converted)
+                       (not extern)
+                       False
         return
           [ DeclFunction d
               { functionName = if extern
@@ -308,12 +310,9 @@ addStmtToModuleInterface ctx mod s = do
     RuleSetDeclaration r -> do
       let name = tpName $ ruleSetName r
       let tp   = (modPath mod, name)
-      addToInterface mod
-                     name
-                     (RuleSetBinding $ r { ruleSetName = tp })
-                     False
-                     False
-      return [DeclRuleSet r]
+      let r'   = r { ruleSetName = tp }
+      addToInterface ctx mod name (RuleSetBinding $ r') False False
+      return [DeclRuleSet $ r']
 
     Specialize a b -> do
       modifyIORef (modSpecializations mod) (\l -> ((a, b), stmtPos s) : l)
@@ -338,8 +337,13 @@ addStmtToModuleInterface ctx mod s = do
     _ -> return []
   return [ (decl, pos) | decl <- decls ]
  where
-  pos              = stmtPos s
-  recordGlobalName = addGlobalName ctx mod pos
+  pos = stmtPos s
+  recordGlobalName name = do
+    existing <- lookupBinding ctx ([], name)
+    case existing of
+      Just b ->
+        throwk $ DuplicateGlobalNameError (modPath mod) name (bindingPos b) pos
+      _ -> return ()
 
 findImports
   :: CompileContext -> ModulePath -> [Statement] -> IO [(ModulePath, Span)]

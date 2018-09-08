@@ -57,6 +57,7 @@ typeMaybeExpr ctx tctx mod e = case e of
 -}
 typeExpr :: CompileContext -> TypeContext -> Module -> TypedExpr -> IO TypedExpr
 typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
+  veryNoisyDebugLog ctx $ show ex
   let r = typeExpr ctx tctx mod
   let maybeR x = case x of
         Just x -> do
@@ -89,17 +90,16 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
   result <- case et of
     (Block children) -> do
-      blockScope <- newScope (scopeNamespace $ head $ tctxScopes tctx)
+      blockScope <- newScope
       let tctx' = tctx { tctxScopes = blockScope : tctxScopes tctx }
       typedChildren <- forMWithErrors children $ \child -> do
         tmp    <- newIORef []
         result <- typeExpr ctx (tctx' { tctxTemps = Just tmp }) mod child
         temps  <- readIORef tmp
         return $ result { tTemps = temps }
-      return $ makeExprTyped
-        (Block typedChildren)
-        (if children == [] then voidType else inferredType $ last typedChildren)
-        pos
+      return $ makeExprTyped (Block typedChildren)
+        --(if children == [] then voidType else inferredType $ last typedChildren)
+                                                   (voidType) pos
 
     (Using using e1) -> do
       tctx' <- foldM
@@ -337,7 +337,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
             "For identifier must match the iterator's type"
             (tPos x)
 
-          scope <- newScope (modPath mod)
+          scope <- newScope
           bindToScope scope (tpName id)
             $ VarBinding (newVarDefinition { varName = id, varType = tv })
           r3 <- typeExpr
@@ -362,7 +362,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
     (While e1 e2 d) -> do
       r1    <- r e1
-      scope <- newScope (modPath mod)
+      scope <- newScope
       r2    <- typeExpr
         ctx
         (tctx { tctxScopes    = scope : (tctxScopes tctx)
@@ -379,12 +379,12 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
     (If e1 e2 (Just e3)) -> do
       r1     <- r e1
-      scope1 <- newScope (modPath mod)
+      scope1 <- newScope
       r2     <- typeExpr ctx
                          (tctx { tctxScopes = scope1 : (tctxScopes tctx) })
                          mod
                          e2
-      scope2 <- newScope (modPath mod)
+      scope2 <- newScope
       r3     <- typeExpr ctx
                          (tctx { tctxScopes = scope2 : (tctxScopes tctx) })
                          mod
@@ -407,7 +407,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
     (If e1 e2 Nothing) -> do
       r1    <- r e1
       -- FIXME: scope
-      scope <- newScope (modPath mod)
+      scope <- newScope
       r2    <- typeExpr ctx
                         (tctx { tctxScopes = scope : (tctxScopes tctx) })
                         mod
@@ -463,7 +463,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           typedArgs
         TypeFunction _ _ _ _ ->
           typeFunctionCall ctx tctx mod r1 implicits typedArgs
-        TypeEnumConstructor tp discriminant argTypes params ->
+        TypeEnumConstructor tp discriminant argTypes params -> do
           typeEnumConstructorCall ctx
                                   tctx
                                   mod
@@ -490,7 +490,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           (inferredType pattern)
           "Match pattern must match the type of the matched value"
           (tPos pattern)
-        patternScope <- newScope []
+        patternScope <- newScope
         let ids = exprMapReduce
               (\x -> case tExpr x of
                 Identifier (Var v) -> Just (v, inferredType x, tPos x)
@@ -520,8 +520,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           typeFieldAccess t fieldName = do
             t <- follow ctx tctx t
             case t of
-              TypeInstance tp@(modPath, typeName) params -> do
-                templateDef <- getTypeDefinition ctx modPath typeName
+              TypeInstance tp params -> do
+                templateDef <- getTypeDefinition ctx tp
                 let
                   tctx' =
                     (addTypeParams
@@ -532,12 +532,9 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                       )
                       { tctxSelf = Just t
                       }
-                definitionMod <- getMod ctx modPath
-                def           <- followType ctx tctx' templateDef
+                def <- followType ctx tctx' templateDef
                 let subtype = typeSubtype def
-                localScope <- getSubScope (modScope definitionMod) [typeName]
-                bindings   <- bindingList localScope
-                binding    <- resolveLocal localScope fieldName
+                binding <- lookupBinding ctx $ subPath tp fieldName
                 case binding of
                   Just x -> do
                     -- this is a local method
@@ -610,31 +607,26 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                 (inferredType ex)
                 pos
 
-              TypeTypeOf x@(mp, name) -> do
+              TypeTypeOf tp -> do
                 -- look for a static method or field
-                definitionMod <- getMod ctx mp
-                subScope      <- getSubScope (modScope definitionMod) [name]
-                findStatic    <- resolveLocal subScope fieldName
+                findStatic <- lookupBinding ctx $ subPath tp fieldName
                 case findStatic of
                   Just binding -> do
-                    let tctx' =
-                          tctx { tctxSelf = Just $ TypeInstance (mp, name) [] }
+                    let tctx' = tctx { tctxSelf = Just $ TypeInstance tp [] }
                     x <- typeVarBinding ctx tctx' fieldName binding pos
                     f <- mapType (follow ctx tctx') $ inferredType x
                     return $ x { inferredType = f }
                   Nothing -> throwk $ TypingError
                     (  "Type "
-                    ++ (s_unpack $ showTypePath x)
+                    ++ (s_unpack $ showTypePath tp)
                     ++ " has no static field "
                     ++ s_unpack fieldName
                     )
                     pos
 
-              TypeBox tp@(defMod, traitName) params -> do
-                definitionMod <- getMod ctx defMod
-                subScope <- getSubScope (modScope definitionMod) [traitName]
-                trait         <- resolveLocal (modScope definitionMod) traitName
-                traitDef      <- case trait of
+              TypeBox tp params -> do
+                trait    <- lookupBinding ctx tp
+                traitDef <- case trait of
                   Just (TraitBinding t) -> return t
                   _                     -> throwk $ TypingError
                     ("Couldn't find trait: " ++ s_unpack (showTypePath tp))
@@ -649,7 +641,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                           )
                     { tctxSelf = Just t
                     }
-                method <- resolveLocal subScope fieldName
+                method <- lookupBinding ctx $ subPath tp fieldName
                 case method of
                   Just binding -> do
                     x <- typeVarBinding ctx tctx' fieldName binding pos
@@ -678,16 +670,14 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                     ((show t) ++ " has no field " ++ s_unpack fieldName)
                     pos
 
-              TypeTraitConstraint (tp@(defMod, traitName), params) -> do
-                definitionMod <- getMod ctx defMod
-                trait         <- resolveLocal (modScope definitionMod) traitName
-                traitDef      <- case trait of
+              TypeTraitConstraint (tp, params) -> do
+                trait    <- lookupBinding ctx tp
+                traitDef <- case trait of
                   Just (TraitBinding t) -> return t
                   _                     -> throwk $ TypingError
                     ("Couldn't find trait: " ++ s_unpack (showTypePath tp))
                     pos
-                subScope <- getSubScope (modScope definitionMod) [traitName]
-                methodBinding <- resolveLocal subScope fieldName
+                methodBinding <- lookupBinding ctx (subPath tp fieldName)
                 case methodBinding of
                   Just binding -> do
                     params <- makeGeneric ctx tp pos params
@@ -836,42 +826,40 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
     (VarDeclaration (Var vname) _ init) -> do
       let
-        typeVarDec
-          = (do
-              let varType = inferredType ex
-              init' <- case init of
-                Just e1 -> do
-                  r1        <- r e1
-                  converted <- tryAutoRefDeref ctx tctx varType r1
-                  resolve $ TypeEq
-                    varType
-                    (inferredType converted)
-                    "A variable's initial value must match the variable's type"
-                    (tPos r1)
-                  return $ Just converted
-                Nothing -> return Nothing
-              existing <- resolveLocal (head $ tctxScopes tctx) (tpName vname)
-              case existing of
-                Just x -> throwk $ DuplicateDeclarationError (modPath mod)
-                                                             (tpName vname)
-                                                             pos
-                                                             (bindingPos x)
-                _ -> bindToScope
-                  (head $ tctxScopes tctx)
-                  (tpName vname)
-                  (VarBinding
-                    (newVarDefinition { varName    = vname
-                                      , varType    = varType
-                                      , varDefault = init'
-                                      , varPos     = pos
-                                      }
-                    )
-                  )
-              return $ makeExprTyped
-                (VarDeclaration (Var vname) (varType) init')
+        typeVarDec = do
+          let varType = inferredType ex
+          init' <- case init of
+            Just e1 -> do
+              r1        <- r e1
+              converted <- tryAutoRefDeref ctx tctx varType r1
+              resolve $ TypeEq
                 varType
-                pos
-            )
+                (inferredType converted)
+                "A variable's initial value must match the variable's type"
+                (tPos r1)
+              return $ Just converted
+            Nothing -> return Nothing
+          existing <- resolveLocal (head $ tctxScopes tctx) (tpName vname)
+          case existing of
+            Just x -> throwk $ DuplicateDeclarationError (modPath mod)
+                                                         (tpName vname)
+                                                         pos
+                                                         (bindingPos x)
+            _ -> bindToScope
+              (head $ tctxScopes tctx)
+              (tpName vname)
+              (VarBinding
+                (newVarDefinition { varName    = vname
+                                  , varType    = varType
+                                  , varDefault = init'
+                                  , varPos     = pos
+                                  }
+                )
+              )
+          return $ makeExprTyped (VarDeclaration (Var vname) (varType) init')
+                                 varType
+                                 pos
+
       result <- (try $ typeVarDec) :: IO (Either KitError TypedExpr)
       case result of
         Left err -> do
@@ -895,10 +883,9 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
     (Defer e1) -> do
       throwk $ InternalError "Not yet implemented" (Just pos)
 
-    (StructInit structType@(TypeInstance tp@(mp, name) p) fields) -> do
-      params       <- makeGeneric ctx tp pos p
-      owningModule <- getMod ctx mp
-      structDef    <- getTypeDefinition ctx mp name
+    (StructInit structType@(TypeInstance tp p) fields) -> do
+      params    <- makeGeneric ctx tp pos p
+      structDef <- getTypeDefinition ctx tp
       let tctx' = addTypeParams tctx params
       case typeSubtype structDef of
         Struct { structFields = structFields } -> do
@@ -980,7 +967,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
     _ -> return $ ex
 
-  t' <- follow ctx tctx (inferredType result)
+  t' <- mapType (follow ctx tctx) $ inferredType result
   let result' = result { inferredType = t' }
   tryRewrite result' (return result')
 
@@ -1108,8 +1095,8 @@ typeEnumConstructorCall
   -> ConcreteArgs
   -> [ConcreteType]
   -> IO TypedExpr
-typeEnumConstructorCall ctx tctx mod e args tp@(modPath, typeName) discriminant argTypes params
-  = do
+typeEnumConstructorCall ctx tctx mod e args tp discriminant argTypes params =
+  do
     when (length args < length argTypes) $ throwk $ TypingError
       (  "Expected "
       ++ (show $ length argTypes)
@@ -1118,7 +1105,7 @@ typeEnumConstructorCall ctx tctx mod e args tp@(modPath, typeName) discriminant 
       ++ ")"
       )
       (tPos e)
-    def <- getTypeDefinition ctx modPath typeName
+    def <- getTypeDefinition ctx tp
     let tctx' = addTypeParams
           tctx
           [ (typeSubPath def $ paramName param, value)

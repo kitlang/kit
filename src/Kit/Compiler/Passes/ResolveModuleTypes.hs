@@ -10,7 +10,7 @@ import System.FilePath
 import Kit.Ast
 import Kit.Compiler.Binding
 import Kit.Compiler.Context
-import Kit.Compiler.Generators.NameMangling
+import Kit.NameMangling
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
@@ -44,7 +44,7 @@ instance Errable DuplicateSpecializationError where
 resolveModuleTypes
   :: CompileContext
   -> [(Module, [(Declaration Expr (Maybe TypeSpec), Span)])]
-  -> IO [(Module, [TypedDecl])]
+  -> IO [(Module, [TypedDeclWithContext])]
 resolveModuleTypes ctx modContents = do
   unless (ctxIsLibrary ctx) $ validateMain ctx
   results <- forM modContents $ resolveTypesForMod ctx
@@ -95,14 +95,13 @@ findImpls ctx memos t = do
 
 validateMain :: CompileContext -> IO ()
 validateMain ctx = do
-  mod  <- getMod ctx (ctxMainModule ctx)
-  main <- resolveLocal (modScope mod) "main"
+  main <- lookupBinding ctx (ctxMainModule ctx, "main")
   case main of
     Just (FunctionBinding f) -> do
       -- TODO
       return ()
     _ -> throwk $ BasicError
-      (show mod
+      (s_unpack (showModulePath $ ctxMainModule ctx)
       ++ " doesn't have a function called 'main'; main module requires a main function"
       )
       (Nothing)
@@ -110,7 +109,7 @@ validateMain ctx = do
 resolveTypesForMod
   :: CompileContext
   -> (Module, [(Declaration Expr (Maybe TypeSpec), Span)])
-  -> IO (Module, [TypedDecl])
+  -> IO (Module, [TypedDeclWithContext])
 resolveTypesForMod ctx (mod, contents) = do
   specs <- readIORef (modSpecializations mod)
   forM_ specs (addSpecialization ctx mod)
@@ -120,13 +119,10 @@ resolveTypesForMod ctx (mod, contents) = do
 
   let varConverter =
         converter (convertExpr ctx tctx mod) (resolveMaybeType ctx tctx mod)
-  let
-    paramConverter params =
-      let tctx' = tctx
-            { tctxTypeParams = [ (p, TypeTypeParam p) | p <- params ]
-              ++ tctxTypeParams tctx
-            }
-      in  converter (convertExpr ctx tctx' mod) (resolveMaybeType ctx tctx' mod)
+  let paramConverter params =
+        let tctx' = addTypeParams tctx [ (p, TypeTypeParam p) | p <- params ]
+        in  converter (convertExpr ctx tctx' mod)
+                      (resolveMaybeType ctx tctx' mod)
 
   converted <- forM
     contents
@@ -149,9 +145,9 @@ resolveTypesForMod ctx (mod, contents) = do
                 (tp, take (length p - (length $ implAssocTypes i)) p)
               e2 <- h_get e1 (implFor converted)
               h_insert e1 (implFor converted) i
-              return $ Just $ DeclImpl $ i
+              return $ Just $ (DeclImpl $ i, tctx)
         _ -> do
-          binding <- scopeGet (modScope mod) (declName decl)
+          binding <- getBinding ctx (modPath mod, declName decl)
           case (binding, decl) of
             (VarBinding vi, DeclVar v) -> do
               converted <- convertVarDefinition varConverter
@@ -161,8 +157,8 @@ resolveTypesForMod ctx (mod, contents) = do
                            vi
                            converted
                            "Variable type must match its annotation"
-              bindToScope (modScope mod) (declName decl) (VarBinding converted)
-              return $ Just $ DeclVar converted
+              addBinding ctx (varName v) $ VarBinding converted
+              return $ Just $ (DeclVar converted, tctx)
 
             (FunctionBinding fi, DeclFunction f) -> do
               let
@@ -183,10 +179,8 @@ resolveTypesForMod ctx (mod, contents) = do
                 converted
                 "Function return type must match its annotation"
                 "Function argument type must match its annotation"
-              bindToScope (modScope mod)
-                          (declName decl)
-                          (FunctionBinding converted)
-              return $ Just $ DeclFunction converted
+              addBinding ctx (functionName f) $ FunctionBinding converted
+              return $ Just $ (DeclFunction converted, tctx)
 
             (TypeBinding ti, DeclType t) -> do
               let params' =
@@ -199,9 +193,13 @@ resolveTypesForMod ctx (mod, contents) = do
                     , tctxSelf       = Just
                       (TypeInstance (typeName t) (map snd params'))
                     }
-              let paramConverter params = converter
-                    (convertExpr ctx tctx' mod)
-                    (resolveMaybeType ctx tctx' mod)
+              let
+                paramConverter params =
+                  let
+                    tctx'' =
+                      addTypeParams tctx' [ (p, TypeTypeParam p) | p <- params ]
+                  in  converter (convertExpr ctx tctx'' mod)
+                                (resolveMaybeType ctx tctx'' mod)
               converted <- do
                 c' <- convertTypeDefinition paramConverter
                   $ t { typeName = addNamespace (modPath mod) (typeName t) }
@@ -278,15 +276,16 @@ resolveTypesForMod ctx (mod, contents) = do
                             arg1
                             arg2
                             "Enum constructor argument type must match its annotation"
-                      addToInterface mod
+                      addToInterface ctx
+                                     mod
                                      (tpName $ variantName variant1)
                                      (EnumConstructor variant2)
                                      False
                                      True
                 _ -> return ()
 
-              bindToScope (modScope mod) (declName decl) (TypeBinding converted)
-              return $ Just $ DeclType converted
+              addBinding ctx (typeName t) $ TypeBinding converted
+              return $ Just $ (DeclType converted, tctx')
 
             (TraitBinding ti, DeclTrait t) -> do
               let
@@ -317,17 +316,15 @@ resolveTypesForMod ctx (mod, contents) = do
                   "Trait method return type must match its annotation"
                   "Trait method argument type must match its annotation"
                 )
-              bindToScope (modScope mod)
-                          (declName decl)
-                          (TraitBinding converted)
-              return $ Just $ DeclTrait converted
+              addBinding ctx (traitName t) $ TraitBinding converted
+              return $ Just $ (DeclTrait converted, tctx')
 
             (RuleSetBinding ri, DeclRuleSet r) -> do
               -- RuleSets are untyped
               let tp = (modPath mod, tpName $ ruleSetName ri)
-              bindToScope (modScope mod)
-                          (declName decl)
-                          (RuleSetBinding $ r { ruleSetName = tp })
+              addBinding ctx (ruleSetName r) $ RuleSetBinding $ r
+                { ruleSetName = tp
+                }
               return Nothing
     )
 
@@ -335,10 +332,13 @@ resolveTypesForMod ctx (mod, contents) = do
 
 addSpecialization
   :: CompileContext -> Module -> ((TypeSpec, TypeSpec), Span) -> IO ()
-addSpecialization ctx mod (((TypeSpec tp params _), b), pos) = do
+addSpecialization ctx mod ((ts@(TypeSpec tp params _), b), pos) = do
   tctx  <- modTypeContext ctx mod
-  found <- resolveModuleBinding ctx tctx mod tp
-  case found of
+  traitType <- resolveType ctx tctx mod ts
+  foundTrait <- case traitType of
+    TypeTraitConstraint (tpTrait, _) -> lookupBinding ctx tpTrait
+    _ -> return Nothing
+  case foundTrait of
     Just (TraitBinding def) -> do
       let tp = traitName def
       existing <- h_lookup (ctxTraitSpecializations ctx) tp
@@ -352,17 +352,22 @@ addSpecialization ctx mod (((TypeSpec tp params _), b), pos) = do
         _ -> do
           ct <- resolveType ctx tctx mod b
           h_insert (ctxTraitSpecializations ctx) tp (ct, pos)
-    _ -> throwk $ BasicError ("Couldn't resolve trait: " ++ show tp) (Just pos)
+    _ -> throwk $ BasicError
+      ("Couldn't resolve trait for specialization: " ++ show tp)
+      (Just pos)
 
 addImplementation
   :: CompileContext
   -> Module
   -> TraitImplementation Expr (Maybe TypeSpec)
   -> IO ()
-addImplementation ctx mod impl@(TraitImplementation { implTrait = Just (TypeSpec tpTrait paramsTrait posTrait), implFor = Just implFor })
+addImplementation ctx mod impl@(TraitImplementation { implTrait = Just ts@(TypeSpec tpTrait paramsTrait posTrait), implFor = Just implFor })
   = do
-    tctx       <- newTypeContext []
-    foundTrait <- resolveModuleBinding ctx tctx mod tpTrait
+    tctx       <- modTypeContext ctx mod
+    traitType <- resolveType ctx tctx mod ts
+    foundTrait <- case traitType of
+      TypeTraitConstraint (tpTrait, _) -> lookupBinding ctx tpTrait
+      _ -> return Nothing
     case foundTrait of
       Just (TraitBinding def) -> do
         let tpTrait = traitName def
@@ -407,8 +412,9 @@ addImplementation ctx mod impl@(TraitImplementation { implTrait = Just (TypeSpec
             impls <- h_new
             h_insert impls          ct                     impl
             h_insert (ctxImpls ctx) (tpTrait, paramsTrait) impls
-      _ -> throwk $ BasicError ("Couldn't resolve trait: " ++ show tpTrait)
-                               (Just posTrait)
+      _ -> throwk $ BasicError
+        ("Couldn't resolve trait for trait implementation: " ++ show tpTrait)
+        (Just posTrait)
 
 addModUsing
   :: CompileContext
@@ -423,12 +429,3 @@ addModUsing ctx tctx mod pos using = do
     pos
     using
   modifyIORef (modUsing mod) (\l -> converted : l)
-
-resolveModuleBinding
-  :: CompileContext -> TypeContext -> Module -> TypePath -> IO (Maybe Binding)
-resolveModuleBinding ctx tctx mod (m, name) = do
-  importedMods <- getModImports ctx mod
-  let searchMods = if null m
-        then importedMods
-        else (filter (\mod' -> modPath mod' == m) importedMods)
-  resolveBinding (map modScope searchMods) name

@@ -14,6 +14,8 @@ showTypePath (mp, s) = s_concat [showModulePath mp, ".", s]
 tpName (_, s) = s
 tpNamespace (n, _) = n
 subPath (tp, n) s = (tp ++ [n], s)
+
+addNamespace :: ModulePath -> TypePath -> TypePath
 addNamespace n (_, s) = (n, s)
 
 tpShift ([], s) = undefined

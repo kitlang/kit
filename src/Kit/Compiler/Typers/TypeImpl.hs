@@ -22,11 +22,11 @@ import Kit.Str
 -}
 typeImpl
   :: CompileContext
+  -> TypeContext
   -> Module
   -> TraitImplementation TypedExpr ConcreteType
-  -> IO (Maybe TypedDecl)
-typeImpl ctx mod def = do
-  tctx'              <- modTypeContext ctx mod
+  -> IO TypedDecl
+typeImpl ctx tctx' mod def = do
   (traitDef, params) <- case implTrait def of
     TypeTraitConstraint (tp, params) -> do
       traitDef <- getTraitDefinition ctx tp
@@ -77,7 +77,7 @@ typeImpl ctx mod def = do
       return typed
     )
 
-  return $ Just $ DeclImpl $ def { implMethods = methods }
+  return $ DeclImpl $ def { implMethods = methods }
 
 findMethodByName
   :: [FunctionDefinition TypedExpr ConcreteType]

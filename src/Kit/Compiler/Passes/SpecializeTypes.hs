@@ -21,17 +21,27 @@ import Kit.Ir
 import Kit.Parser
 import Kit.Str
 
-specializeTypes :: CompileContext -> IO ()
+specializeTypes :: CompileContext -> IO Bool
 specializeTypes ctx = do
   unresolved <- h_toList (ctxUnresolvedTypeVars ctx)
-  forM_ (map fst unresolved) $ \id -> do
-    defaultType <- findDefaultType ctx id
-    case defaultType of
-      Just x -> do
-        noisyDebugLog ctx $ "specializing type variable " ++ show id ++ " as " ++ show x
-        info <- getTypeVar ctx id
-        h_insert (ctxTypeVariables ctx) id (info { typeVarValue = Just x })
-      _ -> return ()
+  foldM
+      (\acc id -> do
+        defaultType <- findDefaultType ctx id
+        case defaultType of
+          Just x -> do
+            noisyDebugLog ctx
+              $  "specializing type variable "
+              ++ show id
+              ++ " as "
+              ++ show x
+            info <- getTypeVar ctx id
+            h_insert (ctxTypeVariables ctx) id (info { typeVarValue = Just x })
+            h_delete (ctxUnresolvedTypeVars ctx) id
+            return True
+          _ -> return acc
+      )
+      False
+    $ map fst unresolved
 
 findDefaultType :: CompileContext -> Int -> IO (Maybe ConcreteType)
 findDefaultType ctx id = do

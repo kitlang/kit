@@ -43,6 +43,10 @@ noisyDebugLog :: CompileContext -> String -> IO ()
 noisyDebugLog ctx msg = do
   when (ctxVerbose ctx > 1) $ logMsg (Just Debug) msg
 
+veryNoisyDebugLog :: CompileContext -> String -> IO ()
+veryNoisyDebugLog ctx msg = do
+  when (ctxVerbose ctx > 2) $ logMsg (Just Debug) msg
+
 findModule :: CompileContext -> ModulePath -> Maybe Span -> IO FilePath
 findModule ctx mod pos = do
   let modPath = moduleFilePath mod

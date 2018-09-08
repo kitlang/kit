@@ -6,46 +6,21 @@ import Kit.HashTable
 import Kit.Str
 
 data Scope a = Scope {
-  scopeNamespace :: [Str],
   -- bound names in this scope
   scopeBindings :: HashTable Str a,
-  -- child namespaces within this scope
-  subScopes :: HashTable Str (Scope a),
   lastTmpVar :: IORef (Int)
 }
 
 -- Create a new scope.
-newScope :: [Str] -> IO (Scope a)
-newScope n = do
-  bindings  <- h_new
-  subScopes <- h_new
-  tmp       <- newIORef 0
-  return $ Scope
-    { scopeNamespace = n
-    , scopeBindings  = bindings
-    , subScopes      = subScopes
-    , lastTmpVar     = tmp
-    }
-
-getSubScope :: Scope a -> [Str] -> IO (Scope a)
-getSubScope scope []      = return scope
-getSubScope scope (h : t) = do
-  existing <- h_lookup (subScopes scope) h
-  case existing of
-    Just x  -> getSubScope x t
-    Nothing -> do
-      x <- newScope (scopeNamespace scope ++ [h])
-      h_insert (subScopes scope) h x
-      getSubScope x t
+newScope :: IO (Scope a)
+newScope = do
+  bindings <- h_new
+  tmp      <- newIORef 0
+  return $ Scope {scopeBindings = bindings, lastTmpVar = tmp}
 
 -- Add a new binding to this scope.
 bindToScope :: Scope a -> Str -> a -> IO ()
 bindToScope scope s binding = h_insert (scopeBindings scope) s binding
-
-bindSub :: Scope a -> [Str] -> Str -> a -> IO ()
-bindSub scope namespace s binding = do
-  subScope <- getSubScope scope namespace
-  bindToScope subScope s binding
 
 -- Look up a binding in this scope.
 resolveLocal :: Scope a -> Str -> IO (Maybe a)
@@ -90,7 +65,6 @@ bindingList :: Scope a -> IO [a]
 bindingList s = do
   bindings <- h_toList $ scopeBindings s
   return $ map snd bindings
-
 
 -- Returns the list of bindings this scope contains.
 bindingNames :: Scope a -> IO [Str]

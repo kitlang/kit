@@ -12,6 +12,8 @@ import Kit.Compiler.Binding
 import Kit.Compiler.Context
 import Kit.Compiler.DumpAst
 import Kit.Compiler.Module
+import Kit.Compiler.Passes.GenerateMonomorphs
+import Kit.Compiler.Passes.SpecializeTypes
 import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
 import Kit.Compiler.TypedDecl
@@ -31,116 +33,162 @@ import Kit.Str
   See Kit.Compiler.Typers.* for specific typing implementations.
 -}
 typeContent
-  :: CompileContext -> [(Module, [TypedDecl])] -> IO [(Module, [TypedDecl])]
+  :: CompileContext
+  -> [(Module, [TypedDeclWithContext])]
+  -> IO [(Module, TypedDecl)]
 typeContent ctx modContent = do
-  results <- typeIterative ctx modContent [] (ctxRecursionLimit ctx)
+  results <- typeIterative
+    ctx
+    [ (mod, decl) | (mod, decls) <- modContent, decl <- decls ]
+    []
+    (ctxRecursionLimit ctx)
   return results
 
 data TypingStatus
-  = Complete (Maybe TypedDecl)
-  | Incomplete TypedDecl (Maybe KitError)
+  = Complete (Module, TypedDecl)
+  | Incomplete Module TypedDeclWithContext (Maybe KitError)
+
+mono params mono = (null params) == (null mono)
 
 typeIterative
   :: CompileContext
-  -> [(Module, [TypedDecl])]
-  -> [(Module, [TypedDecl])]
+  -> [(Module, TypedDeclWithContext)]
+  -> [(Module, TypedDecl)]
   -> Int
-  -> IO [(Module, [TypedDecl])]
+  -> IO [(Module, TypedDecl)]
 typeIterative ctx input output limit = do
-  results <- forM
-    input
-    (\(mod, decls) -> do
-      results <- forM
-        decls
-        (\d -> do
-          result <-
-            (try $ case d of
-              DeclVar      v -> typeVar ctx mod v
-              DeclFunction f | null (functionParams f) -> typeFunction ctx mod f
-              DeclType     t | null (typeParams t) -> typeType ctx mod t
-              DeclTrait    t | null (traitAllParams t) -> typeTrait ctx mod t
-              DeclImpl     i -> typeImpl ctx mod i
-              DeclRuleSet  rs -> return Nothing
-              _ -> return Nothing
-            ) :: IO (Either KitError (Maybe TypedDecl))
-          case result of
-            Left  e -> return $ Incomplete d (Just e)
-            Right d -> return $ Complete d
-        )
-      return (mod, results)
-    )
+  noisyDebugLog ctx
+    $  "Beginning new typing pass; "
+    ++ show limit
+    ++ " remaining"
+  results <- forM input $ \(mod, (d, tctx)) -> do
+    let singleResult x = do
+          x <- x
+          return (Just (mod, x), [])
+    result <-
+      (try $ case d of
+          -- if there are type parameters in the definition, this is a
+          -- template and not a monomorph, so skip it for now;
+          -- generateMonomorphs will add all realized monomorphs to the
+          -- input stack without parameters
+        DeclVar v -> singleResult $ typeVar ctx tctx mod v
+        DeclFunction f | mono (functionParams f) (functionMonomorph f) ->
+          singleResult $ typeFunction ctx tctx mod f
+        DeclType t | mono (typeParams t) (typeMonomorph t) -> do
+          DeclType x <- typeType ctx tctx mod t
+          x          <- followType ctx tctx x
+          -- split out methods/static fields into separate declarations
+          let thisType     = TypeInstance (typeName x) (typeMonomorph t)
+          let staticTctx   = tctx { tctxSelf = Just thisType }
+          let instanceTctx = staticTctx { tctxThis = tctxSelf staticTctx }
+          return
+            ( Just
+              ( mod
+              , DeclType x { typeStaticFields  = []
+                           , typeStaticMethods = []
+                           , typeMethods       = []
+                           }
+              )
+            , [ (DeclVar $ v { varBundle = Just $ typeRealName x }, staticTctx)
+              | v <- typeStaticFields x
+              ]
+            ++ [ ( DeclFunction $ f
+                   { functionName   = subPath (typeRealName t)
+                     $ tpName
+                     $ functionName f
+                   , functionBundle = Just $ typeRealName x
+                   }
+                 , staticTctx
+                 )
+               | f <- typeStaticMethods x
+               ]
+            ++ [ ( DeclFunction $ f
+                   { functionName   = subPath (typeRealName t)
+                     $ tpName
+                     $ functionName f
+                   , functionBundle = Just $ typeRealName x
+                   }
+                 , instanceTctx
+                 )
+               | f <- typeMethods x
+               ]
+            )
+        DeclTrait t | mono (traitAllParams t) (traitMonomorph t) -> do
+          DeclTrait x <- typeTrait ctx tctx mod t
+          return (Just (mod, DeclTrait $ x), [])
+        DeclImpl i -> do
+          let thisType = implFor i
+          let pos      = implPos i
+          let tctx' =
+                tctx { tctxSelf = Just $ thisType, tctxThis = Just $ thisType }
+          DeclImpl x <- typeImpl ctx tctx' mod i
+          return (Just (mod, DeclImpl $ x), [])
+        DeclRuleSet rs -> return (Nothing, [])
+        _              -> return (Nothing, [])
+      ) :: IO
+        (Either KitError (Maybe (Module, TypedDecl), [TypedDeclWithContext]))
+    case result of
+      Left  e            -> return [Incomplete mod (d, tctx) (Just e)]
+      Right (Nothing, x) -> return [ Incomplete mod xi Nothing | xi <- x ]
+      Right (Just d, x) ->
+        return $ (Complete d) : [ Incomplete mod xi Nothing | xi <- x ]
 
-  let incompletes x = foldr
-        (\x acc -> case x of
-          Incomplete d _ -> d : acc
-          _              -> acc
-        )
-        []
-        x
-  let completes x = foldr
-        (\x acc -> case x of
-          Complete (Just d) -> d : acc
-          _                 -> acc
-        )
-        []
-        x
+  let collapsedResults = foldr (++) [] results
 
-  let incomplete =
-        [ (mod, incompletes r)
-        | (mod, r) <- results
-        , not $ null $ incompletes r
+  let incomplete = catMaybes
+        [ case result of
+            Complete _         -> Nothing
+            Incomplete mod d _ -> Just (mod, d)
+        | result <- collapsedResults
         ]
-  let complete = output ++ [ (mod, completes r) | (mod, r) <- results ]
+  let complete =
+        output
+          ++ (catMaybes
+               [ case result of
+                   Complete d -> Just d
+                   _          -> Nothing
+               | result <- collapsedResults
+               ]
+             )
 
   let errors =
         (foldr
           (\x acc -> case x of
-            Incomplete _ (Just e) -> e : acc
-            _                     -> acc
+            Incomplete _ _ (Just e) -> e : acc
+            _                       -> acc
           )
           []
-          (reverse $ foldr (++) [] (map snd results))
+          (reverse collapsedResults)
         )
 
-  let decls x = foldr (++) [] (map snd x)
-  when (decls incomplete == decls input)
+  let decls = map snd
+
+  when (limit <= 0)
     $ throwk
     $ KitErrors
     $ (KitError $ BasicError
-        "Failed typing; halting due to the following unsolvable errors:"
+        ("Maximum number of compile passes exceeded while typing")
         Nothing
       )
-    : errors
+    : (reverse errors)
 
-  when (limit <= 0) $ if ctxDumpAst ctx
+  if (map fst (decls incomplete) == map fst (decls input)) || (null incomplete)
     then do
-      throwk
-        $ KitErrors
-        $ (KitError $ BasicError
-            ("Maximum number of compile passes exceeded while typing; incomplete content:"
-            )
-            Nothing
-          )
-        : errors
-      mods <- ctxSourceModules ctx
-      forM_
-        input
-        (\(mod, decls) -> do
-          putStrLn $ show mod
-          forM_ decls (dumpModuleDecl ctx mod 0)
-          putStrLn ""
-        )
-    else
-      throwk
-      $ KitErrors
-      $ (KitError $ BasicError
-          (  "Maximum number of compile passes exceeded while typing;"
-          ++ "; run again with --dump-ast to see typed output"
-          )
-          Nothing
-        )
-      : errors
-
-  if null incomplete
-    then return complete
+      newMonomorphs <- generateMonomorphs ctx
+      specialized   <- specializeTypes ctx
+      if (not $ null newMonomorphs) || specialized
+        then typeIterative ctx
+                           (incomplete ++ newMonomorphs)
+                           complete
+                           (limit - 1)
+        else if null incomplete
+          then return complete
+          else
+            throwk
+            $ KitErrors
+            $ (KitError $ BasicError
+                "Failed typing; halting due to the following unsolvable errors:"
+                Nothing
+              )
+            : (reverse errors)
     else typeIterative ctx incomplete complete (limit - 1)

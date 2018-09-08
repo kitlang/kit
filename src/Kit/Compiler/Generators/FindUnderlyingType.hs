@@ -8,7 +8,7 @@ import Data.Maybe
 import Kit.Ast
 import Kit.Compiler.Binding
 import Kit.Compiler.Context
-import Kit.Compiler.Generators.NameMangling
+import Kit.NameMangling
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
@@ -48,9 +48,8 @@ findUnderlyingType ctx mod pos t = do
           return (name, t')
         )
       return $ BasicTypeAnonUnion fields'
-    TypeInstance tp@(modPath, name) p -> do
-      templateDef <- getTypeDefinition ctx modPath name
-      mod         <- getMod ctx modPath
+    TypeInstance tp p -> do
+      templateDef <- getTypeDefinition ctx tp
       params      <- forM p (mapType $ follow ctx modTctx)
       let tctx = addTypeParams
             modTctx

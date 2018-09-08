@@ -17,6 +17,7 @@ import System.Directory
 import System.FilePath
 import System.Process
 import Kit.Ast
+import Kit.Ir
 import Kit.Compiler.Binding
 import Kit.Compiler.Context
 import Kit.Compiler.DumpAst
@@ -76,30 +77,15 @@ compile ctx = do
     exception on failure.
   -}
   printLog "typing module content"
-  typedContent <- typeContent ctx resolved
-
-  {-
-    Any remaining unresolved type variables will be specialized here if
-    possible. After this point, attempting to use an unresolved type variable
-    will be an error.
-  -}
-  printLog "specializing types"
-  specializeTypes ctx
-
-  {-
-    Generate declarations for observed generic usages.
-  -}
-  printLog "generating monomorphs"
-  monomorphs <- generateMonomorphs ctx
-  let typed =
-        [ (fst $ head x, foldr (++) [] (map snd x))
-        | x <- groupBy
-          (\a b -> modPath (fst a) == modPath (fst b))
-          ( sortBy (\a b -> compare (modPath $ fst a) (modPath $ fst b))
-          $ (typedContent ++ monomorphs)
-          )
-        , not $ null x
-        ]
+  typedRaw <- typeContent ctx resolved
+  let
+    typed =
+      [ (fst $ head x, map snd x)
+      | x <- groupBy
+        (\a b -> (modPath $ fst a) == (modPath $ fst b))
+        (sortBy (\a b -> compare (modPath $ fst a) (modPath $ fst b)) typedRaw)
+      , not $ null x
+      ]
 
   when (ctxDumpAst ctx) $ do
     printLog "typed AST:"
@@ -109,7 +95,21 @@ compile ctx = do
     Convert typed AST to IR.
   -}
   printLog "generating intermediate representation"
-  ir <- generateIr ctx typed
+  irRaw <- generateIr ctx typed
+  let ir =
+        [ (fst $ head x, [foldr mergeBundles (snd $ head x) (map snd $ tail x)])
+        | x <- groupBy
+          (\a b ->
+            ((modPath $ fst a) == (modPath $ fst b))
+              && (bundleTp (snd a) == bundleTp (snd b))
+          )
+          (sortBy
+            (\a b -> compare (modPath $ fst a, bundleTp $ snd a)
+                             (modPath $ fst b, bundleTp $ snd b)
+            )
+            [ (mod, decl) | (mod, decls) <- irRaw, decl <- decls ]
+          )
+        ]
 
   {-
     Generate header and code files from IR.
@@ -120,7 +120,7 @@ compile ctx = do
   {-
     Compile the generated code.
   -}
-  binPath <- if ctxNoCompile ctx
+  binPath   <- if ctxNoCompile ctx
     then do
       printLog "skipping compile"
       return Nothing

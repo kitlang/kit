@@ -33,41 +33,20 @@ instance Errable ReturnTypeError where
 -}
 typeFunction
   :: CompileContext
+  -> TypeContext
   -> Module
   -> FunctionDefinition TypedExpr ConcreteType
-  -> IO (Maybe TypedDecl)
-typeFunction ctx mod f = do
-  debugLog ctx $ "typing function " ++ s_unpack (showTypePath $ functionName f)
-  tctx  <- modTypeContext ctx mod
-  typed <- typeFunctionDefinition ctx tctx mod f
-  return $ Just $ DeclFunction typed
-
-{-
-  Type checks a specific monomorph of a generic function, with a known set of
-  parameters. By this point the final types of the parameters must be known.
--}
-typeFunctionMonomorph
-  :: CompileContext
-  -> Module
-  -> FunctionDefinition TypedExpr ConcreteType
-  -> [ConcreteType]
-  -> IO (Maybe TypedDecl)
-typeFunctionMonomorph ctx mod f params = do
+  -> IO TypedDecl
+typeFunction ctx tctx mod def = do
   debugLog ctx
-    $  "generating function monomorph for "
-    ++ s_unpack (showTypePath $ functionName f)
-    ++ " with params "
-    ++ show params
-    ++ " in "
-    ++ show mod
-  tctx <- modTypeContext ctx mod
-  let tctx' = tctx
-        { tctxTypeParams = [ (functionSubPath f $ paramName param, ct)
-                           | (param, ct) <- zip (functionParams f) params
-                           ]
-        }
-  typed <- typeFunctionDefinition ctx tctx' mod f
-  return $ Just $ DeclFunction typed
+    $  "typing function "
+    ++ s_unpack (showTypePath $ functionName def)
+    ++ (case functionMonomorph def of
+         [] -> ""
+         x  -> " monomorph " ++ show x
+       )
+  typed <- typeFunctionDefinition ctx tctx mod def
+  return $ DeclFunction typed
 
 typeFunctionDefinition
   :: CompileContext
@@ -81,9 +60,10 @@ typeFunctionDefinition ctx tctx' mod f = do
         (functionName f == ([], "main"))
           && (ctxMainModule ctx == modPath mod)
           && not (ctxIsLibrary ctx)
-  functionScope <- newScope (modPath mod)
+  functionScope <- newScope
   let tctx = tctx' { tctxScopes = functionScope : tctxScopes tctx' }
 
+  veryNoisyDebugLog ctx $ "TypeFunction: follow function args"
   args <- forM (functionArgs f) $ \arg -> do
     t <- follow ctx tctx $ argType arg
     return $ arg { argType = t }
@@ -98,12 +78,14 @@ typeFunctionDefinition ctx tctx' mod f = do
                                      }
       )
     )
+  veryNoisyDebugLog ctx $ "TypeFunction: follow function type"
   returnType <- follow ctx tctx $ functionType f
   let ftctx =
         (tctx { tctxScopes     = functionScope : (tctxScopes tctx)
               , tctxReturnType = Just returnType
               }
         )
+  veryNoisyDebugLog ctx $ "TypeFunction: type function body"
   body <- typeMaybeExpr ctx ftctx mod (functionBody f)
   case body of
     Just body -> do
@@ -147,6 +129,7 @@ typeFunctionDefinition ctx tctx' mod f = do
         Right (Just (False, p)) -> unifyVoid p
         _                       -> return ()
     Nothing -> return ()
+
   return $ f { functionBody = body
              , functionArgs = args
              , functionType = returnType

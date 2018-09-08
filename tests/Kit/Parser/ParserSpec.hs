@@ -458,8 +458,6 @@ spec = parallel $ do
                                                  , functionBody      = Just
                                                    (e $ Block [])
                                                  , functionVarargs   = False
-                                                 , functionThis      = Nothing
-                                                 , functionSelf      = Nothing
                                                  }
                                              ]
                        , typeSubtype       = Struct

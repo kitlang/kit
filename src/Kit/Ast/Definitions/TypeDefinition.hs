@@ -11,11 +11,14 @@ import Kit.Ast.Modifier
 import Kit.Ast.ModulePath
 import Kit.Ast.TypePath
 import Kit.Ast.TypeSpec
+import Kit.NameMangling
 import Kit.Parser.Span
 import Kit.Str
 
 data TypeDefinition a b = TypeDefinition {
   typeName :: TypePath,
+  typeBundle :: Maybe TypePath,
+  typeMonomorph :: [b],
   typePos :: Span,
   typeDoc :: Maybe Str,
   typeMeta :: [Metadata],
@@ -31,9 +34,9 @@ data TypeDefinition a b = TypeDefinition {
 typeSubPath :: TypeDefinition a b -> Str -> TypePath
 typeSubPath def s = subPath (typeName def) s
 
-typeRealName f = if hasMeta "extern" (typeMeta f)
-  then ([], tpName $ typeName f)
-  else typeName f
+typeRealName t = if hasMeta "extern" (typeMeta t)
+  then ([], tpName $ typeName t)
+  else monomorphName (typeName t) (typeMonomorph t)
 
 data TypeDefinitionType a b
   = Atom
@@ -45,6 +48,8 @@ data TypeDefinitionType a b
 
 newTypeDefinition = TypeDefinition
   { typeName          = undefined
+  , typeBundle        = Nothing
+  , typeMonomorph     = []
   , typeDoc           = Nothing
   , typeMeta          = []
   , typeModifiers     = []
@@ -123,8 +128,12 @@ convertTypeDefinition paramConverter t = do
       $ f { functionName = typeSubPath t (tpName $ functionName f) }
     )
 
+  mono <- forM (typeMonomorph t) $ typeConverter (typePos t)
+
   -- since they are untyped, rulesets will not be converted and will be lost
   return $ (newTypeDefinition) { typeName          = typeName t
+                               , typeMonomorph     = mono
+                               , typeBundle        = typeBundle t
                                , typeDoc           = typeDoc t
                                , typeMeta          = typeMeta t
                                , typeModifiers     = typeModifiers t

@@ -24,14 +24,13 @@ import Kit.Str
 -}
 typeVar
   :: CompileContext
+  -> TypeContext
   -> Module
   -> VarDefinition TypedExpr ConcreteType
-  -> IO (Maybe TypedDecl)
-typeVar ctx mod def@(VarDefinition { varName = name })
-  = do
-    tctx              <- newTypeContext []
-    typed <- typeVarDefinition ctx tctx mod def
-    return $ Just $ DeclVar typed
+  -> IO TypedDecl
+typeVar ctx tctx mod def@(VarDefinition { varName = name }) = do
+  typed <- typeVarDefinition ctx tctx mod def
+  return $ DeclVar typed
 
 typeVarDefinition
   :: CompileContext
@@ -52,5 +51,5 @@ typeVarDefinition ctx tctx mod def = do
           "Variable and field default values must match the variable's type"
           (varPos def)
         )
-      return $def { varDefault = Just typed }
+      return $ def { varDefault = Just typed }
     _ -> return def

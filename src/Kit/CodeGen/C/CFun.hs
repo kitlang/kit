@@ -3,7 +3,7 @@ module Kit.CodeGen.C.CFun where
 import Language.C
 import Kit.Ast
 import Kit.CodeGen.C.CExpr
-import Kit.Compiler.Generators.NameMangling
+import Kit.NameMangling
 import Kit.Ir
 import Kit.Str
 

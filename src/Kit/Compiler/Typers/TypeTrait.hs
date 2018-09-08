@@ -23,46 +23,19 @@ import Kit.Str
 -}
 typeTrait
   :: CompileContext
+  -> TypeContext
   -> Module
   -> TraitDefinition TypedExpr ConcreteType
-  -> IO (Maybe TypedDecl)
-typeTrait ctx mod def = do
-  debugLog ctx $ "typing trait " ++ s_unpack (showTypePath $ traitName def)
-  tctx <- modTypeContext ctx mod
-  typeTraitDefinition ctx tctx mod (TypeTraitConstraint (traitName def, [])) def
-
-{-
-  Type checks a specific monomorph of a generic trait, with a known set of
-  parameters. By this point the final types of the parameters must be known.
--}
-typeTraitMonomorph
-  :: CompileContext
-  -> Module
-  -> TraitDefinition TypedExpr ConcreteType
-  -> [ConcreteType]
-  -> IO (Maybe TypedDecl)
-typeTraitMonomorph ctx mod def params = do
-  tctx' <- modTypeContext ctx mod
-  params <- forM params $ mapType $ follow ctx tctx'
+  -> IO TypedDecl
+typeTrait ctx tctx mod def = do
   debugLog ctx
-    $  "generating trait monomorph for "
+    $  "typing trait "
     ++ s_unpack (showTypePath $ traitName def)
-    ++ " with params "
-    ++ show params
-
-  let tctx =
-        (addTypeParams
-          tctx'
-          [ (traitSubPath def $ paramName param, ct)
-          | (param, ct) <- zip (traitAllParams def) params
-          ]
-        )
-  monomorph <- followTrait ctx tctx def
-  typeTraitDefinition ctx
-                      tctx
-                      mod
-                      (TypeTraitConstraint (traitName def, params))
-                      monomorph
+    ++ (case traitMonomorph def of
+         [] -> ""
+         x  -> " monomorph " ++ show x
+       )
+  typeTraitDefinition ctx tctx mod (TypeTraitConstraint (traitName def, [])) def
 
 {-
   Type checks a trait specification.
@@ -73,7 +46,7 @@ typeTraitDefinition
   -> Module
   -> ConcreteType
   -> TraitDefinition TypedExpr ConcreteType
-  -> IO (Maybe TypedDecl)
+  -> IO TypedDecl
 typeTraitDefinition ctx tctx' mod selfType def = do
   let tctx = tctx' { tctxSelf = Just selfType, tctxThis = Just selfType }
   methods <- forM
@@ -82,4 +55,4 @@ typeTraitDefinition ctx tctx' mod selfType def = do
       typed <- typeFunctionDefinition ctx tctx mod method
       return typed
     )
-  return $ Just $ DeclTrait $ def { traitMethods = methods }
+  return $ DeclTrait $ def { traitMethods = methods }

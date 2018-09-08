@@ -5,8 +5,6 @@ import Data.IORef
 import System.FilePath
 import Kit.Ast
 import Kit.Compiler.Binding
-import Kit.Compiler.Scope
-import Kit.Compiler.TypedDecl
 import Kit.Compiler.TypedExpr
 import Kit.Error
 import Kit.HashTable
@@ -21,7 +19,7 @@ instance Errable DuplicateDeclarationError where
     logErrorBasic e $ "Duplicate declaration for `" ++ s_unpack name ++ "` in " ++ s_unpack (showModulePath mod) ++ "; \n\nFirst declaration:"
     ePutStrLn "\nSecond declaration:"
     displayFileSnippet pos2
-    ePutStrLn "\nFunction, variable, type and trait names must be unique within the same scope."
+    ePutStrLn "\nFunction, variable, type and trait names must be unique within the same namespace."
   errPos (DuplicateDeclarationError _ _ pos _) = Just pos
 
 data Module = Module {
@@ -29,7 +27,6 @@ data Module = Module {
   modSourcePath :: FilePath,
   modImports :: [(ModulePath, Span)],
   modIncludes :: IORef [(FilePath, Span)],
-  modScope :: Scope Binding,
   modImpls :: IORef [TraitImplementation Expr (Maybe TypeSpec)],
   modSpecializations :: IORef [((TypeSpec, TypeSpec), Span)],
   modUsing :: IORef [UsingType TypedExpr ConcreteType],
@@ -42,7 +39,6 @@ instance Show Module where
 
 newMod :: ModulePath -> FilePath -> IO Module
 newMod path fp = do
-  scope    <- newScope path
   impls    <- newIORef []
   specs    <- newIORef []
   includes <- newIORef []
@@ -53,7 +49,6 @@ newMod path fp = do
     , modSourcePath      = fp
     , modImports         = []
     , modIncludes        = includes
-    , modScope           = scope
     , modImpls           = impls
     , modSpecializations = specs
     , modUsing           = using
@@ -64,7 +59,7 @@ newMod path fp = do
 emptyMod = newMod [] undefined
 
 externModPath :: ModulePath
-externModPath = ["extern"]
+externModPath = []
 
 newCMod :: IO Module
 newCMod = do
@@ -73,17 +68,3 @@ newCMod = do
 
 -- includeToModulePath :: FilePath -> ModulePath
 -- includeToModulePath fp = "extern" : (map s_pack $ splitDirectories (fp -<.> ""))
-
-addToInterface :: Module -> Str -> Binding -> Bool -> Bool -> IO ()
-addToInterface mod name b namespace allowCollisions =
-  (do
-    unless allowCollisions $ do
-      existing <- resolveLocal (modScope mod) name
-      case existing of
-        Just x -> throwk $ DuplicateDeclarationError (modPath mod)
-                                                     name
-                                                     (bindingPos x)
-                                                     (bindingPos b)
-        _ -> return ()
-    bindToScope (modScope mod) name b
-  )

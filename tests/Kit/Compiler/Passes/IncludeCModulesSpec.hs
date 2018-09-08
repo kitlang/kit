@@ -10,7 +10,7 @@ import Kit.Compiler.Passes
 import Kit.HashTable
 import Kit.Ir
 
-testHeader :: IO Module
+testHeader :: IO (CompileContext, Module)
 testHeader = do
   ctx <- newCompileContext
   -- let ctx = ctx' {
@@ -19,7 +19,7 @@ testHeader = do
   let testHeader = "tests/Kit/Compiler/Passes/test_header.h"
   mod <- newCMod
   parseCHeader ctx mod testHeader
-  return mod
+  return (ctx, mod)
 
 externVarDef s = newVarDefinition { varName = s, varMeta = [metaExtern] }
 
@@ -59,7 +59,7 @@ spec = do
 
   describe "Parses C headers" $ do
     it "Parses test_header.h" $ do
-      header <- testHeader
+      (ctx, header) <- testHeader
       True `shouldBe` True
 
     forM_
@@ -72,9 +72,9 @@ spec = do
         )
       , ( "Parses struct vars"
         , "struct_var1"
-        , (TypeInstance (externModPath, "Struct1") [])
+        , (TypeInstance ([], "Struct1") [])
         )
-      , ("Parses enum vars", "enum_var1", (TypeInstance (externModPath, "Enum1") []))
+      , ("Parses enum vars", "enum_var1", (TypeInstance ([], "Enum1") []))
       , ( "Parses pointer vars"
         , "pointer_var1"
         , (TypePtr (TypeBasicType $ BasicTypeInt 16))
@@ -113,8 +113,8 @@ spec = do
         )
       , ( "Parses functions with struct return value/arguments"
         , "struct_func"
-        , TypeFunction (TypeInstance (externModPath, "Struct1") [])
-                       [("a", TypeInstance (externModPath, "Struct2") [])]
+        , TypeFunction (TypeInstance ([], "Struct1") [])
+                       [("a", TypeInstance ([], "Struct2") [])]
                        False
                        []
         )
@@ -138,8 +138,8 @@ spec = do
         )
       ]
       (\(label, name, ct) -> it label $ do
-        header  <- testHeader
-        binding <- scopeGet (modScope header) name
+        (ctx, header)  <- testHeader
+        binding <- getBinding ctx ([], name)
         (case binding of
             FunctionBinding f -> Just $ functionConcrete f
             VarBinding      v -> Just $ varType v
@@ -150,7 +150,7 @@ spec = do
     forM_
       [ ( "Parses struct declarations"
         , "Struct1"
-        , TypeInstance (externModPath, "Struct1") []
+        , TypeInstance ([], "Struct1") []
         , Just $ DeclType $ (newTypeDefinition)
           { typeName    = ([], "Struct1")
           , typeSubtype = Struct
@@ -182,7 +182,7 @@ spec = do
         )
       , ( "Parses empty struct typedefs"
         , "Struct3"
-        , TypeInstance (externModPath, "Struct3") []
+        , TypeInstance ([], "Struct3") []
         , Just $ DeclType $ (newTypeDefinition)
           { typeName    = ([], "Struct3")
           , typeSubtype = Struct {structFields = []}
@@ -190,7 +190,7 @@ spec = do
         )
       , ( "Parses enum definitions"
         , "Enum1"
-        , TypeInstance (externModPath, "Enum1") []
+        , TypeInstance ([], "Enum1") []
         , Just $ DeclType $ (newTypeDefinition)
           { typeName    = ([], "Enum1")
           , typeSubtype = Enum
@@ -209,8 +209,8 @@ spec = do
         )
       ]
       (\(label, name, ct, def) -> it label $ do
-        header <- testHeader
-        x      <- resolveLocal (modScope header) name
+        (ctx, header) <- testHeader
+        x      <- lookupBinding ctx ([], name)
         (case x of
             Just (TypeBinding t      ) -> Just $ TypeInstance (typeName t) []
             Just (TypedefBinding ct _) -> Just ct
