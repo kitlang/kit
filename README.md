@@ -39,7 +39,7 @@ function main() {
 }
 ```
 
-**[See more code examples here](https://github.com/kitlang/kit/blob/master/EXAMPLES.md)**
+**[See more code examples here](https://www.kitlang.org/examples.html)**
 
 Kit is licensed under the GNU Lesser General Public License; see the accompanying [LICENSE.md](https://github.com/kitlang/kit/blob/master/LICENSE.md) file. This applies to modifications to the compiler source itself; any code you write and compile with Kit is yours to license however you choose.
 
