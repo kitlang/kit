@@ -36,31 +36,46 @@ generateCode ctx ir = do
   -- memoize bundle names; assumption is that subpaths, if they don't have
   -- their own bundle, will be provided by a parent
   bundlesMemo <- h_newSized (length ir)
-  forM_ ir $ \(_, bundles) ->
-    forM_ bundles $ \x -> do
-      h_insert bundlesMemo (bundleTp x) ()
+  forM_ ir $ \(_, bundles) -> forM_ bundles $ \x -> do
+    h_insert bundlesMemo (bundleTp x) ()
   mods  <- ctxSourceModules ctx
   names <- forM ir $ generateModule ctx bundlesMemo
-  return $ foldr (++) [] names
+  return $ catMaybes $ foldr (++) [] names
 
 generateModule
   :: CompileContext
   -> HashTable TypePath ()
   -> (Module, [DeclBundle])
-  -> IO [TypePath]
+  -> IO [Maybe TypePath]
 generateModule ctx memo (mod, bundles) =
   forM bundles $ generateBundle ctx mod memo
+
+bundleNeedsLib :: DeclBundle -> Bool
+bundleNeedsLib bundle = foldr
+  (\v acc ->
+    acc
+      || (case v of
+           DeclVar      _ -> True
+           DeclFunction _ -> True
+           _              -> False
+         )
+  )
+  False
+  (bundleMembers bundle)
 
 generateBundle
   :: CompileContext
   -> Module
   -> HashTable TypePath ()
   -> DeclBundle
-  -> IO TypePath
-generateBundle ctx mod memo (DeclBundle name decls deps) = do
+  -> IO (Maybe TypePath)
+generateBundle ctx mod memo bundle@(DeclBundle name decls deps) = do
   generateBundleHeader ctx mod name decls memo deps
-  generateBundleLib ctx name decls
-  return name
+  if bundleNeedsLib bundle
+    then do
+      generateBundleLib ctx name decls
+      return $ Just name
+    else return Nothing
 
 generateBundleHeader
   :: CompileContext

@@ -58,6 +58,8 @@ compileBundle ctx ccache cc' args name = do
              , "-D_DEFAULT_SOURCE"
              , "-std=c99"
              , "-pedantic"
+             , "-O3"
+             , "-Os"
              ]
           ++ (if (ctxIsLibrary ctx) then ["-fPIC"] else [])
           ++ compilerSpecificArgs cc'
@@ -107,23 +109,33 @@ getLinkerFlags ctx = do
 
 findCompiler :: CompileContext -> IO FilePath
 findCompiler ctx = do
+  -- use the --cc flag if provided
   case ctxCompilerPath ctx of
     Just cc -> return cc
     _       -> do
+      -- use a CC environment variable if it exists
       ccEnv <- lookupEnv "CC"
       case ccEnv of
         Just cc -> return cc
         Nothing -> do
+          -- look for a compiler next to kitc
           let exes = ["cc", "gcc", "clang"]
-          exePaths <- mapM findExecutable exes
+          exePath <- getExecutablePath
+          let exeDir   = takeDirectory exePath
+          exePaths <- mapM (findFile [exeDir]) exes
           case msum exePaths of
             Just cc -> return cc
-            Nothing -> throwk $ BasicError
-              ("Couldn't find a C compiler from your executable paths; tried looking for:\n\n"
-              ++ intercalate "\n" ([ "  - " ++ exe | exe <- exes ])
-              ++ "\n\nYou can set the compiler path explicitly using the CC environment variable"
-              )
-              Nothing
+            Nothing -> do
+              -- search the user's executable paths
+              exePaths <- mapM findExecutable exes
+              case msum exePaths of
+                Just cc -> return cc
+                Nothing -> throwk $ BasicError
+                  ("Couldn't find a C compiler from your executable paths; tried looking for:\n\n"
+                  ++ intercalate "\n" ([ "  - " ++ exe | exe <- exes ])
+                  ++ "\n\nYou can set the compiler path explicitly using the CC environment variable"
+                  )
+                  Nothing
 
 findCcache :: CompileContext -> IO (Maybe FilePath)
 findCcache ctx =
