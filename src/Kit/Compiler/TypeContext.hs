@@ -37,7 +37,8 @@ data TypeContext = TypeContext {
   tctxTypeParams :: [(TypePath, ConcreteType)],
   tctxLoopCount :: Int,
   tctxRewriteRecursionDepth :: Int,
-  tctxState :: TypeContextState, tctxTemps :: Maybe (IORef [TypedExpr])
+  tctxState :: TypeContextState,
+  tctxTemps :: Maybe (IORef [TypedExpr])
 }
 
 data TypeContextState
@@ -387,3 +388,9 @@ typeUnresolved ctx tctx ct = do
   case t of
     TypeTypeVar _ -> return True
     _             -> return False
+
+addTemps :: TypeContext -> [TypedExpr] -> IO ()
+addTemps tctx temps = case tctxTemps tctx of
+  Just v -> do
+    modifyIORef v (\val -> val ++ reverse temps)
+  Nothing -> return ()

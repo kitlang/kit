@@ -302,12 +302,7 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
                 subPath (monomorphName (modPath, traitName) params) "box"
           return $ IrStructInit
             (BasicTypeStruct structName)
-            [ ( valuePointerName
-              , (case tExpr e1 of
-                  This -> IrIdentifier $ ([], thisPtrName)
-                  _    -> IrPreUnop Ref r1
-                )
-              )
+            [ (valuePointerName, r1)
             , ( vtablePointerName
               , IrPreUnop
                 Ref

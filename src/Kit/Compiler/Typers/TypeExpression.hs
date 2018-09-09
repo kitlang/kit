@@ -670,7 +670,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                     ((show t) ++ " has no field " ++ s_unpack fieldName)
                     pos
 
-              TypeTraitConstraint (tp, params) -> do
+              TypeTraitConstraint (tp, params) | tIsLvalue r1 -> do
+                let (Just ref) = addRef r1
                 trait    <- lookupBinding ctx tp
                 traitDef <- case trait of
                   Just (TraitBinding t) -> return t
@@ -686,10 +687,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                     t      <- mapType (follow ctx tctx') $ inferredType result
                     return $ result
                       { inferredType = t
-                      , tImplicits   = [ (addRef r1)
-                                           { inferredType = TypePtr $ voidType
-                                           }
-                                       ]
+                      , tImplicits = [ref { inferredType = TypePtr $ voidType }]
                       }
                   _ -> throwk $ TypingError
                     (  "Trait "
@@ -784,7 +782,6 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           (TypePtr (TypeBasicType BasicTypeVoid), TypePtr _) -> cast
           (TypePtr _, TypeBasicType BasicTypeCSize) -> cast
           (x, y@(TypeBox tp params)       ) -> do
-            print r1
             box <- autoRefDeref ctx tctx y r1
             case box of
               Just box -> return box
@@ -1179,7 +1176,10 @@ typeVarBinding ctx tctx name binding pos = do
             (TypeEnumConstructor parentTp discriminant args (map snd params))
             pos
     VarBinding v ->
-      return $ makeExprTyped (Identifier $ Var $ varRealName v) (varType v) pos
+      return $ (makeExprTyped (Identifier $ Var $ varRealName v) (varType v) pos
+               )
+        { tIsLvalue = True
+        }
     FunctionBinding def -> do
       let t  = functionConcrete def
       let tp = functionRealName def

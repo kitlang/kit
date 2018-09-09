@@ -33,7 +33,12 @@ function main() {
     var p3: MyStruct = p1;
     printf("%i\n", *(p3.c));
     // let's get crazy
-    var p4: Ptr[Ptr[Ptr[Ptr[Ptr[MyStruct]]]]] = myVal;
+    var ptr1 = &myVal;
+    var ptr2 = &ptr1;
+    var ptr3 = &ptr2;
+    var ptr4 = &ptr3;
+    var ptr5 = &ptr4;
+    var p4: MyStruct = ptr5;
     printf("%i\n", *(p4.c));
 
     f1(myVal);
@@ -48,7 +53,6 @@ function main() {
     f2(p4);
     f3(p1);
     f3(p2);
-    f3(p3);
-    f3(p4);
-    f3(* (*p4));
+    f3(*ptr5);
+    f3(* (*ptr5));
 }

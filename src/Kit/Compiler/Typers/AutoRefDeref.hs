@@ -49,30 +49,8 @@ _autoRefDeref
   -> TypedExpr
   -> IO (Maybe TypedExpr)
 _autoRefDeref ctx tctx toType fromType temps ex = do
-  let
-    tryLvalue a b = do
-      case tctxTemps tctx of
-        Just v -> do
-          tmp <- makeTmpVar (head $ tctxScopes tctx)
-          let temp =
-                (makeExprTyped
-                  (VarDeclaration (Var ([], tmp))
-                                  (inferredType ex)
-                                  (Just $ ex { tTemps = [] })
-                  )
-                  (inferredType ex)
-                  (tPos ex)
-                )
-          _autoRefDeref ctx tctx a b (temp : temps)
-            $ (makeExprTyped (Identifier (Var ([], tmp)))
-                             (inferredType ex)
-                             (tPos ex)
-              ) { tIsLvalue = True
-                }
   let finalizeResult ex = do
-        case tctxTemps tctx of
-          Just v -> do
-            modifyIORef v (\val -> val ++ reverse temps)
+        addTemps tctx temps
         return $ Just ex
   toType   <- mapType (follow ctx tctx) toType
   fromType <- mapType (follow ctx tctx) fromType
@@ -81,21 +59,20 @@ _autoRefDeref ctx tctx toType fromType temps ex = do
     Just _ -> finalizeResult ex
     _      -> case (toType, fromType) of
       (TypeBox tp params, b) -> do
-        if tIsLvalue ex
-          then do
-            box <- makeBox ctx tctx tp params ex
-            case box of
-              Just x  -> finalizeResult x
-              Nothing -> return Nothing
-          else tryLvalue toType fromType
+        x <- makeBox ctx tctx tp params ex
+        case x of
+          Just x  -> finalizeResult x
+          Nothing -> return Nothing
       (TypePtr a, TypePtr b) -> _autoRefDeref ctx tctx a b temps ex
-      (TypePtr a, b        ) -> if tIsLvalue ex
-        then _autoRefDeref ctx tctx a b temps (addRef ex)
-        else tryLvalue toType fromType
+      (TypePtr a, b        ) -> case addRef ex of
+        Just x  -> _autoRefDeref ctx tctx a b temps x
+        Nothing -> return Nothing
       (a, TypePtr (TypeBasicType BasicTypeVoid)) ->
         -- don't try to deref a void pointer
         return Nothing
-      (a, TypePtr b) -> _autoRefDeref ctx tctx a b temps (addDeref ex)
+      (a, TypePtr b) -> case addDeref ex of
+        Just x  -> _autoRefDeref ctx tctx a b temps x
+        Nothing -> return Nothing
       (TypeTuple a, TypeTuple b) | (length a == length b) && (isTupleInit ex) ->
         case tExpr ex of
           TupleInit t -> do
@@ -129,8 +106,8 @@ makeBox
   -> TypedExpr
   -> IO (Maybe TypedExpr)
 makeBox ctx tctx tp params ex = do
-  if tIsLvalue ex
-    then do
+  case addRef ex of
+    Just ref -> do
       traitDef <- getTraitDefinition ctx tp
       impl     <- getTraitImpl ctx tctx (tp, params) (inferredType ex)
       case impl of
@@ -141,17 +118,46 @@ makeBox ctx tctx tp params ex = do
           return $ Just $ ex
             { tExpr        = Box
               (impl { implTrait = TypeTraitConstraint (tp, map snd params) })
-              ex
+              ref
             , inferredType = t'
             }
         Nothing -> return Nothing
-    else return Nothing
+    Nothing -> do
+      lvalue <- makeLvalue tctx ex
+      case lvalue of
+        Just lvalue -> makeBox ctx tctx tp params lvalue
 
-addRef :: TypedExpr -> TypedExpr
-addRef ex =
-  makeExprTyped (PreUnop Ref ex) (TypePtr $ inferredType ex) (tPos ex)
+addRef :: TypedExpr -> Maybe TypedExpr
+addRef ex@(TypedExpr { tExpr = PreUnop Deref inner }) = Just inner
+addRef ex@(TypedExpr { tIsLvalue = True }) =
+  Just $ makeExprTyped (PreUnop Ref ex) (TypePtr $ inferredType ex) (tPos ex)
+addRef ex = Nothing
 
-addDeref :: TypedExpr -> TypedExpr
+addDeref :: TypedExpr -> Maybe TypedExpr
+addDeref (ex@(TypedExpr { tExpr = PreUnop Ref inner })) = Just inner
 addDeref ex = case inferredType ex of
-  TypePtr x -> makeExprTyped (PreUnop Deref ex) x (tPos ex)
-  _         -> undefined
+  TypePtr x -> Just $ makeExprTyped (PreUnop Deref ex) x (tPos ex)
+  _         -> Nothing
+
+makeLvalue :: TypeContext -> TypedExpr -> IO (Maybe TypedExpr)
+makeLvalue tctx ex = do
+  case tctxTemps tctx of
+    Just v -> do
+      tmp <- makeTmpVar (head $ tctxScopes tctx)
+      let temp =
+            (makeExprTyped
+              (VarDeclaration (Var ([], tmp))
+                              (inferredType ex)
+                              (Just $ ex { tTemps = [] })
+              )
+              (inferredType ex)
+              (tPos ex)
+            )
+      addTemps tctx [temp]
+      return $ Just (makeExprTyped (Identifier (Var ([], tmp)))
+                                   (inferredType ex)
+                                   (tPos ex)
+                    )
+        { tIsLvalue = True
+        }
+    Nothing -> return Nothing
