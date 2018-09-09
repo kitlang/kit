@@ -25,6 +25,7 @@ import Kit.Compiler.Module
 import Kit.Compiler.Passes
 import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
+import Kit.Compiler.TypedExpr
 import Kit.Compiler.Unify
 import Kit.Compiler.Utils
 import Kit.Error
@@ -65,6 +66,8 @@ compile ctx = do
   -}
   printLog "resolving module types"
   resolved <- resolveModuleTypes ctx declarations
+
+  compilerSanityChecks ctx
 
   {-
     TODO: expand procedural macros here
@@ -137,3 +140,39 @@ compile ctx = do
     Nothing -> logMsg
       Nothing
       "--run was set, but no binary path was generated; skipping"
+
+compilerSanityChecks :: CompileContext -> IO ()
+compilerSanityChecks ctx = do
+  let requiredTraits =
+        [ typeClassNumericPath
+        , typeClassIntegralPath
+        , typeClassNumericMixedPath
+        , typeClassIteratorPath
+        , typeClassIterablePath
+        , typeClassNumericPath
+        ]
+  forMWithErrors_ requiredTraits $ \t -> do
+    result <-
+      (try $ getTraitDefinition ctx t) :: IO
+        (Either KitError (TraitDefinition TypedExpr ConcreteType))
+    case result of
+      Left _ -> throwk $ InternalError
+        ("Sanity check failed: couldn't required trait "
+        ++ s_unpack (showTypePath t)
+        ++ ", which should be provided by the standard library; check your kitc installation"
+        )
+        Nothing
+      _ -> return ()
+    let requiredTypes = [typeOptionPath]
+    forMWithErrors_ requiredTypes $ \t -> do
+      result <-
+        (try $ getTypeDefinition ctx t) :: IO
+          (Either KitError (TypeDefinition TypedExpr ConcreteType))
+      case result of
+        Left _ -> throwk $ InternalError
+          ("Sanity check failed: couldn't required type "
+          ++ s_unpack (showTypePath t)
+          ++ ", which should be provided by the standard library; check your kitc installation"
+          )
+          Nothing
+        _ -> return ()

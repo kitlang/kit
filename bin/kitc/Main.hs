@@ -80,11 +80,11 @@ options =
           (long "cc" <> metavar "PATH" <> help "path to the C compiler")
         )
     <*> many definesParser
-    <*> switch (long "lib" <> help "build a library, without linking")
+    <*> switch (long "lib" <> help "build a shared library, not an executable")
     <*> switch
           (  long "no-compile"
           <> help
-               "generates C files and headers but does not compile a library/binary (implies --no-link)"
+               "generates C files and headers but does not compile a library or executable (implies --no-link)"
           )
     <*> switch
           (long "no-link" <> help
@@ -144,9 +144,9 @@ main = do
   if optShowVersion opts
     then putStrLn $ "kitc v" ++ version
     else do
-      modules     <- h_new
-      stdPath     <- findStd
-      baseContext <- newCompileContext
+      modules         <- h_new
+      stdPath         <- findStd
+      baseContext     <- newCompileContext
       defaultIncludes <- defaultIncludePaths
       let
         ctx = baseContext
