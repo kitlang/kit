@@ -111,6 +111,14 @@ resolveTypesForMod
   -> (Module, [(Declaration Expr (Maybe TypeSpec), Span)])
   -> IO (Module, [TypedDeclWithContext])
 resolveTypesForMod ctx (mod, contents) = do
+  -- handle module using statements before creating final TypeContext
+  tctx <- modTypeContext ctx mod
+  forM_ contents $ \(decl, pos) -> do
+    case decl of
+      DeclUsing u -> do
+        addModUsing ctx tctx mod pos u
+      _ -> return ()
+
   specs <- readIORef (modSpecializations mod)
   forM_ specs (addSpecialization ctx mod)
   impls <- readIORef (modImpls mod)
@@ -129,7 +137,6 @@ resolveTypesForMod ctx (mod, contents) = do
     (\(decl, pos) -> do
       case decl of
         DeclUsing u -> do
-          addModUsing ctx tctx mod pos u
           return Nothing
         DeclImpl i -> do
           converted <- convertTraitImplementation varConverter i
@@ -333,8 +340,8 @@ resolveTypesForMod ctx (mod, contents) = do
 addSpecialization
   :: CompileContext -> Module -> ((TypeSpec, TypeSpec), Span) -> IO ()
 addSpecialization ctx mod ((ts@(TypeSpec tp params _), b), pos) = do
-  tctx  <- modTypeContext ctx mod
-  traitType <- resolveType ctx tctx mod ts
+  tctx       <- modTypeContext ctx mod
+  traitType  <- resolveType ctx tctx mod ts
   foundTrait <- case traitType of
     TypeTraitConstraint (tpTrait, _) -> lookupBinding ctx tpTrait
     _ -> return Nothing
@@ -364,7 +371,7 @@ addImplementation
 addImplementation ctx mod impl@(TraitImplementation { implTrait = Just ts@(TypeSpec tpTrait paramsTrait posTrait), implFor = Just implFor })
   = do
     tctx       <- modTypeContext ctx mod
-    traitType <- resolveType ctx tctx mod ts
+    traitType  <- resolveType ctx tctx mod ts
     foundTrait <- case traitType of
       TypeTraitConstraint (tpTrait, _) -> lookupBinding ctx tpTrait
       _ -> return Nothing

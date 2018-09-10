@@ -9,31 +9,21 @@ struct MyStruct {
     var a: Int;
     var b: Float;
 
-    public static function new(allocator: Box[Allocator]): Ptr[MyStruct] {
+    public static function new(allocator: Box[Allocator[Void]]): Ptr[MyStruct] {
         return allocator.allocBytes(sizeof MyStruct) as Ptr[MyStruct];
     }
 }
 
 function main() {
-    var simpleMalloc = struct SimpleAllocator {
-        alloc: malloc,
-        free: free,
-    };
-    var mallocator: Box[Allocator] = simpleMalloc;
-
-    var simpleCalloc = struct SimpleAllocator {
+    var callocator: Box[Allocator] = struct SimpleAllocator {
         alloc: calloc_alloc,
         free: free,
     };
-    var callocator: Box[Allocator] = simpleCalloc;
 
-    // everything that takes an allocator argument will default to malloc
-    using implicit mallocator {
-        // use the implicit `mallocator`
-        var s1 = MyStruct.new();
-        s1.b = 2.5;
-        printf("%.1f\n", s1.b);
-    }
+    // use the implicit `mallocator`
+    var s1 = MyStruct.new();
+    s1.b = 2.5;
+    printf("%.1f\n", s1.b);
 
     var s2: Ptr[MyStruct];
     using implicit callocator {

@@ -87,8 +87,8 @@ convertExpr ctx tctx mod e = do
                  (TypePtr $ TypeBasicType $ BasicTypeCChar)
     Literal (BoolValue b) ->
       return $ m (Literal (BoolValue b)) (TypeBasicType BasicTypeBool)
-    This -> container0 This
-    Self -> container0 Self
+    This                       -> container0 This
+    Self                       -> container0 Self
     Identifier Hole            -> container0 (Identifier Hole)
     Identifier (Var id       ) -> container0 (Identifier (Var id))
     Identifier (MacroVar id t) -> do
@@ -170,10 +170,10 @@ convertExpr ctx tctx mod e = do
       return $ m (TupleInit args) (TypeTuple (map inferredType args))
     VarDeclaration id t e1 -> do
       id <- convertIdentifier typeOrTypeVar id
-      t  <- resolveMaybeType ctx tctx mod pos' t
       r1 <- maybeR e1
+      t  <- resolveMaybeType ctx tctx mod pos' t
       return $ m (VarDeclaration id t r1) t
-    Defer e1                        -> singleWrapper e1 Defer
+    Defer  e1       -> singleWrapper e1 Defer
     -- Box impl e1 -> do
     --   impl' <- convertTraitImplementation (converter r (\_ -> typeOrTypeVar))
     --                                       modPath

@@ -268,8 +268,7 @@ addUsing ctx tctx using = case using of
         return $ tctx { tctxRules = r : tctxRules tctx }
       _ -> return tctx
   UsingImplicit x -> return $ tctx { tctxImplicits = x : tctxImplicits tctx }
-  _ ->
-    throwk $ InternalError ("Unexpected using clause: " ++ show using) Nothing
+  _ -> return tctx
 
 addTypeParams :: TypeContext -> [(TypePath, ConcreteType)] -> TypeContext
 addTypeParams tctx params =

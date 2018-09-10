@@ -164,7 +164,12 @@ generateDeclIr ctx mod t = do
                 _      -> varName converted
               )
               [DeclVar $ converted]
-              []
+              (  (typeDeps True $ varType converted)
+              ++ (case varDefault converted of
+                   Just x -> exprDeps x
+                   _      -> []
+                 )
+              )
           ]
 
     DeclTrait (TraitDefinition { traitMethods = [] }) -> return []

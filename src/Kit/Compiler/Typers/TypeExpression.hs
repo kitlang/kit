@@ -448,8 +448,12 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           throwk $ TypingError "Can't `return` outside of a function" pos
 
     (Call e1 args) -> do
-      r1 <- r e1
-      let implicits = tImplicits r1 ++ tctxImplicits tctx
+      r1     <- r e1
+      modImp <- modImplicits mod
+      let untypedImplicits = tImplicits r1 ++ tctxImplicits tctx ++ modImp
+      implicits <- forM untypedImplicits $ \i -> do
+        t <- mapType (follow ctx tctx) $ inferredType i
+        return $ i { inferredType = t }
       typedArgs <- mapM r args
       tryRewrite (unknownTyped $ Call r1 typedArgs) $ case inferredType r1 of
         TypePtr t@(TypeFunction _ _ _ _) ->
@@ -936,9 +940,12 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
               return (name, converted)
             )
           let structType' = TypeInstance tp $ map snd params
-          return $ makeExprTyped (StructInit structType' typedFields)
-                                 structType'
-                                 pos
+          return $ (makeExprTyped (StructInit structType' typedFields)
+                                  structType'
+                                  pos
+                   )
+            { tIsLvalue = True
+            }
 
     (TupleInit slots) -> do
       slots' <- forMWithErrors slots r
@@ -947,6 +954,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                              pos
 
     (Implicit t) -> do
+      t   <- mapType (follow ctx tctx) t
       val <- findImplicit ctx tctx t (tctxImplicits tctx)
       case val of
         Just (_, x) -> return x
@@ -1003,8 +1011,15 @@ findImplicit ctx tctx ct (h : t) = do
   converted <- tryAutoRefDeref ctx tctx ct h
   match     <- unify ctx tctx ct (inferredType converted)
   case match of
-    Just _ -> do
-      return $ Just (h, converted)
+    Just info ->
+      if or
+           [ case i of
+               TypeVarIs _ _ -> True
+               _             -> False
+           | i <- info
+           ]
+        then findImplicit ctx tctx ct t
+        else return $ Just (h, converted)
     Nothing -> findImplicit ctx tctx ct t
 
 typeFunctionCall

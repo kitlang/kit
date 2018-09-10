@@ -55,18 +55,22 @@ getAbstractParents ctx tctx t = do
         _ -> return []
     _ -> return []
 
+unify ctx tctx a b = unifyBase ctx tctx False a b
+unifyStrict ctx tctx a b = unifyBase ctx tctx True a b
+
 {-
   Check whether type a unifies with b.
   LHS: variable type; RHS: value type
   i.e. trying to use RHS as a LHS
 -}
-unify
+unifyBase
   :: CompileContext
   -> TypeContext
+  -> Bool
   -> ConcreteType
   -> ConcreteType
   -> IO (Maybe [TypeInformation])
-unify ctx tctx a' b' = do
+unifyBase ctx tctx strict a' b' = do
   let checkResults x = foldr
         (\result acc -> case acc of
           Just x -> case result of
@@ -81,7 +85,7 @@ unify ctx tctx a' b' = do
   case (a, b) of
     (TypeSelf, TypeSelf) -> return $ Just []
     (TypeSelf, x       ) -> case tctxSelf tctx of
-      Just y  -> unify ctx tctx y x
+      Just y  -> r y x
       Nothing -> return Nothing
     (TypeTypeVar i, TypeTraitConstraint t) -> do
       info <- getTypeVar ctx i
@@ -100,38 +104,34 @@ unify ctx tctx a' b' = do
       let constraints = typeVarConstraints info
       results <- forM
         constraints
-        (\((tp, params), _) ->
-          unify ctx tctx (TypeTraitConstraint (tp, params)) x
-        )
+        (\((tp, params), _) -> r (TypeTraitConstraint (tp, params)) x)
       return $ checkResults ((Just $ [TypeVarIs i x]) : results)
-    (_, TypeTypeVar _      ) -> unify ctx tctx b a
+    (_, TypeTypeVar _      ) -> r b a
     (TypeTraitConstraint (tp1, params1), TypeBox tp2 params2) -> do
       if (tp1 == tp2) && (length params1 == length params2)
         then do
-          paramMatch <- mapM (\(a, b) -> unify ctx tctx a b)
-                             (zip params1 params2)
+          paramMatch <- mapM (\(a, b) -> rStrict a b) (zip params1 params2)
           return $ checkResults paramMatch
         else return Nothing
     (TypeTraitConstraint t, x) -> do
       impl <- resolveTraitConstraint ctx tctx t x
       if impl then return $ Just [] else fallBackToAbstractParent a b
-    (_, TypeTraitConstraint v) -> unify ctx tctx b a
+    (_, TypeTraitConstraint v) -> r b a
     (TypeBasicType a, TypeBasicType b) -> return $ unifyBasic a b
     (TypePtr (TypeBasicType BasicTypeVoid), TypePtr _) -> return $ Just []
     (TypePtr _, (TypeBasicType BasicTypeVoid)) -> return $ Just []
-    (TypePtr a, TypePtr b) -> unify ctx tctx a b
+    (TypePtr a, TypePtr b) -> r a b
     (TypeTuple a, TypeTuple b) | length a == length b -> do
-      vals <- forM (zip a b) (\(a, b) -> unify ctx tctx a b)
+      vals <- forM (zip a b) (\(a, b) -> r a b)
       return $ checkResults vals
     (TypeFunction rt1 args1 v1 _, TypeFunction rt2 args2 v2 _) | v1 == v2 -> do
-      rt   <- unify ctx tctx rt1 rt2
-      args <- forM (zip args1 args2) (\((_, a), (_, b)) -> unify ctx tctx a b)
+      rt   <- r rt1 rt2
+      args <- forM (zip args1 args2) (\((_, a), (_, b)) -> r a b)
       return $ checkResults $ rt : args
     (TypeInstance tp1 params1, TypeInstance tp2 params2) -> do
       if (tp1 == tp2) && (length params1 == length params2)
         then do
-          paramMatch <- mapM (\(a, b) -> unify ctx tctx a b)
-                             (zip params1 params2)
+          paramMatch <- mapM (\(a, b) -> rStrict a b) (zip params1 params2)
           return $ checkResults paramMatch
         else fallBackToAbstractParent a b
     (_, TypeInstance tp1 params1) -> do
@@ -140,25 +140,23 @@ unify ctx tctx a' b' = do
       -> do
         if (tp1 == tp2) && (d1 == d2) && (length params1 == length params2)
           then do
-            paramMatch <- mapM (\(a, b) -> unify ctx tctx a b)
-                               (zip params1 params2)
+            paramMatch <- mapM (\(a, b) -> r a b) (zip params1 params2)
             return $ checkResults paramMatch
           else return Nothing
     (TypeBox tp1 params1, TypeBox tp2 params2) -> do
       if (tp1 == tp2) && (length params1 == length params2)
         then do
-          paramMatch <- mapM (\(a, b) -> unify ctx tctx a b)
-                             (zip params1 params2)
+          paramMatch <- mapM (\(a, b) -> rStrict a b) (zip params1 params2)
           return $ checkResults paramMatch
         else return Nothing
     (a, b) | a == b -> return $ Just []
     _               -> return Nothing
  where
+  r       = unifyBase ctx tctx strict
+  rStrict = unifyStrict ctx tctx
   fallBackToAbstractParent a b = do
     parents <- getAbstractParents ctx tctx b
-    if null parents
-      then return Nothing
-      else unify ctx tctx a (head $ reverse parents)
+    if null parents then return Nothing else r a (head $ reverse parents)
 
 unifyBasic :: BasicType -> BasicType -> Maybe [TypeInformation]
 unifyBasic (BasicTypeVoid)    (BasicTypeVoid) = Just []

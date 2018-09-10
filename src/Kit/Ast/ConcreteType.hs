@@ -66,7 +66,7 @@ instance Show ConcreteType where
   show (TypeTraitConstraint (tp, params)) = "trait " ++ s_unpack (showTypePath tp) ++ showParams params
   show (TypeTuple t) = "(" ++ intercalate ", " (map show t) ++ ")"
   show (TypeTypeOf t) = "typeof " ++ s_unpack (showTypePath t)
-  show (TypeTypeVar i) = "type var #" ++ show i
+  show (TypeTypeVar i) = "(unknown type #" ++ show i ++ ")"
   show (TypeTypeParam tp) = "type param " ++ s_unpack (showTypePath tp)
   show (TypeRuleSet tp) = "rules " ++ (s_unpack $ showTypePath tp)
   show (TypeBox tp params) = "Box[" ++ (s_unpack $ showTypePath tp) ++ showParams params ++ "]"

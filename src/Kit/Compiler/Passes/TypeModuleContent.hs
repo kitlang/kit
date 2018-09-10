@@ -37,12 +37,25 @@ typeContent
   -> [(Module, [TypedDeclWithContext])]
   -> IO [(Module, TypedDecl)]
 typeContent ctx modContent = do
+  mapMWithErrors_ (typeModuleImplicits ctx) $ map fst modContent
   results <- typeIterative
     ctx
     [ (mod, decl) | (mod, decls) <- modContent, decl <- decls ]
     []
     (ctxRecursionLimit ctx)
   return results
+
+typeModuleImplicits :: CompileContext -> Module -> IO ()
+typeModuleImplicits ctx mod = do
+  tctx  <- modTypeContext ctx mod
+  using <- readIORef $ modUsing mod
+  using <- forM using $ \u -> do
+    case u of
+      UsingImplicit x -> do
+        x <- typeExpr ctx tctx mod x
+        return $ UsingImplicit x
+      x -> return x
+  writeIORef (modUsing mod) using
 
 data TypingStatus
   = Complete (Module, TypedDecl)

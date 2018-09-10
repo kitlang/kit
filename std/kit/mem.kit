@@ -24,3 +24,11 @@ implement Allocator(Void) for SimpleAllocator {
     //     (this.free)(ptr);
     // }
 }
+
+var simpleMalloc: SimpleAllocator = struct SimpleAllocator {
+    alloc: malloc,
+    free: free,
+};
+
+// will be used as the default allocator
+var mallocator: Box[Allocator] = simpleMalloc as Box[Allocator];

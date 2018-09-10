@@ -2,6 +2,7 @@ module Kit.Compiler.Module where
 
 import Control.Monad
 import Data.IORef
+import Data.Maybe
 import System.FilePath
 import Kit.Ast
 import Kit.Compiler.Binding
@@ -68,3 +69,13 @@ newCMod = do
 
 -- includeToModulePath :: FilePath -> ModulePath
 -- includeToModulePath fp = "extern" : (map s_pack $ splitDirectories (fp -<.> ""))
+
+modImplicits :: Module -> IO [TypedExpr]
+modImplicits mod = do
+  usings <- readIORef $ modUsing mod
+  return $ catMaybes
+    [ case u of
+        UsingImplicit i -> Just i
+        _               -> Nothing
+    | u <- usings
+    ]
