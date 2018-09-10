@@ -74,7 +74,7 @@ link :: CompileContext -> FilePath -> [String] -> [TypePath] -> IO FilePath
 link ctx cc args names = do
   let args' =
         [ objPath ctx name | name <- names ]
-          ++ ["-I" ++ includeDir ctx, "-flto"]
+          ++ ["-I" ++ includeDir ctx]
           ++ (if (ctxIsLibrary ctx)
                then ["-shared", "-obuild/main.so"]
                else ["-obuild/main"]
