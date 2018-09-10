@@ -233,14 +233,15 @@ Statement :: {Statement}
       traitMethods = reverse $ extractMethods $ fst $6
     }
   }
-  | DocMetaMods implement TypeSpec AssocTypes for TypeSpec MethodsBody {
-    ps (fp [p $1, p $2, p $6]) $ Implement $ newTraitImplementation {
-      implTrait = Just $ fst $3,
-      implFor = Just $ fst $6,
-      implAssocTypes = map Just $ reverse $4,
-      implMethods = reverse $ extractMethods $ fst $7,
+  | DocMetaMods implement TypeParams TypeSpec AssocTypes for TypeSpec MethodsBody {
+    ps (fp [p $1, p $2, p $7]) $ Implement $ newTraitImplementation {
+      implTrait = Just $ fst $4,
+      implFor = Just $ fst $7,
+      implParams = fst $3,
+      implAssocTypes = map Just $ reverse $5,
+      implMethods = reverse $ extractMethods $ fst $8,
       implDoc = doc $1,
-      implPos = snd $2 <+> snd $3
+      implPos = snd $2 <+> snd $4
     }
   }
   | DocMetaMods specialize TypeSpec as TypeSpec ';' {

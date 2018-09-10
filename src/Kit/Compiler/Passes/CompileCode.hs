@@ -72,14 +72,13 @@ compileBundle ctx ccache cc' args name = do
 
 link :: CompileContext -> FilePath -> [String] -> [TypePath] -> IO FilePath
 link ctx cc args names = do
-  let args' = if (ctxIsLibrary ctx)
-        then
-          [ objPath ctx name | name <- names ]
-          ++ ["-I" ++ includeDir ctx, "-shared", "-obuild/main.so"]
-          ++ args
-        else
-          [ objPath ctx name | name <- names ]
-          ++ ["-I" ++ includeDir ctx, "-obuild/main"]
+  let args' =
+        [ objPath ctx name | name <- names ]
+          ++ ["-I" ++ includeDir ctx, "-flto"]
+          ++ (if (ctxIsLibrary ctx)
+               then ["-shared", "-obuild/main.so"]
+               else ["-obuild/main"]
+             )
           ++ args
   printLog $ "linking"
   traceLog $ showCommandForUser cc args'
@@ -121,7 +120,7 @@ findCompiler ctx = do
           -- look for a compiler next to kitc
           let exes = ["cc", "gcc", "clang"]
           exePath <- getExecutablePath
-          let exeDir   = takeDirectory exePath
+          let exeDir = takeDirectory exePath
           exePaths <- mapM (findFile [exeDir]) exes
           case msum exePaths of
             Just cc -> return cc

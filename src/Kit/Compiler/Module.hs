@@ -28,7 +28,6 @@ data Module = Module {
   modSourcePath :: FilePath,
   modImports :: [(ModulePath, Span)],
   modIncludes :: IORef [(FilePath, Span)],
-  modImpls :: IORef [TraitImplementation Expr (Maybe TypeSpec)],
   modSpecializations :: IORef [((TypeSpec, TypeSpec), Span)],
   modUsing :: IORef [UsingType TypedExpr ConcreteType],
   modTuples :: HashTable String BasicType,
@@ -40,7 +39,6 @@ instance Show Module where
 
 newMod :: ModulePath -> FilePath -> IO Module
 newMod path fp = do
-  impls    <- newIORef []
   specs    <- newIORef []
   includes <- newIORef []
   using    <- newIORef []
@@ -50,7 +48,6 @@ newMod path fp = do
     , modSourcePath      = fp
     , modImports         = []
     , modIncludes        = includes
-    , modImpls           = impls
     , modSpecializations = specs
     , modUsing           = using
     , modTuples          = tuples

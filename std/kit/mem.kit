@@ -30,5 +30,5 @@ var simpleMalloc: SimpleAllocator = struct SimpleAllocator {
     free: free,
 };
 
-// will be used as the default allocator
+// will be used as the default Ptr[Void] allocator
 var mallocator: Box[Allocator] = simpleMalloc as Box[Allocator];

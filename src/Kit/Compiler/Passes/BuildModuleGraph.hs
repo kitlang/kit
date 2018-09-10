@@ -328,7 +328,6 @@ addStmtToModuleInterface ctx mod s = do
                          )
                        )
           }
-      modifyIORef (modImpls mod) (\l -> impl : l)
       return [DeclImpl impl]
 
     ModuleUsing using -> do

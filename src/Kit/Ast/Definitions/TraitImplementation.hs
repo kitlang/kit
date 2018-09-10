@@ -16,6 +16,7 @@ data TraitImplementation a b = TraitImplementation {
   implName :: TypePath,
   implTrait :: b,
   implFor :: b,
+  implParams :: [TypeParam],
   implAssocTypes :: [b],
   implMethods :: [FunctionDefinition a b],
   implDoc :: Maybe Str,
@@ -31,6 +32,7 @@ newTraitImplementation = TraitImplementation
   { implName       = undefined
   , implTrait      = undefined
   , implFor        = undefined
+  , implParams     = []
   , implAssocTypes = []
   , implMethods    = []
   , implDoc        = Nothing
@@ -52,6 +54,7 @@ convertTraitImplementation converter@(Converter { exprConverter = exprConverter,
     return $ (newTraitImplementation) { implName       = implName i
                                       , implTrait      = trait
                                       , implFor        = for
+                                      , implParams     = implParams i
                                       , implAssocTypes = assocTypes
                                       , implMethods    = methods
                                       , implDoc        = implDoc i
