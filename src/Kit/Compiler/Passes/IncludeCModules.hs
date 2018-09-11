@@ -67,8 +67,10 @@ includeCHeader ctx mod path = do
 
 parseCHeader :: CompileContext -> Module -> FilePath -> IO ()
 parseCHeader ctx mod path = do
+  compiler <- findCompiler ctx
+  debugLog ctx ("invoking C preprocessor at " ++ compiler)
   parseResult <- parseCFile
-    (newGCC "gcc")
+    (newGCC compiler)
     Nothing
     -- TODO: defines
     (  [ "-I" ++ dir | dir <- ctxIncludePaths ctx ]

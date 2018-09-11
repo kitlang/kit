@@ -120,6 +120,7 @@ instance Show TokenClass where
     Question -> "?"
     Underscore -> "_"
     DocComment _ -> "/** doc comment */"
+    WildcardSuffix -> ".*"
     KeywordAbstract -> "abstract"
     KeywordAs -> "as"
     KeywordAtom -> "atom"

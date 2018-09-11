@@ -125,6 +125,7 @@ ctype (BasicTypeFunction rt args var) =
       )
 ctype (BasicTypeCFile  ) = ([u $ CTypeDef (internalIdent $ "FILE")], [])
 -- TODO: CArray
+ctype (BasicTypeAnonEnum _) = undefined
 ctype (CArray _ _      ) = undefined
 ctype (BasicTypeUnknown) = undefined
 
