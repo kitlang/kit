@@ -1,0 +1,20 @@
+function main() {
+    var a: CArray[Int, 3] = [1, 2, 3];
+    printf("%i\n", a[0]);
+
+    var b: CArray[Int, 4];
+    b = [4, 5, 6, 7];
+    printf("%i\n", b[1]);
+    printf("%zu\n", b.length);
+
+    var c: CArray[Int, 5] = [8, 9, 10, 11, 12];
+    printf("%i\n", c[2]);
+    printf("%zu\n", c.length);
+
+    printf("%zu\n", ([1, 2, 3, 4, 5, 6]).length);
+
+    // iteration requires generic trait implementations
+    // for i in c {
+    //     printf("%i\n", i);
+    // }
+}

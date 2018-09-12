@@ -395,6 +395,7 @@ TypeSpec :: {(TypeSpec, Span)}
   : TypePath TypeSpecParams {(TypeSpec (fst $1) (fst $2) (p $1 <+> p $2), p $1 <+> p $2)}
   | function FunctionTypeSpec {$2}
   | TupleTypeSpec {$1}
+  | Term {(ConstantTypeSpec (fst $1) (snd $1), snd $1)}
 
 TupleTypeSpec :: {(TypeSpec, Span)}
   : '(' TypeSpec ',' CommaDelimitedTypes ')' {let p = snd $1 <+> snd $5 in (TupleTypeSpec ((fst $2) : (reverse $4)) p, p)}
@@ -700,9 +701,9 @@ Unop :: {Expr}
   | VecExpr {$1}
 
 VecExpr :: {Expr}
-  : '[' ArrayElems ']' {pe (p $1 <+> p $3) $ VectorLiteral $ reverse $2}
-  | '[' ArrayElems ',' ']' {pe (p $1 <+> p $4) $ VectorLiteral $ reverse $2}
-  | '[' ']' { pe (p $1 <+> p $2) $ VectorLiteral []}
+  : '[' ArrayElems ']' {pe (p $1 <+> p $3) $ ArrayLiteral $ reverse $2}
+  | '[' ArrayElems ',' ']' {pe (p $1 <+> p $4) $ ArrayLiteral $ reverse $2}
+  | '[' ']' { pe (p $1 <+> p $2) $ ArrayLiteral []}
   | CastExpr {$1}
 
 ArrayElems :: {[Expr]}

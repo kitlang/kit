@@ -133,9 +133,11 @@ unifyBase ctx tctx strict a' b' = do
         then do
           paramMatch <- mapM (\(a, b) -> rStrict a b) (zip params1 params2)
           return $ checkResults paramMatch
-        else fallBackToAbstractParent a b
+        else if strict then return Nothing else fallBackToAbstractParent a b
     (_, TypeInstance tp1 params1) -> do
-      if a == b then return $ Just [] else fallBackToAbstractParent a b
+      if a == b
+        then return $ Just []
+        else if strict then return Nothing else fallBackToAbstractParent a b
     (TypeEnumConstructor tp1 d1 _ params1, TypeEnumConstructor tp2 d2 _ params2)
       -> do
         if (tp1 == tp2) && (d1 == d2) && (length params1 == length params2)
@@ -149,8 +151,10 @@ unifyBase ctx tctx strict a' b' = do
           paramMatch <- mapM (\(a, b) -> rStrict a b) (zip params1 params2)
           return $ checkResults paramMatch
         else return Nothing
-    (a, b) | a == b -> return $ Just []
-    _               -> return Nothing
+    (TypeArray t1 (Just s1), TypeArray t2 (Just s2)) | s1 == s2 -> r t1 t2
+    (TypeArray t1 Nothing  , TypeArray t2 _        ) -> r t1 t2
+    (a                   , b                   ) | a == b -> return $ Just []
+    _ -> return Nothing
  where
   r       = unifyBase ctx tctx strict
   rStrict = unifyStrict ctx tctx

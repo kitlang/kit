@@ -7,7 +7,7 @@ dependencies:
 - base >=4.7
 default-extensions:
 - OverloadedStrings
-ghc-options: -O -optc-O3 -fexcess-precision -optc-ffast-math +RTS -A512M -RTS
+ghc-options: -O -optc-O3 -fexcess-precision -optc-ffast-math +RTS -A1024M -RTS
 extra-source-files:
 - "**/*.h"
 

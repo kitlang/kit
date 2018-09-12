@@ -201,7 +201,7 @@ dumpAst ctx indent e@(TypedExpr { tExpr = texpr, inferredType = t, tPos = pos })
       BlockComment _        -> return $ f "/** ... */"
       -- LexMacro Str [TokenClass]
       RangeLiteral a b      -> i "_ ... _" [a, b]
-      VectorLiteral x       -> i "[]" x
+      ArrayLiteral x       -> i "[]" x
       VarDeclaration id _ a -> i ("var " ++ show id) (catMaybes [a])
       Using u x             -> i ("using " ++ show u) [x]
       TupleInit slots       -> i "tuple" slots

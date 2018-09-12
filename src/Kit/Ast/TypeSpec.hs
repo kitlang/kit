@@ -17,6 +17,7 @@ import Kit.Str
 -}
 data TypeSpec
   = TypeSpec TypePath [TypeSpec] Span
+  | ConstantTypeSpec (ValueLiteral (Maybe TypeSpec)) Span
   | TupleTypeSpec [TypeSpec] Span
   | FunctionTypeSpec TypeSpec [TypeSpec] Bool Span
   -- | TypeSpecConstant ValueLiteral
@@ -43,6 +44,7 @@ typeSpecPosition (TypeSpec _ _ pos          ) = pos
 typeSpecPosition (FunctionTypeSpec t _ _ pos) = pos
 typeSpecPosition (TupleTypeSpec _ pos       ) = pos
 typeSpecPosition (ConcreteType _            ) = NoPos
+typeSpecPosition (ConstantTypeSpec _ pos            ) = pos
 
 instance Show TypeSpec where
   show (TypeSpec (tp) params _) = (s_unpack $ showTypePath tp) ++ (if params == [] then "" else "[" ++ (intercalate "," [show param | param <- params]) ++ "]")

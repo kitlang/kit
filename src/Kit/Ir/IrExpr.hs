@@ -22,7 +22,7 @@ data IrExpr
   | IrArrayAccess IrExpr IrExpr
   | IrCall IrExpr [IrExpr]
   | IrCast IrExpr BasicType
-  | IrCArrLiteral [IrExpr]
+  | IrCArrLiteral [IrExpr] BasicType
   | IrVarDeclaration Str BasicType (Maybe IrExpr)
   | IrStructInit BasicType [(Str, IrExpr)]
   | IrEnumInit BasicType TypePath [(Str, IrExpr)]

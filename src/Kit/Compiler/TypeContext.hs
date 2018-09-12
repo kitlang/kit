@@ -82,80 +82,80 @@ resolveType
 resolveType ctx tctx mod t = do
   importedMods <- getModImports ctx mod
   case t of
-    ConcreteType ct     -> follow ctx tctx ct
+    ConcreteType ct        -> follow ctx tctx ct
+    ConstantTypeSpec v pos -> throwk $ InternalError
+      ("Constant type " ++ show v ++ " not allowed here")
+      (Just pos)
     TupleTypeSpec t pos -> do
       slots <- forM t (resolveType ctx tctx mod)
       return $ TypeTuple slots
     TypeSpec (m, s) params pos -> do
-      resolvedParams <- forM params (resolveType ctx tctx mod)
-      let bindingToCt binding = case binding of
-            Just (TypeBinding t) ->
-              Just $ TypeInstance (typeName t) resolvedParams
-            Just (TraitBinding t) ->
-              Just $ TypeTraitConstraint (traitName t, resolvedParams)
-            Just (VarBinding     v) -> Just $ varType v
-            Just (RuleSetBinding r) -> Just $ TypeRuleSet (ruleSetName r)
-            _                       -> Nothing
-      case m of
-        ["extern"] -> do
-          binding <- lookupBinding ctx ([], s)
-          case bindingToCt binding of
-            Just x  -> return x
-            Nothing -> unknownType (s_unpack $ showTypePath (m, s)) pos
-        [] -> do
-          case (s, tctxSelf tctx) of
-            ("Self", Just self) -> return self
-            _                   -> do
-              case resolveTypeParam ([], s) (tctxTypeParams tctx) of
-                Just x -> return x
-                _      -> do
-                  scoped <- resolveBinding (tctxScopes tctx) s
-                  ct     <- case bindingToCt scoped of
+      builtin <- if null m
+        then builtinToConcreteType ctx tctx mod s params pos
+        else return Nothing
+      case builtin of
+        Just t  -> follow ctx tctx t
+        Nothing -> do
+          resolvedParams <- forM params (resolveType ctx tctx mod)
+          let bindingToCt binding = case binding of
+                Just (TypeBinding t) ->
+                  Just $ TypeInstance (typeName t) resolvedParams
+                Just (TraitBinding t) ->
+                  Just $ TypeTraitConstraint (traitName t, resolvedParams)
+                Just (VarBinding     v) -> Just $ varType v
+                Just (RuleSetBinding r) -> Just $ TypeRuleSet (ruleSetName r)
+                _                       -> Nothing
+          case m of
+            ["extern"] -> do
+              binding <- lookupBinding ctx ([], s)
+              case bindingToCt binding of
+                Just x  -> return x
+                Nothing -> unknownType (s_unpack $ showTypePath (m, s)) pos
+            [] -> do
+              case (s, tctxSelf tctx) of
+                ("Self", Just self) -> return self
+                _                   -> do
+                  case resolveTypeParam ([], s) (tctxTypeParams tctx) of
                     Just x -> return x
                     _      -> do
-                      -- search other modules
-                      imports <- getModImports ctx mod
-                      bound   <- foldM
-                        (\acc v -> case acc of
-                          Just x  -> return acc
-                          Nothing -> do
-                            b <- lookupBinding ctx (v, s)
-                            return $ bindingToCt b
-                        )
-                        Nothing
-                        imports
-                      case bound of
-                        Just t -> return t
+                      scoped <- resolveBinding (tctxScopes tctx) s
+                      ct     <- case bindingToCt scoped of
+                        Just x -> return x
                         _      -> do
-                          builtin <- builtinToConcreteType ctx
-                                                           tctx
-                                                           mod
-                                                           s
-                                                           params
-                                                           pos
-                          case builtin of
-                            Just t  -> follow ctx tctx t
-                            Nothing -> unknownType s pos
-                  -- if this is a type instance, create a new generic
-                  case ct of
-                    TypeInstance tp@(modPath, name) p -> do
-                      params <- makeGeneric ctx tp (typeSpecPosition t) p
-                      return $ TypeInstance tp (map snd params)
-                    TypeBox tp@(modPath, name) p -> do
-                      params <- makeGeneric ctx tp (typeSpecPosition t) p
-                      return $ TypeBox tp (map snd params)
-                    TypeTraitConstraint (tp@(modPath, name), p) -> do
-                      params <- makeGeneric ctx tp (typeSpecPosition t) p
-                      return $ TypeTraitConstraint (tp, (map snd params))
-                    _ -> return ct
-        m -> do
-          -- search only a specific module for this type
-          result <- lookupBinding ctx (m, s)
-          case result of
-            Just (TypeBinding t) ->
-              follow ctx tctx $ TypeInstance (typeName t) []
-            Just (TypedefBinding t _) -> follow ctx tctx t
-            _ -> unknownType (s_unpack $ showTypePath (m, s)) pos
+                          -- search other modules
+                          imports <- getModImports ctx mod
+                          bound   <- foldM
+                            (\acc v -> case acc of
+                              Just x  -> return acc
+                              Nothing -> do
+                                b <- lookupBinding ctx (v, s)
+                                return $ bindingToCt b
+                            )
+                            Nothing
+                            imports
+                          case bound of
+                            Just t -> return t
+                            _      -> unknownType s pos
+                      -- if this is a type instance, create a new generic
+                      case ct of
+                        TypeInstance tp@(modPath, name) p -> do
+                          params <- makeGeneric ctx tp (typeSpecPosition t) p
+                          return $ TypeInstance tp (map snd params)
+                        TypeBox tp@(modPath, name) p -> do
+                          params <- makeGeneric ctx tp (typeSpecPosition t) p
+                          return $ TypeBox tp (map snd params)
+                        TypeTraitConstraint (tp@(modPath, name), p) -> do
+                          params <- makeGeneric ctx tp (typeSpecPosition t) p
+                          return $ TypeTraitConstraint (tp, (map snd params))
+                        _ -> return ct
+            m -> do
+              -- search only a specific module for this type
+              result <- lookupBinding ctx (m, s)
+              case result of
+                Just (TypeBinding t) ->
+                  follow ctx tctx $ TypeInstance (typeName t) []
+                Just (TypedefBinding t _) -> follow ctx tctx t
+                _ -> unknownType (s_unpack $ showTypePath (m, s)) pos
 
     FunctionTypeSpec rt args isVariadic pos -> do
       rt'   <- resolveType ctx tctx mod rt
@@ -219,9 +219,9 @@ follow ctx tctx t = do
     TypeBox tp params -> do
       resolvedParams <- forM params (follow ctx tctx)
       return $ TypeBox tp resolvedParams
-    TypeArr t len -> do
+    TypeArray t len -> do
       resolved <- follow ctx tctx t
-      return $ TypeArr resolved len
+      return $ TypeArray resolved len
     TypeEnumConstructor tp d args params -> do
       resolvedArgs <- forM
         args
@@ -268,7 +268,7 @@ addUsing ctx tctx using = case using of
         return $ tctx { tctxRules = r : tctxRules tctx }
       _ -> return tctx
   UsingImplicit x -> return $ tctx { tctxImplicits = x : tctxImplicits tctx }
-  _ -> return tctx
+  _               -> return tctx
 
 addTypeParams :: TypeContext -> [(TypePath, ConcreteType)] -> TypeContext
 addTypeParams tctx params =
@@ -317,7 +317,7 @@ builtinToConcreteType ctx tctx mod s p pos = do
     ("Void"   , []) -> return $ Just $ TypeBasicType BasicTypeVoid
     -- compound
     ("Box"    , []) -> throwk $ BasicError
-      "Can't infer the trait that a generic Box should contain; use Box[T] instead"
+      "Can't infer the trait that a Box should contain; use Box[T] instead"
       (Just pos)
     ("Box", [x]) -> do
       trait <- resolveType ctx tctx mod x
@@ -332,12 +332,9 @@ builtinToConcreteType ctx tctx mod s p pos = do
     ("Ptr", [x]) -> do
       param <- resolveType ctx tctx mod x
       return $ Just $ TypePtr param
-    ("CArray", []) -> do
-      param <- makeTypeVar ctx pos
-      return $ Just $ TypeArr param Nothing
-    ("CArray", [x]) -> do
+    ("CArray", [x, ConstantTypeSpec (IntValue i _) _]) -> do
       param <- resolveType ctx tctx mod x
-      return $ Just $ TypeArr param Nothing
+      return $ Just $ TypeArray param (Just i)
     _ -> return Nothing
 
 getTraitImpl

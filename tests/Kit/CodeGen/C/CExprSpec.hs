@@ -165,6 +165,6 @@ spec = do
       showexpr (IrCast (IrIdentifier ([], "abc")) (BasicTypeInt 8))
         `shouldBe` "(int8_t) abc"
     {-it "transpiles vector literals" $ do
-      showexpr (VectorLiteral [(IrIdentifier ([], "b")), (IrIdentifier "c")]) `shouldBe` "[b, c]"-}
+      showexpr (ArrayLiteral [(IrIdentifier ([], "b")), (IrIdentifier "c")]) `shouldBe` "[b, c]"-}
 
     -- TODO: vector literal

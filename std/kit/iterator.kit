@@ -44,3 +44,27 @@ implement Iterable(T) for Iterator[T] {
     }
 }
 */
+
+// struct CArrayIterator[T, N] {
+//     public var index: Uint = 0;
+//     public var array: CArray[T, N];
+// }
+
+// implement[T, N] Iterable(T) for CArray[T, N] {
+//     public function iterator(): Box[Iterator[T]] {
+//         return struct CArrayIterator {
+//             array: &this,
+//         };
+//     }
+// }
+
+// implement[T, N] Iterator[T] for CArrayIterator[T, N] {
+//     public function next(): (Box[Iterator[T]], Option[T]) {
+//         if this.index >= this.array.length {
+//             return (this, None);
+//         } else {
+//             var val = this.array[this.index++];
+//             return (this, Some(val));
+//         }
+//     }
+// }

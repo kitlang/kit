@@ -32,7 +32,7 @@ data ConcreteType
   | TypeFunction ConcreteType ConcreteArgs Bool [ConcreteType]
   | TypeBasicType BasicType
   | TypePtr ConcreteType
-  | TypeArr ConcreteType (Maybe Int)
+  | TypeArray ConcreteType (Maybe Int)
   | TypeEnumConstructor TypePath TypePath ConcreteArgs [ConcreteType]
   | TypeRange
   | TypeTraitConstraint TraitConstraint
@@ -59,8 +59,8 @@ instance Show ConcreteType where
   show (TypeBasicType t) = show t
   show (TypePtr (TypeBasicType (BasicTypeInt 8))) = "CString"
   show (TypePtr t) = "Ptr[" ++ (show t) ++ "]"
-  show (TypeArr t (Just i)) = "Arr[" ++ (show t) ++ "] of length " ++ (show i)
-  show (TypeArr t Nothing) = "Arr[" ++ (show t) ++ "]"
+  show (TypeArray t (Just i)) = "CArray[" ++ (show t) ++ ", " ++ (show i) ++ "]"
+  show (TypeArray t Nothing) = "CArray[" ++ (show t) ++ "]"
   show (TypeEnumConstructor tp d _ params) = "enum " ++ (s_unpack $ showTypePath tp) ++ " constructor " ++ (s_unpack $ showTypePath d) ++ "[" ++ (intercalate ", " (map show params)) ++ "]"
   show (TypeRange) = "range"
   show (TypeTraitConstraint (tp, params)) = "trait " ++ s_unpack (showTypePath tp) ++ showParams params
@@ -82,7 +82,7 @@ instance Show ConcreteType where
 --   TypeFunction ConcreteType ConcreteArgs Bool [ConcreteType]
 --   TypeBasicType t = "b" ++ basicTypeAbbreviation t
 --   TypePtr t = "p" ++ concreteTypeAbbreviation t
---   TypeArr t s = "a" ++ case s of {Just x -> show x; Nothing -> "_"} ++ concreteTypeAbbreviation t
+--   TypeArray t s = "a" ++ case s of {Just x -> show x; Nothing -> "_"} ++ concreteTypeAbbreviation t
 --   TypeEnumConstructor TypePath Str ConcreteArgs [ConcreteType]
 --   TypeRange
 --   TypeTraitConstraint TraitConstraint
@@ -133,9 +133,9 @@ mapType f (TypeFunction rt args varargs p) = do
 mapType f (TypePtr t) = do
   t' <- f t
   f $ TypePtr t'
-mapType f (TypeArr t l) = do
+mapType f (TypeArray t l) = do
   t' <- f t
-  f $ TypeArr t' l
+  f $ TypeArray t' l
 mapType f (TypeEnumConstructor tp s args p) = do
   args' <- forM args $ \(n, t) -> do
     t' <- f t
@@ -176,7 +176,7 @@ substituteParam [] s = return $ TypeTypeParam s
 -- | TypeFunction ConcreteType ConcreteArgs Bool
 -- | TypeBasicType BasicType
 -- | TypePtr ConcreteType
--- | TypeArr ConcreteType (Maybe Int)
+-- | TypeArray ConcreteType (Maybe Int)
 -- | TypeEnumConstructor TypePath Str ConcreteArgs
 -- | TypeRange
 -- | TypeTraitConstraint TraitConstraint

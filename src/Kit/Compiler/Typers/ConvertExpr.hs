@@ -161,10 +161,10 @@ convertExpr ctx tctx mod e = do
       return $ m (Unsafe (r1 { inferredType = t })) t
     BlockComment s     -> return $ m (BlockComment s) voidType
     RangeLiteral e1 e2 -> container2 e1 e2 RangeLiteral
-    VectorLiteral args -> do
+    ArrayLiteral args -> do
       t    <- mtv
       args <- mapM r args
-      return $ m (VectorLiteral args) t
+      return $ m (ArrayLiteral args) (TypeArray t $ Just $ length args)
     TupleInit args -> do
       args <- mapM r args
       return $ m (TupleInit args) (TypeTuple (map inferredType args))

@@ -123,10 +123,21 @@ ctype (BasicTypeFunction rt args var) =
         )
       : rtb
       )
-ctype (BasicTypeCFile  ) = ([u $ CTypeDef (internalIdent $ "FILE")], [])
--- TODO: CArray
+ctype (BasicTypeCFile     ) = ([u $ CTypeDef (internalIdent $ "FILE")], [])
 ctype (BasicTypeAnonEnum _) = undefined
-ctype (CArray _ _      ) = undefined
+ctype (CArray x s) =
+  ( fst t
+  , (u $ CArrDeclr
+      []
+      (case s of
+        Just i ->
+          CArrSize False (transpileExpr $ IrLiteral (IntValue i BasicTypeCInt))
+        Nothing -> CNoArrSize False
+      )
+    )
+    : snd t
+  )
+  where t = ctype x
 ctype (BasicTypeUnknown) = undefined
 
 intFlags f = foldr (\f acc -> setFlag f acc) noFlags f
@@ -178,7 +189,27 @@ transpileExpr (IrCall e args) =
   u $ CCall (transpileExpr e) [ transpileExpr x | x <- args ]
 transpileExpr (IrCast e t) =
   u $ CCast (cDecl t Nothing Nothing) (transpileExpr e)
---transpileExpr (Expr {expr = VectorLiteral e}) = u $ CA
+transpileExpr (IrCArrLiteral values x) = u $ CCompoundLit
+  arrDecl
+  [ ([], u $ CInitExpr (transpileExpr val)) | val <- values ]
+ where
+  t = ctype x
+  arrT =
+    ( fst t
+    , (u $ CArrDeclr
+        []
+        (CArrSize
+          False
+          (transpileExpr $ IrLiteral (IntValue (length values) BasicTypeCInt))
+        )
+      )
+      : snd t
+    )
+  arrDecl = u $ CDecl ((CTypeQual $ u CConstQual) : (map CTypeSpec typeSpec))
+                      [(Just cdeclr, Nothing, Nothing)]
+   where
+    (typeSpec, derivedDeclr) = arrT
+    cdeclr                   = u $ CDeclr Nothing derivedDeclr Nothing []
 transpileExpr (IrStructInit t fields) = u $ CCompoundLit
   (cDecl t Nothing Nothing)
   [ ( [u $ CMemberDesig (internalIdent $ s_unpack name)]
@@ -280,6 +311,9 @@ var_to_cdeclr x =
   u $ CDeclr (Just $ internalIdent $ s_unpack x) [] (Nothing) []
 
 transpileBlockItem :: IrExpr -> CBlockItem
+transpileBlockItem (IrVarDeclaration v t (Just (IrCArrLiteral values _))) =
+  CBlockDecl $ cDecl t (Just ([], v)) $ Just $ u $ CInitList
+    [ ([], u $ CInitExpr $ transpileExpr val) | val <- values ]
 transpileBlockItem (IrVarDeclaration v t varDefault) = CBlockDecl
   $ cDecl t (Just ([], v)) body
  where

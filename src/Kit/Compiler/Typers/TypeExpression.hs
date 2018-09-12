@@ -701,6 +701,12 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                     )
                     pos
 
+              TypeArray _ (Just n) | fieldName == "length" ->
+                return $ makeExprTyped
+                  (Literal $ IntValue n $ TypeBasicType BasicTypeCSize)
+                  (TypeBasicType BasicTypeCSize)
+                  pos
+
               x -> throwk $ TypingError
                 ("Field access is not allowed on " ++ show x)
                 pos
@@ -770,6 +776,24 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                     (tPos r2)
             )
           return $ makeExprTyped (ArrayAccess r1 r2) (inferredType ex) pos
+        (TypeArray t _, _) -> do
+          resolveConstraint
+            ctx
+            tctx
+            (TypeEq t
+                    (inferredType ex)
+                    "Array access on an array will return the inner type"
+                    (tPos ex)
+            )
+          resolveConstraint
+            ctx
+            tctx
+            (TypeEq typeClassIntegral
+                    (inferredType r2)
+                    "Array access on an array requires an Integral argument"
+                    (tPos r2)
+            )
+          return $ makeExprTyped (ArrayAccess r1 r2) (inferredType ex) pos
         _ -> do
           r2 <- r e2
           throwk $ TypingError
@@ -822,8 +846,27 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                        (tPos r2)
       return $ makeExprTyped (RangeLiteral r1 r2) TypeRange pos
 
-    (VectorLiteral items) ->
-      throwk $ InternalError "Not yet implemented" (Just pos)
+    (ArrayLiteral items) -> do
+      items <- mapM r items
+      case inferredType ex of
+        TypeArray t s -> do
+          case s of
+            Just s -> unless (length items == s) $ throwk $ TypingError
+              (  "The Array's length parameter ("
+              ++ show s
+              ++ ") must match the number of elements ("
+              ++ show (length items)
+              ++ ")"
+              )
+              pos
+            Nothing -> return ()
+          forM_ items $ \val -> resolve $ TypeEq
+            t
+            (inferredType val)
+            "Array elements must match the array's value type"
+            (tPos val)
+        _ -> throwk $ TypingError "Array literals must be typed as arrays" pos
+      return $ makeExprTyped (ArrayLiteral items) (inferredType ex) pos
 
     (VarDeclaration (Var vname) _ init) -> do
       let
@@ -1009,7 +1052,7 @@ findImplicit
 findImplicit ctx tctx ct []      = return Nothing
 findImplicit ctx tctx ct (h : t) = do
   converted <- tryAutoRefDeref ctx tctx ct h
-  match     <- unify ctx tctx ct (inferredType converted)
+  match     <- unifyStrict ctx tctx ct (inferredType converted)
   case match of
     Just info ->
       if or

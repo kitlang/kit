@@ -75,7 +75,7 @@ data ExprType a b
   | BlockComment Str
   -- e1 ... e2
   | RangeLiteral a a
-  | VectorLiteral [a]
+  | ArrayLiteral [a]
   -- var id[: type] [= default];
   | VarDeclaration (Identifier b) b (Maybe a)
   | Defer a
@@ -119,7 +119,7 @@ exprDiscriminant et = case et of
   Unsafe       _       -> 27
   BlockComment _       -> 28
   RangeLiteral _ _     -> 29
-  VectorLiteral _      -> 30
+  ArrayLiteral _      -> 30
   VarDeclaration _ _ _ -> 31
   Defer _              -> 32
   Box         _ _      -> 33
@@ -156,7 +156,7 @@ exprChildren et = case et of
   Cast        x _             -> [x]
   Unsafe x                    -> [x]
   RangeLiteral x y            -> [x, y]
-  VectorLiteral x             -> x
+  ArrayLiteral x             -> x
   VarDeclaration _ _ (Just x) -> [x]
   Defer x                     -> [x]
   Box         _ x             -> [x]

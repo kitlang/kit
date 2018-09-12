@@ -79,7 +79,7 @@ findUnderlyingType ctx mod pos t = do
     -- TypeTypedef TypePath [ConcreteType]
     -- TypeFunction ConcreteType ConcreteArgs Bool
     -- TypePtr ConcreteType
-    -- TypeArr ConcreteType (Maybe Int)
+    -- TypeArray ConcreteType (Maybe Int)
     -- TypeEnumConstructor TypePath ConcreteArgs
     -- TypeRange
     -- TypeTraitPointer TypePath
@@ -121,6 +121,9 @@ findUnderlyingType ctx mod pos t = do
         ++ "; this is probably an error with monomorph generation!"
         )
         pos
+    TypeArray t s -> do
+      t <- findUnderlyingType ctx mod pos t
+      return $ CArray t s
     _ -> do
       -- TODO: REMOVE
       throwk

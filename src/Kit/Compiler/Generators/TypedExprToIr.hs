@@ -121,6 +121,14 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
       (Binop Eq e1 (TypedExpr { tExpr = Literal (StringValue s) })) -> do
         r1 <- r e1
         return $ stringCompare r1 s
+      (Binop Assign e1 (TypedExpr { tExpr = ArrayLiteral values })) -> do
+        r1 <- r e1
+        values <- mapM r values
+        -- TODO: could use appropriately sized int type for index
+        return $ IrBlock
+          [ IrBinop Assign (IrArrayAccess r1 (IrLiteral $ IntValue i BasicTypeCSize)) val
+          | (i, val) <- zip [0 ..] values
+          ]
       (Binop op e1 e2) -> do
         r1 <- r e1
         r2 <- r e2
@@ -244,9 +252,14 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
       (BlockComment s    ) -> return $ IrBlock []
       (RangeLiteral e1 e2) -> throwk
         $ BasicError ("unexpected range literal in typed AST") (Just pos)
-      (VectorLiteral items) -> do
+      (ArrayLiteral items) -> do
         items' <- mapMWithErrors r items
-        return $ IrCArrLiteral items'
+        let contentType = case f of
+              CArray t _ -> t
+              _          -> throwk $ BasicError
+                ("unexpected array literal type: " ++ show f)
+                (Just pos)
+        return $ IrCArrLiteral items' contentType
       (VarDeclaration (Var name) ts def) -> do
         def <- maybeR def
         return $ IrVarDeclaration (tpName name) f def

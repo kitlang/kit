@@ -73,7 +73,7 @@ spec = parallel $ do
 
     it "parses vectors" $ do
       testParseExpr "[this, Self, true, false]"
-        `shouldBe` (e $ VectorLiteral
+        `shouldBe` (e $ ArrayLiteral
                      [ e This
                      , e Self
                      , e $ Literal $ BoolValue True

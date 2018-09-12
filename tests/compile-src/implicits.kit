@@ -2,7 +2,7 @@ abstract SpecialInt: Int;
 abstract SpecialFloat: Float;
 
 function f(a: SpecialInt, b: SpecialFloat, c: CString) {
-    printf("hello %s!\n", c);
+    printf("hello %i %.1f %s!\n", a, b, c);
 }
 
 function main() {
@@ -30,4 +30,14 @@ function main() {
         e = 4 + (implicit Float);
     }
     printf("%.1f\n", e);
+
+    // if we cast e to an Int and promote to SpecialInt, this works
+    using implicit ((e as Int) as SpecialInt) {
+        f(5.1, "world");
+    }
+
+    // this does not use the implicit
+    using implicit (e as Int) {
+        f(a, 5.2, "world");
+    }
 }

@@ -40,7 +40,7 @@ exprDeps irExpr = case irExpr of
   IrArrayAccess x y             -> exprDeps x ++ exprDeps y
   IrCall x args -> exprDeps x ++ (foldr (++) [] $ map exprDeps args)
   IrCast        x t             -> (typeDeps True t) ++ (exprDeps x)
-  IrCArrLiteral x               -> (foldr (++) [] $ map exprDeps x)
+  IrCArrLiteral x t             -> (foldr (++) [] $ map exprDeps x) ++ (typeDeps True t)
   IrVarDeclaration _ t (Just x) -> (typeDeps True t) ++ (exprDeps x)
   IrVarDeclaration _ t Nothing  -> typeDeps True t
   IrStructInit t fields ->
