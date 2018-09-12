@@ -17,6 +17,11 @@ os:
   - linux
   - osx
 
+matrix:
+  allow_failures:
+    - os: osx
+  fast_finish: true
+
 before_install:
 - mkdir -p ~/.local/bin
 - export PATH=$HOME/.local/bin:$PATH
@@ -29,7 +34,6 @@ install:
 script:
 - "gcc --version"
 - "clang --version"
-- "ccache --version"
 - stack build kitlang:kitc
 - stack exec kitc -- -h
 - TEST_RUNS=3 stack test

@@ -53,16 +53,9 @@ compileBundle ctx ccache cc' args name = do
              , libPath ctx name
              , "-o"
              , objPath ctx name
-             , "-D_GNU_SOURCE"
-             , "-D_BSD_SOURCE"
-             , "-D_DEFAULT_SOURCE"
-             , "-std=c99"
-             , "-pedantic"
-             , "-O3"
-             , "-Os"
              ]
-          ++ (if (ctxIsLibrary ctx) then ["-fPIC"] else [])
-          ++ compilerSpecificArgs cc'
+          ++ (defaultCompileArgs ctx $ takeFileName cc')
+          ++ (compilerSpecificArgs $ takeFileName cc')
   printLog $ "compiling " ++ s_unpack (showTypePath name)
   let (cc, args) = case ccache of
         Just x  -> (x, cc' : args')

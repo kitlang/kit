@@ -74,7 +74,7 @@ parseCHeader ctx mod path = do
     Nothing
     -- TODO: defines
     (  [ "-I" ++ dir | dir <- ctxIncludePaths ctx ]
-    ++ ["-D_GNU_SOURCE", "-D_BSD_SOURCE", "-D_DEFAULT_SOURCE"]
+    ++ (defaultCompileArgs ctx $ takeFileName compiler)
     )
     path
   case parseResult of

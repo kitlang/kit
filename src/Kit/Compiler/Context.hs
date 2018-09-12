@@ -365,3 +365,23 @@ findCompiler ctx = do
 findCcache :: CompileContext -> IO (Maybe FilePath)
 findCcache ctx =
   if ctxNoCcache ctx then return Nothing else findExecutable "ccache"
+
+defaultCompileArgs :: CompileContext -> FilePath -> [String]
+defaultCompileArgs ctx cc =
+  [ "-D_GNU_SOURCE"
+    , "-D_BSD_SOURCE"
+    , "-D_DEFAULT_SOURCE"
+    , "-std=c99"
+    , "-pedantic"
+    , "-O3"
+    , "-Os"
+    ]
+    ++ (if ctxIsLibrary ctx then ["-fPIC"] else [])
+    ++ osSpecificDefaultCompileArgs os
+
+osSpecificDefaultCompileArgs "darwin" =
+  [ "-U__BLOCKS__"
+  , "-Wno-expansion-to-defined"
+  , "-Wno-gnu-zero-variadic-macro-arguments"
+  ]
+osSpecificDefaultCompileArgs _ = []
