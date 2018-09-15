@@ -720,10 +720,7 @@ ArrayAccessExpr :: {Expr}
 
 CallExpr :: {Expr}
   : CallExpr '(' CallArgs ')' {pe (pos $1 <+> p $4) $ Call $1 (reverse $3)}
-  | FieldExpr {$1}
-
-FieldExpr :: {Expr}
-  : FieldExpr '.' Identifier {pe (pos $1 <+> p $3) $ Field $1 $ fst $3}
+  | CallExpr '.' Identifier {pe (pos $1 <+> p $3) $ Field $1 $ fst $3}
   | TypeAnnotatedExpr {$1}
 
 TypeAnnotatedExpr :: {Expr}

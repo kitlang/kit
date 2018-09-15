@@ -186,6 +186,7 @@ follow ctx tctx t = do
   case t of
     TypeSelf -> do
       case tctxSelf tctx of
+        Just TypeSelf -> return TypeSelf
         Just x  -> follow ctx tctx x
         Nothing -> return TypeSelf
     TypeTypeParam p -> do
@@ -332,6 +333,9 @@ builtinToConcreteType ctx tctx mod s p pos = do
     ("Ptr", [x]) -> do
       param <- resolveType ctx tctx mod x
       return $ Just $ TypePtr param
+    ("CArray", [x]) -> do
+      param <- resolveType ctx tctx mod x
+      return $ Just $ TypeArray param Nothing
     ("CArray", [x, ConstantTypeSpec (IntValue i _) _]) -> do
       param <- resolveType ctx tctx mod x
       return $ Just $ TypeArray param (Just i)

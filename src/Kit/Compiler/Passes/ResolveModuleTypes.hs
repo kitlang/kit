@@ -142,6 +142,9 @@ resolveTypesForMod ctx (mod, contents) = do
             traitCt <- resolveType ctx tctx mod trait
             case traitCt of
               TypeTraitConstraint (tpTrait, paramsTrait) -> do
+                paramsTrait <- return $ take
+                  (length paramsTrait - (length $ implAssocTypes i))
+                  paramsTrait
                 def <- getTraitDefinition ctx tpTrait
 
                 let paramTctx = addTypeParams
@@ -150,7 +153,7 @@ resolveTypesForMod ctx (mod, contents) = do
                         in  (p, TypeTypeParam $ p)
                       | param <- traitAllParams def
                       ]
-                ct <- resolveType ctx tctx mod iFor
+                ct <- resolveType ctx paramTctx mod iFor
                 let selfTctx = paramTctx { tctxSelf = Just ct }
                 impl <- convertTraitImplementation
                   (converter (convertExpr ctx selfTctx mod)
@@ -162,19 +165,14 @@ resolveTypesForMod ctx (mod, contents) = do
                 let name = subPath tpTrait $ hashParams [implFor impl]
 
                 -- correct the inferface name
-                let
-                  key =
-                    ( tpTrait
-                    , take (length paramsTrait - (length $ implAssocTypes i))
-                           paramsTrait
-                    )
+                let key  = (tpTrait, paramsTrait)
                 e1 <- h_lookup (ctxImpls ctx) key
                 e1 <- case e1 of
-                        Just x -> return x
-                        Nothing -> do
-                          x <- h_new
-                          h_insert (ctxImpls ctx) key x
-                          return x
+                  Just x  -> return x
+                  Nothing -> do
+                    x <- h_new
+                    h_insert (ctxImpls ctx) key x
+                    return x
                 h_insert e1 (implFor impl) impl
 
                 let assocParams = implAssocTypes impl

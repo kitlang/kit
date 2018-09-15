@@ -120,6 +120,7 @@ makeBox ctx tctx tp params ex = do
               (impl { implTrait = TypeTraitConstraint (tp, map snd params) })
               ref
             , inferredType = t'
+            , tIsLocalPtr  = tIsLocal ref
             }
         Nothing -> return Nothing
     Nothing -> do
@@ -130,7 +131,9 @@ makeBox ctx tctx tp params ex = do
 addRef :: TypedExpr -> Maybe TypedExpr
 addRef ex@(TypedExpr { tExpr = PreUnop Deref inner }) = Just inner
 addRef ex@(TypedExpr { tIsLvalue = True }) =
-  Just $ makeExprTyped (PreUnop Ref ex) (TypePtr $ inferredType ex) (tPos ex)
+  Just $ (makeExprTyped (PreUnop Ref ex) (TypePtr $ inferredType ex) (tPos ex))
+    { tIsLocalPtr = tIsLocal ex
+    }
 addRef ex = Nothing
 
 addDeref :: TypedExpr -> Maybe TypedExpr
@@ -145,13 +148,15 @@ makeLvalue tctx ex = do
     Just v -> do
       tmp <- makeTmpVar (head $ tctxScopes tctx)
       let temp =
-            (makeExprTyped
-              (VarDeclaration (Var ([], tmp))
-                              (inferredType ex)
-                              (Just $ ex { tTemps = [] })
-              )
-              (inferredType ex)
-              (tPos ex)
+            ((makeExprTyped
+               (VarDeclaration (Var ([], tmp))
+                               (inferredType ex)
+                               (Just $ ex { tTemps = [] })
+               )
+               (inferredType ex)
+               (tPos ex)
+             ) { tIsLocal = True
+               }
             )
       addTemps tctx [temp]
       return $ Just (makeExprTyped (Identifier (Var ([], tmp)))
@@ -159,5 +164,6 @@ makeLvalue tctx ex = do
                                    (tPos ex)
                     )
         { tIsLvalue = True
+        , tIsLocal  = True
         }
     Nothing -> return Nothing

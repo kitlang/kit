@@ -1,9 +1,8 @@
 include "stdlib.h";
 
-trait Allocator(T) {
-    // function alloc[U: T](): Ptr[U];
-    function allocBytes(n: Size): Ptr[T];
-    // function free[U: T](ptr: Ptr[U]): Void;
+trait Allocator {
+    function alloc(n: Size): Ptr[Void];
+    function free(ptr: Ptr[Void]): Void;
 }
 
 struct SimpleAllocator {
@@ -11,18 +10,14 @@ struct SimpleAllocator {
     public var free: function (Ptr[Void]) -> Void;
 }
 
-implement Allocator(Void) for SimpleAllocator {
-    // public function alloc[U](): Ptr[U] {
-    //     return (this[0])(sizeof U);
-    // }
-
-    public function allocBytes(n: Size): Ptr[Void] {
+implement Allocator for SimpleAllocator {
+    public function alloc(n: Size): Ptr[Void] {
         return (this.alloc)(n);
     }
 
-    // public function free[U](ptr: Ptr[U]) {
-    //     (this.free)(ptr);
-    // }
+    public function free(ptr: Ptr[Void]) {
+        (this.free)(ptr);
+    }
 }
 
 var simpleMalloc: SimpleAllocator = struct SimpleAllocator {

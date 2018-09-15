@@ -160,7 +160,15 @@ dumpAst ctx indent e@(TypedExpr { tExpr = texpr, inferredType = t, tPos = pos })
           ++ (show $ (pos { file = "" }))
           ++ ": "
           )
-    let f x = indented $ x ++ ": " ++ t'
+    let f x =
+          indented
+            $  (if tIsLocalPtr e
+                 then "LOCAL PTR: "
+                 else if tIsLocal e then "LOCAL: " else ""
+               )
+            ++ x
+            ++ ": "
+            ++ t'
     let i x children =
           (do
             children' <- mapM dumpChild children
@@ -201,7 +209,7 @@ dumpAst ctx indent e@(TypedExpr { tExpr = texpr, inferredType = t, tPos = pos })
       BlockComment _        -> return $ f "/** ... */"
       -- LexMacro Str [TokenClass]
       RangeLiteral a b      -> i "_ ... _" [a, b]
-      ArrayLiteral x       -> i "[]" x
+      ArrayLiteral x        -> i "[]" x
       VarDeclaration id _ a -> i ("var " ++ show id) (catMaybes [a])
       Using u x             -> i ("using " ++ show u) [x]
       TupleInit slots       -> i "tuple" slots

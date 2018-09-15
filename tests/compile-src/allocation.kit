@@ -10,7 +10,7 @@ struct MyStruct {
     var b: Float;
 
     public static function new(allocator: Box[Allocator[Void]]): Ptr[MyStruct] {
-        return allocator.allocBytes(sizeof MyStruct) as Ptr[MyStruct];
+        return allocator.alloc(sizeof MyStruct);
     }
 }
 

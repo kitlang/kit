@@ -186,3 +186,6 @@ substituteParam [] s = return $ TypeTypeParam s
 -- | TypeTypeParam Str
 -- | TypeRuleSet TypePath
 -- | TypeBox TypePath [ConcreteType]
+
+isPtr (TypePtr _) = True
+isPtr _           = False

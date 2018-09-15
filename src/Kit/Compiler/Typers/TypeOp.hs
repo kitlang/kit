@@ -28,13 +28,23 @@ import Kit.Str
 unopTypes
   :: Operator -> ConcreteType -> ConcreteType -> Span -> Maybe [TypeConstraint]
 unopTypes op l x pos = case op of
-  Inc -> Just
-    [ TypeEq typeClassNumeric
-             l
-             "Increment operator can only be used on Numeric types"
-             pos
-    , TypeEq l x "An increment operation's type must match its operand" pos
-    ]
+  _ | (op == Inc) || (op == Dec) -> if isPtr l
+    then Just
+      [ TypeEq
+          x
+          l
+          (  "Unary operator `"
+          ++ show op
+          ++ "` applied to a pointer returns an equivalent pointer"
+          )
+          pos
+      ]
+    else Just
+      [ TypeEq typeClassNumeric l ("Unary operator `"
+      ++ show op
+      ++ "` can only be used on Numeric types") pos
+      , TypeEq l x "An increment operation's type must match its operand" pos
+      ]
   Dec -> Just
     [ TypeEq typeClassNumeric
              l
@@ -87,8 +97,8 @@ binopTypes
   -> Span
   -> Maybe [TypeConstraint]
 binopTypes op l r x lMixed rMixed pos = case op of
-  Add        -> numericOp
-  Sub        -> numericOp
+  Add        -> numericOrPointerOp
+  Sub        -> numericOrPointerOp
   Mul        -> numericOp
   Div        -> numericOp
   Mod        -> numericOp
@@ -107,6 +117,29 @@ binopTypes op l r x lMixed rMixed pos = case op of
   BitXor     -> bitOp
   _          -> Nothing
  where
+  numericOrPointerOp =
+    let pointerOp a b = Just
+          [ TypeEq
+            x
+            a
+            (  "Binary operator `"
+            ++ show op
+            ++ "` applied to a pointer returns an equivalent pointer"
+            )
+            pos
+          , TypeEq
+            typeClassIntegral
+            b
+            (  "Binary operator `"
+            ++ show op
+            ++ "` requires an Integral value to apply to a pointer"
+            )
+            pos
+          ]
+    in  case (isPtr l, isPtr r) of
+          (True , False) -> pointerOp l r
+          (False, True ) -> pointerOp r l
+          _              -> numericOp
   numericOp =
     Just
       $  (if (rMixed || rMixed)

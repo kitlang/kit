@@ -37,6 +37,20 @@ trait Iterator[T] {
     public function next(): (Box[Iterator[T]], Option[T]);
 }
 
+struct CountdownIterator[T] {
+    public var length: Size;
+    public var ptr: Ptr[T];
+}
+
+// implement[T] Iterator(T) for CountdownIterator[T] {
+//     public function next(): (Box[Iterator], Option[T]) {
+//         return (
+//             struct CountdownIterator[T] {length: this.length - 1, ptr: &this.ptr[1]},
+//             if this.length > 0 then Some(*this.ptr) else None
+//         );
+//     }
+// }
+
 /*
 implement Iterable(T) for Iterator[T] {
     public function iterator(): Box[Iterator[T]] {

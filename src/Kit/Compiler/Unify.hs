@@ -20,15 +20,18 @@ data UnificationError = UnificationError CompileContext TypeConstraint
 instance Errable UnificationError where
   logError err@(UnificationError ctx (TypeEq a b reason pos)) = do
     logErrorBasic err $ reason ++ ":"
-    ePutStrLn $ "Couldn't resolve the following constraints:\n"
-    forM_ [a, b] (\x -> do case x of
-                              TypeTypeVar i -> do
-                                info <- getTypeVar ctx i
-                                ePutStrLn $ "  - " ++ show info
-                                let varPos = head $ typeVarPositions info
-                                displayFileSnippet varPos
-                              _ -> ePutStrLn $ "  - Type := " ++ show x
-                           ePutStrLn "")
+    let showConstraint x = do case x of
+                                TypeTypeVar i -> do
+                                  info <- getTypeVar ctx i
+                                  ePutStrLn $ show info
+                                  let varPos = head $ typeVarPositions info
+                                  displayFileSnippet varPos
+                                _ -> ePutStrLn $ show x
+    ePutStr $ "Expected type:  "
+    showConstraint a
+    ePutStr $ "  Actual type:  "
+    showConstraint b
+    ePutStrLn ""
   errPos (UnificationError _ (TypeEq _ _ _ pos)) = Just pos
 instance Show UnificationError where
   show (UnificationError _ tc) = "UnificationError " ++ show tc
@@ -119,8 +122,11 @@ unifyBase ctx tctx strict a' b' = do
     (_, TypeTraitConstraint v) -> r b a
     (TypeBasicType a, TypeBasicType b) -> return $ unifyBasic a b
     (TypePtr (TypeBasicType BasicTypeVoid), TypePtr _) -> return $ Just []
-    (TypePtr _, (TypeBasicType BasicTypeVoid)) -> return $ Just []
+    (TypePtr (TypeBasicType BasicTypeVoid), TypeArray _ _) -> return $ Just []
+    (TypePtr _, TypePtr (TypeBasicType BasicTypeVoid)) -> return $ Just []
+    (TypeArray _ _, TypePtr (TypeBasicType BasicTypeVoid)) -> return $ Just []
     (TypePtr a, TypePtr b) -> r a b
+    (TypePtr a, TypeArray b _) -> r a b
     (TypeTuple a, TypeTuple b) | length a == length b -> do
       vals <- forM (zip a b) (\(a, b) -> r a b)
       return $ checkResults vals
@@ -153,7 +159,7 @@ unifyBase ctx tctx strict a' b' = do
         else return Nothing
     (TypeArray t1 (Just s1), TypeArray t2 (Just s2)) | s1 == s2 -> r t1 t2
     (TypeArray t1 Nothing  , TypeArray t2 _        ) -> r t1 t2
-    (a                   , b                   ) | a == b -> return $ Just []
+    (a                     , b                     ) | a == b -> return $ Just []
     _ -> return Nothing
  where
   r       = unifyBase ctx tctx strict

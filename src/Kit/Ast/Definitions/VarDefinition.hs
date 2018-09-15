@@ -19,7 +19,8 @@ data VarDefinition a b = VarDefinition {
   varMeta :: [Metadata],
   varModifiers :: [Modifier],
   varType :: b,
-  varDefault :: Maybe a
+  varDefault :: Maybe a,
+  varIsLocal :: Bool
 } deriving (Eq, Show)
 
 varRealName f =
@@ -35,6 +36,7 @@ newVarDefinition = VarDefinition
   , varType      = undefined
   , varDefault   = Nothing
   , varPos       = NoPos
+  , varIsLocal   = False
   }
 
 convertVarDefinition
@@ -54,4 +56,5 @@ convertVarDefinition (Converter { exprConverter = exprConverter, typeConverter =
                                 , varType      = newType
                                 , varDefault   = newDefault
                                 , varPos       = varPos v
+                                , varIsLocal   = varIsLocal v
                                 }

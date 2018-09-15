@@ -185,8 +185,10 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
     (PreUnop Ref e1@(TypedExpr { tExpr = This })) -> do
       -- referencing `this` gives us a pointer that's also an lvalue
       r1 <- r e1
-      return $ (makeExprTyped (PreUnop Ref r1) (TypePtr $ inferredType r1) pos) { tIsLvalue = True
-                                                                                }
+      return $ (makeExprTyped (PreUnop Ref r1) (TypePtr $ inferredType r1) pos)
+        { tIsLvalue   = True
+        , tIsLocalPtr = tIsLocal r1
+        }
 
     (PreUnop op e1) -> do
       r1 <- r e1
@@ -194,7 +196,9 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         case unopTypes op (inferredType r1) (inferredType ex) pos of
           Just constraints -> mapM_ resolve constraints
           Nothing          -> return () -- TODO
-        return $ makeExprTyped (PreUnop op r1) (inferredType ex) pos
+        return $ (makeExprTyped (PreUnop op r1) (inferredType ex) pos)
+          { tIsLocalPtr = (op == Ref) && (tIsLocal r1)
+          }
 
     (PostUnop op e1) -> do
       r1 <- r e1
@@ -437,6 +441,24 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                            (inferredType r1)
                            "Return type should match function return type"
                            (tPos r1)
+          -- make sure we aren't returning any pointers to the stack
+          let
+            localPointers = exprMapReduce
+              (\x -> if (isPtr $ inferredType x) && (tIsLocalPtr x)
+                then [x]
+                else []
+              )
+              (++)
+              tExpr
+              []
+              r1
+          unless (null localPointers) $ throwk $ KitErrors
+            [ KitError
+              $ TypingError "Can't return a pointer to a local value"
+              $ tPos ptr
+            | ptr <- localPointers
+            ]
+
           return $ makeExprTyped (Return $ Just r1) voidType pos
         (Just rt, Nothing) -> do
           resolve $ TypeEq voidType
@@ -629,50 +651,55 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                     pos
 
               TypeBox tp params -> do
-                trait    <- lookupBinding ctx tp
-                traitDef <- case trait of
-                  Just (TraitBinding t) -> return t
-                  _                     -> throwk $ TypingError
-                    ("Couldn't find trait: " ++ s_unpack (showTypePath tp))
-                    pos
-                let
-                  tctx' = (addTypeParams
+                case tExpr r1 of
+                  BoxedVtable _ _ -> return ex
+                  _               -> do
+                    trait    <- lookupBinding ctx tp
+                    traitDef <- case trait of
+                      Just (TraitBinding t) -> return t
+                      _                     -> throwk $ TypingError
+                        ("Couldn't find trait: " ++ s_unpack (showTypePath tp))
+                        pos
+                    let
+                      tctx' =
+                        (addTypeParams
                             tctx
                             [ (traitSubPath traitDef $ paramName param, val)
-                            | (param, val) <- zip (traitAllParams traitDef)
-                                                  params
+                            | (param, val) <- zip (traitAllParams traitDef) params
                             ]
                           )
-                    { tctxSelf = Just t
-                    }
-                method <- lookupBinding ctx $ subPath tp fieldName
-                case method of
-                  Just binding -> do
-                    x <- typeVarBinding ctx tctx' fieldName binding pos
-                    let
-                      typed = makeExprTyped
-                        (Field
-                          (makeExprTyped (BoxedVtable traitDef r1)
-                                         (inferredType r1)
-                                         (tPos r1)
-                          )
-                          (Var ([], fieldName))
-                        )
-                        (inferredType x)
-                        (pos)
-                    -- trait <- followTrait ctx tctx' (modPath mod) traitDef
-                    t <- mapType (follow ctx tctx') (inferredType x)
-                    return $ typed
-                      { tImplicits   = [ makeExprTyped
-                                           (BoxedValue traitDef r1)
-                                           (TypePtr $ TypeBasicType BasicTypeVoid)
-                                           pos
-                                       ]
-                      , inferredType = t
-                      }
-                  Nothing -> throwk $ TypingError
-                    ((show t) ++ " has no field " ++ s_unpack fieldName)
-                    pos
+                          { tctxSelf = Just t
+                          }
+                    method <- lookupBinding ctx $ subPath tp fieldName
+                    case method of
+                      Just binding -> do
+                        x <- typeVarBinding ctx tctx' fieldName binding pos
+                        let
+                          typed = makeExprTyped
+                            (Field
+                              (makeExprTyped (BoxedVtable traitDef r1)
+                                             (inferredType r1)
+                                             (tPos r1)
+                              )
+                              (Var ([], fieldName))
+                            )
+                            (inferredType x)
+                            (pos)
+                        -- trait <- followTrait ctx tctx' (modPath mod) traitDef
+                        t <- mapType (follow ctx tctx') (inferredType x)
+                        return $ typed
+                          { tImplicits   = [ makeExprTyped
+                                               (BoxedValue traitDef r1)
+                                               ( TypePtr
+                                               $ TypeBasicType BasicTypeVoid
+                                               )
+                                               pos
+                                           ]
+                          , inferredType = t
+                          }
+                      Nothing -> throwk $ TypingError
+                        ((show t) ++ " has no field " ++ s_unpack fieldName)
+                        pos
 
               TypeTraitConstraint (tp, params) | tIsLvalue r1 -> do
                 let (Just ref) = addRef r1
@@ -806,10 +833,20 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       r1 <- r e1
       tryRewrite (unknownTyped $ Cast r1 t) $ do
         let cast = return $ makeExprTyped (Cast r1 t) t pos
+        let invalidCast = throwk $ TypingError
+              ("Invalid cast: " ++ show (inferredType r1) ++ " as " ++ show t)
+              pos
         case (inferredType r1, t) of
           (TypePtr (TypeBasicType BasicTypeVoid), TypePtr _) -> cast
+          (TypePtr _, TypePtr (TypeBasicType BasicTypeVoid)) -> cast
+          (TypeArray _ _, TypePtr (TypeBasicType BasicTypeVoid)) -> cast
+          (TypeArray t _, TypePtr t2) -> do
+            t' <- unifyStrict ctx tctx t2 t
+            case t' of
+              Just _ -> cast
+              _      -> invalidCast
           (TypePtr _, TypeBasicType BasicTypeCSize) -> cast
-          (x, y@(TypeBox tp params)       ) -> do
+          (x        , y@(TypeBox tp params)       ) -> do
             box <- autoRefDeref ctx tctx y r1
             case box of
               Just box -> return box
@@ -829,9 +866,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
             case (t', x', y') of
               (Just _, _     , _     ) -> cast
               (_     , Just _, Just _) -> cast
-              _                        -> throwk $ TypingError
-                ("Invalid cast: " ++ show x ++ " as " ++ show y)
-                pos
+              _                        -> invalidCast
 
     (RangeLiteral e1 e2) -> do
       r1 <- r e1
@@ -897,6 +932,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                                   , varType    = varType
                                   , varDefault = init'
                                   , varPos     = pos
+                                  , varIsLocal = True
                                   }
                 )
               )
@@ -978,7 +1014,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
               resolve $ TypeEq
                 fieldType
                 (inferredType converted)
-                "Provided struct field values must match the declared struct field type"
+                "Struct field values must match the declared struct field type"
                 (tPos r1)
               return (name, converted)
             )
@@ -988,7 +1024,12 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                                   pos
                    )
             { tIsLvalue = True
+            , tIsLocal  = True
             }
+
+        x -> throwk $ TypingError
+          ("Type " ++ s_unpack (showTypePath tp) ++ " isn't a struct")
+          pos
 
     (TupleInit slots) -> do
       slots' <- forMWithErrors slots r
@@ -1237,6 +1278,7 @@ typeVarBinding ctx tctx name binding pos = do
       return $ (makeExprTyped (Identifier $ Var $ varRealName v) (varType v) pos
                )
         { tIsLvalue = True
+        , tIsLocal  = varIsLocal v
         }
     FunctionBinding def -> do
       let t  = functionConcrete def
