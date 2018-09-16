@@ -1,3 +1,6 @@
+The Kit standard library (all .kit files in this repository) are released under 
+the MIT license.
+
 ### The MIT License (MIT)
 
 Copyright (c) 2018 Ben Morris
