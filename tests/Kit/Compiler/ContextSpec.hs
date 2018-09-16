@@ -21,11 +21,11 @@ spec = do
   describe "CompileContext" $ do
     it "generates headers/code in the correct directories" $ do
       ctx <- newCompileContext
-      includePath ctx ([]       , "apple") `shouldBe` "build/include/apple.h"
+      includePath ctx ([]       , "apple") `shouldBe` "build/include/kit_apple.h"
       includePath ctx (["apple"], "banana")
-        `shouldBe` "build/include/apple/banana.h"
-      libPath ctx ([]       , "apple") `shouldBe` "build/lib/apple.c"
-      libPath ctx (["apple"], "banana") `shouldBe` "build/lib/apple/banana.c"
+        `shouldBe` "build/include/apple/kit_banana.h"
+      libPath ctx ([]       , "apple") `shouldBe` "build/lib/kit_apple.c"
+      libPath ctx (["apple"], "banana") `shouldBe` "build/lib/apple/kit_banana.c"
 
   describe "Variable resolution" $ do
     it "resolves variables to scopes, falling back to modules" $ do

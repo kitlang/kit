@@ -259,7 +259,7 @@ includePath :: CompileContext -> TypePath -> FilePath
 includePath ctx (n, s) =
   (includeDir ctx)
     </>  (foldr (</>) "" (map s_unpack n))
-    </>  s_unpack s
+    </>  ("kit_" ++ s_unpack s)
     -<.> ".h"
 
 libDir :: CompileContext -> FilePath
@@ -267,14 +267,20 @@ libDir ctx = (ctxOutputDir ctx) </> "lib"
 
 libPath :: CompileContext -> TypePath -> FilePath
 libPath ctx (n, s) =
-  (libDir ctx) </> (foldr (</>) "" (map s_unpack n)) </> s_unpack s -<.> ".c"
+  (libDir ctx)
+    </>  (foldr (</>) "" (map s_unpack n))
+    </>  ("kit_" ++ s_unpack s)
+    -<.> ".c"
 
 objDir :: CompileContext -> FilePath
 objDir ctx = (ctxOutputDir ctx) </> "obj"
 
 objPath :: CompileContext -> TypePath -> FilePath
 objPath ctx (n, s) =
-  (objDir ctx) </> (foldr (</>) "" (map s_unpack n)) </> s_unpack s -<.> ".o"
+  (objDir ctx)
+    </>  (foldr (</>) "" (map s_unpack n))
+    </>  ("kit_" ++ s_unpack s)
+    -<.> ".o"
 
 findStd :: IO [FilePath]
 findStd = do
