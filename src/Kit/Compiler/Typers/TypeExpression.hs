@@ -365,6 +365,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                                     r2
                 case box of
                   Just box -> do
+                    box <- r box
                     tryRewrite (makeExprTyped (For e1 box e3) voidType pos)
                       $ fail
                   Nothing -> fail
@@ -372,6 +373,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
             box <- autoRefDeref ctx tctx (TypeBox typeClassIteratorPath [tv]) r2
             case box of
               Just box -> do
+                box <- r box
                 tryRewrite (makeExprTyped (For e1 box e3) voidType pos)
                   $ tryIterable
               Nothing -> tryIterable

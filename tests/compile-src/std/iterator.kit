@@ -76,8 +76,7 @@ function main() {
 
     printf("length = %zu\n", list.getLength());
 
-    var box: Box[Iterator[Int]] = list;
-    for current in box {
+    for current in list {
         printf("for loop for iterator: %i\n", current);
     }
     printf("done\n");
@@ -100,8 +99,7 @@ function main() {
     printf("struct iterator manual iteration\n");
     printf("length = %zu\n", list.getLength());
 
-    var iterable2: Box[Iterable] = iteratorStruct;
-    for x in iterable2 {
+    for x in iteratorStruct {
         if x == 1 {
             continue;
         }
