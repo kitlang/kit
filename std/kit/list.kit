@@ -65,17 +65,17 @@ enum List[T] {
         }
     }
 
-    public function head(): T {
-        match this {
-            Cons(h, _) => return h;
-        }
-    }
+    // public function head(): T {
+    //     match this {
+    //         Cons(h, _) => return h;
+    //     }
+    // }
 
-    public function tail(): List[T] {
-        match this {
-            Cons(_, t) => return t;
-        }
-    }
+    // public function tail(): List[T] {
+    //     match this {
+    //         Cons(_, t) => return t;
+    //     }
+    // }
 
     rules {
         ($this.length) => $this.getLength();
