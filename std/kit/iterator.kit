@@ -31,13 +31,13 @@ trait Iterator[T] {
 
     rules {
         // FIXME: hygiene of macro vars
-        (for $ident in $this {$ex}) => {
+        (for $ident in $this {$e}) => {
             var __iter: Box[Iterator[T]] = $this;
             var __current: Option[T];
             do {
                 (__iter, __current) = __iter.next();
                 match __current {
-                    Some($ident) => {$ex}
+                    Some($ident) => {$e}
                     default => break;
                 }
             } while true;

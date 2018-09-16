@@ -171,8 +171,13 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
             )
         (_, MacroVar vname t) -> do
           case find (\(name, _) -> name == vname) (tctxMacroVars tctx) of
-            Just (name, expr) -> r expr
-            Nothing           -> return ex
+            Just (name, expr) -> typeExpr
+              ctx
+              (tctx { tctxMacroVars = delete (name, expr) (tctxMacroVars tctx) }
+              )
+              mod
+              expr
+            Nothing -> return ex
 
     (TypeAnnotation e1 t) -> do
       r1 <- r e1
