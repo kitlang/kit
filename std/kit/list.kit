@@ -58,62 +58,87 @@ enum List[T] {
         return len;
     }
 
+    public function empty(): Bool {
+        match this {
+            Cons(_, _) => return false;
+            default => return true;
+        }
+    }
+
+    public function head(): T {
+        match this {
+            Cons(h, _) => return h;
+        }
+    }
+
+    public function tail(): List[T] {
+        match this {
+            Cons(_, t) => return t;
+        }
+    }
+
     rules {
-        (this.length) => this.getLength();
+        ($this.length) => $this.getLength();
 
-        /**
-         * Returns the first element of this list if the list is not empty, or None
-         * otherwise.
-         */
-        (this.head) => match this {
-            Cons(h, t) => Some(h);
-            Empty => None;
-        }
+        // /**
+        //  * Returns the first element of this list if the list is not empty, or None
+        //  * otherwise.
+        //  */
+        // (this.head) => match this {
+        //     Cons(h, t) => Some(h);
+        //     Empty => None;
+        // }
 
-        /**
-         * Returns the list without its first element. If the list is already empty,
-         * returns an empty list.
-         */
-        (this.tail) => match this {
-            Cons(h, t) => t;
-            Empty => Empty;
-        }
+        // /**
+        //  * Returns the list without its first element. If the list is already empty,
+        //  * returns an empty list.
+        //  */
+        // (this.tail) => match this {
+        //     Cons(h, t) => t;
+        //     Empty => Empty;
+        // }
 
-        /**
-         * Check whether the list is empty in constant time.
-         */
-        (this.empty) => match this {
-            Empty => true;
-            default => false;
-        }
+        // /**
+        //  * Check whether the list is empty in constant time.
+        //  */
+        // (this.empty) => match this {
+        //     Empty => true;
+        //     default => false;
+        // }
 
-        ((it: Iterable[T]) as Self) => {
-            var list = Empty;
-            for i in it {
-                list = i :: list;
-            }
-            list.reverse();
-        }
+        // ((it: Iterable[T]) as Self) => {
+        //     var list = Empty;
+        //     for i in it {
+        //         list = i :: list;
+        //     }
+        //     list.reverse();
+        // }
 
-        /**
-         * Use the cons operator to construct a list out of individual values:
-         *
-         *     var myList = 1 :: 2 :: 3 :: Empty;
-         *
-         * The cons operator is right associative, so this parses as:
-         *
-         *     var mList = 1 :: (2 :: (3 :: Empty));
-         */
-        ((head: T)::(tail: Self)) => Cons(head, tail);
+        // /**
+        //  * Use the cons operator to construct a list out of individual values:
+        //  *
+        //  *     var myList = 1 :: 2 :: 3 :: Empty;
+        //  *
+        //  * The cons operator is right associative, so this parses as:
+        //  *
+        //  *     var mList = 1 :: (2 :: (3 :: Empty));
+        //  */
+        // ((head: T)::(tail: Self)) => Cons(head, tail);
 
         // optimize List iteration at compile time when the type is known
-        (for $ident in this {$e}) => {
-            var __rest = this;
-            while !__rest.empty {
-                var $ident = __rest.head;
-                {$e}
-                __rest = __rest.tail;
-            }
+        (for $ident in $this {$e}) => {
+            var __rest = $this;
+            do {
+                match __rest {
+                    Cons($ident, t) => {
+                        {$e}
+                        __rest = t;
+                    }
+                    default => {
+                        break;
+                    }
+                }
+            } while true;
         }
     }
 }

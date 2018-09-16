@@ -77,7 +77,12 @@ function main() {
     printf("length = %zu\n", list.getLength());
 
     for current in list {
-        printf("for loop for iterator: %i\n", current);
+        printf("for loop over collection: %i\n", current);
+    }
+    printf("done\n");
+
+    for current in iterator {
+        printf("for loop over iterator: %i\n", current);
     }
     printf("done\n");
 
@@ -103,7 +108,7 @@ function main() {
         if x == 1 {
             continue;
         }
-        printf("for loop for iterable: %i\n", x);
+        printf("for loop over iterable: %i\n", x);
     }
     printf("done\n");
 }

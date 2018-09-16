@@ -20,10 +20,10 @@ function main() {
     var n: List[Int] = Cons(2, &m);
     var o = n.cons(3);
 
-    var len: Size = l.getLength();
+    var len: Size = l.length;
     printf("%lu\n", len);
     printf("%lu\n", o.getLength());
-    printf("%lu\n", n.getLength());
+    printf("%lu\n", n.length);
     printf("%lu\n", m.getLength());
 
     var l2: PrintingList = l as PrintingList;
