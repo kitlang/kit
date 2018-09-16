@@ -15,16 +15,9 @@ trait Iterable(IteratorT) {
     public function iterator(): Box[Iterator[IteratorT]];
 
     rules {
-        (for $ident in this {$e}) => {
-            var __iter = this.iterator();
-            var __current: Option[IteratorT];
-            do {
-                (__iter, __current) = __iter.next();
-                match __current {
-                    Some($ident) => $e;
-                    default => break;
-                }
-            } while true;
+        (for $ident in $this {$e}) => {
+            var __iterator: Box[Iterator[IteratorT]] = $this.iterator();
+            for $ident in __iterator {$e}
         }
     }
 }
@@ -35,6 +28,21 @@ trait Iterable(IteratorT) {
  */
 trait Iterator[T] {
     public function next(): (Box[Iterator[T]], Option[T]);
+
+    rules {
+        // FIXME: hygiene of macro vars
+        (for $ident in $this {$ex}) => {
+            var __iter: Box[Iterator[T]] = $this;
+            var __current: Option[T];
+            do {
+                (__iter, __current) = __iter.next();
+                match __current {
+                    Some($ident) => {$ex}
+                    default => break;
+                }
+            } while true;
+        }
+    }
 }
 
 struct CountdownIterator[T] {

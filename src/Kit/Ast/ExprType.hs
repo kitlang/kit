@@ -85,6 +85,7 @@ data ExprType a b
   | SizeOf b
   | Method a TypePath Str
   | Implicit b
+  | Temp a
   deriving (Eq, Show)
 
 exprDiscriminant :: ExprType a b -> Int
@@ -119,7 +120,7 @@ exprDiscriminant et = case et of
   Unsafe       _       -> 27
   BlockComment _       -> 28
   RangeLiteral _ _     -> 29
-  ArrayLiteral _      -> 30
+  ArrayLiteral _       -> 30
   VarDeclaration _ _ _ -> 31
   Defer _              -> 32
   Box         _ _      -> 33
@@ -130,6 +131,7 @@ exprDiscriminant et = case et of
   TupleSlot _ _        -> 38
   Method _ _ _         -> 39
   Implicit _           -> 40
+  Temp     _           -> 41
 
 exprChildren :: ExprType a b -> [a]
 exprChildren et = case et of
@@ -156,7 +158,7 @@ exprChildren et = case et of
   Cast        x _             -> [x]
   Unsafe x                    -> [x]
   RangeLiteral x y            -> [x, y]
-  ArrayLiteral x             -> x
+  ArrayLiteral x              -> x
   VarDeclaration _ _ (Just x) -> [x]
   Defer x                     -> [x]
   Box         _ x             -> [x]
@@ -165,6 +167,7 @@ exprChildren et = case et of
   TupleInit x                 -> x
   TupleSlot x _               -> [x]
   Method x _ _                -> [x]
+  Temp x                      -> [x]
   _                           -> []
 
 exprMapReduce :: (a -> c) -> (c -> d -> d) -> (a -> ExprType a b) -> d -> a -> d

@@ -19,7 +19,7 @@ data Binding
   | TypeBinding (TypeDefinition TypedExpr ConcreteType)
   | TraitBinding (TraitDefinition TypedExpr ConcreteType)
   | EnumConstructor (EnumVariant TypedExpr ConcreteType)
-  | RuleSetBinding (RuleSet Expr (Maybe TypeSpec))
+  | RuleSetBinding (RuleSet TypedExpr ConcreteType)
   | TypedefBinding ConcreteType Span
   deriving (Show, Eq)
 

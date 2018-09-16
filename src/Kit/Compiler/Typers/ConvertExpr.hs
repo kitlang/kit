@@ -103,8 +103,12 @@ convertExpr ctx tctx mod e = do
     PreUnop  op e1 -> container1 e1 (PreUnop op)
     PostUnop op e1 -> container1 e1 (PostUnop op)
     Binop op e1 e2 -> container2 e1 e2 (Binop op)
-    For   e1 e2 e3 -> container3 e1 e2 e3 (For)
-    While e1 e2 d  -> do
+    For   e1 e2 e3 -> do
+      r1 <- r e1
+      r2 <- r e2
+      r3 <- r e3
+      return $ m (For r1 r2 r3) voidType
+    While e1 e2 d -> do
       r1 <- r e1
       r2 <- r e2
       return $ m (While r1 r2 d) voidType
@@ -161,7 +165,7 @@ convertExpr ctx tctx mod e = do
       return $ m (Unsafe (r1 { inferredType = t })) t
     BlockComment s     -> return $ m (BlockComment s) voidType
     RangeLiteral e1 e2 -> container2 e1 e2 RangeLiteral
-    ArrayLiteral args -> do
+    ArrayLiteral args  -> do
       t    <- mtv
       args <- mapM r args
       return $ m (ArrayLiteral args) (TypeArray t $ Just $ length args)
@@ -194,3 +198,6 @@ convertExpr ctx tctx mod e = do
     Implicit (Just t) -> do
       t' <- resolveType ctx tctx mod t
       return $ m (Implicit t') t'
+    _ -> throwk $ InternalError
+      ("Can't convert expression: " ++ show (expr e))
+      (Just pos')

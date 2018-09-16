@@ -64,6 +64,7 @@ convertTraitDefinition paramConverter t = do
     (\f -> convertFunctionDefinition methodParamConverter
       $ f { functionName = traitSubPath t (tpName $ functionName f) }
     )
+  rules <- forM (traitRules t) $ convertRewriteRule converter
   return $ (newTraitDefinition) { traitName        = traitName t
                                 , traitPos         = traitPos t
                                 , traitDoc         = traitDoc t
@@ -72,6 +73,7 @@ convertTraitDefinition paramConverter t = do
                                 , traitParams      = traitParams t
                                 , traitAssocParams = traitAssocParams t
                                 , traitMethods     = methods
+                                , traitRules       = rules
                                 }
 
 valuePointerName :: Str

@@ -15,10 +15,10 @@ struct String {
         return s;
     }
 
-    rules {
-        (this as CString) => (this.chars as CString);
-        (${s: CString} as String) => String.fromCString($s);
-    }
+    // rules {
+    //     (this as CString) => (this.chars as CString);
+    //     (${s: CString} as String) => String.fromCString($s);
+    // }
 }
 
 // implement Iterable(Char) for String {
@@ -37,7 +37,7 @@ trait ToString {
     public function toString(): Ptr[String];
 
     rules {
-        (this as String) => (this.toString());
+        ($this as String) => ($this.toString());
     }
 }
 

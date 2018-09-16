@@ -141,7 +141,9 @@ typeIterative ctx input output limit = do
       ) :: IO
         (Either KitError (Maybe (Module, TypedDecl), [TypedDeclWithContext]))
     case result of
-      Left  e            -> return [Incomplete mod (d, tctx) (Just e)]
+      Left  e            -> do
+        noisyDebugLog ctx $ "typing failed"
+        return [Incomplete mod (d, tctx) (Just e)]
       Right (Nothing, x) -> return [ Incomplete mod xi Nothing | xi <- x ]
       Right (Just d, x) ->
         return $ (Complete d) : [ Incomplete mod xi Nothing | xi <- x ]

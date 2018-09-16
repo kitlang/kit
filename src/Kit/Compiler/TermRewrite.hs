@@ -7,13 +7,17 @@ import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.TypeContext
 import Kit.Compiler.TypedExpr
+import Kit.Compiler.Unify
+import Kit.Compiler.Utils
 import Kit.Error
 import Kit.HashTable
 import Kit.Log
 import Kit.Parser.Span
 import Kit.Str
 
-data TermRewriteError = TermRewriteError String [(String, RewriteRule Expr (Maybe TypeSpec))] Span deriving (Eq, Show)
+data TermRewriteError
+  = TermRewriteError String [(String, RewriteRule TypedExpr ConcreteType)] Span
+  deriving (Eq, Show)
 instance Errable TermRewriteError where
   logError e@(TermRewriteError msg rules pos) = do
     logErrorBasic e $ msg
@@ -27,21 +31,19 @@ rewriteExpr
   :: CompileContext
   -> TypeContext
   -> Module
-  -> RewriteRule Expr (Maybe TypeSpec)
+  -> RewriteRule TypedExpr ConcreteType
   -> TypedExpr
-  -> (TypeContext -> Expr -> IO TypedExpr)
+  -> (TypeContext -> TypedExpr -> IO TypedExpr)
   -> IO (Maybe TypedExpr)
 rewriteExpr ctx tctx mod rule te typer = do
-  match <- ruleMatch (rulePattern rule)
-                     te
-                     (tctxThis tctx)
-                     (resolveType ctx tctx mod)
+  match <- ruleMatch ctx tctx (rulePattern rule) te (ruleThis rule)
   case (match, ruleBody rule) of
     (Just x, Just body) -> do
-      let tctx' = tctx
-            { tctxActiveRules = (rule, tPos te) : tctxActiveRules tctx
-            , tctxMacroVars   = x ++ tctxMacroVars tctx
-            }
+      noisyDebugLog ctx $ "rule match at " ++ show (tPos te)
+      tctx <- return $ tctx
+        { tctxActiveRules = (rule, tPos te) : tctxActiveRules tctx
+        , tctxMacroVars   = x ++ tctxMacroVars tctx
+        }
       when ((length $ tctxActiveRules tctx) > ctxRecursionLimit ctx)
         $ let [firstRule, prevRule] = take 2 $ reverse $ tctxActiveRules tctx
           in
@@ -50,13 +52,13 @@ rewriteExpr ctx tctx mod rule te typer = do
                 "Maximum number of rewrite rule applications exceeded, starting here:"
                 (nubBy
                   (\(_, a) (_, b) -> a == b)
-                  [ ("Last matching rule:"    , rule)
-                  , ("Previous matching rule:", fst prevRule)
-                  , ("First matching rule:"   , fst firstRule)
+                  [ ("        Last matching rule:  ", rule)
+                  , ("    Previous matching rule:  ", fst prevRule)
+                  , ("       First matching rule:  ", fst firstRule)
                   ]
                 )
                 (snd firstRule)
-      t <- typer tctx' body
+      t <- typer tctx body
       return $ Just $ t { rewrittenBy = Just rule
                         , tPos = (tPos t) { rewrittenFrom = Just $ tPos te }
                         }
@@ -67,38 +69,44 @@ rewriteExpr ctx tctx mod rule te typer = do
 
   Returns Nothing on no match, or Just with a list of macro variable to
   expression bindings.
+
+  The expression discriminant and children will be compared automatically; if
+  an expression type contains anything else that should be compared, it needs
+  to be checked explicitly here.
 -}
 -- TODO: very incomplete
 ruleMatch
-  :: Expr
+  :: CompileContext
+  -> TypeContext
   -> TypedExpr
-  -> Maybe ConcreteType
-  -> (TypeSpec -> IO ConcreteType)
+  -> TypedExpr
+  -> Maybe TypedExpr
   -> IO (Maybe [RuleBinding])
-ruleMatch pattern te thisType typeResolver = do
+ruleMatch ctx tctx pattern te thisExpr = do
   let combineResults = foldM
         (\acc x -> case (acc, x) of
           (Just y, Just x) -> return $ Just (y ++ x)
           _                -> return Nothing
         )
         (Just [])
-  let r x y = ruleMatch x y thisType typeResolver
-  case (expr pattern, tExpr te) of
-    (Identifier (MacroVar x (Just t)), y) -> do
+  let r x y = ruleMatch ctx tctx x y thisExpr
+  case (tExpr pattern, tExpr te) of
+    (Identifier (MacroVar "this" _), y) -> do
+      case thisExpr of
+        Just thisExpr -> do
+          match <- unifyStrict ctx
+                               tctx
+                               (inferredType thisExpr)
+                               (inferredType te)
+          case match of
+            Just _  -> return $ Just [("this", te)]
+            Nothing -> return Nothing
+        Nothing -> return Nothing
+    (Identifier (MacroVar x t), y) -> do
       -- ${var: type} - match and bind only if the type matches
-      macroVarType <- typeResolver t
-      if macroVarType == inferredType te
+      if (t == TypeBasicType BasicTypeUnknown) || (t == inferredType te)
         then return $ Just [(x, te)]
         else return Nothing
-    (Identifier (MacroVar "this" Nothing), y) -> case thisType of
-      -- $this - match and bind if type matches "this" in context
-      Just thisType -> if thisType == inferredType te
-        then return $ Just [("this", te)]
-        else return Nothing
-      Nothing -> return $ Just [("this", te)]
-    (Identifier (MacroVar x Nothing), y) ->
-      -- $var - match and bind anything
-      return $ Just [(x, te)]
     (Identifier (Var x), Identifier (Var y)) ->
       return $ if x == y then Just [] else Nothing
     (Identifier _, Identifier _) -> return Nothing
@@ -118,12 +126,11 @@ ruleMatch pattern te thisType typeResolver = do
     (a, b) -> if exprDiscriminant a == exprDiscriminant b
       then
         let (c1, c2) = (exprChildren a, exprChildren b)
-        in
-          if length c1 == length c2
-            then do
-              children <- mapM
-                (\(pattern, te) -> ruleMatch pattern te thisType typeResolver)
-                (zip c1 c2)
-              combineResults children
-            else return Nothing
+        in  if length c1 == length c2
+              then do
+                children <- mapM
+                  (\(pattern, te) -> ruleMatch ctx tctx pattern te thisExpr)
+                  (zip c1 c2)
+                combineResults children
+              else return Nothing
       else return Nothing

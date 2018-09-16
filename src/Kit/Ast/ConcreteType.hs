@@ -189,3 +189,6 @@ substituteParam [] s = return $ TypeTypeParam s
 
 isPtr (TypePtr _) = True
 isPtr _           = False
+
+isTypeVar (TypeTypeVar _) = True
+isTypeVar _               = False

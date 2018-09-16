@@ -598,12 +598,11 @@ RewriteExpr :: {Expr}
   | StandaloneExpr {$1}
 
 RewriteRule :: {RewriteRule Expr (Maybe TypeSpec)}
-  : MaybeDoc rule '(' RewriteExpr ')' TypeAnnotation OptionalRuleBody {
-    RewriteRule {
+  : MaybeDoc rule '(' RewriteExpr ')' OptionalRuleBody {
+    newRewriteRule {
       ruleDoc = $1,
       rulePattern = $4,
-      ruleType = fst $6,
-      ruleBody = $7,
+      ruleBody = $6,
       rulePos = snd $2 <+> snd $5
     }
   }
@@ -616,12 +615,11 @@ ShortRules :: {[RewriteRule Expr (Maybe TypeSpec)]}
   | ShortRules ShortRule {$2 : $1}
 
 ShortRule :: {RewriteRule Expr (Maybe TypeSpec)}
-  : MaybeDoc '(' RewriteExpr ')' TypeAnnotation OptionalRuleBody {
+  : MaybeDoc '(' RewriteExpr ')' OptionalRuleBody {
     newRewriteRule {
       ruleDoc = $1,
       rulePattern = $3,
-      ruleType = fst $5,
-      ruleBody = $6,
+      ruleBody = $5,
       rulePos = snd $2 <+> snd $4
     }
   }

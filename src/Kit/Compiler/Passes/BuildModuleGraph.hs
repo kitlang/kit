@@ -310,9 +310,9 @@ addStmtToModuleInterface ctx mod s = do
     RuleSetDeclaration r -> do
       let name = tpName $ ruleSetName r
       let tp   = (modPath mod, name)
-      let r'   = r { ruleSetName = tp }
+      r' <- convertRuleSet interfaceConverter $ r { ruleSetName = tp }
       addToInterface ctx mod name (RuleSetBinding $ r') False False
-      return [DeclRuleSet $ r']
+      return [DeclRuleSet $ r { ruleSetName = tp }]
 
     Specialize a b -> do
       modifyIORef (modSpecializations mod) (\l -> ((a, b), stmtPos s) : l)

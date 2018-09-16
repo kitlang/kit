@@ -12,13 +12,13 @@ list iterator for loop iteration
 length = 3
 list iterator: next
 returning 1
-for loop: 1
+for loop for iterator: 1
 list iterator: next
 returning 2
-for loop: 2
+for loop for iterator: 2
 list iterator: next
 returning 3
-for loop: 3
+for loop for iterator: 3
 list iterator: next
 empty
 done
@@ -38,10 +38,10 @@ struct iterator: next
 returning 1
 struct iterator: next
 returning 2
-for loop: 2
+for loop for iterable: 2
 struct iterator: next
 returning 3
-for loop: 3
+for loop for iterable: 3
 struct iterator: next
 empty
 done

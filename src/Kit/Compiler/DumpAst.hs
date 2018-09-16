@@ -219,9 +219,7 @@ dumpAst ctx indent e@(TypedExpr { tExpr = texpr, inferredType = t, tPos = pos })
       BoxedValue  _ x       -> i "box value" [x]
       _                     -> return $ f $ "??? " ++ show texpr
 
-    return $ result ++ if null (tTemps e)
-      then ""
-      else " [" ++ show (length $ tTemps e) ++ " temp values]"
+    return $ result
 
 dumpCt :: CompileContext -> ConcreteType -> IO String
 dumpCt ctx t = case t of

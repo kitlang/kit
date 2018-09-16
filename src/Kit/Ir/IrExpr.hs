@@ -1,5 +1,9 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Kit.Ir.IrExpr where
 
+import Data.Hashable
+import GHC.Generics
 import Kit.Str
 import Kit.Ast
 import Kit.Parser.Span
@@ -29,4 +33,12 @@ data IrExpr
   | IrTupleInit BasicType [IrExpr]
   | IrSizeOf BasicType
   | IrSwitch IrExpr [(IrExpr, IrExpr)] (Maybe IrExpr)
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
+
+instance Hashable IrExpr
+
+instance (Hashable t) => Hashable (ValueLiteral t) where
+  hashWithSalt salt (BoolValue b) = (hashWithSalt salt b)
+  hashWithSalt salt (IntValue i t) = (hashWithSalt salt i) + (hashWithSalt salt t)
+  hashWithSalt salt (FloatValue s t) = (hashWithSalt salt s) + (hashWithSalt salt t)
+  hashWithSalt salt (StringValue s) = (hashWithSalt salt s)

@@ -28,8 +28,8 @@ type TypedDeclWithContext = (TypedDecl, TypeContext)
 data TypeContext = TypeContext {
   tctxScopes :: [Scope Binding],
   tctxMacroVars :: [(Str, TypedExpr)],
-  tctxRules :: [RuleSet Expr (Maybe TypeSpec)],
-  tctxActiveRules :: [(RewriteRule Expr (Maybe TypeSpec), Span)],
+  tctxRules :: [RuleSet TypedExpr ConcreteType],
+  tctxActiveRules :: [(RewriteRule TypedExpr ConcreteType, Span)],
   tctxReturnType :: Maybe ConcreteType,
   tctxThis :: Maybe ConcreteType,
   tctxSelf :: Maybe ConcreteType,
@@ -37,8 +37,7 @@ data TypeContext = TypeContext {
   tctxTypeParams :: [(TypePath, ConcreteType)],
   tctxLoopCount :: Int,
   tctxRewriteRecursionDepth :: Int,
-  tctxState :: TypeContextState,
-  tctxTemps :: Maybe (IORef [TypedExpr])
+  tctxState :: TypeContextState
 }
 
 data TypeContextState
@@ -59,7 +58,6 @@ newTypeContext scopes = do
     , tctxTypeParams            = []
     , tctxLoopCount             = 0
     , tctxRewriteRecursionDepth = 0
-    , tctxTemps                 = Nothing
     , tctxState                 = TypingExpression
     }
 
@@ -187,8 +185,8 @@ follow ctx tctx t = do
     TypeSelf -> do
       case tctxSelf tctx of
         Just TypeSelf -> return TypeSelf
-        Just x  -> follow ctx tctx x
-        Nothing -> return TypeSelf
+        Just x        -> follow ctx tctx x
+        Nothing       -> return TypeSelf
     TypeTypeParam p -> do
       case resolveTypeParam p (tctxTypeParams tctx) of
         Just (TypeTypeParam q) | p == q -> return $ TypeTypeParam p
@@ -388,9 +386,3 @@ typeUnresolved ctx tctx ct = do
   case t of
     TypeTypeVar _ -> return True
     _             -> return False
-
-addTemps :: TypeContext -> [TypedExpr] -> IO ()
-addTemps tctx temps = case tctxTemps tctx of
-  Just v -> do
-    modifyIORef v (\val -> val ++ reverse temps)
-  Nothing -> return ()

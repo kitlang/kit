@@ -22,13 +22,13 @@ import Kit.Parser
 import Kit.Str
 
 tryAutoRefDeref ctx tctx toType ex = do
-  x <- _autoRefDeref ctx tctx toType (inferredType ex) [] ex
+  x <- _autoRefDeref ctx tctx toType (inferredType ex) ex
   case x of
     Just x  -> return x
     Nothing -> return ex
 
 autoRefDeref ctx tctx toType ex =
-  _autoRefDeref ctx tctx toType (inferredType ex) [] ex
+  _autoRefDeref ctx tctx toType (inferredType ex) ex
 
 {-
   Used to automatically perform specific implicit conversions:
@@ -45,39 +45,35 @@ _autoRefDeref
   -> TypeContext
   -> ConcreteType
   -> ConcreteType
-  -> [TypedExpr]
   -> TypedExpr
   -> IO (Maybe TypedExpr)
-_autoRefDeref ctx tctx toType fromType temps ex = do
-  let finalizeResult ex = do
-        addTemps tctx temps
-        return $ Just ex
+_autoRefDeref ctx tctx toType fromType ex = do
   toType   <- mapType (follow ctx tctx) toType
   fromType <- mapType (follow ctx tctx) fromType
   result   <- unify ctx tctx toType fromType
   case result of
-    Just _ -> finalizeResult ex
+    Just _ -> return $ Just ex
     _      -> case (toType, fromType) of
       (TypeBox tp params, b) -> do
         x <- makeBox ctx tctx tp params ex
         case x of
-          Just x  -> finalizeResult x
+          Just x  -> return $ Just x
           Nothing -> return Nothing
-      (TypePtr a, TypePtr b) -> _autoRefDeref ctx tctx a b temps ex
+      (TypePtr a, TypePtr b) -> _autoRefDeref ctx tctx a b ex
       (TypePtr a, b        ) -> case addRef ex of
-        Just x  -> _autoRefDeref ctx tctx a b temps x
+        Just x  -> _autoRefDeref ctx tctx a b x
         Nothing -> return Nothing
       (a, TypePtr (TypeBasicType BasicTypeVoid)) ->
         -- don't try to deref a void pointer
         return Nothing
       (a, TypePtr b) -> case addDeref ex of
-        Just x  -> _autoRefDeref ctx tctx a b temps x
+        Just x  -> _autoRefDeref ctx tctx a b x
         Nothing -> return Nothing
       (TypeTuple a, TypeTuple b) | (length a == length b) && (isTupleInit ex) ->
         case tExpr ex of
           TupleInit t -> do
             parts <- forM (zip t (zip a b)) $ \(val, (toType, fromType)) ->
-              _autoRefDeref ctx tctx toType fromType temps val
+              _autoRefDeref ctx tctx toType fromType val
             if all isJust parts
               then do
                 forMWithErrors_ (zip parts a) $ \(Just part, t) -> do
@@ -89,9 +85,9 @@ _autoRefDeref ctx tctx toType fromType temps ex = do
                             "Tuple parts must match declared type"
                             (tPos part)
                     )
-                finalizeResult $ makeExprTyped (TupleInit $ catMaybes parts)
-                                               (TypeTuple a)
-                                               (tPos ex)
+                return $ Just $ makeExprTyped (TupleInit $ catMaybes parts)
+                                              (TypeTuple a)
+                                              (tPos ex)
               else return Nothing
       _ -> return Nothing
 
@@ -123,10 +119,7 @@ makeBox ctx tctx tp params ex = do
             , tIsLocalPtr  = tIsLocal ref
             }
         Nothing -> return Nothing
-    Nothing -> do
-      lvalue <- makeLvalue tctx ex
-      case lvalue of
-        Just lvalue -> makeBox ctx tctx tp params lvalue
+    Nothing -> makeBox ctx tctx tp params (makeLvalue ex)
 
 addRef :: TypedExpr -> Maybe TypedExpr
 addRef ex@(TypedExpr { tExpr = PreUnop Deref inner }) = Just inner
@@ -142,28 +135,9 @@ addDeref ex = case inferredType ex of
   TypePtr x -> Just $ makeExprTyped (PreUnop Deref ex) x (tPos ex)
   _         -> Nothing
 
-makeLvalue :: TypeContext -> TypedExpr -> IO (Maybe TypedExpr)
-makeLvalue tctx ex = do
-  case tctxTemps tctx of
-    Just v -> do
-      tmp <- makeTmpVar (head $ tctxScopes tctx)
-      let temp =
-            ((makeExprTyped
-               (VarDeclaration (Var ([], tmp))
-                               (inferredType ex)
-                               (Just $ ex { tTemps = [] })
-               )
-               (inferredType ex)
-               (tPos ex)
-             ) { tIsLocal = True
-               }
-            )
-      addTemps tctx [temp]
-      return $ Just (makeExprTyped (Identifier (Var ([], tmp)))
-                                   (inferredType ex)
-                                   (tPos ex)
-                    )
-        { tIsLvalue = True
-        , tIsLocal  = True
-        }
-    Nothing -> return Nothing
+makeLvalue :: TypedExpr -> TypedExpr
+makeLvalue ex =
+  ((makeExprTyped (Temp ex) (inferredType ex) (tPos ex)) { tIsLocal  = True
+                                                         , tIsLvalue = True
+                                                         }
+  )

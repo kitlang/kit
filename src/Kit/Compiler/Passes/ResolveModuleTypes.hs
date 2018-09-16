@@ -376,12 +376,13 @@ resolveTypesForMod ctx (mod, contents) = do
                   "Trait method return type must match its annotation"
                   "Trait method argument type must match its annotation"
                 )
-              addBinding ctx (traitName t) $ TraitBinding converted
+              addBinding ctx (traitName converted) $ TraitBinding converted
               return $ Just $ (DeclTrait converted, tctx')
 
             (RuleSetBinding ri, DeclRuleSet r) -> do
               -- RuleSets are untyped
               let tp = (modPath mod, tpName $ ruleSetName ri)
+              r <- convertRuleSet varConverter r
               addBinding ctx (ruleSetName r) $ RuleSetBinding $ r
                 { ruleSetName = tp
                 }

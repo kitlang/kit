@@ -9,13 +9,13 @@ abstract Null[T]: Ptr[T] {
         (this.isNull()) => (this as Ptr[T]) == 0;
         (null : Null[T]) => 0;
 
-        (*this): T => if this.isNull() {
-            throw NulIdentifierError;
+        (*this) => if this.isNull() {
+            throw NullIdentifierError;
         } else {
             *(this as Ptr[T]);
         }
 
-        (this ?? (other: Ptr[T])): Null[T] => if this.isNull() {
+        (this ?? (other: Ptr[T])) => if this.isNull() {
             other;
         } else {
             this;
@@ -32,7 +32,7 @@ abstract Null[T]: Ptr[T] {
 /**
  * Thrown when attempting to use a null value.
  */
-atom NulIdentifierError;
+atom NullIdentifierError;
 
 /**
  * A smart pointer to type T. When this pointer goes out of scope, the

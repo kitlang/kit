@@ -10,23 +10,23 @@ data TypedExpr = TypedExpr {
   inferredType :: ConcreteType,
   tImplicits :: [TypedExpr],
   tPos :: Span,
-  rewrittenBy :: Maybe (RewriteRule (Expr) (Maybe TypeSpec)),
+  rewrittenBy :: Maybe (RewriteRule TypedExpr ConcreteType),
   tIsLvalue :: Bool,
   tIsLocal :: Bool,
   tIsLocalPtr :: Bool,
-  tTemps :: [TypedExpr]
+  tImplicitRules :: [RewriteRule TypedExpr ConcreteType]
   -- tSubTypes :: [ConcreteType]
 } deriving (Eq, Show)
 
 makeExprTyped :: TypedExprType -> ConcreteType -> Span -> TypedExpr
 makeExprTyped et t pos = TypedExpr
-  { tExpr        = et
-  , inferredType = t
-  , tImplicits   = []
-  , tPos         = pos
-  , rewrittenBy  = Nothing
-  , tIsLvalue    = False
-  , tIsLocal     = False
-  , tIsLocalPtr  = False
-  , tTemps       = []
+  { tExpr          = et
+  , inferredType   = t
+  , tImplicits     = []
+  , tPos           = pos
+  , rewrittenBy    = Nothing
+  , tIsLvalue      = False
+  , tIsLocal       = False
+  , tIsLocalPtr    = False
+  , tImplicitRules = []
   }

@@ -24,10 +24,29 @@ rules Reduce {
 
 struct MyStruct {
     var myField: Int;
+
+    rules {
+        ($this.property) => $this.myField;
+    }
 }
 
-rules StructRules {
-    (${s: MyStruct}.property) => $s.myField;
+trait MyTrait {
+    public function doSomething(): Void;
+
+    rules {
+        ($this.propertyWithSideEffects) => $this.doSomething();
+        (for i in $this {$e}) => {
+            printf("%s\n", "tried to iterate over MyTrait");
+            $this.doSomething();
+            $e;
+        }
+    }
+}
+
+implement MyTrait for MyStruct {
+    public function doSomething() {
+        printf("%s\n", "this is MyStruct's MyTrait implementation");
+    }
 }
 
 function main() {
@@ -60,7 +79,12 @@ function main() {
     }
 
     var s = struct MyStruct {myField: 5};
-    using rules StructRules {
-        printf("%i\n", s.property);
+    printf("%i\n", s.myField);
+    printf("%i\n", s.property);
+
+    var box: Box[MyTrait] = s;
+    box.propertyWithSideEffects;
+    for i in box {
+        printf("hello\n");
     }
 }

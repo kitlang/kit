@@ -21,12 +21,12 @@ enum Option[T] {
     rules {
         (this.isSome()) => !this.isNone();
 
-        (this.unwrap()): T => match this {
+        (this.unwrap()) => match this {
             Some(v) => v;
             default => throw NoValueError;
         }
 
-        (this ?? (other: T)): T => match this {
+        (this ?? (other: T)) => match this {
             Some(v) => v;
             default => other;
         }

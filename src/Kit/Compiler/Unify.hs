@@ -27,9 +27,9 @@ instance Errable UnificationError where
                                   let varPos = head $ typeVarPositions info
                                   displayFileSnippet varPos
                                 _ -> ePutStrLn $ show x
-    ePutStr $ "Expected type:  "
+    ePutStr $ "    Expected type:  "
     showConstraint a
-    ePutStr $ "  Actual type:  "
+    ePutStr $ "      Actual type:  "
     showConstraint b
     ePutStrLn ""
   errPos (UnificationError _ (TypeEq _ _ _ pos)) = Just pos

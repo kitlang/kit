@@ -26,7 +26,8 @@ import Kit.Str
 
 generateDeclIr :: CompileContext -> Module -> TypedDecl -> IO [DeclBundle]
 generateDeclIr ctx mod t = do
-  let converter' = converter (typedToIr ctx mod)
+  ictx <- newIrContext
+  let converter' = converter (typedToIr ctx ictx mod)
                              (\pos -> findUnderlyingType ctx mod (Just pos))
   let paramConverter = \p -> converter'
   case t of
@@ -37,7 +38,7 @@ generateDeclIr ctx mod t = do
       let name = typeName def
 
       debugLog ctx $ "generating IR for type " ++ (s_unpack $ showTypePath name)
-      converted    <- convertTypeDefinition paramConverter def
+      converted <- convertTypeDefinition paramConverter $ def { typeRules = [] }
       staticFields <- forM (typeStaticFields def)
                            (\field -> generateDeclIr ctx mod $ DeclVar field)
       staticMethods <- forM
@@ -175,8 +176,9 @@ generateDeclIr ctx mod t = do
     DeclTrait (TraitDefinition { traitMethods = [] }) -> return []
     DeclTrait trait' -> do
       let trait = trait'
-            { traitName = monomorphName (traitName trait')
-                                        (traitMonomorph trait')
+            { traitName  = monomorphName (traitName trait')
+                                         (traitMonomorph trait')
+            , traitRules = []
             }
       let name = traitName trait
       debugLog ctx

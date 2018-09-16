@@ -18,7 +18,6 @@ import Kit.Compiler.TypedExpr
 import Kit.Compiler.Typers.AutoRefDeref
 import Kit.Compiler.Typers.Base
 import Kit.Compiler.Typers.ConvertExpr
-import Kit.Compiler.Typers.ForLoopIteration
 import Kit.Compiler.Typers.TypeLiteral
 import Kit.Compiler.Typers.TypeOp
 import Kit.Compiler.Unify
@@ -66,37 +65,44 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         Nothing -> return Nothing
   let resolve constraint = resolveConstraint ctx tctx constraint
   let unknownTyped x = makeExprTyped x (TypeBasicType BasicTypeUnknown) pos
-  let tryRewrite x y = do
-        result <- foldM
-          (\acc rule -> case acc of
-            Just x  -> return $ Just x
-            Nothing -> rewriteExpr
-              ctx
-              tctx
-              mod
-              rule
-              x
-              (\tctx ex -> do
-                body <- convertExpr ctx tctx mod ex
-                typeExpr ctx tctx mod body
-              )
-          )
-          Nothing
-          [ rule | ruleset <- tctxRules tctx, rule <- ruleSetRules ruleset ]
-        case result of
-          Just x  -> return x
-          Nothing -> y
-  -- let throwk e = partialTyping ex et e
+  let
+    tryRewrite x y = do
+      ownRules <- ownRules ctx x
+      let implicitRules =
+            nub
+              $  ownRules
+              ++ (foldr (++) [] $ map tImplicitRules $ exprChildren $ tExpr x)
+      result <- foldM
+        (\acc rule -> do
+          let thisType = case ruleThis rule of
+                Just x  -> inferredType x
+                Nothing -> TypeBasicType BasicTypeUnknown
+          tctx <- case thisType of
+            TypeInstance tp params -> do
+              params <- makeGeneric ctx tp (tPos x) params
+              return $ addTypeParams tctx params
+            TypeBox tp params -> do
+              params <- makeGeneric ctx tp (tPos x) params
+              return $ addTypeParams tctx params
+            _ -> return tctx
+          case acc of
+            Just x -> return $ Just x
+            Nothing ->
+              rewriteExpr ctx tctx mod rule x (\tctx -> typeExpr ctx tctx mod)
+        )
+        Nothing
+        (  implicitRules
+        ++ [ rule | ruleset <- tctxRules tctx, rule <- ruleSetRules ruleset ]
+        )
+      case result of
+        Just x  -> r x
+        Nothing -> y
 
   result <- case et of
     (Block children) -> do
       blockScope <- newScope
-      let tctx' = tctx { tctxScopes = blockScope : tctxScopes tctx }
-      typedChildren <- forMWithErrors children $ \child -> do
-        tmp    <- newIORef []
-        result <- typeExpr ctx (tctx' { tctxTemps = Just tmp }) mod child
-        temps  <- readIORef tmp
-        return $ result { tTemps = temps }
+      tctx <- return $ tctx { tctxScopes = blockScope : tctxScopes tctx }
+      typedChildren <- forMWithErrors children $ typeExpr ctx tctx mod
       return $ makeExprTyped (Block typedChildren)
         --(if children == [] then voidType else inferredType $ last typedChildren)
                                                    (voidType) pos
@@ -152,7 +158,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           return ex
         (_, Var vname) -> do
           tryRewrite
-            (unknownTyped $ Identifier v)
+            ex
             (do
               binding <- resolveVar ctx (tctxScopes tctx) mod (tpName vname)
               case binding of
@@ -164,23 +170,20 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                   pos
             )
         (_, MacroVar vname t) -> do
-          tryRewrite
-            (unknownTyped $ Identifier v)
-            (do
-              case find (\(name, _) -> name == vname) (tctxMacroVars tctx) of
-                Just (name, expr) -> r expr
-                Nothing           -> return ex
-            )
+          case find (\(name, _) -> name == vname) (tctxMacroVars tctx) of
+            Just (name, expr) -> r expr
+            Nothing           -> return ex
 
     (TypeAnnotation e1 t) -> do
       r1 <- r e1
-      tryRewrite (unknownTyped $ TypeAnnotation r1 t) $ do
+      let e = r1 { inferredType = t }
+      tryRewrite e $ do
         resolve $ TypeEq
           (inferredType r1)
           t
           "Annotated expressions must match their type annotation"
           (tPos r1)
-        return $ r1 { inferredType = t }
+        return e
 
     (PreUnop Ref e1@(TypedExpr { tExpr = This })) -> do
       -- referencing `this` gives us a pointer that's also an lvalue
@@ -223,25 +226,11 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                       "Tuple contents must match variables in tuple assignment"
                       pos
 
-                  tupleExpr <- if tIsLvalue r2
-                    then return r2
-                    else do
-                      tmp <- makeTmpVar (head $ tctxScopes tctx)
-                      let tmpAssignment = makeExprTyped
-                            (VarDeclaration (Var ([], tmp))
-                                            (inferredType r2)
-                                            (Just r2)
-                            )
-                            (inferredType r2)
-                            (tPos r2)
-                      case tctxTemps tctx of
-                        Just v -> do
-                          modifyIORef v (\val -> val ++ [tmpAssignment])
-                      return
-                        $ (makeExprTyped (Identifier $ Var ([], tmp))
-                                         (inferredType r2)
-                                         pos
-                          )
+                  let
+                    tupleExpr = if tIsLvalue r2
+                      then r2
+                      else (makeExprTyped (Temp r2) (inferredType r2) (tPos r2)) { tIsLocal = True
+                                                                                 }
 
                   let boundSlots = filter
                         (\(i, (a, b)) -> tExpr a /= Identifier Hole)
@@ -261,18 +250,23 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
                   return $ (makeExprTyped (Block slots) (inferredType r2) pos)
                 else throwk $ TypingError
-                  "Tuples can only be assigned to tuples of the same size"
+                  ("Tuples can only be assigned to tuples of the same size; actual type: "
+                  ++ show (inferredType r2)
+                  )
                   pos
               _ -> throwk $ TypingError
-                "Tuples can only be assigned to matching tuples"
+                ("Tuples can only be assigned to matching tuples; actual type: "
+                ++ show (inferredType r2)
+                )
                 pos
           _ -> do
             r1        <- r e1
             converted <- tryAutoRefDeref ctx tctx (inferredType r1) r2
-            resolve $ TypeEq (inferredType r1)
-                             (inferredType converted)
-                             "Both sides of an assignment must unify"
-                             pos
+            resolve $ TypeEq
+              (inferredType r1)
+              (inferredType converted)
+              "Assigned value must match the type of the lvalue it's assigned to"
+              (tPos converted)
             return $ makeExprTyped (Binop Assign r1 converted)
                                    (inferredType r1)
                                    pos
@@ -280,10 +274,11 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       r1 <- r e1
       r2 <- r e2
       tryRewrite (unknownTyped $ Binop (AssignOp op) r1 r2) $ do
-        resolve $ TypeEq (inferredType r1)
-                         (inferredType r2)
-                         "Both sides of an assignment must unify"
-                         pos
+        resolve $ TypeEq
+          (inferredType r1)
+          (inferredType r2)
+          "Assigned value must match the type of the lvalue it's assigned to"
+          (tPos r2)
         return $ makeExprTyped
           (Binop Assign
                  r1
@@ -354,15 +349,38 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
             e3
 
           return $ makeExprTyped (For e1 r2 r3) voidType pos
+
         _ -> do
-          box <- autoRefDeref ctx tctx (TypeBox typeClassIterablePath [tv]) r2
-          case box of
-            Just box -> do
-              makeGeneric ctx typeOptionPath pos [tv]
-              r $ iterationTransform box tv pos e1 e3
-            _ -> throwk $ TypingError
-              "For statements must iterate over an `Iterable` type"
-              pos
+          tryRewrite (makeExprTyped (For e1 r2 e3) voidType pos) $ do
+            let
+              tryIterable = do
+                -- try to convert to an Iterable
+                let
+                  fail = throwk $ TypingError
+                    "For statements must iterate over a supported type, such as `Iterator` or `Iterable`"
+                    pos
+                box <- autoRefDeref ctx
+                                    tctx
+                                    (TypeBox typeClassIterablePath [])
+                                    r2
+                case box of
+                  Just box -> do
+                    tryRewrite (makeExprTyped (For e1 box e3) voidType pos)
+                      $ fail
+                  Nothing -> fail
+            -- try to convert to an Iterator
+            box <- autoRefDeref ctx tctx (TypeBox typeClassIteratorPath [tv]) r2
+            case box of
+              Just box -> do
+                tryRewrite (makeExprTyped (For e1 box e3) voidType pos)
+                  $ tryIterable
+              Nothing -> tryIterable
+
+    (For e1 e2 e3) -> do
+      r1 <- typeExpr ctx (tctx { tctxState = TypingPattern }) mod e1
+      case tExpr r1 of
+        Identifier (Var _) -> r $ makeExprTyped (For r1 e2 e3) voidType pos
+        _ -> throwk $ TypingError ("Invalid for loop iterable") (tPos r1)
 
     (While e1 e2 d) -> do
       r1    <- r e1
@@ -1054,11 +1072,27 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           )
           pos
 
+    (Temp x) -> do
+      rx <- r x
+      return
+        $ (makeExprTyped (Temp rx) (inferredType rx) pos) { tIsLocal = True }
+
     _ -> return $ ex
 
-  t' <- mapType (follow ctx tctx) $ inferredType result
-  let result' = result { inferredType = t' }
-  tryRewrite result' (return result')
+  t'       <- mapType (follow ctx tctx) $ inferredType result
+  result   <- return $ result { inferredType = t' }
+  ownRules <- ownRules ctx result
+  result   <- return $ result { tImplicitRules = ownRules }
+  tryRewrite result $ return result
+
+ownRules ctx this = case inferredType this of
+  TypeInstance tp params -> do
+    def <- getTypeDefinition ctx tp
+    return $ [ rule { ruleThis = Just this } | rule <- typeRules def ]
+  TypeBox tp params -> do
+    def <- getTraitDefinition ctx tp
+    return $ [ rule { ruleThis = Just this } | rule <- traitRules def ]
+  _ -> return []
 
 alignCallArgs
   :: CompileContext

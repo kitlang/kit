@@ -25,20 +25,47 @@ import Kit.Ir
 import Kit.Parser
 import Kit.Str
 
-maybeTypedToIr ctx mod e = case e of
+data IrContext = IrContext {
+  ictxTemps :: HashTable IrExpr Str,
+  ictxTempInfo :: HashTable Int (BasicType, Maybe IrExpr),
+  ictxNextTempId :: IORef Int
+}
+
+newIrContext :: IO IrContext
+newIrContext = do
+
+  temps      <- h_new
+  tempInfo   <- h_new
+  nextTempId <- newIORef 1
+  return $ IrContext
+    { ictxTemps      = temps
+    , ictxTempInfo   = tempInfo
+    , ictxNextTempId = nextTempId
+    }
+
+makeIrTempVar :: IrContext -> IO Int
+makeIrTempVar ictx = do
+  next <- readIORef $ ictxNextTempId ictx
+  modifyIORef (ictxNextTempId ictx) ((+) 1)
+  return next
+
+irTempName :: Int -> Str
+irTempName i = s_concat ["__tmp", s_pack $ show i]
+
+maybeTypedToIr ctx ictx mod e = case e of
   Just ex -> do
-    t <- typedToIr ctx mod ex
+    t <- typedToIr ctx ictx mod ex
     return $ Just t
   Nothing -> return Nothing
 
-typedToIr :: CompileContext -> Module -> TypedExpr -> IO IrExpr
-typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
-  do
+typedToIr :: CompileContext -> IrContext -> Module -> TypedExpr -> IO IrExpr
+typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t })
+  = do
     let converter' = converter
-          (typedToIr ctx mod)
+          (typedToIr ctx ictx mod)
           (\pos -> findUnderlyingType ctx mod (Just pos))
     let paramConverter = \p -> converter'
-    let r x = typedToIr ctx mod x
+    let r x = typedToIr ctx ictx mod x
     let maybeR x = case x of
           Just x -> do
             r' <- r x
@@ -48,11 +75,29 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
 
     case et of
       (Block children) -> do
-        children' <- forMWithErrors children $ \child -> do
-          temps  <- mapMWithErrors r $ tTemps child
-          result <- r child
-          return $ temps ++ [result]
-        return $ IrBlock $ foldr (++) [] children'
+        ictx      <- newIrContext
+        children  <- forMWithErrors children $ typedToIr ctx ictx mod
+        lastId    <- readIORef (ictxNextTempId ictx)
+        tempDecls <- forM [1 .. lastId - 1] $ \i -> do
+          (tempType, tempDefault) <- h_get (ictxTempInfo ictx) i
+          return $ IrVarDeclaration (irTempName i) tempType tempDefault
+        return $ IrBlock $ tempDecls ++ children
+      (Temp x) -> do
+        t        <- findUnderlyingType ctx mod (Just pos) $ inferredType x
+        x        <- r x
+        existing <- h_lookup (ictxTemps ictx) x
+        case existing of
+          Just s  -> return $ IrIdentifier ([], s)
+          Nothing -> do
+            nextId <- makeIrTempVar ictx
+            h_insert (ictxTemps ictx) x (irTempName nextId)
+            if tIsLvalue e
+              then do
+                h_insert (ictxTempInfo ictx) nextId (t, Just x)
+                return $ IrIdentifier ([], irTempName nextId)
+              else do
+                h_insert (ictxTempInfo ictx) nextId (t, Nothing)
+                return $ IrBinop Assign (IrIdentifier ([], irTempName nextId)) x
       (Using _ e1            ) -> r e1
       (Meta  m e1            ) -> r e1
       (Literal (IntValue v _)) -> do
@@ -122,11 +167,13 @@ typedToIr ctx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }) =
         r1 <- r e1
         return $ stringCompare r1 s
       (Binop Assign e1 (TypedExpr { tExpr = ArrayLiteral values })) -> do
-        r1 <- r e1
+        r1     <- r e1
         values <- mapM r values
         -- TODO: could use appropriately sized int type for index
         return $ IrBlock
-          [ IrBinop Assign (IrArrayAccess r1 (IrLiteral $ IntValue i BasicTypeCSize)) val
+          [ IrBinop Assign
+                    (IrArrayAccess r1 (IrLiteral $ IntValue i BasicTypeCSize))
+                    val
           | (i, val) <- zip [0 ..] values
           ]
       (Binop op e1 e2) -> do

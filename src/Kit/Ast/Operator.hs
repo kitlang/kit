@@ -1,5 +1,9 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Kit.Ast.Operator where
 
+import Data.Hashable
+import GHC.Generics
 import Kit.Str
 
 data Operator
@@ -31,7 +35,9 @@ data Operator
   | Assign
   | AssignOp Operator
   | Custom Str
-  deriving (Eq)
+  deriving (Eq, Generic)
+
+instance Hashable Operator
 
 instance Show Operator where
   show op = case op of

@@ -129,8 +129,8 @@ convertTypeDefinition paramConverter t = do
     )
 
   mono <- forM (typeMonomorph t) $ typeConverter (typePos t)
+  rules <- forM (typeRules t) $ convertRewriteRule converter
 
-  -- since they are untyped, rulesets will not be converted and will be lost
   return $ (newTypeDefinition) { typeName          = typeName t
                                , typeMonomorph     = mono
                                , typeBundle        = typeBundle t
@@ -143,6 +143,7 @@ convertTypeDefinition paramConverter t = do
                                , typeStaticFields  = staticFields
                                , typeStaticMethods = staticMethods
                                , typeMethods       = instanceMethods
+                               , typeRules = rules
                                }
 
 enumIsSimple enum = all variantIsSimple $ enumVariants enum
