@@ -35,6 +35,17 @@ enum FruitQuantity {
     Boxes(i: Int, f: Fruit);
 }
 
+struct StructA {
+    var a: Int;
+    var b: CString;
+    var c: StructB;
+}
+
+struct StructB {
+    var d: Int;
+    var e: CString;
+}
+
 
 function matchEnumSimple(e) {
     match e {
@@ -71,6 +82,22 @@ function matchEnumComplex(v) {
         Boxes(i, Apple) => printf("%i boxes of apples\n", i);
         Boxes(i, Banana) => printf("%i boxes of bananas\n", i);
         default => printf("???\n");
+    }
+}
+
+function matchStruct(v) {
+    match v {
+        struct StructA {a: 1} => {
+            printf("a is 1\n");
+        }
+        struct StructA {c: struct StructB {d: 3}} => {
+            printf("d is 3\n");
+        }
+        struct StructA {a: 2, c: struct StructB {e: x}} =>
+            printf("%s\n", x);
+        _ => {
+            printf("%s %s\n", v.b, v.c.e);
+        }
     }
 }
 
@@ -136,4 +163,37 @@ function main() {
     matchEnumComplex(Boxes(2, Apple));
     matchEnumComplex(Boxes(2, Banana));
     matchEnumComplex(Boxes(2, Strawberry));
+
+    matchStruct(struct StructA {
+        a: 1,
+        b: "hello",
+        c: struct StructB {
+            d: 3,
+            e: "world",
+        }
+    });
+    matchStruct(struct StructA {
+        a: 2,
+        b: "hello",
+        c: struct StructB {
+            d: 3,
+            e: "world",
+        }
+    });
+    matchStruct(struct StructA {
+        a: 2,
+        b: "nothing",
+        c: struct StructB {
+            d: 1,
+            e: "hi",
+        }
+    });
+    matchStruct(struct StructA {
+        a: 3,
+        b: "hello",
+        c: struct StructB {
+            d: 5,
+            e: "world",
+        }
+    });
 }

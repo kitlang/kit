@@ -531,6 +531,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
     (Match e1 cases (e2)) -> do
       r1 <- r e1
+      r1 <- return $ if tIsLvalue r1 then r1 else makeLvalue r1
       r2 <- maybeR e2
       let tctx' = tctx { tctxState = TypingPattern }
       cases' <- forMWithErrors cases $ \c -> do
@@ -1017,22 +1018,25 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
               let provided =
                     find (\(name, _) -> name == tpName (varName field)) fields
               case provided of
-                Just (name, value) -> return ((name, value), fieldType)
+                Just (name, value) -> return $ Just ((name, value), fieldType)
                 Nothing            -> case varDefault field of
                   Just fieldDefault -> do
                     -- FIXME
-                    return ((tpName $ varName field, fieldDefault), fieldType)
-                  Nothing -> throwk $ TypingError
-                    (  "Struct "
-                    ++ s_unpack (showTypePath tp)
-                    ++ " is missing field "
-                    ++ s_unpack (showTypePath $ varName field)
-                    ++ ", and no default value is provided."
-                    )
-                    pos
+                    return $ Just
+                      ((tpName $ varName field, fieldDefault), fieldType)
+                  Nothing -> case tctxState tctx of
+                    TypingPattern -> return Nothing
+                    _             -> throwk $ TypingError
+                      (  "Struct "
+                      ++ s_unpack (showTypePath tp)
+                      ++ " is missing field "
+                      ++ s_unpack (showTypePath $ varName field)
+                      ++ ", and no default value is provided."
+                      )
+                      pos
             )
           typedFields <- forMWithErrors
-            typedFields
+            (catMaybes typedFields)
             (\((name, expr), fieldType) -> do
               r1        <- r expr
               converted <- tryAutoRefDeref ctx tctx fieldType r1

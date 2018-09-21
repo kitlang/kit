@@ -206,8 +206,16 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
         r1        <- r e1
         r2        <- maybeR e2
         matchType <- findUnderlyingType ctx mod (Just pos) (inferredType e1)
+        let complexMatch = case matchType of
+              BasicTypeComplexEnum _ -> True
+              BasicTypeTuple _ _     -> True
+              BasicTypeStruct     _  -> True
+              BasicTypeAnonStruct _  -> True
+              BasicTypeUnion      _  -> True
+              BasicTypeAnonUnion  _  -> True
+              _                      -> False
         case matchType of
-          BasicTypeComplexEnum _ -> do
+          _ | complexMatch -> do
             -- complex match with ADT
             cases' <- forMWithErrors cases $ \c -> do
               (conditions, exprs) <- patternMatch ctx
@@ -228,9 +236,6 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
             let ifX ((cond, body) : t) =
                   IrIf cond body (if null t then r2 else Just $ ifX t)
             return $ ifX cases'
-          BasicTypeTuple _ _ -> do
-            -- complex match with tuples
-            throwk $ InternalError "Not yet implemented" (Just pos)
           BasicTypeBool -> do
             -- transform into an if statement
             let branchOrDefault b = case b of

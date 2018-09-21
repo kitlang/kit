@@ -96,7 +96,11 @@ patternMatch ctx mod typer pattern t ex = do
                 : args'
                 )
     -- TODO: tuple destructure
-    -- TODO: struct/union destructure
+    StructInit t fields -> do
+      conds <- forM fields $ \(name, val) -> do
+        t <- findUnderlyingType ctx mod (Just $ tPos val) (inferredType val)
+        patternMatch ctx mod typer val t (IrField ex name)
+      return $ mergeResults conds
     Identifier (Var ([], x)) -> do
       return $ ([], [IrVarDeclaration x t (Just ex)])
     Identifier Hole -> do
