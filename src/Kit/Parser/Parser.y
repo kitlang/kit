@@ -45,7 +45,7 @@ import Kit.Str
   const {(KeywordConst,_)}
   continue {(KeywordContinue,_)}
   default {(KeywordDefault,_)}
-  defer {(KeywordDefault,_)}
+  defer {(KeywordDefer,_)}
   do {(KeywordDo,_)}
   else {(KeywordElse,_)}
   enum {(KeywordEnum,_)}
