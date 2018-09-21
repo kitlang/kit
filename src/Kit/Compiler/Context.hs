@@ -46,7 +46,8 @@ data CompileContext = CompileContext {
   ctxSourcePaths :: [FilePath],
   ctxCompilerPath :: Maybe FilePath,
   ctxIncludePaths :: [FilePath],
-  ctxOutputDir :: FilePath,
+  ctxBuildDir :: FilePath,
+  ctxOutputPath :: FilePath,
   ctxDefines :: [(String, String)],
   ctxCompilerFlags :: [String],
   ctxLinkerFlags :: [String],
@@ -81,7 +82,8 @@ newCompileContext = do
     , ctxSourcePaths          = ["src"]
     , ctxCompilerPath         = Nothing
     , ctxIncludePaths         = defaultIncludes
-    , ctxOutputDir            = "build"
+    , ctxBuildDir             = "build"
+    , ctxOutputPath           = "main"
     , ctxDefines              = []
     , ctxModules              = mods
     , ctxFailedModules        = failed
@@ -253,7 +255,7 @@ getTraitDefinition ctx tp = do
       Nothing
 
 includeDir :: CompileContext -> FilePath
-includeDir ctx = (ctxOutputDir ctx) </> "include"
+includeDir ctx = (buildDir ctx) </> "include"
 
 includePath :: CompileContext -> TypePath -> FilePath
 includePath ctx (n, s) =
@@ -263,7 +265,7 @@ includePath ctx (n, s) =
     -<.> ".h"
 
 libDir :: CompileContext -> FilePath
-libDir ctx = (ctxOutputDir ctx) </> "lib"
+libDir ctx = (buildDir ctx) </> "lib"
 
 libPath :: CompileContext -> TypePath -> FilePath
 libPath ctx (n, s) =
@@ -273,7 +275,7 @@ libPath ctx (n, s) =
     -<.> ".c"
 
 objDir :: CompileContext -> FilePath
-objDir ctx = (ctxOutputDir ctx) </> "obj"
+objDir ctx = (buildDir ctx) </> "obj"
 
 objPath :: CompileContext -> TypePath -> FilePath
 objPath ctx (n, s) =
@@ -318,7 +320,7 @@ splitDirs f = case break (== ',') f of
 
 
 buildDir :: CompileContext -> FilePath
-buildDir ctx = (ctxOutputDir ctx)
+buildDir ctx = ctxBuildDir ctx
 
 getCompilerFlags :: CompileContext -> IO [String]
 getCompilerFlags ctx = do

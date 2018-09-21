@@ -65,18 +65,20 @@ compileBundle ctx ccache cc' args name = do
 
 link :: CompileContext -> FilePath -> [String] -> [TypePath] -> IO FilePath
 link ctx cc args names = do
+  let outName = ctxOutputPath ctx
   let args' =
         [ objPath ctx name | name <- names ]
           ++ ["-I" ++ includeDir ctx]
           ++ (if ctxIsLibrary ctx
-               then ["-shared", "-obuild/main.so"]
-               else ["-obuild/main"]
+               then ["-shared", "-o" ++ outName]
+               else ["-o" ++ outName]
              )
           ++ args
   printLog $ "linking"
   traceLog $ showCommandForUser cc args'
   callProcess cc args'
-  return $ "build" </> "main"
+  binPath <- canonicalizePath outName
+  return $ binPath
 
 compilerSpecificArgs :: FilePath -> [String]
 compilerSpecificArgs "clang" = ["-Wno-error=unused-command-line-argument"]

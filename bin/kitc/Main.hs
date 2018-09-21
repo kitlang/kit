@@ -24,7 +24,8 @@ data Options = Options {
   optShowVersion :: Bool,
   optVerbose :: Int,
   optTarget :: String,
-  optOutputDir :: FilePath,
+  optBuildDir :: FilePath,
+  optOutputPath :: FilePath,
   optSourcePaths :: [FilePath],
   optIncludePaths :: [FilePath],
   optCompilerPath :: Maybe FilePath,
@@ -67,12 +68,19 @@ options =
           <> help "compile target (c|web|eval)"
           )
     <*> strOption
-          (  long "output"
-          <> short 'o'
+          (  long "build-dir"
           <> showDefault
           <> value "build"
           <> metavar "DIR"
-          <> help "sets the output directory"
+          <> help "sets the path to the build directory"
+          )
+    <*> strOption
+          (  long "output"
+          <> short 'o'
+          <> showDefault
+          <> value "main"
+          <> metavar "FILE"
+          <> help "sets the output path"
           )
     <*> many sourceDirParser
     <*> many includeDirParser
@@ -152,7 +160,8 @@ main = do
         ctx = baseContext
           { ctxMainModule   = parseModulePath $ s_pack $ optMainModule opts
           , ctxIsLibrary    = optIsLibrary opts
-          , ctxOutputDir    = optOutputDir opts
+          , ctxBuildDir     = optBuildDir opts
+          , ctxOutputPath   = optOutputPath opts
           , ctxCompilerPath = optCompilerPath opts
           , ctxIncludePaths = optIncludePaths opts ++ defaultIncludes
           , ctxSourcePaths  = (if null $ optSourcePaths opts

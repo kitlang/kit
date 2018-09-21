@@ -45,6 +45,7 @@ spec = parallel $ do
                  , ctxMainModule    = [s_pack $ takeFileName path -<.> ""]
                  , ctxCompilerFlags = ["-Werror"]
                  , ctxLinkerFlags   = ["-lm", "-Werror"]
+                 , ctxOutputPath    = ("build" </> "test")
                  }
             )
           (case result of
@@ -52,7 +53,7 @@ spec = parallel $ do
               Right ()  -> Nothing
             )
             `shouldBe` Nothing
-          out               <- readProcess ("build" </> "main") [] ""
+          out               <- readProcess ("build" </> "test") [] ""
           outTemplateExists <- doesFileExist (path -<.> "stdout")
           when (outTemplateExists) $ do
             outTemplate <- readFile (path -<.> "stdout")
