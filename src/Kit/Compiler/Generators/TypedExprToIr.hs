@@ -264,22 +264,14 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
               body    <- r $ matchBody c
               return (pattern, body)
             def <- maybeR e2
-            let canSwitch = case matchType of
-                  a | typeIsIntegral a  -> True
-                  BasicTypeSimpleEnum _ -> True
-                  BasicTypeAnonEnum   _ -> True
-                  _                     -> False
-            if canSwitch
-              then return $ IrSwitch r1 cases' def
-              else
-                let ifX ((a, b) : t) = IrIf
-                      (case a of
-                        IrLiteral (StringValue s) -> stringCompare r1 s
-                        _                         -> (IrBinop Eq r1 a)
-                      )
-                      b
-                      (if null t then r2 else Just $ ifX t)
-                in  return $ ifX cases'
+            let ifX ((a, b) : t) = IrIf
+                  (case a of
+                    IrLiteral (StringValue s) -> stringCompare r1 s
+                    _                         -> (IrBinop Eq r1 a)
+                  )
+                  b
+                  (if null t then r2 else Just $ ifX t)
+            return $ ifX cases'
 
       (InlineCall e1   ) -> return $ undefined -- TODO
       (Field e1 (Var v)) -> do
