@@ -89,6 +89,7 @@ _autoRefDeref ctx tctx toType fromType ex = do
                                               (TypeTuple a)
                                               (tPos ex)
               else return Nothing
+          _ -> return Nothing
       _ -> return Nothing
 
 isTupleInit (TypedExpr { tExpr = TupleInit _ }) = True
