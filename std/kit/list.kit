@@ -28,6 +28,10 @@ enum List[T] {
         return Cons(value, &this);
     }
 
+    // public function pushBack(value: T): Self {
+    //     return this.reverse().cons(value).reverse();
+    // }
+
     // /**
     //  * Return a new list, which is this list in reverse order. Requires O(n)
     //  * time. This does not modify the current list.
@@ -35,7 +39,7 @@ enum List[T] {
     // public function reverse(): Self {
     //     var list = Empty;
     //     for i in this {
-    //         list = i :: list;
+    //         list = i.cons(list);
     //     }
     //     return list;
     // }
@@ -62,6 +66,19 @@ enum List[T] {
         match this {
             Cons(_, _) => return false;
             default => return true;
+        }
+    }
+
+    public function contains(value: T): Bool {
+        match this {
+            Cons(h, t) => {
+                if h == value {
+                    return true;
+                } else {
+                    return t.contains(value);
+                }
+            }
+            default => return false;
         }
     }
 
