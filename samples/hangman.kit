@@ -1,0 +1,121 @@
+enum TurnState {
+    Continue;
+    Success;
+    Failure;
+}
+
+struct Game {
+    var word: CString;
+    var guesses: Ptr[List[Char]];
+    var wrongGuesses: Size;
+    var filled: CArray[Char];
+
+    public function guess(guess: Char) {
+        printf("guessed %c\n", guess);
+        if this.guesses.contains(guess) {
+            return Continue;
+        } else {
+            var l: Ptr[List[Char]] = malloc(sizeof List[Char]);
+            *l = Cons(guess, this.guesses);
+            this.guesses = l;
+
+            if strchr(this.word, guess) != null {
+                var won: Bool = true;
+                for i in 0 ... strlen(this.word) {
+                    if this.word[i] == guess {
+                        this.filled[i] = guess;
+                    } else if this.filled[i] == 0 {
+                        won = false;
+                    }
+                }
+                return if won then Success else Continue;
+            } else {
+                ++this.wrongGuesses;
+                return if this.wrongGuesses > 6 then Failure else Continue;
+            }
+        }
+    }
+
+    public function drawGallows() {
+        printf("""
+    __________
+    |        |
+    |        %s
+    |       %s%s%s
+    |       %s %s
+    |
+    |
+==========\n\n""",
+            if this.wrongGuesses > 0 then "0" else " ",
+            if this.wrongGuesses > 2 then "/" else " ",
+            if this.wrongGuesses > 1 then "|" else " ",
+            if this.wrongGuesses > 3 then "\\" else " ",
+            if this.wrongGuesses > 4 then "/" else " ",
+            if this.wrongGuesses > 5 then "\\" else " "
+        );
+    }
+
+    public function drawGameState() {
+        this.drawGallows();
+        for i in 0 ... strlen(this.word) {
+            if this.filled[i] == 0 {
+                printf("_ ");
+            } else {
+                printf("%c ", this.filled[i]);
+            }
+        }
+        printf("\nguesses: ");
+        if !this.guesses.empty() {
+            var l = this.guesses;
+            while true {
+                match *l {
+                    Cons(h, t) => {
+                        printf("%c", h);
+                        l = t;
+                    }
+                    Empty => {
+                        break;
+                    }
+                }
+            }
+        }
+        printf("\nwrong guesses: %zu\n", this.wrongGuesses);
+    }
+}
+
+function main() {
+    var word = "kitchenette";
+    var game: Ptr[Game] = malloc(sizeof Game + strlen(word) + 1);
+    game.word = word;
+    game.guesses = Empty;
+    game.wrongGuesses = 0;
+    game.filled[0] = 0;
+
+    var success: Bool = false;
+
+    while true {
+        game.drawGameState();
+        printf("enter a character: ");
+        var c:Char = 0;
+        do {
+            c = getchar();
+        } while (c < 65 || c > 122);
+        printf("\n");
+        var result = game.guess(c);
+        match result {
+            Success => {
+                printf("congratulations, you win! the word was %s\n", word);
+                success = true;
+                break;
+            }
+            Failure => {
+                printf("you didn't get it... the word was %s\n", word);
+                break;
+            }
+            Continue => {}
+        }
+    }
+
+    printf("done\n");
+    exit(if success then 0 else 1);
+}

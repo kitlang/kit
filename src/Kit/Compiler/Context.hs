@@ -105,7 +105,7 @@ newCompileContext = do
     , ctxDumpAst              = False
     , ctxNoCcache             = False
     , ctxRecursionLimit       = 256
-    , ctxRun                  = True
+    , ctxRun                  = False
     , ctxNameMangling         = True
     }
 

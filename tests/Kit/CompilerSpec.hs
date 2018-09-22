@@ -27,6 +27,7 @@ readDir d = do
   return $ concat files
 
 testFiles = readDir "tests/compile-src"
+sampleFiles = readDir "samples"
 
 spec :: Spec
 spec = parallel $ do
@@ -53,8 +54,29 @@ spec = parallel $ do
               Right ()  -> Nothing
             )
             `shouldBe` Nothing
-          out               <- readProcess ("build" </> "test") [] ""
+          out <- readProcess ("build" </> "test") [] ""
+          putStrLn out
           outTemplateExists <- doesFileExist (path -<.> "stdout")
           when (outTemplateExists) $ do
             outTemplate <- readFile (path -<.> "stdout")
             out `shouldBe` outTemplate
+
+
+  describe "Build samples" $ do
+    paths <- runIO sampleFiles
+    forM_ (paths) $ \path -> do
+      it path $ do
+        ctx    <- newCompileContext
+        result <- tryCompile
+          (ctx { ctxSourcePaths   = [takeDirectory path, "std"]
+               , ctxMainModule    = [s_pack $ takeFileName path -<.> ""]
+               , ctxCompilerFlags = ["-Werror"]
+               , ctxLinkerFlags   = ["-lm", "-Werror"]
+               , ctxOutputPath    = ("build" </> "test")
+               }
+          )
+        (case result of
+            Left  err -> Just err
+            Right ()  -> Nothing
+          )
+          `shouldBe` Nothing
