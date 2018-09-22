@@ -11,6 +11,7 @@ import qualified Data.ByteString.Internal as B (c2w, w2c)
 -}
 type Str = B.ByteString
 
+s_head = B.head
 s_pack = B.pack
 s_unpack = B.unpack
 s_length = B.length

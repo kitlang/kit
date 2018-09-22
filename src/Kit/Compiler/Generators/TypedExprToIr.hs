@@ -109,6 +109,7 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
         _ -> return (IrLiteral (FloatValue v f))
       (Literal (StringValue s)) -> return $ IrLiteral (StringValue s)
       (Literal (BoolValue   b)) -> return $ IrLiteral (BoolValue b)
+      (Literal (CharValue   c)) -> return $ IrLiteral (CharValue c)
       (This) -> return $ IrPreUnop Deref $ IrIdentifier ([], thisPtrName)
       (Self                   ) -> throw $ KitError $ BasicError
         ("unexpected `Self` in typed AST")

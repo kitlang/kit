@@ -116,6 +116,7 @@ import Kit.Str
   str {(LiteralString _, _)}
   float {(LiteralFloat _ _, _)}
   int {(LiteralInt _ _, _)}
+  char {(LiteralChar _, _)}
 %%
 
 Statements :: {[Statement]}
@@ -746,6 +747,7 @@ Term :: {(ValueLiteral (Maybe TypeSpec), Span)}
   | str {(StringValue $ extract_lit $ fst $1, snd $1)}
   | int {let x = extract_int_lit $ fst $1 in (IntValue (fst x) (snd x), snd $1)}
   | float {let x = extract_float_lit $ fst $1 in (FloatValue (fst x) (snd x), snd $1)}
+  | char {(CharValue $ extract_char_lit $ fst $1, snd $1)}
 
 StructInitFields :: {[(Str, Expr)]}
   : {[]}
@@ -908,6 +910,7 @@ extract_bool (LiteralBool x) = x
 extract_lit (LiteralString x) = x
 extract_int_lit (LiteralInt x y) = (x, numSpec y)
 extract_float_lit (LiteralFloat x y) = (x, numSpec y)
+extract_char_lit (LiteralChar x) = x
 extract_assign_op (Op (AssignOp x),_) = x
 extract_custom_op (Op (Custom x),_) = x
 extract_doc_comment (DocComment x,_) = x

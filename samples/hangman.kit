@@ -99,7 +99,7 @@ function main() {
         var c:Char = 0;
         do {
             c = getchar();
-        } while (c < 65 || c > 122);
+        } while (c < c'A' || c > c'z');
         printf("\n");
         var result = game.guess(c);
         match result {

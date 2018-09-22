@@ -87,6 +87,8 @@ convertExpr ctx tctx mod e = do
                  (TypePtr $ TypeBasicType $ BasicTypeCChar)
     Literal (BoolValue b) ->
       return $ m (Literal (BoolValue b)) (TypeBasicType BasicTypeBool)
+    Literal (CharValue c) ->
+      return $ m (Literal (CharValue c)) (TypeBasicType BasicTypeCChar)
     This                       -> container0 This
     Self                       -> container0 Self
     Identifier Hole            -> container0 (Identifier Hole)

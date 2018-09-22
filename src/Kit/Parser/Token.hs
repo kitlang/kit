@@ -72,6 +72,7 @@ data TokenClass
   | KeywordUsing
   | KeywordVar
   | KeywordWhile
+  | LiteralChar Int
   | LiteralBool Bool
   | LiteralString Str
   | LiteralFloat Str (Maybe NumSpec)
@@ -169,6 +170,7 @@ instance Show TokenClass where
     LiteralString s -> "string literal `" ++ s_unpack s ++ "`"
     LiteralFloat s _ -> "float literal `" ++ s_unpack s ++ "`"
     LiteralInt s _ -> "int literal `" ++ show s ++ "`"
+    LiteralChar c -> "char literal `" ++ show c ++ "`"
     Op op -> "operator " ++ show op
     Lex s -> "lex macro `" ++ s_unpack s ++ "!`"
     LowerIdentifier s -> "identifier `" ++ s_unpack s ++ "`"

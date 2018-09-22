@@ -172,6 +172,8 @@ transpileExpr (IrLiteral (StringValue s)) =
     $ CStrConst
     $ cString
     $ s_unpack s
+transpileExpr (IrLiteral (CharValue i)) =
+  transpileExpr (IrLiteral (IntValue i BasicTypeCChar))
 transpileExpr (IrBinop Assign e1 e2) =
   u $ CAssign (CAssignOp) (transpileExpr e1) (transpileExpr e2)
 transpileExpr (IrBinop (AssignOp op) e1 e2) =
@@ -252,8 +254,10 @@ transpileExpr (IrTupleInit t vals) = u $ CCompoundLit
   | (i, e) <- zip [0 ..] vals
   ]
 transpileExpr (IrSizeOf t) = u $ CSizeofType (cDecl t Nothing Nothing)
-transpileExpr (IrIf c e1 (Just e2)) = u $ CCond (transpileExpr c) (Just $ transpileExpr e1) (transpileExpr e2)
-transpileExpr x            = throwk $ InternalError ("Couldn't transpile IR:\n\n  " ++ show x) Nothing
+transpileExpr (IrIf c e1 (Just e2)) =
+  u $ CCond (transpileExpr c) (Just $ transpileExpr e1) (transpileExpr e2)
+transpileExpr x =
+  throwk $ InternalError ("Couldn't transpile IR:\n\n  " ++ show x) Nothing
 
 getVariantFieldNames variants discriminant =
   case find (\(name, _) -> name == discriminant) variants of

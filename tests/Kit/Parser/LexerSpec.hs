@@ -71,6 +71,8 @@ spec = parallel $ do
       lx "+ +-* -" `shouldBe` [Op Add, Op $ Custom ("+-*"), Op Sub]
     it "lexes int literals" $ do
       lx "1 234 0" `shouldBe` map (\x -> LiteralInt x Nothing) [1, 234, 0]
+    it "lexes char literals" $ do
+      lx "c'e' c'1'" `shouldBe` [LiteralChar 101, LiteralChar 49]
     it "lexes negative int literals" $ do
       lx "-123 -456" `shouldBe` map (\x -> LiteralInt x Nothing) [-123, -456]
     it "lexes suffixed int literals" $ do

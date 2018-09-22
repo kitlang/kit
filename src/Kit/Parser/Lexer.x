@@ -91,9 +91,10 @@ tokens :-
   -- literals
   "true" { tok $ LiteralBool True }
   "false" { tok $ LiteralBool False }
-  [\"] (\\.|[^\"\\])* [\"] { tok' (\s -> LiteralString $ processStringLiteral $ s_take (s_length s - 2) $ s_drop 1 s) }
-  "'" (\\.|[^\'\\])* "'" { tok' (\s -> LiteralString $ processStringLiteral $ s_take (s_length s - 2) $ s_drop 1 s) }
-  [\"]{3} ([^\"]|\"[^\"]|\"\"[^\"]|\n)* [\"]{3} { tok' (\s -> LiteralString $ processStringLiteral $ s_take (s_length s - 6) $ s_drop 3 s) }
+  [\"] (\\.|[^\"\\])* [\"] { tok' $ \s -> LiteralString $ processStringLiteral $ s_take (s_length s - 2) $ s_drop 1 s }
+  "'" (\\.|[^\'\\])* "'" { tok' $ \s -> LiteralString $ processStringLiteral $ s_take (s_length s - 2) $ s_drop 1 s }
+  [\"]{3} ([^\"]|\"[^\"]|\"\"[^\"]|\n)* [\"]{3} { tok' $ \s -> LiteralString $ processStringLiteral $ s_take (s_length s - 6) $ s_drop 3 s }
+  "c'" [.] "'" { tok' $ \s -> LiteralChar $ ord $ s_head $ s_drop 2 s }
 
   \-?[0-9]+ "." [0-9]* "_" (f(32|64)) { tok' (\s -> let [p1, p2] = s_split '_' s in LiteralFloat p1 (Just $ parseNumSuffix $ s_unpack p2)) }
   "0x" [0-9a-fA-F]+ "_" ([ui](8|16|32|64)|f(32|64)|[cis]) { tok' (\s -> let [p1, p2] = map s_unpack (s_split '_' s) in LiteralInt (parseInt readHex $ drop 2 $ p1) (Just $ parseNumSuffix p2)) }
