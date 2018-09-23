@@ -413,6 +413,7 @@ CommaDelimitedTypes :: {[TypeSpec]}
 
 OptionalBody :: {(Maybe Expr, Span)}
   : ';' {(Nothing, NoPos)}
+  | using UsingClauses ExprBlock {(Just $ pe (snd $1 <+> snd $2) $ Using (fst $2) $3, pos $3)}
   | ExprBlock {(Just $1, pos $1)}
 
 OptionalRuleBody :: {Maybe Expr}
