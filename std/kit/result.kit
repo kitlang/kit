@@ -1,0 +1,27 @@
+import kit.utils;
+
+enum Result[T, E] {
+    Ok(value: T);
+    Error(error: E);
+
+    public function isOk(): Bool {
+        match this {
+            Ok(_) => return true;
+            default => return false;
+        }
+    }
+
+    public function isError(): Bool {
+        match this {
+            Error(_) => return true;
+            default => return false;
+        }
+    }
+
+    public function unwrap(): T {
+        match this {
+            Ok(v) => return v;
+            default => panic("Result.unwrap");
+        }
+    }
+}
