@@ -142,7 +142,7 @@ binopTypes op l r x lMixed rMixed pos = case op of
           _              -> numericOp
   numericOp =
     Just
-      $  (if (rMixed || rMixed)
+      $  (if (lMixed || rMixed)
            then
              [ TypeEq
                  typeClassNumericMixed

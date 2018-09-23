@@ -386,6 +386,7 @@ defaultCompileArgs ctx cc =
     ]
     ++ (if ctxIsLibrary ctx then ["-fPIC"] else [])
     ++ osSpecificDefaultCompileArgs os
+    ++ ccSpecificDefaultCompileArgs cc
 
 osSpecificDefaultCompileArgs "darwin" =
   [ "-U__BLOCKS__"
@@ -393,3 +394,6 @@ osSpecificDefaultCompileArgs "darwin" =
   , "-Wno-gnu-zero-variadic-macro-arguments"
   ]
 osSpecificDefaultCompileArgs _ = []
+
+ccSpecificDefaultCompileArgs "gcc" = ["-Wno-missing-braces"]
+ccSpecificDefaultCompileArgs _ = []

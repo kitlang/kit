@@ -380,8 +380,18 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
         box <- r x
         return $ IrPreUnop Deref (IrField box vtablePointerName)
       (SizeOf t) -> do
+        t <- findUnderlyingType ctx mod (Just pos) t
+        return $ IrSizeOf t
+      (Null ) -> return IrNull
+      (Empty) -> do
         t' <- findUnderlyingType ctx mod (Just pos) t
-        return $ IrSizeOf t'
+        case t' of
+          CArray _ _            -> return ()
+          BasicTypeAnonStruct _ -> return ()
+          BasicTypeStruct     _ -> return ()
+          _                     -> throwk
+            $ TypingError ("`empty` isn't a valid value of type " ++ show t) pos
+        return IrEmpty
       t -> do
         throwk $ InternalError
           ("Unexpected expression in typed AST:\n\n" ++ show t)

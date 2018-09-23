@@ -62,7 +62,7 @@ enum List[T] {
         return len;
     }
 
-    public function empty(): Bool {
+    public function isEmpty(): Bool {
         match this {
             Cons(_, _) => return false;
             default => return true;

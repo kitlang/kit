@@ -41,7 +41,7 @@ generateModuleIr ctx (mod, decls) = do
     ( mod
     , [ DeclBundle ([], n)
                    [DeclTuple t]
-                   (foldr (++) [] $ map (typeDeps True) parts)
+                   (foldr (++) [] $ map (typeDeps Def) parts)
       | (_, t@(BasicTypeTuple n parts)) <- tuples
       ]
       ++ (foldr (++) [] decls)

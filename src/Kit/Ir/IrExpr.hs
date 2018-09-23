@@ -33,6 +33,8 @@ data IrExpr
   | IrTupleInit BasicType [IrExpr]
   | IrSizeOf BasicType
   | IrSwitch IrExpr [(IrExpr, IrExpr)] (Maybe IrExpr)
+  | IrNull
+  | IrEmpty
   deriving (Eq, Show, Generic)
 
 instance Hashable IrExpr

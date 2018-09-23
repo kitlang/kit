@@ -316,14 +316,22 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       tryRewrite (unknownTyped $ Binop op r1 r2) $ do
         lMixed <- unify ctx tctx (inferredType r1) (typeClassNumericMixed)
         rMixed <- unify ctx tctx (inferredType r2) (typeClassNumericMixed)
-        tv     <- makeTypeVar ctx pos
+        let isMixed x = case x of
+              Just x -> not $ or
+                [ case i of
+                    TypeVarConstraint _ _ -> True
+                    _                     -> False
+                | i <- x
+                ]
+              Nothing -> False
+        tv <- makeTypeVar ctx pos
         case
             binopTypes op
                        (inferredType r1)
                        (inferredType r2)
                        tv
-                       (lMixed /= Nothing)
-                       (rMixed /= Nothing)
+                       (isMixed lMixed)
+                       (isMixed rMixed)
                        pos
           of
             Just constraints -> mapM_ resolve constraints
@@ -620,7 +628,9 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                       case result of
                         Just x -> return $ x { tIsLvalue = True }
                         _      -> throwk $ TypingError
-                          (  "Struct doesn't have a field called `"
+                          (  "Struct "
+                          ++ s_unpack (showTypePath tp)
+                          ++ " doesn't have a field called `"
                           ++ s_unpack fieldName
                           ++ "`"
                           )
@@ -792,68 +802,76 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
     (ArrayAccess e1 e2) -> do
       r1 <- r e1
       r2 <- r e2
-      case (inferredType r1, tExpr r2) of
-        (TypeTuple t, Literal (IntValue i _)) ->
-          -- compile-time tuple slot access
-                                                 if (i >= 0) && (i < length t)
-          then r
-            (r1 { tExpr        = TupleSlot r1 i
-                , inferredType = t !! i
-                , tPos         = tPos r1 <+> tPos e2
-                }
-            )
-          else throwk $ TypingError
-            (  "Access to invalid tuple slot (tuple has "
-            ++ show (length t)
-            ++ " slots)"
-            )
-            pos
-        (TypeTuple t, _) -> throwk $ TypingError
-          "Array access on tuples is only allowed using int literals"
-          pos
-        (TypePtr t, _) -> do
-          resolveConstraint
-            ctx
-            tctx
-            (TypeEq t
-                    (inferredType ex)
-                    "Array access on a pointer will dereference the pointer"
-                    (tPos ex)
-            )
-          resolveConstraint
-            ctx
-            tctx
-            (TypeEq typeClassIntegral
-                    (inferredType r2)
-                    "Array access on a pointer requires an Integral argument"
-                    (tPos r2)
-            )
-          return $ makeExprTyped (ArrayAccess r1 r2) (inferredType ex) pos
-        (TypeArray t _, _) -> do
-          resolveConstraint
-            ctx
-            tctx
-            (TypeEq t
-                    (inferredType ex)
-                    "Array access on an array will return the inner type"
-                    (tPos ex)
-            )
-          resolveConstraint
-            ctx
-            tctx
-            (TypeEq typeClassIntegral
-                    (inferredType r2)
-                    "Array access on an array requires an Integral argument"
-                    (tPos r2)
-            )
-          return $ makeExprTyped (ArrayAccess r1 r2) (inferredType ex) pos
-        _ -> do
-          r2 <- r e2
-          throwk $ TypingError
+      let fail = throwk $ TypingError
             (  "Array access is not supported on values of type "
             ++ show (inferredType r1)
             )
             pos
+      let
+        resolveArrayAccess t = case (t, tExpr r2) of
+          (TypeTuple t, Literal (IntValue i _)) ->
+            -- compile-time tuple slot access
+            if (i >= 0) && (i < length t)
+              then r
+                (r1 { tExpr        = TupleSlot r1 i
+                    , inferredType = t !! i
+                    , tPos         = tPos r1 <+> tPos e2
+                    }
+                )
+              else throwk $ TypingError
+                (  "Access to invalid tuple slot (tuple has "
+                ++ show (length t)
+                ++ " slots)"
+                )
+                pos
+          (TypeTuple t, _) -> throwk $ TypingError
+            "Array access on tuples is only allowed using int literals"
+            pos
+          (TypePtr t, _) -> do
+            resolveConstraint
+              ctx
+              tctx
+              (TypeEq t
+                      (inferredType ex)
+                      "Array access on a pointer will dereference the pointer"
+                      (tPos ex)
+              )
+            resolveConstraint
+              ctx
+              tctx
+              (TypeEq
+                typeClassIntegral
+                (inferredType r2)
+                "Array access on a pointer requires an Integral argument"
+                (tPos r2)
+              )
+            return $ makeExprTyped (ArrayAccess r1 r2) (inferredType ex) pos
+          (TypeArray t _, _) -> do
+            resolveConstraint
+              ctx
+              tctx
+              (TypeEq t
+                      (inferredType ex)
+                      "Array access on an array will return the inner type"
+                      (tPos ex)
+              )
+            resolveConstraint
+              ctx
+              tctx
+              (TypeEq typeClassIntegral
+                      (inferredType r2)
+                      "Array access on an array requires an Integral argument"
+                      (tPos r2)
+              )
+            return $ makeExprTyped (ArrayAccess r1 r2) (inferredType ex) pos
+          (TypeInstance tp params, _) -> do
+            def <- getTypeDefinition ctx tp
+            case typeSubtype def of
+              Abstract { abstractUnderlyingType = t } -> resolveArrayAccess t
+              _ -> fail
+          _ -> fail
+
+      resolveArrayAccess $ inferredType r1
 
     (Cast e1 t) -> do
       r1 <- r e1

@@ -200,6 +200,12 @@ convertExpr ctx tctx mod e = do
     Implicit (Just t) -> do
       t' <- resolveType ctx tctx mod t
       return $ m (Implicit t') t'
+    Null -> do
+      t <- mtv
+      return $ m Null $ TypePtr t
+    Empty -> do
+      t <- mtv
+      return $ m Empty t
     _ -> throwk $ InternalError
       ("Can't convert expression: " ++ show (expr e))
       (Just pos')

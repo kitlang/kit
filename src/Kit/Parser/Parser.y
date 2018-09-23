@@ -48,6 +48,7 @@ import Kit.Str
   defer {(KeywordDefer,_)}
   do {(KeywordDo,_)}
   else {(KeywordElse,_)}
+  empty {(KeywordEmpty,_)}
   enum {(KeywordEnum,_)}
   for {(KeywordFor,_)}
   function {(KeywordFunction,_)}
@@ -734,7 +735,8 @@ BaseExpr :: {Expr}
   | unsafe Expr {pe (p $1 <+> pos $2) (Unsafe $2)}
   | sizeof TypeSpec {pe (snd $1 <+> snd $2) (SizeOf $ Just $ fst $2)}
   | '(' Expr ParenthesizedExprs ')' {if null $3 then $2 else pe (snd $1 <+> snd $4) (TupleInit ($2 : reverse $3)) }
-  | null {pe (snd $1) $ Unsafe $ pe (snd $1) $ Identifier (Var ([], "NULL"))}
+  | null {pe (snd $1) Null}
+  | empty {pe (snd $1) Empty}
   | struct TypeSpec '{' StructInitFields '}' {pe (p $1 <+> p $5) $ StructInit (Just $ fst $2) $4}
   | implicit TypeSpec {pe (snd $1 <+> snd $2) $ Implicit $ Just $ fst $2}
 

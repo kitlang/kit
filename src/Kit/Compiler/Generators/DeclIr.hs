@@ -60,11 +60,11 @@ generateDeclIr ctx mod t = do
 
       deps <- case subtype of
         Struct { structFields = fields } ->
-          return $ foldr (++) [] $ map ((typeDeps True) . varType) fields
+          return $ foldr (++) [] $ map ((typeDeps Def) . varType) fields
         Enum { enumVariants = variants } -> do
           return $ foldr (++) [] $ map
             (\variant ->
-              foldr (++) [] $ map ((typeDeps True) . argType) $ variantArgs
+              foldr (++) [] $ map ((typeDeps Def) . argType) $ variantArgs
                 variant
             )
             variants
@@ -98,8 +98,8 @@ generateDeclIr ctx mod t = do
       converted <- convertFunctionDefinition paramConverter f
 
       let deps =
-            (typeDeps True (functionType converted))
-              ++ (foldr (++) [] $ map ((typeDeps True) . argType) $ functionArgs
+            (typeDeps DefDef (functionType converted))
+              ++ (foldr (++) [] $ map ((typeDeps DefDef) . argType) $ functionArgs
                    converted
                  )
               ++ (case functionBody converted of
@@ -165,7 +165,7 @@ generateDeclIr ctx mod t = do
                 _      -> varName converted
               )
               [DeclVar $ converted]
-              (  (typeDeps True $ varType converted)
+              (  (typeDeps Def $ varType converted)
               ++ (case varDefault converted of
                    Just x -> exprDeps x
                    _      -> []
@@ -228,8 +228,8 @@ generateDeclIr ctx mod t = do
         methodDeps = map
           (\method ->
             foldr (++) []
-              $ ( (typeDeps False (functionType method))
-                : (map ((typeDeps False) . argType) (functionArgs method))
+              $ ( (typeDeps Decl (functionType method))
+                : (map ((typeDeps Decl) . argType) (functionArgs method))
                 )
           )
           (traitMethods converted)
@@ -285,7 +285,7 @@ generateDeclIr ctx mod t = do
 
         return
           $ [ DeclBundle (implName i) ((map snd methods) ++ [DeclVar $ impl])
-              $  ((DefDependency name) : (typeDeps True for))
+              $  ((DefDependency name) : (typeDeps Def for))
               ++ deps
             ]
 

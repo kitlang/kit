@@ -39,6 +39,7 @@ data TokenClass
   | KeywordDefer
   | KeywordDo
   | KeywordElse
+  | KeywordEmpty
   | KeywordEnum
   | KeywordFor
   | KeywordFunction
@@ -132,6 +133,7 @@ instance Show TokenClass where
     KeywordDefer -> "defer"
     KeywordDo -> "do"
     KeywordElse -> "else"
+    KeywordEmpty -> "empty"
     KeywordEnum -> "enum"
     KeywordFor -> "for"
     KeywordFunction -> "function"

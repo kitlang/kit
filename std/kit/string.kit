@@ -1,25 +1,25 @@
-/**
- * A String is a length-prefixed and zero-terminated, immutable collection of
- * chars.
- */
-struct String {
-    public var length: Size;
-    public var chars: CArray[Char];
+// /**
+//  * A String is a length-prefixed and zero-terminated, immutable collection of
+//  * chars.
+//  */
+// struct String {
+//     public var length: Size;
+//     public var chars: CArray[Char];
 
-    public static function fromCString(allocator: Box[Allocator], source: CString): Ptr[String]
-    {
-        var length = strlen(source);
-        var s: Ptr[String] = allocator.alloc(sizeof String + length + 1);
-        s.length = length;
-        memcpy(s.chars, source, length + 1);
-        return s;
-    }
+    // public static function fromCString(allocator: Box[Allocator], source: CString): Ptr[String]
+    // {
+    //     var length = strlen(source);
+    //     var s: Ptr[String] = allocator.alloc(sizeof String + length + 1);
+    //     s.length = length;
+    //     memcpy(s.chars, source, length + 1);
+    //     return s;
+    // }
 
     // rules {
     //     (this as CString) => (this.chars as CString);
     //     (${s: CString} as String) => String.fromCString($s);
     // }
-}
+// }
 
 // implement Iterable(Char) for String {
 //     public function iterator(): Box[Iterator[Char]] {
@@ -30,28 +30,28 @@ struct String {
 //     }
 // }
 
-/**
- * Allows coercing values of the implementing type into a string.
- */
-trait ToString {
-    public function toString(): Ptr[String];
+// /**
+//  * Allows coercing values of the implementing type into a string.
+//  */
+// trait ToString {
+//     public function toString(): Ptr[String];
 
-    rules {
-        ($this as String) => ($this.toString());
-    }
-}
+//     rules {
+//         ($this as String) => ($this.toString());
+//     }
+// }
 
-implement ToString for String {
-    public function toString() {
-        return &this;
-    }
-}
+// implement ToString for String {
+//     public function toString() {
+//         return &this;
+//     }
+// }
 
-implement ToString for CString {
-    public function toString() {
-        return String.fromCString(this);
-    }
-}
+// implement ToString for CString {
+//     public function toString() {
+//         return String.fromCString(this);
+//     }
+// }
 
 // /**
 //  * A StringBuffer is a dynamically resizing collection (Array) of bytes.

@@ -73,7 +73,7 @@ generateBundle ctx mod memo bundle@(DeclBundle name decls deps) = do
   generateBundleHeader ctx mod name decls memo deps
   if bundleNeedsLib bundle
     then do
-      generateBundleLib ctx name decls
+      generateBundleLib ctx name decls memo deps
       return $ Just name
     else return Nothing
 
@@ -102,25 +102,27 @@ generateBundleHeader ctx mod name decls bundles deps = do
     includes
     (\(filepath, _) -> hPutStrLn handle $ "#include \"" ++ filepath ++ "\"")
   -- forward declare structure names
-  forM_ decls $ generateHeaderForwardDecl ctx handle
+  forM_ decls $ \decl -> case generateHeaderForwardDecl decl of
+    Just x  -> hPutStrLn handle x
+    Nothing -> return ()
   -- imports
-  deps <- forM deps $ \dep -> case dep of
-    DeclDependency t ->
-      let decl = cDecl t Nothing Nothing
-      in  return $ Just $ render $ pretty $ CDeclExt $ decl
-    DefDependency tp -> do
-      found <- findBundleFor bundles tp
-      case found of
-        -- stop including yourself! stop including yourself!
-        Just x | x == name -> return Nothing
-        Just x ->
-          return
-            $  Just
-            $  "#include \""
-            ++ (makeRelative (includeDir ctx) $ includePath ctx $ x)
-            ++ "\""
-        _ -> return Nothing
-  forM_ (nub $ catMaybes deps) $ hPutStrLn handle
+  let writeDef tp = do
+        found <- findBundleFor bundles tp
+        case found of
+          -- stop including yourself! stop including yourself!
+          Just x | x == name -> return Nothing
+          Just x ->
+            return
+              $  Just
+              $  "#include \""
+              ++ (makeRelative (includeDir ctx) $ includePath ctx $ x)
+              ++ "\""
+          _ -> return Nothing
+  deps' <- forM deps $ \dep -> case dep of
+    DeclDependency t      -> return $ generateTypeForwardDecl t
+    DefDefDependency t tp -> return $ generateTypeForwardDecl t
+    DefDependency tp      -> writeDef tp
+  forM_ (nub $ catMaybes deps') $ hPutStrLn handle
   -- definitions
   forM_ (sortHeaderDefs decls) $ generateHeaderDef ctx handle
   hPutStrLn handle "#endif"
@@ -148,31 +150,24 @@ findBundleFor bundles b = do
 bundleDef :: Str -> String
 bundleDef s = "KIT_INCLUDE__" ++ s_unpack s
 
-generateHeaderForwardDecl :: CompileContext -> Handle -> IrDecl -> IO ()
-generateHeaderForwardDecl ctx headerFile decl = do
-  case decl of
-    DeclTuple t@(BasicTypeTuple name _) -> do
-      hPutStrLn
-        headerFile
-        (render $ pretty $ CDeclExt $ cDecl (BasicTypeTuple name [])
-                                            Nothing
-                                            Nothing
-        )
+generateHeaderForwardDecl :: IrDecl -> Maybe String
+generateHeaderForwardDecl decl = case decl of
+  DeclTuple t -> generateTypeForwardDecl t
+  DeclType def@(TypeDefinition { typeSubtype = Atom }) -> Nothing
+  DeclType def@(TypeDefinition { typeName = name }   ) -> do
+    case typeBasicType def of
+      -- ISO C forbids forward references to enum types
+      Just t -> generateTypeForwardDecl t
+      Nothing -> Nothing
+  _ -> Nothing
 
-    DeclType def@(TypeDefinition { typeSubtype = Atom }) -> return ()
-
-    DeclType def@(TypeDefinition { typeName = name }   ) -> do
-      case typeBasicType def of
-        Just (BasicTypeSimpleEnum _) ->
-          -- ISO C forbids forward references to enum types
-          return ()
-        Just x ->
-          let decl = cDecl x Nothing Nothing
-          in  hPutStrLn headerFile (render $ pretty $ CDeclExt $ decl)
-        _ -> return ()
-
-    _ -> do
-      return ()
+generateTypeForwardDecl :: BasicType -> Maybe String
+generateTypeForwardDecl t = case t of
+  BasicTypeSimpleEnum  _ -> Nothing
+  BasicTypeComplexEnum _ -> Nothing
+  _                      -> Just
+    (render $ pretty $ CDeclExt $ cDecl t Nothing Nothing
+    )
 
 generateHeaderDef :: CompileContext -> Handle -> IrDecl -> IO ()
 generateHeaderDef ctx headerFile decl = case decl of
@@ -200,8 +195,26 @@ generateHeaderDef ctx headerFile decl = case decl of
 
   _ -> return ()
 
-generateBundleLib :: CompileContext -> TypePath -> [IrDecl] -> IO ()
-generateBundleLib ctx name decls = do
+generateBundleLib
+  :: CompileContext
+  -> TypePath
+  -> [IrDecl]
+  -> HashTable TypePath ()
+  -> [IncludeDependency]
+  -> IO ()
+generateBundleLib ctx name decls bundles deps = do
+  let writeDef tp = do
+        found <- findBundleFor bundles tp
+        case found of
+          -- stop including yourself! stop including yourself!
+          Just x | x == name -> return Nothing
+          Just x ->
+            return
+              $  Just
+              $  "#include \""
+              ++ (makeRelative (includeDir ctx) $ includePath ctx $ x)
+              ++ "\""
+          _ -> return Nothing
   let codeFilePath = libPath ctx name
   debugLog ctx
     $  "generating code for "
@@ -215,6 +228,10 @@ generateBundleLib ctx name decls = do
     $  "#include \""
     ++ (makeRelative (includeDir ctx) $ includePath ctx name)
     ++ "\""
+  deps' <- forM deps $ \dep -> case dep of
+    DefDefDependency t tp -> writeDef tp
+    _                     -> return Nothing
+  forM_ (nub $ catMaybes deps') $ hPutStrLn handle
   forM_ decls (generateDef ctx handle)
   hClose handle
 

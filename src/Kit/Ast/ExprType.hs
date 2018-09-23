@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-overlapping-patterns #-}
+
 module Kit.Ast.ExprType where
 
 import Kit.Ast.ConcreteType
@@ -11,6 +13,7 @@ import Kit.Ast.TypePath
 import Kit.Ast.TypeSpec
 import Kit.Ast.UsingType
 import Kit.Ast.Value
+import Kit.Error
 import Kit.Parser.Span
 import Kit.Str
 
@@ -86,6 +89,8 @@ data ExprType a b
   | Method a TypePath Str
   | Implicit b
   | Temp a
+  | Null
+  | Empty
   deriving (Eq, Show)
 
 exprDiscriminant :: ExprType a b -> Int
@@ -132,6 +137,9 @@ exprDiscriminant et = case et of
   Method _ _ _         -> 39
   Implicit _           -> 40
   Temp     _           -> 41
+  Null                 -> 42
+  Empty                -> 43
+  x -> throwk $ InternalError "Expression has no discriminant!" Nothing
 
 exprChildren :: ExprType a b -> [a]
 exprChildren et = case et of
