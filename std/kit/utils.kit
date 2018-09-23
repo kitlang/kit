@@ -14,3 +14,8 @@ rules FormatString {
 // public inline function print[S: ToString](s: S) {
     // println(s.toString());
 // }
+
+function panic(msg: CString) {
+    printf("%s\n", msg);
+    exit(1);
+}

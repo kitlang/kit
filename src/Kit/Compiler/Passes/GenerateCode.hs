@@ -25,30 +25,110 @@ import Kit.Parser
 import Kit.Str
 
 {-
-  Generates C code and header files from the populated modIr fields of all
-  modules.
+  Generates C code.
+
+  Declarations are bundled into compilation units; to make dependency
+  analysis and cross-dependencies easier, a single header is generated for the
+  entire project and included from all c files. The header will contain type
+  definitions and variable/function declarations.
 -}
 generateCode :: CompileContext -> [(Module, [DeclBundle])] -> IO [TypePath]
 generateCode ctx ir = do
   forM_ [libDir ctx, includeDir ctx, objDir ctx] $ \d -> do
     exists <- doesDirectoryExist d
     when exists $ removeDirectoryRecursive d
-  -- memoize bundle names; assumption is that subpaths, if they don't have
-  -- their own bundle, will be provided by a parent
-  bundlesMemo <- h_newSized (length ir)
-  forM_ ir $ \(_, bundles) -> forM_ bundles $ \x -> do
-    h_insert bundlesMemo (bundleTp x) ()
-  mods  <- ctxSourceModules ctx
-  names <- forM ir $ generateModule ctx bundlesMemo
+  generateProjectHeader ctx ir
+  names <- forM ir $ generateModule ctx
   return $ catMaybes $ foldr (++) [] names
 
+generateProjectHeader :: CompileContext -> [(Module, [DeclBundle])] -> IO ()
+generateProjectHeader ctx ir = do
+  let headerFilePath = includePath ctx
+  debugLog ctx $ "generating project header in " ++ headerFilePath
+  createDirectoryIfMissing True $ takeDirectory $ headerFilePath
+  handle   <- openFile headerFilePath WriteMode
+  -- include native dependencies
+  includes <- readIORef $ ctxIncludes ctx
+  forM_ (nub includes) $ \filepath -> do
+    hPutStrLn handle $ "#include \"" ++ filepath ++ "\""
+  let flatDecls = foldr
+        (++)
+        []
+        [ bundleMembers bundle | (_, bundles) <- ir, bundle <- bundles ]
+  let forwardDecls = map generateHeaderForwardDecl flatDecls
+  forM_ (nub $ catMaybes forwardDecls) $ hPutStrLn handle
+  sorted <- sortHeaderDefs flatDecls
+  let defs = map generateHeaderDef sorted
+  forM_ (catMaybes defs) $ hPutStrLn handle
+  hClose handle
+  return ()
+
+sortHeaderDefs :: [IrDecl] -> IO [IrDecl]
+sortHeaderDefs decls = do
+  memos        <- h_newSized (length decls)
+  dependencies <- h_newSized (length decls)
+  -- memoize BasicType dependencies of type declarations
+  forM_ decls $ \decl -> case decl of
+    DeclType t -> case typeSubtype t of
+      Struct { structFields = fields } ->
+        h_insert dependencies (typeName t) (map varType fields)
+      Union { unionFields = fields } ->
+        h_insert dependencies (typeName t) (map varType fields)
+      Enum { enumVariants = variants } -> h_insert
+        dependencies
+        (typeName t)
+        (nub [ argType arg | variant <- variants, arg <- variantArgs variant ])
+      _ -> return ()
+    _ -> return ()
+  scored <- forM decls $ \decl -> do
+    score <- btOrder dependencies memos (declToBt decl)
+    return (if score == (-1) then (1 / 0) else realToFrac score, decl)
+  return $ map snd $ sortBy
+    (\(a, _) (b, _) ->
+      if a > b then GT else LT
+    )
+    (nub scored)
+
+declToBt :: IrDecl -> BasicType
+declToBt (DeclTuple t) = t
+declToBt (DeclType  t) = case typeBasicType t of
+  Just x  -> x
+  Nothing -> BasicTypeUnknown
+declToBt t = BasicTypeUnknown
+
+btOrder
+  :: HashTable TypePath [BasicType]
+  -> HashTable BasicType Int
+  -> BasicType
+  -> IO Int
+btOrder dependencies memos t = do
+  let depScore deps = (foldr max (-1) deps) + 1
+  let tpScore tp = do
+        deps <- h_lookup dependencies tp
+        case deps of
+          Just x -> do
+            deps <- forM x $ btOrder dependencies memos
+            return $ (depScore deps) + 1
+          Nothing -> return 0
+  existing <- h_lookup memos t
+  case existing of
+    Just x -> return x
+    _      -> do
+      score <- case t of
+        BasicTypeTuple _ fields -> do
+          deps <- forM fields $ btOrder dependencies memos
+          return $ depScore deps
+        BasicTypeStruct      tp -> tpScore tp
+        BasicTypeUnion       tp -> tpScore tp
+        BasicTypeSimpleEnum tp -> tpScore tp
+        BasicTypeComplexEnum tp -> tpScore tp
+        _                       -> return (-1)
+      h_insert memos t score
+      return score
+
 generateModule
-  :: CompileContext
-  -> HashTable TypePath ()
-  -> (Module, [DeclBundle])
-  -> IO [Maybe TypePath]
-generateModule ctx memo (mod, bundles) =
-  forM bundles $ generateBundle ctx mod memo
+  :: CompileContext -> (Module, [DeclBundle]) -> IO [Maybe TypePath]
+generateModule ctx (mod, bundles) = forM bundles $ generateBundle ctx mod
 
 bundleNeedsLib :: DeclBundle -> Bool
 bundleNeedsLib bundle = foldr
@@ -63,89 +143,15 @@ bundleNeedsLib bundle = foldr
   False
   (bundleMembers bundle)
 
-generateBundle
-  :: CompileContext
-  -> Module
-  -> HashTable TypePath ()
-  -> DeclBundle
-  -> IO (Maybe TypePath)
-generateBundle ctx mod memo bundle@(DeclBundle name decls deps) = do
-  generateBundleHeader ctx mod name decls memo deps
+generateBundle :: CompileContext -> Module -> DeclBundle -> IO (Maybe TypePath)
+generateBundle ctx mod bundle@(DeclBundle name decls) = do
+  -- if a bundle only contains type definitions, no further implementation
+  -- is needed
   if bundleNeedsLib bundle
     then do
-      generateBundleLib ctx name decls memo deps
+      generateBundleLib ctx name decls
       return $ Just name
     else return Nothing
-
-generateBundleHeader
-  :: CompileContext
-  -> Module
-  -> TypePath
-  -> [IrDecl]
-  -> HashTable TypePath ()
-  -> [IncludeDependency]
-  -> IO ()
-generateBundleHeader ctx mod name decls bundles deps = do
-  let headerFilePath = includePath ctx name
-  debugLog ctx
-    $  "generating header for "
-    ++ s_unpack (showTypePath name)
-    ++ " in "
-    ++ headerFilePath
-  createDirectoryIfMissing True $ takeDirectory $ headerFilePath
-  handle <- openFile headerFilePath WriteMode
-  hPutStrLn handle $ "#ifndef " ++ (bundleDef $ mangleName name)
-  hPutStrLn handle $ "#define " ++ (bundleDef $ mangleName name)
-  -- native includes
-  includes <- readIORef (modIncludes mod)
-  forM_
-    includes
-    (\(filepath, _) -> hPutStrLn handle $ "#include \"" ++ filepath ++ "\"")
-  -- forward declare structure names
-  forM_ decls $ \decl -> case generateHeaderForwardDecl decl of
-    Just x  -> hPutStrLn handle x
-    Nothing -> return ()
-  -- imports
-  let writeDef tp = do
-        found <- findBundleFor bundles tp
-        case found of
-          -- stop including yourself! stop including yourself!
-          Just x | x == name -> return Nothing
-          Just x ->
-            return
-              $  Just
-              $  "#include \""
-              ++ (makeRelative (includeDir ctx) $ includePath ctx $ x)
-              ++ "\""
-          _ -> return Nothing
-  deps' <- forM deps $ \dep -> case dep of
-    DeclDependency t      -> return $ generateTypeForwardDecl t
-    DefDefDependency t tp -> return $ generateTypeForwardDecl t
-    DefDependency tp      -> writeDef tp
-  forM_ (nub $ catMaybes deps') $ hPutStrLn handle
-  -- definitions
-  forM_ (sortHeaderDefs decls) $ generateHeaderDef ctx handle
-  hPutStrLn handle "#endif"
-  hClose handle
-
-sortHeaderDefs :: [IrDecl] -> [IrDecl]
-sortHeaderDefs = sortBy
-  (comparing
-    (\x -> case x of
-      DeclVar      v -> 1
-      DeclFunction f -> 1
-      _              -> 0
-    )
-  )
-
-findBundleFor :: HashTable TypePath () -> TypePath -> IO (Maybe TypePath)
-findBundleFor bundles b = do
-  existing <- h_lookup bundles b
-  case existing of
-    Just x  -> return $ Just b
-    Nothing -> case b of
-      ([], s) -> return Nothing
-      (n , s) -> findBundleFor bundles (tpShift b)
 
 bundleDef :: Str -> String
 bundleDef s = "KIT_INCLUDE__" ++ s_unpack s
@@ -153,68 +159,44 @@ bundleDef s = "KIT_INCLUDE__" ++ s_unpack s
 generateHeaderForwardDecl :: IrDecl -> Maybe String
 generateHeaderForwardDecl decl = case decl of
   DeclTuple t -> generateTypeForwardDecl t
-  DeclType def@(TypeDefinition { typeSubtype = Atom }) -> Nothing
-  DeclType def@(TypeDefinition { typeName = name }   ) -> do
+  DeclType  def@(TypeDefinition { typeSubtype = Atom }) -> Nothing
+  DeclType  def@(TypeDefinition { typeName = name }   ) -> do
     case typeBasicType def of
       -- ISO C forbids forward references to enum types
-      Just t -> generateTypeForwardDecl t
+      Just t  -> generateTypeForwardDecl t
       Nothing -> Nothing
   _ -> Nothing
 
 generateTypeForwardDecl :: BasicType -> Maybe String
 generateTypeForwardDecl t = case t of
+  BasicTypeAnonEnum    _ -> Nothing
   BasicTypeSimpleEnum  _ -> Nothing
   BasicTypeComplexEnum _ -> Nothing
-  _                      -> Just
-    (render $ pretty $ CDeclExt $ cDecl t Nothing Nothing
-    )
+  _ -> Just (render $ pretty $ CDeclExt $ cDecl t Nothing Nothing)
 
-generateHeaderDef :: CompileContext -> Handle -> IrDecl -> IO ()
-generateHeaderDef ctx headerFile decl = case decl of
-  DeclTuple (BasicTypeTuple name slots) -> do
+generateHeaderDef :: IrDecl -> Maybe String
+generateHeaderDef decl = case decl of
+  DeclTuple (BasicTypeTuple name slots) ->
     let decls = cTupleDecl name slots
-    mapM_ (\d -> hPutStrLn headerFile (render $ pretty $ CDeclExt d)) decls
+    in  Just $ intercalate "\n" $ map (\d -> render $ pretty $ CDeclExt d) decls
 
-  DeclType def@(TypeDefinition { typeSubtype = Atom }) -> return ()
+  DeclType def@(TypeDefinition { typeSubtype = Atom }) -> Nothing
 
-  DeclType def@(TypeDefinition{}                     ) -> do
+  DeclType def@(TypeDefinition{}) ->
     let decls = cTypeDecl def
-    mapM_ (\d -> hPutStrLn headerFile (render $ pretty $ CDeclExt d)) decls
+    in  Just $ intercalate "\n" $ map (\d -> render $ pretty $ CDeclExt d) decls
 
   DeclFunction def@(FunctionDefinition { functionType = t, functionArgs = args, functionVarargs = varargs })
-    -> do
-      hPutStrLn
-        headerFile
-        (render $ pretty $ CDeclExt $ cfunDecl (functionName def)
-                                               (functionBasicType def)
-        )
+    -> Just $ render $ pretty $ CDeclExt $ cfunDecl (functionName def)
+                                                    (functionBasicType def)
 
-  DeclVar def@(VarDefinition { varType = t }) -> hPutStrLn
-    headerFile
-    (render $ pretty $ CDeclExt $ cDecl t (Just $ varRealName def) Nothing)
+  DeclVar def@(VarDefinition { varType = t }) ->
+    Just $ render $ pretty $ CDeclExt $ cDecl t (Just $ varRealName def) Nothing
 
-  _ -> return ()
+  _ -> Nothing
 
-generateBundleLib
-  :: CompileContext
-  -> TypePath
-  -> [IrDecl]
-  -> HashTable TypePath ()
-  -> [IncludeDependency]
-  -> IO ()
-generateBundleLib ctx name decls bundles deps = do
-  let writeDef tp = do
-        found <- findBundleFor bundles tp
-        case found of
-          -- stop including yourself! stop including yourself!
-          Just x | x == name -> return Nothing
-          Just x ->
-            return
-              $  Just
-              $  "#include \""
-              ++ (makeRelative (includeDir ctx) $ includePath ctx $ x)
-              ++ "\""
-          _ -> return Nothing
+generateBundleLib :: CompileContext -> TypePath -> [IrDecl] -> IO ()
+generateBundleLib ctx name decls = do
   let codeFilePath = libPath ctx name
   debugLog ctx
     $  "generating code for "
@@ -226,12 +208,8 @@ generateBundleLib ctx name decls bundles deps = do
   handle <- openFile codeFilePath WriteMode
   hPutStrLn handle
     $  "#include \""
-    ++ (makeRelative (includeDir ctx) $ includePath ctx name)
+    ++ (makeRelative (includeDir ctx) $ includePath ctx)
     ++ "\""
-  deps' <- forM deps $ \dep -> case dep of
-    DefDefDependency t tp -> writeDef tp
-    _                     -> return Nothing
-  forM_ (nub $ catMaybes deps') $ hPutStrLn handle
   forM_ decls (generateDef ctx handle)
   hClose handle
 

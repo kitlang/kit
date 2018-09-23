@@ -104,7 +104,7 @@ newCompileContext = do
     , ctxNoLink               = False
     , ctxDumpAst              = False
     , ctxNoCcache             = False
-    , ctxRecursionLimit       = 256
+    , ctxRecursionLimit       = 64
     , ctxRun                  = False
     , ctxNameMangling         = True
     }
@@ -257,12 +257,8 @@ getTraitDefinition ctx tp = do
 includeDir :: CompileContext -> FilePath
 includeDir ctx = (buildDir ctx) </> "include"
 
-includePath :: CompileContext -> TypePath -> FilePath
-includePath ctx (n, s) =
-  (includeDir ctx)
-    </>  (foldr (</>) "" (map s_unpack n))
-    </>  ("kit_" ++ s_unpack s)
-    -<.> ".h"
+includePath :: CompileContext -> FilePath
+includePath ctx = (includeDir ctx) </> (ctxOutputPath ctx) -<.> ".h"
 
 libDir :: CompileContext -> FilePath
 libDir ctx = (buildDir ctx) </> "lib"
@@ -396,4 +392,4 @@ osSpecificDefaultCompileArgs "darwin" =
 osSpecificDefaultCompileArgs _ = []
 
 ccSpecificDefaultCompileArgs "gcc" = ["-Wno-missing-braces"]
-ccSpecificDefaultCompileArgs _ = []
+ccSpecificDefaultCompileArgs _     = []

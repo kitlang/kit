@@ -415,17 +415,11 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       return $ makeExprTyped (While r1 r2 d) voidType pos
 
     (If e1 e2 (Just e3)) -> do
-      r1     <- r e1
-      scope1 <- newScope
-      r2     <- typeExpr ctx
-                         (tctx { tctxScopes = scope1 : (tctxScopes tctx) })
-                         mod
-                         e2
-      scope2 <- newScope
-      r3     <- typeExpr ctx
-                         (tctx { tctxScopes = scope2 : (tctxScopes tctx) })
-                         mod
-                         e3
+      r1       <- r e1
+      scope1   <- newScope
+      [r2, r3] <- forMWithErrors [e2, e3] $ \e -> do
+        scope <- newScope
+        typeExpr ctx (tctx { tctxScopes = scope : (tctxScopes tctx) }) mod e
       tv <- makeTypeVar ctx pos
       resolve $ TypeEq (inferredType r1)
                        (basicType BasicTypeBool)
@@ -863,7 +857,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                       "Array access on an array requires an Integral argument"
                       (tPos r2)
               )
-            return $ makeExprTyped (ArrayAccess r1 r2) (inferredType ex) pos
+            return $ (makeExprTyped (ArrayAccess r1 r2) (inferredType ex) pos) { tIsLvalue = True
+                                                                               }
           (TypeInstance tp params, _) -> do
             def <- getTypeDefinition ctx tp
             case typeSubtype def of

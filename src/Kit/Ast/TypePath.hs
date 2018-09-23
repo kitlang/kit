@@ -18,5 +18,5 @@ subPath (tp, n) s = (tp ++ [n], s)
 addNamespace :: ModulePath -> TypePath -> TypePath
 addNamespace n (_, s) = (n, s)
 
-tpShift ([], s) = undefined
+tpShift ([], s) = ([], s)
 tpShift (n , s) = let (h : t) = reverse n in (reverse t, h)

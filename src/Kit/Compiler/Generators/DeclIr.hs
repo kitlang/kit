@@ -58,25 +58,10 @@ generateDeclIr ctx mod t = do
           return $ t { enumVariants = variants' }
         x -> return x
 
-      deps <- case subtype of
-        Struct { structFields = fields } ->
-          return $ foldr (++) [] $ map ((typeDeps Def) . varType) fields
-        Enum { enumVariants = variants } -> do
-          return $ foldr (++) [] $ map
-            (\variant ->
-              foldr (++) [] $ map ((typeDeps Def) . argType) $ variantArgs
-                variant
-            )
-            variants
-        _ -> return []
-
       return
         $ [ foldr
               (\b acc -> mergeBundles acc b)
-              (DeclBundle name
-                          [DeclType $ converted { typeSubtype = subtype }]
-                          deps
-              )
+              (DeclBundle name [DeclType $ converted { typeSubtype = subtype }])
               (foldr (++) [] $ staticFields ++ staticMethods ++ instanceMethods)
           ]
 
@@ -96,16 +81,6 @@ generateDeclIr ctx mod t = do
               && not (ctxIsLibrary ctx)
 
       converted <- convertFunctionDefinition paramConverter f
-
-      let deps =
-            (typeDeps DefDef (functionType converted))
-              ++ (foldr (++) [] $ map ((typeDeps DefDef) . argType) $ functionArgs
-                   converted
-                 )
-              ++ (case functionBody converted of
-                   Just x  -> exprDeps x
-                   Nothing -> []
-                 )
 
       if (isMain && functionType converted == BasicTypeVoid)
       then
@@ -137,14 +112,13 @@ generateDeclIr ctx mod t = do
                      }
                  ]
                 )
-                deps
             ]
       else
         return
           $ [ DeclBundle
                 (case functionBundle f of
                   Just x -> x
-                  _      -> name
+                  _      -> tpShift name
                 )
                 [ DeclFunction $ converted
                     { functionType = if isMain
@@ -152,7 +126,6 @@ generateDeclIr ctx mod t = do
                       else functionType converted
                     }
                 ]
-                deps
             ]
 
     DeclVar v@(VarDefinition { varName = name }) -> do
@@ -162,15 +135,9 @@ generateDeclIr ctx mod t = do
         $ [ DeclBundle
               (case varBundle v of
                 Just x -> x
-                _      -> varName converted
+                _      -> tpShift $ varName converted
               )
               [DeclVar $ converted]
-              (  (typeDeps Def $ varType converted)
-              ++ (case varDefault converted of
-                   Just x -> exprDeps x
-                   _      -> []
-                 )
-              )
           ]
 
     DeclTrait (TraitDefinition { traitMethods = [] }) -> return []
@@ -224,18 +191,7 @@ generateDeclIr ctx mod t = do
             }
           }
 
-      let
-        methodDeps = map
-          (\method ->
-            foldr (++) []
-              $ ( (typeDeps Decl (functionType method))
-                : (map ((typeDeps Decl) . argType) (functionArgs method))
-                )
-          )
-          (traitMethods converted)
-      let deps = foldr (++) [] methodDeps
-
-      return $ [DeclBundle name [DeclType $ traitBox, DeclType $ vtable] deps]
+      return $ [DeclBundle name [DeclType $ traitBox, DeclType $ vtable]]
 
     DeclImpl (TraitImplementation { implMethods = [] }) -> return []
     DeclImpl i'@(TraitImplementation { implTrait = TypeTraitConstraint (traitName, traitParams), implFor = ct })
@@ -279,14 +235,8 @@ generateDeclIr ctx mod t = do
 
         methodBundles <- forM (implMethods i)
           $ \x -> generateDeclIr ctx mod $ DeclFunction x
-        let
-          deps =
-            foldr (++) [] $ map bundleDependencies $ foldr (++) [] methodBundles
 
         return
-          $ [ DeclBundle (implName i) ((map snd methods) ++ [DeclVar $ impl])
-              $  ((DefDependency name) : (typeDeps Def for))
-              ++ deps
-            ]
+          $ [DeclBundle (implName i) ((map snd methods) ++ [DeclVar $ impl])]
 
     _ -> return []

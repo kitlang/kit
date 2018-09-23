@@ -191,7 +191,7 @@ main = do
           return $ length errs
         Right () -> return 0
       printLog
-        $  "total compile time: "
+        $  "total time: "
         ++ (show $ diffUTCTime endTime startTime)
       if errors == 0
         then return ()

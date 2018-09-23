@@ -110,7 +110,7 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
       (Literal (StringValue s)) -> return $ IrLiteral (StringValue s)
       (Literal (BoolValue   b)) -> return $ IrLiteral (BoolValue b)
       (Literal (CharValue   c)) -> return $ IrLiteral (CharValue c)
-      (This) -> return $ IrPreUnop Deref $ IrIdentifier ([], thisPtrName)
+      (This) -> return $ IrPreUnop Deref (IrIdentifier ([], thisPtrName))
       (Self                   ) -> throw $ KitError $ BasicError
         ("unexpected `Self` in typed AST")
         (Just pos)
@@ -172,9 +172,10 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
         values <- mapM r values
         -- TODO: could use appropriately sized int type for index
         return $ IrBlock
-          [ IrBinop Assign
-                    (IrArrayAccess r1 (IrLiteral $ IntValue i BasicTypeCSize))
-                    val
+          [ IrBinop
+              Assign
+              (IrArrayAccess r1 (IrLiteral $ IntValue i BasicTypeCSize))
+              val
           | (i, val) <- zip [0 ..] values
           ]
       (Binop op e1 e2) -> do
@@ -386,11 +387,13 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
       (Empty) -> do
         t' <- findUnderlyingType ctx mod (Just pos) t
         case t' of
-          CArray _ _            -> return ()
-          BasicTypeAnonStruct _ -> return ()
-          BasicTypeStruct     _ -> return ()
-          _                     -> throwk
-            $ TypingError ("`empty` isn't a valid value of type " ++ show t) pos
+          CArray _ _             -> return ()
+          BasicTypeAnonStruct  _ -> return ()
+          BasicTypeStruct      _ -> return ()
+          BasicTypeComplexEnum _ -> return ()
+          _                      -> throwk $ TypingError
+            ("`empty` isn't a valid value of type " ++ show t')
+            pos
         return IrEmpty
       t -> do
         throwk $ InternalError

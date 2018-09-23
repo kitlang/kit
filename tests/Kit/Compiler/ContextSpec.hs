@@ -19,13 +19,11 @@ newVar s = VarBinding
 spec :: Spec
 spec = do
   describe "CompileContext" $ do
-    it "generates headers/code in the correct directories" $ do
+    it "generates code in the correct directory" $ do
       ctx <- newCompileContext
-      includePath ctx ([]       , "apple") `shouldBe` "build/include/kit_apple.h"
-      includePath ctx (["apple"], "banana")
-        `shouldBe` "build/include/apple/kit_banana.h"
       libPath ctx ([]       , "apple") `shouldBe` "build/lib/kit_apple.c"
-      libPath ctx (["apple"], "banana") `shouldBe` "build/lib/apple/kit_banana.c"
+      libPath ctx (["apple"], "banana")
+        `shouldBe` "build/lib/apple/kit_banana.c"
 
   describe "Variable resolution" $ do
     it "resolves variables to scopes, falling back to modules" $ do
@@ -43,10 +41,10 @@ spec = do
       s2 <- newScope
       bindToScope s2 "a" $ newVar "a3"
       let scopes = [s2, s1]
-      fa  <- resolveVar ctx scopes brokenMod "a"
-      fb  <- resolveVar ctx scopes brokenMod "b"
-      fc  <- resolveVar ctx scopes m "c"
-      fd  <- resolveVar ctx scopes m "d"
+      fa <- resolveVar ctx scopes brokenMod "a"
+      fb <- resolveVar ctx scopes brokenMod "b"
+      fc <- resolveVar ctx scopes m "c"
+      fd <- resolveVar ctx scopes m "d"
       fa `shouldBe` (Just $ newVar "a3")
       fb `shouldBe` (Just $ newVar "b2")
       fc `shouldBe` (Just $ newVar "c1")

@@ -39,9 +39,7 @@ generateModuleIr ctx (mod, decls) = do
   tuples <- h_toList (modTuples mod)
   return
     ( mod
-    , [ DeclBundle ([], n)
-                   [DeclTuple t]
-                   (foldr (++) [] $ map (typeDeps Def) parts)
+    , [ DeclBundle ([], n) [DeclTuple t]
       | (_, t@(BasicTypeTuple n parts)) <- tuples
       ]
       ++ (foldr (++) [] decls)

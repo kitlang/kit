@@ -636,8 +636,8 @@ RangeLiteral :: {Expr}
 
 BinopTermAssign :: {Expr}
   : BinopTermCons {$1}
-  | BinopTermAssign '=' BinopTermCons {pe (pos $1 <+> pos $3) $ Binop Assign $1 $3}
-  | BinopTermAssign assign_op BinopTermCons {pe (pos $1 <+> pos $3) $ Binop (AssignOp (extract_assign_op $2)) $1 $3}
+  | BinopTermCons '=' BinopTermAssign {pe (pos $1 <+> pos $3) $ Binop Assign $1 $3}
+  | BinopTermCons assign_op BinopTermAssign {pe (pos $1 <+> pos $3) $ Binop (AssignOp (extract_assign_op $2)) $1 $3}
 BinopTermCons :: {Expr}
   : BinopTermTernary {$1}
   | BinopTermTernary "::" BinopTermCons {pe (pos $1 <+> pos $3) $ Binop Cons $1 $3}
@@ -645,14 +645,24 @@ BinopTermCons :: {Expr}
 --   : token LexMacroTokenAny {pe (snd $1 <+> snd $2) $ TokenExpr $ tc [$2]}
   -- | BinopTermTernary {$1}
 BinopTermTernary :: {Expr}
-  : if BinopTermOr then BinopTermOr else BinopTermOr {pe (p $1 <+> pos $6) $ If $2 $4 (Just $6)}
+  : if BinopTermOr then BinopTermOr else BinopTermTernary {pe (p $1 <+> pos $6) $ If $2 $4 (Just $6)}
   | BinopTermOr {$1}
 BinopTermOr :: {Expr}
   : BinopTermAnd {$1}
   | BinopTermOr "||" BinopTermAnd {pe (pos $1 <+> pos $3) $ Binop Or $1 $3}
 BinopTermAnd :: {Expr}
+  : BinopTermEq {$1}
+  | BinopTermAnd "&&" BinopTermEq {pe (pos $1 <+> pos $3) $ Binop And $1 $3}
+BinopTermEq :: {Expr}
+  : BinopTermCompare {$1}
+  | BinopTermEq "==" BinopTermCompare {pe (pos $1 <+> pos $3) $ Binop Eq $1 $3}
+  | BinopTermEq "!=" BinopTermCompare {pe (pos $1 <+> pos $3) $ Binop Neq $1 $3}
+BinopTermCompare :: {Expr}
   : BinopTermBitOr {$1}
-  | BinopTermAnd "&&" BinopTermBitOr {pe (pos $1 <+> pos $3) $ Binop And $1 $3}
+  | BinopTermCompare '>' BinopTermBitOr {pe (pos $1 <+> pos $3) $ Binop Gt $1 $3}
+  | BinopTermCompare '<' BinopTermBitOr {pe (pos $1 <+> pos $3) $ Binop Lt $1 $3}
+  | BinopTermCompare ">=" BinopTermBitOr {pe (pos $1 <+> pos $3) $ Binop Gte $1 $3}
+  | BinopTermCompare "<=" BinopTermBitOr {pe (pos $1 <+> pos $3) $ Binop Lte $1 $3}
 BinopTermBitOr :: {Expr}
   : BinopTermBitXor {$1}
   | BinopTermBitOr '|' BinopTermBitXor {pe (pos $1 <+> pos $3) $ Binop BitOr $1 $3}
@@ -660,18 +670,8 @@ BinopTermBitXor :: {Expr}
   : BinopTermBitAnd {$1}
   | BinopTermBitXor '^' BinopTermBitAnd {pe (pos $1 <+> pos $3) $ Binop BitXor $1 $3}
 BinopTermBitAnd :: {Expr}
-  : BinopTermEq {$1}
-  | BinopTermBitAnd '&' BinopTermEq {pe (pos $1 <+> pos $3) $ Binop BitAnd $1 $3}
-BinopTermEq :: {Expr}
-  : BinopTermCompare {$1}
-  | BinopTermEq "==" BinopTermCompare {pe (pos $1 <+> pos $3) $ Binop Eq $1 $3}
-  | BinopTermEq "!=" BinopTermCompare {pe (pos $1 <+> pos $3) $ Binop Neq $1 $3}
-BinopTermCompare :: {Expr}
   : BinopTermShift {$1}
-  | BinopTermCompare '>' BinopTermShift {pe (pos $1 <+> pos $3) $ Binop Gt $1 $3}
-  | BinopTermCompare '<' BinopTermShift {pe (pos $1 <+> pos $3) $ Binop Lt $1 $3}
-  | BinopTermCompare ">=" BinopTermShift {pe (pos $1 <+> pos $3) $ Binop Gte $1 $3}
-  | BinopTermCompare "<=" BinopTermShift {pe (pos $1 <+> pos $3) $ Binop Lte $1 $3}
+  | BinopTermBitAnd '&' BinopTermShift {pe (pos $1 <+> pos $3) $ Binop BitAnd $1 $3}
 BinopTermShift :: {Expr}
   : BinopTermAdd {$1}
   | BinopTermShift "<<" BinopTermAdd {pe (pos $1 <+> pos $3) $ Binop LeftShift $1 $3}
@@ -713,15 +713,12 @@ ArrayElems :: {[Expr]}
 
 CastExpr :: {Expr}
   : CastExpr as TypeSpec {pe (pos $1 <+> snd $3) $ Cast $1 (Just $ fst $3)}
-  | ArrayAccessExpr {$1}
+  | ArrayAccessCallFieldExpr {$1}
 
-ArrayAccessExpr :: {Expr}
-  : ArrayAccessExpr '[' Expr ']' {pe (pos $1 <+> p $4) $ ArrayAccess $1 $3}
-  | CallExpr {$1}
-
-CallExpr :: {Expr}
-  : CallExpr '(' CallArgs ')' {pe (pos $1 <+> p $4) $ Call $1 (reverse $3)}
-  | CallExpr '.' Identifier {pe (pos $1 <+> p $3) $ Field $1 $ fst $3}
+ArrayAccessCallFieldExpr :: {Expr}
+  : ArrayAccessCallFieldExpr '[' Expr ']' {pe (pos $1 <+> p $4) $ ArrayAccess $1 $3}
+  | ArrayAccessCallFieldExpr '(' CallArgs ')' {pe (pos $1 <+> p $4) $ Call $1 (reverse $3)}
+  | ArrayAccessCallFieldExpr '.' Identifier {pe (pos $1 <+> p $3) $ Field $1 $ fst $3}
   | TypeAnnotatedExpr {$1}
 
 TypeAnnotatedExpr :: {Expr}

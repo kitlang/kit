@@ -207,7 +207,7 @@ resolveTypesForMod ctx (mod, contents) = do
                 (Just $ implPos i)
 
         _ -> do
-          binding <- getBinding ctx (modPath mod, declName decl)
+          binding <- getBinding ctx (modPath mod, tpName $ declName decl)
           case (binding, decl) of
             (VarBinding vi, DeclVar v) -> do
               converted <- convertVarDefinition varConverter
