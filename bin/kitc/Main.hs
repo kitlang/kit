@@ -184,16 +184,17 @@ main = do
 
       result  <- tryCompile ctx
       endTime <- getCurrentTime
-      status  <- case result of
+      errors  <- case result of
         Left e -> do
-          mapM_ logError $ flattenErrors e
-          return 1
+          let errs = flattenErrors e
+          mapM_ logError $ errs
+          return $ length errs
         Right () -> return 0
       printLog
         $  "total compile time: "
         ++ (show $ diffUTCTime endTime startTime)
-      if status == 0
+      if errors == 0
         then return ()
         else do
-          errorLog $ "compilation failed"
-          exitWith $ ExitFailure status
+          errorLog $ "compilation failed (" ++ show errors ++ " errors)"
+          exitWith $ ExitFailure 1

@@ -87,7 +87,7 @@ loadModule ctx mod pos = do
             (\(mod', _) ->
               modifyIORef (ctxIncludes ctx) (\current -> mod' : current)
             )
-          imports <- forM (modImports m) (_loadImportedModule ctx)
+          imports <- forMWithErrors (modImports m) (_loadImportedModule ctx)
           let (errs, results) = foldr
                 (\result (errs, results) -> case result of
                   Left  errs'    -> (errs ++ [errs'], results)
@@ -169,7 +169,7 @@ _loadModule ctx mod pos = do
   let includes   = findIncludes stmts
   let createdMod = m { modImports = imports }
   writeIORef (modIncludes createdMod) includes
-  decls <- forM stmts (addStmtToModuleInterface ctx m)
+  decls <- forMWithErrors stmts (addStmtToModuleInterface ctx m)
   return (createdMod, foldr (++) [] decls)
 
 _loadImportedModule
