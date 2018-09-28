@@ -75,7 +75,6 @@ import Kit.Str
   this {(KeywordThis,_)}
   throw {(KeywordThrow,_)}
   trait {(KeywordTrait,_)}
-  type {(KeywordType,_)}
   typedef {(KeywordTypedef,_)}
   union {(KeywordUnion,_)}
   unsafe {(KeywordUnsafe,_)}

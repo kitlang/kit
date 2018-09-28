@@ -48,6 +48,7 @@ findUnderlyingType ctx mod pos t = do
           return (name, t')
         )
       return $ BasicTypeAnonUnion fields'
+    TypeAnonEnum variants -> return $ BasicTypeAnonEnum [([], n) | n <- variants]
     TypeInstance tp p -> do
       templateDef <- getTypeDefinition ctx tp
       params      <- forM p (mapType $ follow ctx modTctx)

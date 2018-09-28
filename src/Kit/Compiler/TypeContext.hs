@@ -234,6 +234,7 @@ follow ctx tctx t = do
       binding <- lookupBinding ctx tp
       case binding of
         Just (TypedefBinding t _) -> follow ctx tctx t
+        Just (TypeBinding t     ) -> follow ctx tctx $ TypeInstance (typeName t) []
         _                         -> throwk $ InternalError
           ("Unexpected missing typedef: " ++ (s_unpack $ showTypePath tp))
           Nothing

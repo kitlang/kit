@@ -28,7 +28,7 @@
       </dict>
       <dict>
         <key>match</key>
-        <string>\b(return|throw|for|as|in|if|then|else|do|while|match|default|unsafe|implicit|sizeof)\b</string>
+        <string>\b(return|throw|for|as|in|if|then|else|do|while|match|default|unsafe|implicit|sizeof|break|continue)\b</string>
         <key>name</key>
         <string>keyword.other.kit</string>
       </dict>

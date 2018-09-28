@@ -66,7 +66,6 @@ data TokenClass
   | KeywordThis
   | KeywordThrow
   | KeywordTrait
-  | KeywordType
   | KeywordTypedef
   | KeywordUnion
   | KeywordUnsafe
@@ -160,7 +159,6 @@ instance Show TokenClass where
     KeywordThis -> "this"
     KeywordThrow -> "throw"
     KeywordTrait -> "trait"
-    KeywordType -> "type"
     KeywordTypedef -> "typedef"
     KeywordUnion -> "union"
     KeywordUnsafe -> "unsafe"

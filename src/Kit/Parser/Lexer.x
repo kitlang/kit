@@ -81,7 +81,6 @@ tokens :-
   this { tok KeywordThis }
   throw { tok KeywordThrow }
   trait { tok KeywordTrait }
-  type { tok KeywordType }
   typedef { tok KeywordTypedef }
   union { tok KeywordUnion }
   unsafe { tok KeywordUnsafe }
