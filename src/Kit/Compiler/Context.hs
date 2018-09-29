@@ -31,6 +31,7 @@ data CompileContext = CompileContext {
   ctxImpls :: HashTable TraitConstraint (HashTable ConcreteType (TraitImplementation TypedExpr ConcreteType)),
   -- ctxGenericImpls :: HashTable
   ctxBindings :: HashTable TypePath Binding,
+  ctxTypedefs :: HashTable Str ConcreteType,
   ctxPendingGenerics :: IORef [(TypePath, [ConcreteType])],
   ctxCompleteGenerics :: HashTable (TypePath, [ConcreteType]) (),
   ctxUnresolvedTypeVars :: HashTable Int (),
@@ -63,10 +64,11 @@ newCompileContext = do
   preludes         <- h_new
   includes         <- newIORef []
   lastTypeVar      <- newIORef 0
-  typeVars         <- h_newSized 1024
   specs            <- h_new
   impls            <- h_new
-  -- make this big so we're less likely to have to resize later
+  typedefs         <- h_new
+  -- make these big so we're less likely to have to resize later
+  typeVars         <- h_newSized 4096
   bindings         <- h_newSized 4096
   pendingGenerics  <- newIORef []
   completeGenerics <- h_new
@@ -91,6 +93,7 @@ newCompileContext = do
     , ctxTypeVariables        = typeVars
     , ctxTraitSpecializations = specs
     , ctxImpls                = impls
+    , ctxTypedefs             = typedefs
     , ctxBindings             = bindings
     , ctxPendingGenerics      = pendingGenerics
     , ctxCompleteGenerics     = completeGenerics

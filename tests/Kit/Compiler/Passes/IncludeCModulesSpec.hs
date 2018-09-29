@@ -70,11 +70,8 @@ spec = do
         , "var3"
         , (TypeBasicType $ BasicTypeUint 32)
         )
-      , ( "Parses struct vars"
-        , "struct_var1"
-        , (TypeInstance ([], "Struct1") [])
-        )
-      , ("Parses enum vars", "enum_var1", (TypeInstance ([], "Enum1") []))
+      , ("Parses struct vars", "struct_var1", (TypeInstance ([], "Struct1") []))
+      , ("Parses enum vars"  , "enum_var1"  , (TypeInstance ([], "Enum1") []))
       , ( "Parses pointer vars"
         , "pointer_var1"
         , (TypePtr (TypeBasicType $ BasicTypeInt 16))
@@ -138,8 +135,8 @@ spec = do
         )
       ]
       (\(label, name, ct) -> it label $ do
-        (ctx, header)  <- testHeader
-        binding <- getBinding ctx ([], name)
+        (ctx, header) <- testHeader
+        binding       <- getBinding ctx ([], name)
         (case binding of
             FunctionBinding f -> Just $ functionConcrete f
             VarBinding      v -> Just $ varType v
@@ -210,13 +207,19 @@ spec = do
       ]
       (\(label, name, ct, def) -> it label $ do
         (ctx, header) <- testHeader
-        x      <- lookupBinding ctx ([], name)
-        (case x of
-            Just (TypeBinding t      ) -> Just $ TypeInstance (typeName t) []
-            Just (TypedefBinding ct _) -> Just ct
-            _                          -> Nothing
+        x             <- lookupBinding ctx ([], name)
+        result        <-
+          (case x of
+            Just (TypeBinding t) ->
+              return $ Just $ TypeInstance (typeName t) []
+            Nothing -> do
+              x <- h_lookup (ctxTypedefs ctx) name
+              case x of
+                Just t -> return $ Just t
+                _      -> return Nothing
+            _ -> return Nothing
           )
-          `shouldBe` Just ct
+        result `shouldBe` Just ct
       )
         -- def' <- h_lookup (modContents header) name
         -- def' `shouldBe` def

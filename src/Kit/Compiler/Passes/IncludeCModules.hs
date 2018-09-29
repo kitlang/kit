@@ -147,7 +147,7 @@ defineTypedef ctx mod typeSpec pos (name, declr) = do
   veryNoisyDebugLog ctx $ "typedef " ++ (s_unpack name) ++ ": " ++ (show t')
   when (t' == TypeBasicType BasicTypeUnknown)
     $ unknownTypeWarning ctx mod name pos
-  addBinding ctx ([], name) (TypedefBinding t' pos)
+  h_insert (ctxTypedefs ctx) name t'
 
 parseType :: ModulePath -> [CTypeSpec] -> [CDerivedDeclr] -> ConcreteType
 parseType m typeSpec declr =
@@ -203,7 +203,7 @@ _parseDeclSpec modPath (h : t) width signed float = case h of
     "uint32_t" -> TypeBasicType $ BasicTypeUint 32
     "uint64_t" -> TypeBasicType $ BasicTypeUint 64
     "FILE"     -> TypeBasicType $ BasicTypeCFile
-    _          -> TypeTypedef (modPath, (s_pack x)) []
+    _          -> TypeTypedef (s_pack x)
   -- anonymous structs/enums; TODO: need to generate a stub declaration for these
   (CSUType (CStruct tag (Just (Ident x _ _)) _ _ _) _) ->
     (TypeInstance (modPath, (s_pack x)) [])

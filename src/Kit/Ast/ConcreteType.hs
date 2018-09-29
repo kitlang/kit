@@ -26,7 +26,7 @@ data ConcreteType
   | TypeAnonStruct [(Str, ConcreteType)]
   | TypeAnonUnion [(Str, ConcreteType)]
   | TypeAnonEnum [Str]
-  | TypeTypedef TypePath [ConcreteType]
+  | TypeTypedef Str
   | TypeFunction ConcreteType ConcreteArgs Bool [ConcreteType]
   | TypeBasicType BasicType
   | TypePtr ConcreteType
@@ -52,8 +52,7 @@ instance Show ConcreteType where
   show (TypeAnonStruct f) = "(anon struct)"
   show (TypeAnonEnum variants) = "(anon enum {" ++ (intercalate ", " (map s_unpack variants)) ++ "})"
   show (TypeAnonUnion f) = "(anon union)"
-  show (TypeTypedef tp []) = "typedef " ++ (s_unpack $ showTypePath tp)
-  show (TypeTypedef tp params) = "typedef " ++ (s_unpack $ showTypePath tp) ++ showParams params
+  show (TypeTypedef name) = "typedef " ++ s_unpack name
   show (TypeFunction rt args var params) = "function (" ++ (intercalate ", " [show t | (_, t) <- args]) ++ (if var then ", ..." else "") ++ ") -> " ++ show rt
   show (TypeBasicType t) = show t
   show (TypePtr (TypeBasicType (BasicTypeInt 8))) = "CString"
@@ -78,7 +77,6 @@ instance Show ConcreteType where
 --   TypeAnonStruct [(Str, ConcreteType)]
 --   TypeAnonUnion [(Str, ConcreteType)]
 --   TypeAnonEnum [Str]
---   TypeTypedef TypePath [ConcreteType]
 --   TypeFunction ConcreteType ConcreteArgs Bool [ConcreteType]
 --   TypeBasicType t = "b" ++ basicTypeAbbreviation t
 --   TypePtr t = "p" ++ concreteTypeAbbreviation t
@@ -120,9 +118,6 @@ mapType f (TypeAnonUnion fields) = do
     t' <- f t
     return (n, t')
   f $ TypeAnonUnion fields'
-mapType f (TypeTypedef tp p) = do
-  p' <- mapM f p
-  f $ TypeTypedef tp p'
 mapType f (TypeFunction rt args varargs p) = do
   rt'   <- f rt
   args' <- forM args $ \(n, t) -> do

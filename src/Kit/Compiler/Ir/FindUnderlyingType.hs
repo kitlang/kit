@@ -60,14 +60,8 @@ _findUnderlyingType ctx mod pos stack t = do
       let typeName = monomorphName (typeRealName templateDef) params
       case typeSubtype def of
         Struct { structFields = fields } -> do
-          fields <- forM fields $ \field -> do
-            t <- r (varType field)
-            return (varName field, t)
           return $ BasicTypeStruct typeName
         Union { unionFields = fields } -> do
-          fields <- forM fields $ \field -> do
-            t <- r (varType field)
-            return (varName field, t)
           return $ BasicTypeUnion typeName
         enum@(Enum { enumVariants = variants }) -> do
           return $ if enumIsSimple enum

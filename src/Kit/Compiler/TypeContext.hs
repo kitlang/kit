@@ -227,13 +227,12 @@ follow ctx tctx t = do
         )
       resolvedParams <- forM params (follow ctx tctx)
       return $ TypeEnumConstructor tp d resolvedArgs resolvedParams
-    TypeTypedef tp params -> do
-      binding <- lookupBinding ctx tp
-      case binding of
-        Just (TypedefBinding t _) -> follow ctx tctx t
-        Just (TypeBinding t) -> follow ctx tctx $ TypeInstance (typeName t) []
-        _ -> throwk $ InternalError
-          ("Unexpected missing typedef: " ++ (s_unpack $ showTypePath tp))
+    TypeTypedef name -> do
+      typedef <- h_lookup (ctxTypedefs ctx) name
+      case typedef of
+        Just t  -> follow ctx tctx t
+        Nothing -> throwk $ InternalError
+          ("Unexpected missing typedef: " ++ (s_unpack name))
           Nothing
     TypeTuple t -> do
       resolvedT <- forM t $ follow ctx tctx
