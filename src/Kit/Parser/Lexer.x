@@ -8,7 +8,7 @@ import Numeric
 import System.Exit
 import Kit.Str
 import Kit.Ast.Operator
-import Kit.Parser.Span
+import Kit.Ast.Span
 import Kit.Parser.Token
 }
 

@@ -5,7 +5,6 @@ import qualified Data.ByteString.Lazy.Char8 as B
 import Kit.Ast
 import Kit.Error
 import Kit.Parser.Base
-import Kit.Parser.Span
 import Kit.Parser.Token
 import Kit.Str
 }
