@@ -10,6 +10,7 @@ import GHC.Generics
 import Kit.Ast.BasicType
 import Kit.Ast.ModulePath
 import Kit.Ast.TypePath
+import Kit.Ast.Value
 import Kit.Parser.Span
 import Kit.Str
 
@@ -32,17 +33,18 @@ data ConcreteType
   | TypeFunction ConcreteType ConcreteArgs Bool [ConcreteType]
   | TypeBasicType BasicType
   | TypePtr ConcreteType
-  | TypeArray ConcreteType (Maybe Int)
+  | TypeArray ConcreteType (Maybe ConcreteType)
   | TypeEnumConstructor TypePath TypePath ConcreteArgs [ConcreteType]
   | TypeRange
   | TypeTraitConstraint TraitConstraint
   | TypeTuple [ConcreteType]
-  | TypeTypeOf TypePath
+  | TypeTypeOf TypePath [ConcreteType]
   | TypeTypeVar TypeVar
   | TypeTypeParam TypePath
   | TypeRuleSet TypePath
   | TypeBox TypePath [ConcreteType]
   | TypeSelf
+  | ConstantType ValueLiteral
   deriving (Eq, Generic)
 
 instance Hashable ConcreteType
@@ -65,12 +67,13 @@ instance Show ConcreteType where
   show (TypeRange) = "range"
   show (TypeTraitConstraint (tp, params)) = "trait " ++ s_unpack (showTypePath tp) ++ showParams params
   show (TypeTuple t) = "(" ++ intercalate ", " (map show t) ++ ")"
-  show (TypeTypeOf t) = "typeof " ++ s_unpack (showTypePath t)
+  show (TypeTypeOf t params) = "typeof " ++ s_unpack (showTypePath t) ++ showParams params
   show (TypeTypeVar i) = "(unknown type #" ++ show i ++ ")"
   show (TypeTypeParam tp) = "type param " ++ s_unpack (showTypePath tp)
   show (TypeRuleSet tp) = "rules " ++ (s_unpack $ showTypePath tp)
   show (TypeBox tp params) = "Box[" ++ (s_unpack $ showTypePath tp) ++ showParams params ++ "]"
   show (TypeSelf) = "Self"
+  show (ConstantType v) = "$" ++ show v
 
 -- concreteTypeAbbreviation t = case t of
 --   TypeAtom = "m"
@@ -133,9 +136,13 @@ mapType f (TypeFunction rt args varargs p) = do
 mapType f (TypePtr t) = do
   t' <- f t
   f $ TypePtr t'
-mapType f (TypeArray t l) = do
+mapType f (TypeArray t Nothing) = do
   t' <- f t
-  f $ TypeArray t' l
+  f $ TypeArray t' Nothing
+mapType f (TypeArray t (Just l)) = do
+  t' <- f t
+  l' <- f l
+  f $ TypeArray t' $ Just l'
 mapType f (TypeEnumConstructor tp s args p) = do
   args' <- forM args $ \(n, t) -> do
     t' <- f t

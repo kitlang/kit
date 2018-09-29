@@ -132,7 +132,7 @@ ctype (CArray x s) =
       []
       (case s of
         Just i ->
-          CArrSize False (transpileExpr $ IrLiteral (IntValue i BasicTypeCInt))
+          CArrSize False (transpileExpr $ IrLiteral (IntValue i) BasicTypeCInt)
         Nothing -> CNoArrSize False
       )
     )
@@ -146,11 +146,11 @@ intFlags f = foldr (\f acc -> setFlag f acc) noFlags f
 transpileExpr :: IrExpr -> CExpr
 transpileExpr (IrIdentifier s) =
   u $ CVar $ internalIdent $ s_unpack $ mangleName s
-transpileExpr (IrLiteral (BoolValue b)) =
+transpileExpr (IrLiteral (BoolValue b) _) =
   CConst $ u $ CIntConst $ cInteger (if b then 1 else 0)
-transpileExpr (IrLiteral (IntValue i t@(BasicTypeFloat _))) =
-  transpileExpr (IrLiteral (FloatValue (s_pack $ show i) t))
-transpileExpr (IrLiteral (IntValue i t)) = CConst $ u $ CIntConst $ CInteger
+transpileExpr (IrLiteral (IntValue i) t@(BasicTypeFloat _)) =
+  transpileExpr (IrLiteral (FloatValue (s_pack $ show i)) t)
+transpileExpr (IrLiteral (IntValue i) t) = CConst $ u $ CIntConst $ CInteger
   (toInteger i)
   DecRepr
   (intFlags
@@ -162,9 +162,9 @@ transpileExpr (IrLiteral (IntValue i t)) = CConst $ u $ CIntConst $ CInteger
       _                -> []
     )
   )
-transpileExpr (IrLiteral (FloatValue f t)) =
+transpileExpr (IrLiteral (FloatValue f) t) =
   CConst $ u $ CFloatConst $ transpileFloat (s_unpack f)
-transpileExpr (IrLiteral (StringValue s)) =
+transpileExpr (IrLiteral (StringValue s) _) =
   u
     $ CCast (cDecl (CPtr $ BasicTypeCChar) Nothing Nothing)
     $ CConst
@@ -172,8 +172,6 @@ transpileExpr (IrLiteral (StringValue s)) =
     $ CStrConst
     $ cString
     $ s_unpack s
-transpileExpr (IrLiteral (CharValue i)) =
-  transpileExpr (IrLiteral (IntValue i BasicTypeCChar))
 transpileExpr (IrBinop Assign e1 e2) =
   u $ CAssign (CAssignOp) (transpileExpr e1) (transpileExpr e2)
 transpileExpr (IrBinop (AssignOp op) e1 e2) =
@@ -203,7 +201,7 @@ transpileExpr (IrCArrLiteral values x) = u $ CCompoundLit
         []
         (CArrSize
           False
-          (transpileExpr $ IrLiteral (IntValue (length values) BasicTypeCInt))
+          (transpileExpr $ IrLiteral (IntValue $ length values) BasicTypeCInt)
         )
       )
       : snd t

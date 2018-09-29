@@ -81,10 +81,8 @@ resolveType ctx tctx mod t = do
   importedMods <- getModImports ctx mod
   case t of
     ConcreteType ct        -> follow ctx tctx ct
-    ConstantTypeSpec v pos -> throwk $ InternalError
-      ("Constant type " ++ show v ++ " not allowed here")
-      (Just pos)
-    TupleTypeSpec t pos -> do
+    ConstantTypeSpec v pos -> return $ ConstantType v
+    TupleTypeSpec    t pos -> do
       slots <- forM t (resolveType ctx tctx mod)
       return $ TypeTuple slots
     TypeSpec (m, s) params pos -> do
@@ -102,6 +100,7 @@ resolveType ctx tctx mod t = do
                   Just $ TypeTraitConstraint (traitName t, resolvedParams)
                 Just (VarBinding     v) -> Just $ varType v
                 Just (RuleSetBinding r) -> Just $ TypeRuleSet (ruleSetName r)
+                Just (ExprBinding    x) -> Just $ inferredType x
                 _                       -> Nothing
           case m of
             ["extern"] -> do
@@ -234,8 +233,8 @@ follow ctx tctx t = do
       binding <- lookupBinding ctx tp
       case binding of
         Just (TypedefBinding t _) -> follow ctx tctx t
-        Just (TypeBinding t     ) -> follow ctx tctx $ TypeInstance (typeName t) []
-        _                         -> throwk $ InternalError
+        Just (TypeBinding t) -> follow ctx tctx $ TypeInstance (typeName t) []
+        _ -> throwk $ InternalError
           ("Unexpected missing typedef: " ++ (s_unpack $ showTypePath tp))
           Nothing
     TypeTuple t -> do
@@ -335,9 +334,10 @@ builtinToConcreteType ctx tctx mod s p pos = do
     ("CArray", [x]) -> do
       param <- resolveType ctx tctx mod x
       return $ Just $ TypeArray param Nothing
-    ("CArray", [x, ConstantTypeSpec (IntValue i _) _]) -> do
+    ("CArray", [x, size]) -> do
       param <- resolveType ctx tctx mod x
-      return $ Just $ TypeArray param (Just i)
+      size  <- resolveType ctx tctx mod size
+      return $ Just $ TypeArray param (Just size)
     _ -> return Nothing
 
 getTraitImpl
@@ -387,3 +387,12 @@ typeUnresolved ctx tctx ct = do
   case t of
     TypeTypeVar _ -> return True
     _             -> return False
+
+getArraySize
+  :: CompileContext -> TypeContext -> Maybe Span -> ConcreteType -> IO Int
+getArraySize ctx tctx pos s = do
+  s <- mapType (follow ctx tctx) s
+  case s of
+    ConstantType (IntValue i) -> return i
+    _ ->
+      throwk $ InternalError ("Invalid array size parameter: " ++ show s) pos

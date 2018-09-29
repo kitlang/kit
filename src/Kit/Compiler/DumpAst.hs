@@ -175,8 +175,8 @@ dumpAst ctx indent e@(TypedExpr { tExpr = texpr, inferredType = t, tPos = pos })
             return $ intercalate "\n" $ (f x) : children'
           )
     result <- case texpr of
-      Block   x         -> i "{}" x
-      Literal v         -> return $ f $ show v
+      Block x           -> i "{}" x
+      Literal v _       -> return $ f $ show v
       This              -> return $ f "this"
       Self              -> return $ f "Self"
       Identifier x      -> return $ f $ "identifier " ++ show x
@@ -194,9 +194,9 @@ dumpAst ctx indent e@(TypedExpr { tExpr = texpr, inferredType = t, tPos = pos })
       Match x cases def -> i
         "match"
         (x : (foldr (++) [] [ [matchPattern c, matchBody c] | c <- cases ]))
-      InlineCall a     -> i "inline" [a]
-      Method a tp name -> i ("method " ++ s_unpack name) [a]
-      Field a id       -> i ("field " ++ show id) [a]
+      InlineCall a          -> i "inline" [a]
+      Method tp params name -> i ("method " ++ s_unpack name ++ " of " ++ s_unpack (showTypePath tp) ++ show params) []
+      Field a id            -> i ("field " ++ show id) [a]
       StructInit (TypeInstance tp _) fields ->
         i ("struct " ++ s_unpack (showTypePath tp)) (map snd fields)
       EnumInit _ constructor fields ->

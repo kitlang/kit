@@ -9,7 +9,7 @@ data Metadata = Metadata {metaName :: Str, metaArgs :: [MetaArg]} deriving (Eq, 
 
 data MetaArg
   = MetaIdentifier Str
-  | MetaLiteral (ValueLiteral (Maybe TypeSpec))
+  | MetaLiteral ValueLiteral
   deriving (Eq, Show)
 
 meta s = Metadata {metaName = s, metaArgs = []}

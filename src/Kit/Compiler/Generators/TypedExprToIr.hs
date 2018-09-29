@@ -98,24 +98,23 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
               else do
                 h_insert (ictxTempInfo ictx) nextId (t, Nothing)
                 return $ IrBinop Assign (IrIdentifier ([], irTempName nextId)) x
-      (Using _ e1            ) -> r e1
-      (Meta  m e1            ) -> r e1
-      (Literal (IntValue v _)) -> do
-        return $ IrCast (IrLiteral (IntValue v f)) f
-      (Literal (l@(FloatValue v _))) -> case f of
+      (Using   _            e1) -> r e1
+      (Meta    m            e1) -> r e1
+      (Literal (IntValue v) _ ) -> do
+        return $ IrCast (IrLiteral (IntValue v) f) f
+      (Literal l@(FloatValue v) _) -> case f of
         -- FIXME: this is better handled at the code generation stage now that we have literal types
         BasicTypeFloat 32 ->
-          return (IrLiteral (FloatValue (s_concat [v, "f"]) f))
-        _ -> return (IrLiteral (FloatValue v f))
-      (Literal (StringValue s)) -> return $ IrLiteral (StringValue s)
-      (Literal (BoolValue   b)) -> return $ IrLiteral (BoolValue b)
-      (Literal (CharValue   c)) -> return $ IrLiteral (CharValue c)
+          return (IrLiteral (FloatValue (s_concat [v, "f"])) f)
+        _ -> return (IrLiteral (FloatValue v) f)
+      (Literal (StringValue s) _) -> return $ IrLiteral (StringValue s) f
+      (Literal (BoolValue   b) _) -> return $ IrLiteral (BoolValue b) f
       (This) -> return $ IrPreUnop Deref (IrIdentifier ([], thisPtrName))
-      (Self                   ) -> throw $ KitError $ BasicError
+      (Self                     ) -> throw $ KitError $ BasicError
         ("unexpected `Self` in typed AST")
         (Just pos)
       (Identifier (Var v)) -> case t of
-        TypeTypeOf x -> throwk $ BasicError
+        TypeTypeOf x _ -> throwk $ BasicError
           "Names of types can't be used as runtime values"
           (Just pos)
         TypeFunction rt args varargs params | not (null params) -> do
@@ -124,11 +123,15 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
           params <- mapMWithErrors (mapType $ follow ctx tctx) params
           return $ IrIdentifier $ monomorphName v params
         _ -> return $ IrIdentifier v
-      (Method e1 tp name) -> case t of
-        TypeFunction rt args varargs params -> do
-          tctx   <- modTypeContext ctx mod
-          params <- forMWithErrors params $ mapType $ follow ctx tctx
-          return $ IrIdentifier $ subPath (monomorphName tp params) $ name
+      (Method tp params name) -> do
+        tctx   <- modTypeContext ctx mod
+        params <- forMWithErrors params $ mapType $ follow ctx tctx
+        t <- mapType (follow ctx tctx) t
+        case t of
+          TypeFunction rt args varargs _ -> do
+            return $ IrIdentifier $ subPath (monomorphName tp params) $ name
+          x -> throwk
+            $ InternalError ("Unexpected method type: " ++ show x) (Just pos)
       (Identifier (MacroVar v _)) -> return $ IrIdentifier ([], v)
       (TypeAnnotation e1 t      ) -> throw $ KitError $ BasicError
         ("unexpected type annotation in typed AST")
@@ -161,10 +164,10 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
           32 -> do
             return $ IrCall (IrIdentifier ([], "fmodf")) [r1, r2]
           _ -> return $ IrBinop Mod r1 r2
-      (Binop Eq (TypedExpr { tExpr = Literal (StringValue s) }) e2) -> do
+      (Binop Eq (TypedExpr { tExpr = Literal (StringValue s) _ }) e2) -> do
         r2 <- r e2
         return $ stringCompare r2 s
-      (Binop Eq e1 (TypedExpr { tExpr = Literal (StringValue s) })) -> do
+      (Binop Eq e1 (TypedExpr { tExpr = Literal (StringValue s) _ })) -> do
         r1 <- r e1
         return $ stringCompare r1 s
       (Binop Assign e1 (TypedExpr { tExpr = ArrayLiteral values })) -> do
@@ -172,10 +175,9 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
         values <- mapM r values
         -- TODO: could use appropriately sized int type for index
         return $ IrBlock
-          [ IrBinop
-              Assign
-              (IrArrayAccess r1 (IrLiteral $ IntValue i BasicTypeCSize))
-              val
+          [ IrBinop Assign
+                    (IrArrayAccess r1 (IrLiteral (IntValue i) BasicTypeCSize))
+                    val
           | (i, val) <- zip [0 ..] values
           ]
       (Binop op e1 e2) -> do
@@ -228,7 +230,7 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
                                                   r1
               body <- r $ matchBody c
               let mergeConditions x = if null x
-                    then (IrLiteral $ BoolValue True)
+                    then (IrLiteral (BoolValue True) BasicTypeBool)
                     else
                       let (h, t) = (head x, tail x)
                       in  if null t
@@ -246,10 +248,16 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
                     return $ Just rx
                   Nothing -> return r2
             trueBranch <- branchOrDefault $ find
-              (\c -> (tExpr $ matchPattern c) /= (Literal $ BoolValue False))
+              (\c -> case (tExpr $ matchPattern c) of
+                Literal (BoolValue True) _ -> True
+                _                          -> False
+              )
               cases
             falseBranch <- branchOrDefault $ find
-              (\c -> (tExpr $ matchPattern c) /= (Literal $ BoolValue True))
+              (\c -> case (tExpr $ matchPattern c) of
+                Literal (BoolValue False) _ -> True
+                _                           -> False
+              )
               cases
             case (trueBranch, falseBranch) of
               (Just a, Just b) | a == b -> return $ a
@@ -268,8 +276,8 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
             def <- maybeR e2
             let ifX ((a, b) : t) = IrIf
                   (case a of
-                    IrLiteral (StringValue s) -> stringCompare r1 s
-                    _                         -> (IrBinop Eq r1 a)
+                    IrLiteral (StringValue s) _ -> stringCompare r1 s
+                    _                           -> (IrBinop Eq r1 a)
                   )
                   b
                   (if null t then r2 else Just $ ifX t)

@@ -10,8 +10,8 @@ stringCompare ex s = IrBinop
   (IrCall
     (IrIdentifier ([], "strncmp"))
     [ ex
-    , IrLiteral $ StringValue s
-    , IrLiteral $ IntValue (fromIntegral $ s_length s) BasicTypeCInt
+    , IrLiteral (StringValue s) (CPtr BasicTypeCChar)
+    , IrLiteral (IntValue (fromIntegral $ s_length s)) BasicTypeCInt
     ]
   )
-  (IrLiteral $ IntValue 0 BasicTypeCInt)
+  (IrLiteral (IntValue 0) BasicTypeCInt)

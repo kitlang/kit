@@ -76,19 +76,9 @@ convertExpr ctx tctx mod e = do
         using
       singleWrapper e1 (Using using')
     Meta meta e1           -> singleWrapper e1 (Meta meta)
-    Literal (IntValue v t) -> do
+    Literal v t -> do
       t' <- resolveMaybeType ctx tctx mod pos' t
-      return $ m (Literal (IntValue v t')) t'
-    Literal (FloatValue v t) -> do
-      t' <- resolveMaybeType ctx tctx mod pos' t
-      return $ m (Literal (FloatValue v t')) t'
-    Literal (StringValue s) -> do
-      return $ m (Literal (StringValue s))
-                 (TypePtr $ TypeBasicType $ BasicTypeCChar)
-    Literal (BoolValue b) ->
-      return $ m (Literal (BoolValue b)) (TypeBasicType BasicTypeBool)
-    Literal (CharValue c) ->
-      return $ m (Literal (CharValue c)) (TypeBasicType BasicTypeCChar)
+      return $ m (Literal v t') t'
     This                       -> container0 This
     Self                       -> container0 Self
     Identifier Hole            -> container0 (Identifier Hole)
@@ -170,7 +160,7 @@ convertExpr ctx tctx mod e = do
     ArrayLiteral args  -> do
       t    <- mtv
       args <- mapM r args
-      return $ m (ArrayLiteral args) (TypeArray t $ Just $ length args)
+      return $ m (ArrayLiteral args) (TypeArray t $ Just $ ConstantType $ IntValue $ length args)
     TupleInit args -> do
       args <- mapM r args
       return $ m (TupleInit args) (TypeTuple (map inferredType args))
@@ -193,10 +183,6 @@ convertExpr ctx tctx mod e = do
       return $ m (SizeOf t') (TypeBasicType $ BasicTypeCSize)
     SizeOf Nothing -> do
       throwk $ BasicError "sizeof keyword requires a type" (Just pos')
-    Method e1 tp n -> do
-      r1 <- r e1
-      t  <- mtv
-      return $ m (Method r1 tp n) t
     Implicit (Just t) -> do
       t' <- resolveType ctx tctx mod t
       return $ m (Implicit t') t'

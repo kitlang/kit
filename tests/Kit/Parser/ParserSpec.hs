@@ -47,7 +47,7 @@ spec = parallel $ do
 
     it "parses value literals" $ do
       testParseExpr "1"
-        `shouldBe` (pe (sp "" 1 1 1 1) $ Literal $ IntValue 1 Nothing)
+        `shouldBe` (pe (sp "" 1 1 1 1) $ Literal (IntValue 1) Nothing)
 
     it "parses binops" $ do
       testParseExpr "a = 1 + 2.0 * 'abc def'"
@@ -56,19 +56,30 @@ spec = parallel $ do
                      (e $ Identifier $ Var ([], "a"))
                      (e $ Binop
                        Add
-                       (e $ Literal $ IntValue 1 Nothing)
-                       (e $ Binop Mul
-                                  (e $ Literal $ FloatValue "2.0" Nothing)
-                                  (e $ Literal $ StringValue "abc def")
+                       (e $ Literal (IntValue 1) Nothing)
+                       (e $ Binop
+                         Mul
+                         (e $ Literal (FloatValue "2.0") Nothing)
+                         ( e
+                         $ Literal (StringValue "abc def")
+                         $ Just
+                         $ makeTypeSpec "CString"
+                         )
                        )
                      )
                    )
 
     it "parses ternary" $ do
       testParseExpr "if true then 1 else 2"
-        `shouldBe` (e $ If (e $ Literal $ BoolValue True)
-                           (e $ Literal $ IntValue 1 Nothing)
-                           (Just $ e $ Literal $ IntValue 2 Nothing)
+        `shouldBe` (e $ If
+                     ( e
+                     $ Literal (BoolValue True)
+                     $ Just
+                     $ ConcreteType
+                     $ TypeBasicType BasicTypeBool
+                     )
+                     (e $ Literal (IntValue 1) Nothing)
+                     (Just $ e $ Literal (IntValue 2) Nothing)
                    )
 
     it "parses vectors" $ do
@@ -76,8 +87,16 @@ spec = parallel $ do
         `shouldBe` (e $ ArrayLiteral
                      [ e This
                      , e Self
-                     , e $ Literal $ BoolValue True
-                     , e $ Literal $ BoolValue False
+                     , e
+                     $ Literal (BoolValue True)
+                     $ Just
+                     $ ConcreteType
+                     $ TypeBasicType BasicTypeBool
+                     , e
+                     $ Literal (BoolValue False)
+                     $ Just
+                     $ ConcreteType
+                     $ TypeBasicType BasicTypeBool
                      ]
                    )
 
@@ -98,8 +117,14 @@ spec = parallel $ do
       testParseExpr "struct Abc {a: 1, b: true}"
         `shouldBe` (e $ StructInit
                      (Just $ TypeSpec ([], "Abc") [] (sp "" 1 8 1 10))
-                     [ ("a", e $ Literal $ IntValue 1 Nothing)
-                     , ("b", e $ Literal $ BoolValue True)
+                     [ ("a", e $ Literal (IntValue 1) Nothing)
+                     , ( "b"
+                       , e
+                       $ Literal (BoolValue True)
+                       $ Just
+                       $ ConcreteType
+                       $ TypeBasicType BasicTypeBool
+                       )
                      ]
                    )
 
@@ -263,13 +288,12 @@ spec = parallel $ do
                                                    $ makeTypeSpec "A"
                                                  }
                                                , newArgSpec
-                                                 { argName    = "b"
-                                                 , argType    = Just
+                                                 { argName = "b"
+                                                 , argType = Just
                                                    $ makeTypeSpec "B"
-                                                 , argDefault = Just
-                                                   $ e
-                                                   $ Literal
-                                                   $ IntValue 2 Nothing
+                                                 , argDefault = Just $ e $ Literal
+                                                   (IntValue 2)
+                                                   Nothing
                                                  }
                                                , newArgSpec
                                                  { argName = "c"
@@ -414,7 +438,7 @@ spec = parallel $ do
                                                   , variantMeta = []
                                                   , variantModifiers = []
                                                   , variantValue = Just
-                                                    (e $ Literal $ IntValue 1 Nothing)
+                                                    (e $ Literal (IntValue 1) Nothing)
                                                   }
                                                 ]
                          }
@@ -497,10 +521,10 @@ spec = parallel $ do
                                             , varModifiers = []
                                             , varType      = Just
                                               (makeTypeSpec "Int")
-                                            , varDefault   = Just
-                                              $ e
-                                              $ Literal
-                                              $ IntValue 1 Nothing
+                                            , varDefault   = Just $ e $ Literal
+
+                                              (IntValue 1)
+                                              Nothing
                                             }
                                           ]
                          }

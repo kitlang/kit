@@ -63,9 +63,9 @@ spec = do
       showstmt (IrBlock [IrContinue, IrBreak])
         `shouldBe` "{\ncontinue;\nbreak;\n}"
     it "transpiles if statements" $ do
-      showstmt (IrIf (IrLiteral $ BoolValue True) (IrContinue) (Just $ IrBreak))
+      showstmt (IrIf (IrLiteral (BoolValue True) BasicTypeBool) (IrContinue) (Just $ IrBreak))
         `shouldBe` "if (1)\n{\ncontinue;\n}\nelse\n{\nbreak;\n}"
-      showstmt (IrIf (IrLiteral $ BoolValue True) (IrContinue) (Nothing))
+      showstmt (IrIf (IrLiteral (BoolValue True) BasicTypeBool) (IrContinue) (Nothing))
         `shouldBe` "if (1)\n{\ncontinue;\n}"
     it "transpiles local variable declarations" $ do
       showblock
@@ -85,8 +85,8 @@ spec = do
       showstmt
           (IrFor "a"
                  (BasicTypeUint 8)
-                 (IrLiteral $ IntValue 1 $ BasicTypeInt 8)
-                 (IrLiteral $ IntValue 5 $ BasicTypeInt 8)
+                 (IrLiteral (IntValue 1) $ BasicTypeInt 8)
+                 (IrLiteral (IntValue 5) $ BasicTypeInt 8)
                  (IrContinue)
           )
         `shouldBe` "for (uint8_t a = 1; a < 5; ++a)\ncontinue;"
@@ -95,8 +95,8 @@ spec = do
       showstmt
           (IrSwitch
             (IrIdentifier ([], "a"))
-            [ (IrLiteral $ IntValue 1 $ BasicTypeInt 16, IrContinue)
-            , (IrLiteral $ IntValue 2 $ BasicTypeInt 16, IrContinue)
+            [ (IrLiteral (IntValue 1) $ BasicTypeInt 16, IrContinue)
+            , (IrLiteral (IntValue 2) $ BasicTypeInt 16, IrContinue)
             ]
             Nothing
           )
@@ -106,8 +106,8 @@ spec = do
       showstmt
           (IrSwitch
             (IrIdentifier ([], "a"))
-            [ (IrLiteral $ IntValue 1 $ BasicTypeInt 16, IrContinue)
-            , (IrLiteral $ IntValue 2 $ BasicTypeInt 16, IrContinue)
+            [ (IrLiteral (IntValue 1) $ BasicTypeInt 16, IrContinue)
+            , (IrLiteral (IntValue 2) $ BasicTypeInt 16, IrContinue)
             ]
             (Just (IrIdentifier ([], "b")))
           )
@@ -118,14 +118,14 @@ spec = do
     it "transpiles identifiers" $ do
       showexpr (IrIdentifier ([], "apple_banana")) `shouldBe` "apple_banana"
     it "transpiles bool literals" $ do
-      showexpr (IrLiteral $ BoolValue False) `shouldBe` "0"
-      showexpr (IrLiteral $ BoolValue True) `shouldBe` "1"
+      showexpr (IrLiteral (BoolValue False) $ BasicTypeBool) `shouldBe` "0"
+      showexpr (IrLiteral (BoolValue True) $ BasicTypeBool) `shouldBe` "1"
     it "transpiles int literals" $ do
-      showexpr (IrLiteral $ IntValue 1 $ BasicTypeInt 16) `shouldBe` "1"
-      showexpr (IrLiteral $ IntValue 1234 $ BasicTypeInt 32) `shouldBe` "1234L"
-      showexpr (IrLiteral $ IntValue (-50) $ BasicTypeInt 8) `shouldBe` "-50"
+      showexpr (IrLiteral (IntValue 1) $ BasicTypeInt 16) `shouldBe` "1"
+      showexpr (IrLiteral (IntValue 1234) $ BasicTypeInt 32) `shouldBe` "1234L"
+      showexpr (IrLiteral (IntValue (-50)) $ BasicTypeInt 8) `shouldBe` "-50"
     it "transpiles float literals" $ do
-      showexpr (IrLiteral $ FloatValue "0.1" $ BasicTypeFloat 32)
+      showexpr (IrLiteral (FloatValue "0.1") $ BasicTypeFloat 32)
         `shouldBe` "0.1"
     it "transpiles binary operations" $ do
       showexpr (IrBinop Add (IrIdentifier ([], "a")) (IrIdentifier ([], "b")))

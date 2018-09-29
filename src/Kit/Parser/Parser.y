@@ -358,7 +358,7 @@ CallArgs :: {[Expr]}
   | CallArgs ',' Expr {$3 : $1}
 
 MetaArg :: {MetaArg}
-  : Term {MetaLiteral $ fst $1}
+  : Term {MetaLiteral $ fst $ fst $1}
   | UpperOrLowerIdentifier {MetaIdentifier $ fst $1}
 
 MetaArgs :: {[MetaArg]}
@@ -396,7 +396,7 @@ TypeSpec :: {(TypeSpec, Span)}
   : TypePath TypeSpecParams {(TypeSpec (fst $1) (fst $2) (p $1 <+> p $2), p $1 <+> p $2)}
   | function FunctionTypeSpec {$2}
   | TupleTypeSpec {$1}
-  | Term {(ConstantTypeSpec (fst $1) (snd $1), snd $1)}
+  | Term {(ConstantTypeSpec (fst $ fst $1) (snd $1), snd $1)}
 
 TupleTypeSpec :: {(TypeSpec, Span)}
   : '(' TypeSpec ',' CommaDelimitedTypes ')' {let p = snd $1 <+> snd $5 in (TupleTypeSpec ((fst $2) : (reverse $4)) p, p)}
@@ -428,7 +428,8 @@ TypeParams_ :: {[TypeParam]}
   | TypeParams_ ',' TypeParam {$3 : $1}
 
 TypeParam :: {TypeParam}
-  : upper_identifier TypeConstraints {TypeParam {paramName = (extract_upper_identifier $1), constraints = $2}}
+  : upper_identifier TypeConstraints {TypeParam {paramName = (extract_upper_identifier $1), constraints = $2, typeParamIsConstant = False}}
+  | '$' upper_identifier {TypeParam {paramName = (extract_upper_identifier $2), constraints = [], typeParamIsConstant = True}}
 
 TypeSpecParams :: {([TypeSpec], Span)}
   : {([], NoPos)}
@@ -715,7 +716,7 @@ CastExpr :: {Expr}
   | ArrayAccessCallFieldExpr {$1}
 
 ArrayAccessCallFieldExpr :: {Expr}
-  : ArrayAccessCallFieldExpr '[' Expr ']' {pe (pos $1 <+> p $4) $ ArrayAccess $1 $3}
+  : ArrayAccessCallFieldExpr '[' ArrayElems ']' {foldr (\x acc -> pe (pos $1 <+> p $4) $ ArrayAccess acc x) $1 $3}
   | ArrayAccessCallFieldExpr '(' CallArgs ')' {pe (pos $1 <+> p $4) $ Call $1 (reverse $3)}
   | ArrayAccessCallFieldExpr '.' Identifier {pe (pos $1 <+> p $3) $ Field $1 $ fst $3}
   | TypeAnnotatedExpr {$1}
@@ -725,7 +726,7 @@ TypeAnnotatedExpr :: {Expr}
   | BaseExpr {$1}
 
 BaseExpr :: {Expr}
-  : Term {pe (snd $1) (Literal $ fst $1)}
+  : Term {pe (snd $1) (Literal (fst $ fst $1) (snd $ fst $1))}
   | this {pe (snd $1) This}
   | Self {pe (snd $1) Self}
   | Identifier {pe (snd $1) $ Identifier (fst $1)}
@@ -741,12 +742,12 @@ ParenthesizedExprs :: {[Expr]}
   : {[]}
   | ParenthesizedExprs ',' Expr {$3 : $1}
 
-Term :: {(ValueLiteral (Maybe TypeSpec), Span)}
-  : bool {(BoolValue $ extract_bool $ fst $1, snd $1)}
-  | str {(StringValue $ extract_lit $ fst $1, snd $1)}
-  | int {let x = extract_int_lit $ fst $1 in (IntValue (fst x) (snd x), snd $1)}
-  | float {let x = extract_float_lit $ fst $1 in (FloatValue (fst x) (snd x), snd $1)}
-  | char {(CharValue $ extract_char_lit $ fst $1, snd $1)}
+Term :: {((ValueLiteral, Maybe TypeSpec), Span)}
+  : bool {((BoolValue $ extract_bool $ fst $1, Just $ ConcreteType $ TypeBasicType $ BasicTypeBool), snd $1)}
+  | str {((StringValue $ extract_lit $ fst $1, Just $ makeTypeSpec "CString"), snd $1)}
+  | int {let x = extract_int_lit $ fst $1 in ((IntValue $ fst x, snd x), snd $1)}
+  | float {let x = extract_float_lit $ fst $1 in ((FloatValue $ fst x, snd x), snd $1)}
+  | char {((IntValue $ extract_char_lit $ fst $1, Just $ ConcreteType $ TypeBasicType $ BasicTypeCChar), snd $1)}
 
 StructInitFields :: {[(Str, Expr)]}
   : {[]}

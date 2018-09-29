@@ -11,7 +11,7 @@ import Kit.Parser.Span
 data IrExpr
   = IrBlock [IrExpr]
   | IrCompound [IrExpr]
-  | IrLiteral (ValueLiteral BasicType)
+  | IrLiteral ValueLiteral BasicType
   | IrIdentifier TypePath
   | IrPreUnop Operator IrExpr
   | IrPostUnop Operator IrExpr
@@ -38,9 +38,3 @@ data IrExpr
   deriving (Eq, Show, Generic)
 
 instance Hashable IrExpr
-
-instance (Hashable t) => Hashable (ValueLiteral t) where
-  hashWithSalt salt (BoolValue b) = (hashWithSalt salt b)
-  hashWithSalt salt (IntValue i t) = (hashWithSalt salt i) + (hashWithSalt salt t)
-  hashWithSalt salt (FloatValue s t) = (hashWithSalt salt s) + (hashWithSalt salt t)
-  hashWithSalt salt (StringValue s) = (hashWithSalt salt s)

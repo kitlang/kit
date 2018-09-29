@@ -95,19 +95,13 @@ generateDeclIr ctx mod t = do
                          Just
                            $ IrBlock
                                [ x
-                               , IrReturn
-                               $ Just
-                               $ IrLiteral
-                               $ IntValue 0
-                               $ BasicTypeCInt
+                               , IrReturn $ Just $ IrLiteral (IntValue 0)
+                                                             BasicTypeCInt
                                ]
                        Nothing ->
                          Just
-                           ( IrReturn
-                           $ Just
-                           $ IrLiteral
-                           $ IntValue 0
-                           $ BasicTypeCInt
+                           (IrReturn $ Just $ IrLiteral (IntValue 0)
+                                                        BasicTypeCInt
                            )
                      }
                  ]

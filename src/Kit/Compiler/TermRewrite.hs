@@ -110,7 +110,7 @@ ruleMatch ctx tctx pattern te thisExpr = do
     (Identifier (Var x), Identifier (Var y)) ->
       return $ if x == y then Just [] else Nothing
     (Identifier _, Identifier _) -> return Nothing
-    (Literal a, Literal b) -> return $ if valueEq a b then Just [] else Nothing
+    (Literal a _, Literal b _) -> return $ if valueEq a b then Just [] else Nothing
     (Binop op1 a b, Binop op2 c d) -> if op1 == op2
       then do
         x <- r a c

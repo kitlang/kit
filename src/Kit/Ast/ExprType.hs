@@ -43,7 +43,7 @@ data ExprType a b
   = Block [a]
   | Using [UsingType a b] a
   | Meta Metadata a
-  | Literal (ValueLiteral b)
+  | Literal ValueLiteral b
   | This
   | Self
   -- identifier, namespace
@@ -86,7 +86,7 @@ data ExprType a b
   | BoxedValue (TraitDefinition a b) a
   | BoxedVtable (TraitDefinition a b) a
   | SizeOf b
-  | Method a TypePath Str
+  | Method TypePath [b] Str
   | Implicit b
   | Temp a
   | Null
@@ -96,9 +96,9 @@ data ExprType a b
 exprDiscriminant :: ExprType a b -> Int
 exprDiscriminant et = case et of
   Block _              -> 1
-  Using _ _            -> 1
-  Meta  _ _            -> 3
-  Literal _            -> 4
+  Using   _ _          -> 1
+  Meta    _ _          -> 3
+  Literal _ _          -> 4
   This                 -> 5
   Self                 -> 6
   Identifier _         -> 7
@@ -174,7 +174,6 @@ exprChildren et = case et of
   BoxedVtable _ x             -> [x]
   TupleInit x                 -> x
   TupleSlot x _               -> [x]
-  Method x _ _                -> [x]
   Temp x                      -> [x]
   _                           -> []
 

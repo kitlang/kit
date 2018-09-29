@@ -157,10 +157,15 @@ unifyBase ctx tctx strict a' b' = do
           paramMatch <- mapM (\(a, b) -> rStrict a b) (zip params1 params2)
           return $ checkResults paramMatch
         else return Nothing
-    (TypeArray t1 (Just s1), TypeArray t2 (Just s2)) | s1 == s2 -> r t1 t2
-    (TypeArray t1 Nothing  , TypeArray t2 _        ) -> r t1 t2
-    (a                     , b                     ) | a == b -> return $ Just []
-    _ -> return Nothing
+    (TypeArray t1 (Just s1), TypeArray t2 (Just s2)) -> do
+      a <- r s1 s2
+      b <- r t1 t2
+      return $ checkResults [a, b]
+    (TypeArray t1 Nothing, TypeArray t2 _) -> r t1 t2
+    (ConstantType a, ConstantType b) ->
+      return $ if a == b then Just [] else Nothing
+    (a, b) | a == b -> return $ Just []
+    _               -> return Nothing
  where
   r       = unifyBase ctx tctx strict
   rStrict = unifyStrict ctx tctx

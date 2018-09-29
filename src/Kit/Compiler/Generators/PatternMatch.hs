@@ -105,9 +105,9 @@ patternMatch ctx mod typer pattern t ex = do
       return $ ([], [IrVarDeclaration x t (Just ex)])
     Identifier Hole -> do
       return ([], [])
-    Literal (BoolValue   True ) -> return ([ex], [])
-    Literal (BoolValue   False) -> return ([IrPreUnop Invert ex], [])
-    Literal (StringValue s    ) -> return ([stringCompare ex s], [])
-    _                           -> do
+    Literal (BoolValue   True ) _ -> return ([ex], [])
+    Literal (BoolValue   False) _ -> return ([IrPreUnop Invert ex], [])
+    Literal (StringValue s    ) _ -> return ([stringCompare ex s], [])
+    _                             -> do
       r1 <- typer pattern
       return ([IrBinop Eq ex r1], [])

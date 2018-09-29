@@ -48,7 +48,8 @@ findUnderlyingType ctx mod pos t = do
           return (name, t')
         )
       return $ BasicTypeAnonUnion fields'
-    TypeAnonEnum variants -> return $ BasicTypeAnonEnum [([], n) | n <- variants]
+    TypeAnonEnum variants ->
+      return $ BasicTypeAnonEnum [ ([], n) | n <- variants ]
     TypeInstance tp p -> do
       templateDef <- getTypeDefinition ctx tp
       params      <- forM p (mapType $ follow ctx modTctx)
@@ -80,7 +81,6 @@ findUnderlyingType ctx mod pos t = do
     -- TypeTypedef TypePath [ConcreteType]
     -- TypeFunction ConcreteType ConcreteArgs Bool
     -- TypePtr ConcreteType
-    -- TypeArray ConcreteType (Maybe Int)
     -- TypeEnumConstructor TypePath ConcreteArgs
     -- TypeRange
     -- TypeTraitPointer TypePath
@@ -124,11 +124,18 @@ findUnderlyingType ctx mod pos t = do
         pos
     TypeArray t s -> do
       t <- findUnderlyingType ctx mod pos t
+      s <- case s of
+        Just ct -> do
+          s <- getArraySize ctx modTctx pos ct
+          return $ Just s
+        Nothing -> return Nothing
       return $ CArray t s
-    _ -> do
-      -- TODO: REMOVE
-      throwk
-        $ InternalError ("Couldn't find underlying type for " ++ show t) pos
+    ConstantType x -> return BasicTypeUnknown {-throwk $ InternalError
+      ("Constant type (" ++ show x ++ ") can't be used as the type of a value")
+      pos-}
+    _              -> -- TODO: REMOVE
+                      throwk
+      $ InternalError ("Couldn't find underlying type for " ++ show t) pos
 
   case x of
     BasicTypeTuple name t -> h_insert (modTuples mod) (s_unpack name) x

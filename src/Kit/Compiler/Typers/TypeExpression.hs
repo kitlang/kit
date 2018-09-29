@@ -128,9 +128,9 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       r1 <- r e1
       return $ makeExprTyped (Meta m r1) (inferredType r1) pos
 
-    (Literal l) -> do
+    (Literal l _) -> do
       mapM_ resolve $ literalConstraints l (inferredType ex) pos
-      return ex
+      return $ ex { tIsCompileTime = True }
 
     (This) -> do
       case tctxThis tctx of
@@ -141,7 +141,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
     (Self) -> do
       case tctxSelf tctx of
         Just (TypeInstance tp params) ->
-          return $ makeExprTyped Self (TypeTypeOf tp) pos
+          return $ makeExprTyped Self (TypeTypeOf tp params) pos
         Nothing ->
           throwk $ TypingError ("`Self` can only be used in methods") pos
 
@@ -607,7 +607,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                             )
                             varargs
                             params
-                    return $ (makeExprTyped (Method r1 tp fieldName) f pos)
+                    return $ (makeExprTyped (Method tp params fieldName) f pos)
                       { tImplicits = r1 : tImplicits typed
                       }
 
@@ -663,15 +663,24 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                 (inferredType ex)
                 pos
 
-              TypeTypeOf tp -> do
+              TypeTypeOf tp params -> do
                 -- look for a static method or field
                 findStatic <- lookupBinding ctx $ subPath tp fieldName
                 case findStatic of
                   Just binding -> do
-                    let tctx' = tctx { tctxSelf = Just $ TypeInstance tp [] }
+                    params <- makeGeneric ctx tp pos params
+                    let
+                      tctx' = tctx
+                        { tctxSelf = Just $ TypeInstance tp $ map snd params
+                        }
                     x <- typeVarBinding ctx tctx' fieldName binding pos
                     f <- mapType (follow ctx tctx') $ inferredType x
-                    return $ x { inferredType = f }
+                    case binding of
+                      FunctionBinding _ -> return $ makeExprTyped
+                        (Method tp (map snd params) fieldName)
+                        f
+                        pos
+                      _ -> return $ x { inferredType = f }
                   Nothing -> throwk $ TypingError
                     (  "Type "
                     ++ (s_unpack $ showTypePath tp)
@@ -758,11 +767,16 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                     )
                     pos
 
-              TypeArray _ (Just n) | fieldName == "length" ->
-                return $ makeExprTyped
-                  (Literal $ IntValue n $ TypeBasicType BasicTypeCSize)
-                  (TypeBasicType BasicTypeCSize)
-                  pos
+              TypeArray _ (Just s) | fieldName == "length" -> do
+                n <- getArraySize ctx tctx (Just pos) s
+                return
+                  $ (makeExprTyped
+                      (Literal (IntValue n) $ TypeBasicType BasicTypeCSize)
+                      (TypeBasicType BasicTypeCSize)
+                      pos
+                    )
+                      { tIsCompileTime = True
+                      }
 
               x -> throwk $ TypingError
                 ("Field access is not allowed on " ++ show x)
@@ -804,7 +818,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
               pos
         let
           resolveArrayAccess t = case (t, tExpr r2) of
-            (TypeTuple t, Literal (IntValue i _)) ->
+            (TypeTuple t, Literal (IntValue i) _) ->
               -- compile-time tuple slot access
               if (i >= 0) && (i < length t)
                 then r
@@ -867,6 +881,15 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
               case typeSubtype def of
                 Abstract { abstractUnderlyingType = t } -> resolveArrayAccess t
                 _ -> fail
+
+            (TypeTypeOf tp params, _) -> do
+              if tIsCompileTime r2
+                then case tExpr r2 of
+                  Literal v _ -> return $ r1
+                    { inferredType = TypeTypeOf tp (params ++ [ConstantType v])
+                    }
+                else fail
+
             _ -> fail
 
         resolveArrayAccess $ inferredType r1
@@ -928,14 +951,16 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       case inferredType ex of
         TypeArray t s -> do
           case s of
-            Just s -> unless (length items == s) $ throwk $ TypingError
-              (  "The Array's length parameter ("
-              ++ show s
-              ++ ") must match the number of elements ("
-              ++ show (length items)
-              ++ ")"
-              )
-              pos
+            Just ct -> do
+              size <- getArraySize ctx tctx (Just pos) ct
+              unless (length items == size) $ throwk $ TypingError
+                (  "The Array's length parameter ("
+                ++ show s
+                ++ ") must match the number of elements ("
+                ++ show (length items)
+                ++ ")"
+                )
+                pos
             Nothing -> return ()
           forM_ items $ \val -> resolve $ TypeEq
             t
@@ -1030,14 +1055,16 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           typedFields <- forMWithErrors
             (structFields)
             (\field -> do
-              fieldType <- follow ctx tctx' $ varType field
+              fieldType <- mapType (follow ctx tctx') $ varType field
               let provided =
                     find (\(name, _) -> name == tpName (varName field)) fields
               case provided of
-                Just (name, value) -> return $ Just ((name, value), fieldType)
-                Nothing            -> case varDefault field of
+                Just (name, value) -> do
+                  value <- typeExpr ctx tctx' mod value
+                  return $ Just ((name, value), fieldType)
+                Nothing -> case varDefault field of
                   Just fieldDefault -> do
-                    -- FIXME
+                    fieldDefault <- typeExpr ctx tctx' mod fieldDefault
                     return $ Just
                       ((tpName $ varName field, fieldDefault), fieldType)
                   Nothing -> case tctxState tctx of
@@ -1320,6 +1347,7 @@ typeVarBinding
   :: CompileContext -> TypeContext -> Str -> Binding -> Span -> IO TypedExpr
 typeVarBinding ctx tctx name binding pos = do
   case binding of
+    ExprBinding     x   -> return x
     EnumConstructor def -> do
       let parentTp     = variantParent def
       let discriminant = variantName def
@@ -1356,6 +1384,6 @@ typeVarBinding ctx tctx name binding pos = do
                   TypeFunction rt args varargs (map snd params)
           return $ makeExprTyped (Identifier $ Var tp) ft pos
     TypeBinding t -> return $ makeExprTyped (Identifier (Var $ typeName t))
-                                            (TypeTypeOf $ typeName t)
+                                            (TypeTypeOf (typeName t) [])
                                             pos
     _ -> throwk $ InternalError (show binding) (Just pos)

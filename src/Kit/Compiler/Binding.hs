@@ -21,6 +21,7 @@ data Binding
   | EnumConstructor (EnumVariant TypedExpr ConcreteType)
   | RuleSetBinding (RuleSet TypedExpr ConcreteType)
   | TypedefBinding ConcreteType Span
+  | ExprBinding TypedExpr
   deriving (Show, Eq)
 
 bindingPos (VarBinding      x   ) = varPos x
@@ -30,3 +31,4 @@ bindingPos (TraitBinding    x   ) = traitPos x
 bindingPos (EnumConstructor x   ) = variantPos x
 bindingPos (RuleSetBinding  x   ) = ruleSetPos x
 bindingPos (TypedefBinding _ pos) = pos
+bindingPos (ExprBinding x       ) = tPos x

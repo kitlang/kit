@@ -128,7 +128,7 @@ convertTypeDefinition paramConverter t = do
       $ f { functionName = typeSubPath t (tpName $ functionName f) }
     )
 
-  mono <- forM (typeMonomorph t) $ typeConverter (typePos t)
+  mono  <- forM (typeMonomorph t) $ typeConverter (typePos t)
   rules <- forM (typeRules t) $ convertRewriteRule converter
 
   return $ (newTypeDefinition) { typeName          = typeName t
@@ -143,7 +143,7 @@ convertTypeDefinition paramConverter t = do
                                , typeStaticFields  = staticFields
                                , typeStaticMethods = staticMethods
                                , typeMethods       = instanceMethods
-                               , typeRules = rules
+                               , typeRules         = rules
                                }
 
 enumIsSimple enum = all variantIsSimple $ enumVariants enum

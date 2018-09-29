@@ -17,7 +17,7 @@ import Kit.Str
 -}
 data TypeSpec
   = TypeSpec TypePath [TypeSpec] Span
-  | ConstantTypeSpec (ValueLiteral (Maybe TypeSpec)) Span
+  | ConstantTypeSpec ValueLiteral Span
   | TupleTypeSpec [TypeSpec] Span
   | FunctionTypeSpec TypeSpec [TypeSpec] Bool Span
   -- | TypeSpecConstant ValueLiteral
@@ -61,8 +61,9 @@ instance Eq TypeSpec where
 
 data TypeParam = TypeParam {
   paramName :: Str,
-  constraints :: [TypeSpec]
+  constraints :: [TypeSpec],
+  typeParamIsConstant :: Bool
 } deriving (Eq, Show)
 
-makeTypeParam s = TypeParam {paramName = s, constraints = []}
+makeTypeParam s = TypeParam {paramName = s, constraints = [], typeParamIsConstant = False}
 typeParamToSpec (TypeParam { paramName = s }) = makeTypeSpec s
