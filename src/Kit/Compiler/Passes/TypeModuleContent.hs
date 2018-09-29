@@ -201,9 +201,5 @@ typeIterative ctx input output limit = do
           else
             throwk
             $ KitErrors
-            $ (KitError $ BasicError
-                "Failed typing; halting due to the following unsolvable errors:"
-                Nothing
-              )
-            : (reverse errors)
+            $ reverse errors
     else typeIterative ctx incomplete complete (limit - 1)

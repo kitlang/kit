@@ -130,15 +130,15 @@ MaybeDoc :: {Maybe Str}
   | doc_comment {Just $ extract_doc_comment $1}
 
 Statement :: {Statement}
-  : import ModulePath ';' {ps (p $1 <+> p $3) $ Import (reverse $ fst $2) False}
-  | import ModulePath ".*" ';' {ps (p $1 <+> p $3) $ Import (reverse $ fst $2) True}
-  | include str ';' {ps (p $1 <+> p $3) $ Include $ B.unpack $ extract_lit $ fst $2}
+  : import ModulePath ';' {ps (snd $1 <+> snd $3) $ Import (reverse $ fst $2) False}
+  | import ModulePath ".*" ';' {ps (snd $1 <+> snd $3) $ Import (reverse $ fst $2) True}
+  | include str ';' {ps (snd $1 <+> snd $3) $ Include $ B.unpack $ extract_lit $ fst $2}
   | using UsingClause ';' {ps (snd $1 <+> snd $3) $ ModuleUsing $ fst $2}
   | DocMetaMods typedef upper_identifier '=' TypeSpec ';' {
-    ps (fp [p $1, p $2, p $6]) $ Typedef (extract_upper_identifier $3) (fst $5)
+    ps (fp [snd $1, snd $2, snd $6]) $ Typedef (extract_upper_identifier $3) (fst $5)
   }
   | DocMetaMods atom upper_identifier ';' {
-    ps (fp [p $1, p $2, p $4]) $ TypeDeclaration $ (newTypeDefinition) {
+    ps (fp [snd $1, snd $2, snd $4]) $ TypeDeclaration $ (newTypeDefinition) {
       typeName = ns $ extract_upper_identifier $3,
       typeDoc = doc $1,
       typeMeta = reverse $ metas $1,
@@ -153,7 +153,7 @@ Statement :: {Statement}
     }
   }
   | DocMetaMods enum upper_identifier TypeParams TypeAnnotation '{' RulesMethodsVariants '}' {
-    ps (fp [p $1, p $2, p $8]) $ TypeDeclaration $ (newTypeDefinition) {
+    ps (fp [snd $1, snd $2, snd $8]) $ TypeDeclaration $ (newTypeDefinition) {
       typeName = ns $ extract_upper_identifier $3,
       typeDoc = doc $1,
       typeMeta = reverse $ metas $1,
@@ -171,7 +171,7 @@ Statement :: {Statement}
     }
   }
   | DocMetaMods struct upper_identifier TypeParams RulesMethodsFieldsBody {
-    ps (fp [p $1, p $2, p $5]) $ TypeDeclaration $ (newTypeDefinition) {
+    ps (fp [snd $1, snd $2, snd $5]) $ TypeDeclaration $ (newTypeDefinition) {
       typeName = ns $ extract_upper_identifier $3,
       typeDoc = doc $1,
       typeMeta = reverse $ metas $1,
@@ -188,7 +188,7 @@ Statement :: {Statement}
     }
   }
   | DocMetaMods union upper_identifier TypeParams RulesMethodsFieldsBody {
-    ps (fp [p $1, p $2, p $5]) $ TypeDeclaration $ (newTypeDefinition) {
+    ps (fp [snd $1, snd $2, snd $5]) $ TypeDeclaration $ (newTypeDefinition) {
       typeName = ns $ extract_upper_identifier $3,
       typeDoc = doc $1,
       typeMeta = reverse $ metas $1,
@@ -205,7 +205,7 @@ Statement :: {Statement}
     }
   }
   | DocMetaMods abstract upper_identifier TypeParams TypeAnnotation RulesMethodsBody {
-    ps (fp [p $1, p $2, p $6]) $ TypeDeclaration $ (newTypeDefinition) {
+    ps (fp [snd $1, snd $2, snd $6]) $ TypeDeclaration $ (newTypeDefinition) {
       typeName = ns $ extract_upper_identifier $3,
       typeDoc = doc $1,
       typeMeta = reverse $ metas $1,
@@ -222,7 +222,7 @@ Statement :: {Statement}
     }
   }
   | DocMetaMods trait upper_identifier TypeParams AssocTypeDeclarations RulesMethodsBody {
-    ps (fp [p $1, p $2, p $6]) $ TraitDeclaration $ newTraitDefinition {
+    ps (fp [snd $1, snd $2, snd $6]) $ TraitDeclaration $ newTraitDefinition {
       traitName = ns $ extract_upper_identifier $3,
       traitDoc = doc $1,
       traitMeta = reverse $ metas $1,
@@ -235,7 +235,7 @@ Statement :: {Statement}
     }
   }
   | DocMetaMods implement TypeParams TypeSpec AssocTypes for TypeSpec MethodsBody {
-    ps (fp [p $1, p $2, p $7]) $ Implement $ newTraitImplementation {
+    ps (fp [snd $1, snd $2, snd $7]) $ Implement $ newTraitImplementation {
       implTrait = Just $ fst $4,
       implFor = Just $ fst $7,
       implParams = fst $3,
@@ -246,7 +246,7 @@ Statement :: {Statement}
     }
   }
   | DocMetaMods specialize TypeSpec as TypeSpec ';' {
-    ps (fp [p $1, p $2, p $6]) $ Specialize (fst $3) (fst $5)
+    ps (fp [snd $1, snd $2, snd $6]) $ Specialize (fst $3) (fst $5)
   }
   | MaybeDoc rules upper_identifier '{' ShortRules '}' {
     ps (snd $2 <+> snd $3) $ RuleSetDeclaration $ newRuleSet {
@@ -269,25 +269,25 @@ AssocTypeDeclarations :: {[TypeParam]}
 
 TopLevelExpr :: {Expr}
   : StandaloneExpr {$1}
-  | var Identifier TypeAnnotation OptionalStandaloneDefault {pe (p $1 <+> p $4) $ VarDeclaration (fst $2) (fst $3) (fst $4)}
-  | return TopLevelExpr {pe (p $1 <+> pos $2) $ Return $ Just $2}
-  | return ';' {pe (p $1 <+> p $2) $ Return $ Nothing}
-  | defer TopLevelExpr {pe (p $1 <+> pos $2) $ Defer $ $2}
-  | throw TopLevelExpr {pe (p $1 <+> pos $2) $ Throw $2}
-  | continue ';' {pe (p $1 <+> p $2) $ Continue}
-  | break ';' {pe (p $1 <+> p $2) $ Break}
+  | var Identifier TypeAnnotation OptionalStandaloneDefault {pe (snd $1 <+> snd $4) $ VarDeclaration (fst $2) (fst $3) (fst $4)}
+  | return TopLevelExpr {pe (snd $1 <+> pos $2) $ Return $ Just $2}
+  | return ';' {pe (snd $1 <+> snd $2) $ Return $ Nothing}
+  | defer TopLevelExpr {pe (snd $1 <+> pos $2) $ Defer $ $2}
+  | throw TopLevelExpr {pe (snd $1 <+> pos $2) $ Throw $2}
+  | continue ';' {pe (snd $1 <+> snd $2) $ Continue}
+  | break ';' {pe (snd $1 <+> snd $2) $ Break}
   -- | tokens LexMacroTokenBlock {pe (snd $1 <+> snd $2) $ TokenExpr $ tc (fst $2)}
 
 StandaloneExpr :: {Expr}
   : ExprBlock {$1}
   | using UsingClauses StandaloneExpr {pe (snd $1 <+> snd $2) $ Using (reverse $ fst $2) $3}
-  | if BinopTermOr ExprBlock else StandaloneExpr {pe (p $1 <+> pos $5) $ If $2 $3 (Just $5)}
-  | if BinopTermOr ExprBlock {pe (p $1 <+> pos $3) $ If $2 $3 (Nothing)}
-  | for Identifier in Expr ExprBlock {pe (p $1 <+> pos $5) $ For (pe (snd $2) (Identifier (fst $2))) $4 $5}
-  | while Expr ExprBlock {pe (p $1 <+> pos $3) $ While $2 $3 False}
-  | do ExprBlock while Expr ';' {pe (p $1 <+> p $5) $ While $4 $2 True}
-  | match Expr '{' MatchCases DefaultMatchCase '}' {pe (p $1 <+> p $6) $ Match $2 (reverse $4) $5}
-  | Expr ';' {me (pos $1 <+> p $2) $1}
+  | if BinopTermOr ExprBlock else StandaloneExpr {pe (snd $1 <+> pos $5) $ If $2 $3 (Just $5)}
+  | if BinopTermOr ExprBlock {pe (snd $1 <+> pos $3) $ If $2 $3 (Nothing)}
+  | for Identifier in Expr ExprBlock {pe (snd $1 <+> pos $5) $ For (pe (snd $2) (Identifier (fst $2))) $4 $5}
+  | while Expr ExprBlock {pe (snd $1 <+> pos $3) $ While $2 $3 False}
+  | do ExprBlock while Expr ';' {pe (snd $1 <+> snd $5) $ While $4 $2 True}
+  | match Expr '{' MatchCases DefaultMatchCase '}' {pe (snd $1 <+> snd $6) $ Match $2 (reverse $4) $5}
+  | Expr ';' {me (pos $1 <+> snd $2) $1}
 
 UsingClauses :: {([UsingType Expr (Maybe TypeSpec)], Span)}
   : UsingClause {([fst $1], snd $1)}
@@ -299,7 +299,7 @@ UsingClause :: {(UsingType Expr (Maybe TypeSpec), Span)}
 
 FunctionDecl :: {Statement}
   : DocMetaMods function identifier TypeParams '(' VarArgs ')' TypeAnnotation OptionalBody {
-    ps (fp [p $2 <+> p $3]) $ FunctionDeclaration $ (newFunctionDefinition :: FunctionDefinition Expr (Maybe TypeSpec)) {
+    ps (fp [snd $2 <+> snd $3]) $ FunctionDeclaration $ (newFunctionDefinition :: FunctionDefinition Expr (Maybe TypeSpec)) {
       functionName = ns $ extract_identifier $3,
       functionDoc = doc $1,
       functionMeta = reverse $ metas $1,
@@ -342,7 +342,7 @@ DefaultMatchCase :: {Maybe Expr}
 
 ExprBlock :: {Expr}
   : '{' MacroIdentifier '}' {pe (snd $1 <+> snd $3) $ Identifier (fst $2)}
-  | '{' TopLevelExprs '}' {pe (p $1 <+> p $3) $ Block $ reverse $2}
+  | '{' TopLevelExprs '}' {pe (snd $1 <+> snd $3) $ Block $ reverse $2}
 
 TopLevelExprs :: {[Expr]}
   : {[]}
@@ -350,7 +350,7 @@ TopLevelExprs :: {[Expr]}
 
 ModulePath :: {([Str], Span)}
   : identifier {([extract_identifier $1], snd $1)}
-  | ModulePath '.' identifier {(extract_identifier $3 : fst $1, snd $1 <+> p $3)}
+  | ModulePath '.' identifier {(extract_identifier $3 : fst $1, snd $1 <+> snd $3)}
 
 CallArgs :: {[Expr]}
   : {[]}
@@ -366,8 +366,8 @@ MetaArgs :: {[MetaArg]}
   | MetaArgs ',' MetaArg {$3 : $1}
 
 Metadata :: {(Metadata, Span)}
-  : "#[" identifier '(' MetaArgs ')' ']' {(Metadata {metaName = extract_identifier $2, metaArgs = reverse $4}, (p $1) <+> (p $6))}
-  | "#[" identifier ']' {(Metadata {metaName = extract_identifier $2, metaArgs = []}, (p $1) <+> (p $3))}
+  : "#[" identifier '(' MetaArgs ')' ']' {(Metadata {metaName = extract_identifier $2, metaArgs = reverse $4}, (snd $1) <+> (snd $6))}
+  | "#[" identifier ']' {(Metadata {metaName = extract_identifier $2, metaArgs = []}, (snd $1) <+> (snd $3))}
 
 MetaMods :: {(([Metadata], [Modifier]), Span)}
   : {(([], []), NoPos)}
@@ -378,8 +378,8 @@ MetaMods :: {(([Metadata], [Modifier]), Span)}
   | MetaMods const {let (meta, mods) = fst $1 in ((meta, (Const : mods)), snd $1 <+> snd $2)}
 
 DocMetaMods :: {((Maybe Str, [Metadata], [Modifier]), Span)}
-  : MetaMods {((Nothing, fst $ fst $1, snd $ fst $1), p $1)}
-  | doc_comment MetaMods {((Just $ extract_doc_comment $1, fst $ fst $2, snd $ fst $2), p $2)}
+  : MetaMods {((Nothing, fst $ fst $1, snd $ fst $1), snd $1)}
+  | doc_comment MetaMods {((Just $ extract_doc_comment $1, fst $ fst $2, snd $ fst $2), snd $2)}
 
 StaticDocMetaMods :: {((Maybe Str, [Metadata], [Modifier]), Span)}
   : DocMetaMods static MetaMods {
@@ -390,10 +390,10 @@ StaticDocMetaMods :: {((Maybe Str, [Metadata], [Modifier]), Span)}
 
 TypeAnnotation :: {(Maybe TypeSpec, Span)}
   : {(Nothing, NoPos)}
-  | ':' TypeSpec {(Just $ fst $2, p $1 <+> p $2)}
+  | ':' TypeSpec {(Just $ fst $2, snd $1 <+> snd $2)}
 
 TypeSpec :: {(TypeSpec, Span)}
-  : TypePath TypeSpecParams {(TypeSpec (fst $1) (fst $2) (p $1 <+> p $2), p $1 <+> p $2)}
+  : TypePath TypeSpecParams {(TypeSpec (fst $1) (fst $2) (snd $1 <+> snd $2), snd $1 <+> snd $2)}
   | function FunctionTypeSpec {$2}
   | TupleTypeSpec {$1}
   | Term {(ConstantTypeSpec (fst $ fst $1) (snd $1), snd $1)}
@@ -421,7 +421,7 @@ OptionalRuleBody :: {Maybe Expr}
 
 TypeParams :: {([TypeParam], Span)}
   : {([], NoPos)}
-  | '[' TypeParams_ ']' {(reverse $2, p $1 <+> p $3)}
+  | '[' TypeParams_ ']' {(reverse $2, snd $1 <+> snd $3)}
 
 TypeParams_ :: {[TypeParam]}
   : TypeParam {[$1]}
@@ -433,7 +433,7 @@ TypeParam :: {TypeParam}
 
 TypeSpecParams :: {([TypeSpec], Span)}
   : {([], NoPos)}
-  | '[' TypeSpecParams_ ']' {(reverse $2, p $1 <+> p $3)}
+  | '[' TypeSpecParams_ ']' {(reverse $2, snd $1 <+> snd $3)}
 
 TypeSpecParams_ :: {[TypeSpec]}
   : TypeSpec {[fst $1]}
@@ -453,10 +453,10 @@ UpperOrLowerIdentifier :: {(Str, Span)}
   | upper_identifier {(extract_upper_identifier $1, snd $1)}
 
 TypePath :: {(TypePath, Span)}
-  : ModulePath '.' Self {((fst $1, B.pack "Self"), p $1 <+> p $3)}
-  | ModulePath '.' upper_identifier {((fst $1, extract_upper_identifier $3), p $1 <+> p $3)}
-  | UpperOrLowerIdentifier {(([], fst $1), p $1)}
-  | Self {(([], B.pack "Self"), p $1)}
+  : ModulePath '.' Self {((fst $1, B.pack "Self"), snd $1 <+> snd $3)}
+  | ModulePath '.' upper_identifier {((fst $1, extract_upper_identifier $3), snd $1 <+> snd $3)}
+  | UpperOrLowerIdentifier {(([], fst $1), snd $1)}
+  | Self {(([], B.pack "Self"), snd $1)}
 
 VarDefinition :: {VarDefinition Expr (Maybe TypeSpec)}
   : DocMetaMods var UpperOrLowerIdentifier TypeAnnotation OptionalDefault ';' {
@@ -467,7 +467,7 @@ VarDefinition :: {VarDefinition Expr (Maybe TypeSpec)}
       varType = fst $4,
       varModifiers = reverse (mods $1),
       varDefault = $5,
-      varPos = p $2 <+> p $3
+      varPos = snd $2 <+> snd $3
     }
   }
 
@@ -480,7 +480,7 @@ StaticVarDefinition :: {VarDefinition Expr (Maybe TypeSpec)}
       varType = fst $4,
       varModifiers = reverse (mods $1),
       varDefault = $5,
-      varPos = p $2 <+> p $3
+      varPos = snd $2 <+> snd $3
     }
   }
 
@@ -544,7 +544,7 @@ ArgSpec  :: {ArgSpec Expr (Maybe TypeSpec)}
     argName = extract_identifier $1,
      argType = fst $2,
      argDefault = $3,
-     argPos = p $1 <+> p $2 <+> (case $3 of { Just x -> pos x; Nothing -> NoPos })
+     argPos = snd $1 <+> snd $2 <+> (case $3 of { Just x -> pos x; Nothing -> NoPos })
     }
   }
 
@@ -585,16 +585,16 @@ Method :: {Member Expr (Maybe TypeSpec)}
   }
 
 RulesMethodsBody :: {([Member Expr (Maybe TypeSpec)], Span)}
-  : '{' RulesMethods '}' {($2, p $1 <+> p $3)}
-  | ';' {([], p $1)}
+  : '{' RulesMethods '}' {($2, snd $1 <+> snd $3)}
+  | ';' {([], snd $1)}
 
 RulesMethodsFieldsBody :: {([Member Expr (Maybe TypeSpec)], Span)}
-  : '{' RulesMethodsFields '}' {($2, p $1 <+> p $3)}
-  | ';' {([], p $1)}
+  : '{' RulesMethodsFields '}' {($2, snd $1 <+> snd $3)}
+  | ';' {([], snd $1)}
 
 MethodsBody :: {([Member Expr (Maybe TypeSpec)], Span)}
-  : '{' Methods '}' {($2, p $1 <+> p $3)}
-  | ';' {([], p $1)}
+  : '{' Methods '}' {($2, snd $1 <+> snd $3)}
+  | ';' {([], snd $1)}
 
 RewriteExpr :: {Expr}
   : Expr {$1}
@@ -645,7 +645,7 @@ BinopTermCons :: {Expr}
 --   : token LexMacroTokenAny {pe (snd $1 <+> snd $2) $ TokenExpr $ tc [$2]}
   -- | BinopTermTernary {$1}
 BinopTermTernary :: {Expr}
-  : if BinopTermOr then BinopTermOr else BinopTermTernary {pe (p $1 <+> pos $6) $ If $2 $4 (Just $6)}
+  : if BinopTermOr then BinopTermOr else BinopTermTernary {pe (snd $1 <+> pos $6) $ If $2 $4 (Just $6)}
   | BinopTermOr {$1}
 BinopTermOr :: {Expr}
   : BinopTermAnd {$1}
@@ -690,21 +690,21 @@ BinopTermCustom :: {Expr}
   | BinopTermCustom custom_op Unop {pe (pos $1 <+> pos $3) $ Binop (Custom $ extract_custom_op $2) $1 $3}
 
 Unop :: {Expr}
-  : "++" VecExpr {pe (p $1 <+> pos $2) $ PreUnop Inc $2}
-  | "--" VecExpr {pe (p $1 <+> pos $2) $ PreUnop Dec $2}
-  | '!' VecExpr {pe (p $1 <+> pos $2) $ PreUnop Invert $2}
-  | '-' VecExpr {pe (p $1 <+> pos $2) $ PreUnop Sub $2}
-  | '~' VecExpr {pe (p $1 <+> pos $2) $ PreUnop InvertBits $2}
-  | '&' VecExpr {pe (p $1 <+> pos $2) $ PreUnop Ref $2}
-  | '*' VecExpr {pe (p $1 <+> pos $2) $ PreUnop Deref $2}
-  | VecExpr "++" {pe (pos $1 <+> p $2) $ PostUnop Inc $1}
-  | VecExpr "--" {pe (pos $1 <+> p $2) $ PostUnop Dec $1}
+  : "++" VecExpr {pe (snd $1 <+> pos $2) $ PreUnop Inc $2}
+  | "--" VecExpr {pe (snd $1 <+> pos $2) $ PreUnop Dec $2}
+  | '!' VecExpr {pe (snd $1 <+> pos $2) $ PreUnop Invert $2}
+  | '-' VecExpr {pe (snd $1 <+> pos $2) $ PreUnop Sub $2}
+  | '~' VecExpr {pe (snd $1 <+> pos $2) $ PreUnop InvertBits $2}
+  | '&' VecExpr {pe (snd $1 <+> pos $2) $ PreUnop Ref $2}
+  | '*' VecExpr {pe (snd $1 <+> pos $2) $ PreUnop Deref $2}
+  | VecExpr "++" {pe (pos $1 <+> snd $2) $ PostUnop Inc $1}
+  | VecExpr "--" {pe (pos $1 <+> snd $2) $ PostUnop Dec $1}
   | VecExpr {$1}
 
 VecExpr :: {Expr}
-  : '[' ArrayElems ']' {pe (p $1 <+> p $3) $ ArrayLiteral $ reverse $2}
-  | '[' ArrayElems ',' ']' {pe (p $1 <+> p $4) $ ArrayLiteral $ reverse $2}
-  | '[' ']' { pe (p $1 <+> p $2) $ ArrayLiteral []}
+  : '[' ArrayElems ']' {pe (snd $1 <+> snd $3) $ ArrayLiteral $ reverse $2}
+  | '[' ArrayElems ',' ']' {pe (snd $1 <+> snd $4) $ ArrayLiteral $ reverse $2}
+  | '[' ']' { pe (snd $1 <+> snd $2) $ ArrayLiteral []}
   | CastExpr {$1}
 
 ArrayElems :: {[Expr]}
@@ -716,9 +716,9 @@ CastExpr :: {Expr}
   | ArrayAccessCallFieldExpr {$1}
 
 ArrayAccessCallFieldExpr :: {Expr}
-  : ArrayAccessCallFieldExpr '[' ArrayElems ']' {foldr (\x acc -> pe (pos $1 <+> p $4) $ ArrayAccess acc x) $1 $3}
-  | ArrayAccessCallFieldExpr '(' CallArgs ')' {pe (pos $1 <+> p $4) $ Call $1 (reverse $3)}
-  | ArrayAccessCallFieldExpr '.' Identifier {pe (pos $1 <+> p $3) $ Field $1 $ fst $3}
+  : ArrayAccessCallFieldExpr '[' ArrayElems ']' {foldr (\x acc -> pe (pos $1 <+> snd $4) $ ArrayAccess acc x) $1 $3}
+  | ArrayAccessCallFieldExpr '(' CallArgs ')' {pe (pos $1 <+> snd $4) $ Call $1 (reverse $3)}
+  | ArrayAccessCallFieldExpr '.' Identifier {pe (pos $1 <+> snd $3) $ Field $1 $ fst $3}
   | TypeAnnotatedExpr {$1}
 
 TypeAnnotatedExpr :: {Expr}
@@ -730,12 +730,13 @@ BaseExpr :: {Expr}
   | this {pe (snd $1) This}
   | Self {pe (snd $1) Self}
   | Identifier {pe (snd $1) $ Identifier (fst $1)}
-  | unsafe Expr {pe (p $1 <+> pos $2) (Unsafe $2)}
+  | unsafe Expr {pe (snd $1 <+> pos $2) (Unsafe $2)}
   | sizeof TypeSpec {pe (snd $1 <+> snd $2) (SizeOf $ Just $ fst $2)}
   | '(' Expr ParenthesizedExprs ')' {if null $3 then $2 else pe (snd $1 <+> snd $4) (TupleInit ($2 : reverse $3)) }
   | null {pe (snd $1) Null}
   | empty {pe (snd $1) Empty}
-  | struct TypeSpec '{' StructInitFields '}' {pe (p $1 <+> p $5) $ StructInit (Just $ fst $2) $4}
+  | struct TypeSpec '{' StructInitFields '}' {pe (snd $1 <+> snd $5) $ StructInit (Just $ fst $2) $4}
+  | struct TypeSpec {pe (snd $1 <+> snd $2) $ StructInit (Just $ fst $2) []}
   | implicit TypeSpec {pe (snd $1 <+> snd $2) $ Implicit $ Just $ fst $2}
 
 ParenthesizedExprs :: {[Expr]}
@@ -769,8 +770,8 @@ Identifier :: {(Identifier (Maybe TypeSpec), Span)}
 
 MacroIdentifier :: {(Identifier (Maybe TypeSpec), Span)}
   : macro_identifier {(MacroVar (extract_macro_identifier $1) Nothing, snd $1)}
-  | '$' '{' UpperOrLowerIdentifier TypeAnnotation '}' {(MacroVar (fst $3) (fst $4), (p $1 <+> p $5))}
-  | '$' '{' '_' TypeAnnotation '}' {(MacroVar "_" (fst $4), (p $1 <+> p $5))}
+  | '$' '{' UpperOrLowerIdentifier TypeAnnotation '}' {(MacroVar (fst $3) (fst $4), (snd $1 <+> snd $5))}
+  | '$' '{' '_' TypeAnnotation '}' {(MacroVar "_" (fst $4), (snd $1 <+> snd $5))}
 
 -- LexMacroTokenBlock :: {([Token], Span)}
 --   : '{' LexMacroTokensInsideBlock '}' {(reverse $2, snd $1 <+> snd $3)}
@@ -921,8 +922,6 @@ ns x = ([], x)
 
 tc :: [Token] -> [TokenClass]
 tc t = [fst t' | t' <- t]
-
-p = snd
 
 fp :: [Span] -> Span
 fp s = foldr (<+>) NoPos s
