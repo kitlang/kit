@@ -1,4 +1,4 @@
-module Kit.Parser.SpanSpec where
+module Kit.Ast.SpanSpec where
 
 import Test.Hspec
 import Kit.Parser

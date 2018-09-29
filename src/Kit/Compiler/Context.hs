@@ -1,11 +1,9 @@
 module Kit.Compiler.Context where
 
-import Control.Applicative
 import Control.Exception
 import Control.Monad
 import Data.IORef
 import Data.List
-import qualified Data.Text as T
 import System.Directory
 import System.Environment
 import System.FilePath
@@ -14,13 +12,11 @@ import Kit.Ast
 import Kit.Compiler.Binding
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
-import Kit.Compiler.TypedDecl
 import Kit.Compiler.TypedExpr
 import Kit.Error
 import Kit.HashTable
-import Kit.Ir
 import Kit.Log
-import Kit.Parser.Span
+import Kit.Ast.Span
 import Kit.Str
 
 data CompileContext = CompileContext {

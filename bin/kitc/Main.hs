@@ -2,9 +2,7 @@
 
 module Main where
 
-import Control.Exception
 import Control.Monad
-import Data.IORef
 import Data.Time
 import System.Environment
 import System.Exit

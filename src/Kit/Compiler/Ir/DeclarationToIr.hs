@@ -1,30 +1,21 @@
-module Kit.Compiler.Generators.DeclIr where
+module Kit.Compiler.Ir.DeclarationToIr where
 
-import Control.Exception
 import Control.Monad
-import Data.IORef
 import Data.List
 import Data.Maybe
 import Kit.Ast
-import Kit.Compiler.Binding
 import Kit.Compiler.Context
-import Kit.Compiler.Generators.FindUnderlyingType
-import Kit.NameMangling
-import Kit.Compiler.Generators.TypedExprToIr
+import Kit.Compiler.Ir.FindUnderlyingType
+import Kit.Compiler.Ir.ExprToIr
 import Kit.Compiler.Module
-import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
 import Kit.Compiler.TypedDecl
-import Kit.Compiler.TypedExpr
-import Kit.Compiler.Unify
 import Kit.Compiler.Utils
-import Kit.Error
-import Kit.HashTable
 import Kit.Ir
-import Kit.Parser
+import Kit.NameMangling
 import Kit.Str
 
-generateDeclIr :: CompileContext -> Module -> TypedDecl -> IO [DeclBundle]
+generateDeclIr :: CompileContext -> Module -> TypedDecl -> IO [IrBundle]
 generateDeclIr ctx mod t = do
   ictx <- newIrContext
   let converter' = converter (typedToIr ctx ictx mod)
@@ -61,7 +52,7 @@ generateDeclIr ctx mod t = do
       return
         $ [ foldr
               (\b acc -> mergeBundles acc b)
-              (DeclBundle name [DeclType $ converted { typeSubtype = subtype }])
+              (IrBundle name [DeclType $ converted { typeSubtype = subtype }])
               (foldr (++) [] $ staticFields ++ staticMethods ++ instanceMethods)
           ]
 
@@ -85,7 +76,7 @@ generateDeclIr ctx mod t = do
       if (isMain && functionType converted == BasicTypeVoid)
       then
         return
-          $ [ DeclBundle
+          $ [ IrBundle
                 name
                 ([ DeclFunction $ converted
                      { functionName = name
@@ -109,7 +100,7 @@ generateDeclIr ctx mod t = do
             ]
       else
         return
-          $ [ DeclBundle
+          $ [ IrBundle
                 (case functionBundle f of
                   Just x -> x
                   _      -> tpShift name
@@ -126,7 +117,7 @@ generateDeclIr ctx mod t = do
       debugLog ctx $ "generating IR for var " ++ (s_unpack $ showTypePath name)
       converted <- convertVarDefinition converter' v
       return
-        $ [ DeclBundle
+        $ [ IrBundle
               (case varBundle v of
                 Just x -> x
                 _      -> tpShift $ varName converted
@@ -185,7 +176,7 @@ generateDeclIr ctx mod t = do
             }
           }
 
-      return $ [DeclBundle name [DeclType $ traitBox, DeclType $ vtable]]
+      return $ [IrBundle name [DeclType $ traitBox, DeclType $ vtable]]
 
     DeclImpl (TraitImplementation { implMethods = [] }) -> return []
     DeclImpl i'@(TraitImplementation { implTrait = TypeTraitConstraint (traitName, traitParams), implFor = ct })
@@ -231,6 +222,6 @@ generateDeclIr ctx mod t = do
           $ \x -> generateDeclIr ctx mod $ DeclFunction x
 
         return
-          $ [DeclBundle (implName i) ((map snd methods) ++ [DeclVar $ impl])]
+          $ [IrBundle (implName i) ((map snd methods) ++ [DeclVar $ impl])]
 
     _ -> return []

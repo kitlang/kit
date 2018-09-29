@@ -3,15 +3,12 @@ module Kit.Compiler.Module where
 import Control.Monad
 import Data.IORef
 import Data.Maybe
-import System.FilePath
 import Kit.Ast
-import Kit.Compiler.Binding
 import Kit.Compiler.TypedExpr
 import Kit.Error
 import Kit.HashTable
-import Kit.Ir
 import Kit.Log
-import Kit.Parser.Span
+import Kit.Ast.Span
 import Kit.Str
 
 data DuplicateDeclarationError = DuplicateDeclarationError ModulePath Str Span Span deriving (Eq, Show)

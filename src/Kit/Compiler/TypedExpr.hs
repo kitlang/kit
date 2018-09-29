@@ -1,8 +1,7 @@
 module Kit.Compiler.TypedExpr where
 
 import Kit.Ast
-import Kit.Error
-import Kit.Parser.Span
+import Kit.Ast.Span
 
 type TypedExprType = ExprType TypedExpr ConcreteType
 data TypedExpr = TypedExpr {

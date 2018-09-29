@@ -1,26 +1,9 @@
 module Kit.Compiler.Typers.TypeOp where
 
-import Control.Applicative
-import Control.Monad
-import Data.IORef
 import Data.List
 import Data.Maybe
 import Kit.Ast
-import Kit.Compiler.Binding
-import Kit.Compiler.Context
-import Kit.Compiler.Module
-import Kit.Compiler.Scope
-import Kit.Compiler.TermRewrite
-import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedExpr
-import Kit.Compiler.Typers.AutoRefDeref
-import Kit.Compiler.Typers.Base
-import Kit.Compiler.Typers.ConvertExpr
-import Kit.Compiler.Unify
-import Kit.Error
-import Kit.HashTable
 import Kit.Parser
-import Kit.Str
 
 {-
   Type check a unary operation.

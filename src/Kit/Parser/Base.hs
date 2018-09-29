@@ -1,8 +1,7 @@
 module Kit.Parser.Base where
 
 import Kit.Error
-import Kit.Parser.Span
-import Kit.Str
+import Kit.Ast.Span
 
 data Parser a = ParseResult a | Err KitError
 

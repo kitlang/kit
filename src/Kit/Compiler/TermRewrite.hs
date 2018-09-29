@@ -10,9 +10,8 @@ import Kit.Compiler.TypedExpr
 import Kit.Compiler.Unify
 import Kit.Compiler.Utils
 import Kit.Error
-import Kit.HashTable
 import Kit.Log
-import Kit.Parser.Span
+import Kit.Ast.Span
 import Kit.Str
 
 data TermRewriteError

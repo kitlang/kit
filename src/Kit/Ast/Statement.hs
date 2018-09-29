@@ -1,20 +1,12 @@
 module Kit.Ast.Statement where
 
-import Data.Traversable
-import Kit.Ast.ConcreteType
 import Kit.Ast.Declaration
 import Kit.Ast.Definitions
 import Kit.Ast.Expr
-import Kit.Ast.ExprType
-import Kit.Ast.Metadata
-import Kit.Ast.Modifier
 import Kit.Ast.ModulePath
-import Kit.Ast.Operator
 import Kit.Ast.TypeSpec
 import Kit.Ast.UsingType
-import Kit.Ast.Value
-import Kit.Parser.Span
-import Kit.Parser.Token
+import Kit.Ast.Span
 import Kit.Str
 
 data Statement = Statement {stmt :: StatementType Expr (Maybe TypeSpec), stmtPos :: Span} deriving (Show)

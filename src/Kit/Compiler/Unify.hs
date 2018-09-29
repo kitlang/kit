@@ -4,17 +4,13 @@ import Control.Exception
 import Control.Monad
 import Data.List
 import Kit.Ast
-import Kit.Compiler.Binding
 import Kit.Compiler.Context
-import Kit.Compiler.Module
-import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
 import Kit.Compiler.TypedExpr
 import Kit.Error
 import Kit.HashTable
 import Kit.Log
-import Kit.Parser.Span
-import Kit.Str
+import Kit.Ast.Span
 
 data UnificationError = UnificationError CompileContext TypeConstraint
 instance Errable UnificationError where

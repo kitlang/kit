@@ -1,13 +1,8 @@
 module Kit.Ast.Definitions.Base where
 
 import Control.Monad
-import Kit.Ast.Metadata
-import Kit.Ast.Modifier
-import Kit.Ast.ModulePath
 import Kit.Ast.TypePath
-import Kit.Ast.TypeSpec
-import Kit.Parser.Span
-import Kit.Str
+import Kit.Ast.Span
 
 maybeConvert :: (Monad m) => (a -> m b) -> Maybe a -> m (Maybe b)
 maybeConvert converter val = do

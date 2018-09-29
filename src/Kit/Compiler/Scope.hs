@@ -1,7 +1,6 @@
 module Kit.Compiler.Scope where
 
 import Data.IORef
-import Kit.Ast
 import Kit.HashTable
 import Kit.Str
 

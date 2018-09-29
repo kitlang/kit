@@ -6,25 +6,16 @@ import Data.Function
 import Data.IORef
 import Data.List
 import Data.Maybe
-import System.FilePath
 import Kit.Ast
-import Kit.Compiler.Binding
 import Kit.Compiler.Context
-import Kit.Compiler.DumpAst
 import Kit.Compiler.Module
 import Kit.Compiler.Passes.GenerateMonomorphs
 import Kit.Compiler.Passes.SpecializeTypes
-import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
 import Kit.Compiler.TypedDecl
-import Kit.Compiler.TypedExpr
 import Kit.Compiler.Typers
-import Kit.Compiler.Unify
 import Kit.Compiler.Utils
 import Kit.Error
-import Kit.HashTable
-import Kit.Parser
-import Kit.Str
 
 {-
   Performs type resolution and type checking; converts Expr into TypedExpr and

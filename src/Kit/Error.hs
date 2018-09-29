@@ -2,7 +2,6 @@
 
 module Kit.Error where
 
-import Control.Applicative
 import Control.Exception
 import Control.Monad
 import Data.List
@@ -10,8 +9,7 @@ import System.Console.ANSI
 import System.Directory
 import System.IO
 import Kit.Log
-import Kit.Parser.Span
-import Kit.Str
+import Kit.Ast.Span
 
 throwk e = do
   throw $ KitError e

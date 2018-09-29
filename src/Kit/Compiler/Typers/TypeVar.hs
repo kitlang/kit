@@ -1,23 +1,14 @@
 module Kit.Compiler.Typers.TypeVar where
 
 import Control.Monad
-import Data.IORef
-import Data.List
 import Kit.Ast
-import Kit.Compiler.Binding
 import Kit.Compiler.Context
 import Kit.Compiler.Module
-import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
 import Kit.Compiler.TypedDecl
 import Kit.Compiler.TypedExpr
-import Kit.Compiler.Typers.Base
-import Kit.Compiler.Typers.ConvertExpr
 import Kit.Compiler.Typers.TypeExpression
 import Kit.Compiler.Unify
-import Kit.Error
-import Kit.Parser
-import Kit.Str
 
 {-
   Type checks a variable declaration.

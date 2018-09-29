@@ -4,7 +4,7 @@ import Control.Monad
 import Test.Hspec
 import Test.QuickCheck
 import Kit.Ast
-import Kit.CodeGen.C
+import Kit.Compiler.Generators.C
 import Kit.Compiler
 import Kit.Compiler.Passes
 import Kit.HashTable

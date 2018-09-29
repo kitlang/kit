@@ -1,8 +1,5 @@
 module Kit.NameMangling where
 
-import Control.Exception
-import Control.Monad
-import Data.IORef
 import Data.List
 import Data.Maybe
 import Kit.Ast.BasicType

@@ -1,9 +1,9 @@
-module Kit.CodeGen.C.CTypeDecl where
+module Kit.Compiler.Generators.C.CTypeDecl where
 
 import Data.List
 import Language.C
 import Kit.Ast
-import Kit.CodeGen.C.CExpr
+import Kit.Compiler.Generators.C.CExpr
 import Kit.NameMangling
 import Kit.Ir
 import Kit.Str

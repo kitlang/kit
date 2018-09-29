@@ -21,8 +21,9 @@ library:
   exposed-modules:
   - Kit
   - Kit.Ast
-  - Kit.CodeGen.C
   - Kit.Compiler
+  - Kit.Compiler.Generators
+  - Kit.Compiler.Generators.C
   - Kit.Compiler.Passes
   - Kit.Error
   - Kit.HashTable

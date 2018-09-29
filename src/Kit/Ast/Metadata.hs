@@ -1,7 +1,5 @@
 module Kit.Ast.Metadata where
 
-import Kit.Ast.Identifier
-import Kit.Ast.TypeSpec
 import Kit.Ast.Value
 import Kit.Str
 

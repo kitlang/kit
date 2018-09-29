@@ -1,7 +1,6 @@
 module Kit.Compiler.Typers.TypeFunction where
 
 import Control.Monad
-import Data.IORef
 import Kit.Ast
 import Kit.Compiler.Binding
 import Kit.Compiler.Context
@@ -10,12 +9,10 @@ import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
 import Kit.Compiler.TypedDecl
 import Kit.Compiler.TypedExpr
-import Kit.Compiler.Typers.Base
 import Kit.Compiler.Typers.TypeExpression
 import Kit.Compiler.Unify
 import Kit.Compiler.Utils
 import Kit.Error
-import Kit.HashTable
 import Kit.Log
 import Kit.Parser
 import Kit.Str

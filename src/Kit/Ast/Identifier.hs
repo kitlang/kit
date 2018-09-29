@@ -1,7 +1,6 @@
 module Kit.Ast.Identifier where
 
 import Kit.Ast.TypePath
-import Kit.Ast.TypeSpec
 import Kit.Str
 
 data Identifier b

@@ -1,29 +1,23 @@
 module Kit.Compiler.Typers.TypeExpression where
 
-import Control.Applicative
 import Control.Exception
 import Control.Monad
-import Data.IORef
 import Data.List
 import Data.Maybe
 import Kit.Ast
 import Kit.Compiler.Binding
 import Kit.Compiler.Context
-import Kit.Compiler.DumpAst
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TermRewrite
 import Kit.Compiler.TypeContext
 import Kit.Compiler.TypedExpr
 import Kit.Compiler.Typers.AutoRefDeref
-import Kit.Compiler.Typers.Base
-import Kit.Compiler.Typers.ConvertExpr
 import Kit.Compiler.Typers.TypeLiteral
 import Kit.Compiler.Typers.TypeOp
 import Kit.Compiler.Unify
 import Kit.Compiler.Utils
 import Kit.Error
-import Kit.HashTable
 import Kit.Parser
 import Kit.Str
 

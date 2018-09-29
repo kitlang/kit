@@ -5,17 +5,11 @@ import Data.List
 import Kit.Ast
 import Kit.Compiler.Context
 import Kit.Compiler.Module
-import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
 import Kit.Compiler.TypedDecl
 import Kit.Compiler.TypedExpr
-import Kit.Compiler.Typers.Base
 import Kit.Compiler.Typers.TypeFunction
-import Kit.Compiler.Unify
 import Kit.Compiler.Utils
-import Kit.Error
-import Kit.Log
-import Kit.Parser
 import Kit.Str
 
 {-

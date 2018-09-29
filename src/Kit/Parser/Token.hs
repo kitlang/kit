@@ -4,7 +4,7 @@ module Kit.Parser.Token where
 
 import Kit.Str
 import Kit.Ast.Operator
-import Kit.Parser.Span
+import Kit.Ast.Span
 
 type Token = (TokenClass, Span)
 

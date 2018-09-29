@@ -2,8 +2,7 @@ module Kit.Compiler.Binding where
 
 import Kit.Ast
 import Kit.Compiler.TypedExpr
-import Kit.Parser.Span
-import Kit.Str
+import Kit.Ast.Span
 
 {-
   Bindings are used as part of each Module's interface; they map names to type

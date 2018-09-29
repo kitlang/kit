@@ -1,28 +1,18 @@
-module Kit.Compiler.Generators.PatternMatch where
+module Kit.Compiler.Ir.PatternMatchToIr where
 
-import Control.Exception
 import Control.Monad
-import Data.IORef
 import Data.List
 import Data.Maybe
 import Kit.Ast
-import Kit.Compiler.Binding
 import Kit.Compiler.Context
-import Kit.Compiler.Generators.FindUnderlyingType
-import Kit.NameMangling
-import Kit.Compiler.Generators.StringCompare
+import Kit.Compiler.Ir.FindUnderlyingType
+import Kit.Compiler.Ir.StringCompare
 import Kit.Compiler.Module
-import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedDecl
 import Kit.Compiler.TypedExpr
-import Kit.Compiler.Unify
-import Kit.Compiler.Utils
 import Kit.Error
-import Kit.HashTable
 import Kit.Ir
-import Kit.Parser
-import Kit.Str
+import Kit.NameMangling
 
 {-
   Given a match pattern and the matched expression, returns a list of

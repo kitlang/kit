@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -w #-}
 
-module Kit.CodeGen.C.CTypeDeclSpec where
+module Kit.Compiler.Generators.C.CTypeDeclSpec where
 
 import Test.Hspec
 import Test.QuickCheck
@@ -10,7 +10,7 @@ import Data.List
 import Kit.Ast
 import Kit.Ir
 import Kit.Str
-import Kit.CodeGen.C
+import Kit.Compiler.Generators.C
 
 showstruct x = intercalate
   "\n"

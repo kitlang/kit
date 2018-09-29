@@ -1,24 +1,16 @@
-module Kit.Compiler.Generators.FindUnderlyingType where
+module Kit.Compiler.Ir.FindUnderlyingType where
 
-import Control.Exception
 import Control.Monad
-import Data.IORef
 import Data.List
 import Data.Maybe
 import Kit.Ast
-import Kit.Compiler.Binding
 import Kit.Compiler.Context
 import Kit.NameMangling
 import Kit.Compiler.Module
-import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedDecl
-import Kit.Compiler.TypedExpr
-import Kit.Compiler.Unify
 import Kit.Compiler.Utils
 import Kit.Error
 import Kit.HashTable
-import Kit.Ir
 import Kit.Parser
 import Kit.Str
 
@@ -27,7 +19,13 @@ import Kit.Str
 -}
 findUnderlyingType
   :: CompileContext -> Module -> Maybe Span -> ConcreteType -> IO BasicType
-findUnderlyingType ctx mod pos t = do
+findUnderlyingType ctx mod pos t = _findUnderlyingType ctx mod pos [] t
+
+_findUnderlyingType ctx mod pos stack t = do
+  let r x = _findUnderlyingType ctx mod pos (x:stack) x
+  when (length stack > 256) $
+    throwk $ InternalError ("Maximum recursion depth in findUnderlyingType exceeded; " ++ show stack) Nothing
+  veryNoisyDebugLog ctx $ "find underlying type " ++ show t
   modTctx <- modTypeContext ctx mod
   x       <- case t of
     TypeBasicType b       -> return b
@@ -36,7 +34,7 @@ findUnderlyingType ctx mod pos t = do
       fields' <- forM
         fields
         (\(name, t) -> do
-          t' <- findUnderlyingType ctx mod pos t
+          t' <- r t
           return (name, t')
         )
       return $ BasicTypeAnonStruct fields'
@@ -44,7 +42,7 @@ findUnderlyingType ctx mod pos t = do
       fields' <- forM
         fields
         (\(name, t) -> do
-          t' <- findUnderlyingType ctx mod pos t
+          t' <- r t
           return (name, t')
         )
       return $ BasicTypeAnonUnion fields'
@@ -63,12 +61,12 @@ findUnderlyingType ctx mod pos t = do
       case typeSubtype def of
         Struct { structFields = fields } -> do
           fields <- forM fields $ \field -> do
-            t <- findUnderlyingType ctx mod pos (varType field)
+            t <- r (varType field)
             return (varName field, t)
           return $ BasicTypeStruct typeName
         Union { unionFields = fields } -> do
           fields <- forM fields $ \field -> do
-            t <- findUnderlyingType ctx mod pos (varType field)
+            t <- r (varType field)
             return (varName field, t)
           return $ BasicTypeUnion typeName
         enum@(Enum { enumVariants = variants }) -> do
@@ -76,7 +74,7 @@ findUnderlyingType ctx mod pos t = do
             then BasicTypeSimpleEnum typeName
             else BasicTypeComplexEnum typeName
         Abstract { abstractUnderlyingType = u } ->
-          findUnderlyingType ctx mod pos u
+          r u
 
     -- TypeTypedef TypePath [ConcreteType]
     -- TypeFunction ConcreteType ConcreteArgs Bool
@@ -85,7 +83,7 @@ findUnderlyingType ctx mod pos t = do
     -- TypeRange
     -- TypeTraitPointer TypePath
     TypePtr t -> do
-      t' <- findUnderlyingType ctx mod pos t
+      t' <- r t
       return $ CPtr t'
     TypeTypeVar tv -> do
       tctx  <- newTypeContext [] -- TODO...
@@ -99,16 +97,16 @@ findUnderlyingType ctx mod pos t = do
             ++ ".\n\nTry adding a type annotation: `expression: Type`"
             )
             (Just $ head $ typeVarPositions info)
-        _ -> findUnderlyingType ctx mod pos known
+        _ -> r known
     TypeTuple t -> do
-      slots <- forM t (findUnderlyingType ctx mod pos)
+      slots <- forM t (r)
       return $ BasicTypeTuple (tupleName slots) slots
     TypeFunction rt args var params -> do
-      rt'   <- findUnderlyingType ctx mod pos rt
+      rt'   <- r rt
       args' <- forM
         args
         (\(name, t) -> do
-          t' <- findUnderlyingType ctx mod pos t
+          t' <- r t
           return (name, t')
         )
       return $ BasicTypeFunction rt' args' var
@@ -123,7 +121,7 @@ findUnderlyingType ctx mod pos t = do
         )
         pos
     TypeArray t s -> do
-      t <- findUnderlyingType ctx mod pos t
+      t <- r t
       s <- case s of
         Just ct -> do
           s <- getArraySize ctx modTctx pos ct

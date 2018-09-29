@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 
-module Kit.CodeGen.C.CExpr where
+module Kit.Compiler.Generators.C.CExpr where
 
 import Data.List
 import Numeric
@@ -10,7 +10,7 @@ import Kit.Ast
 import Kit.Error
 import Kit.NameMangling
 import Kit.Ir
-import Kit.Parser.Span
+import Kit.Ast.Span
 import Kit.Str
 
 cDecl :: BasicType -> Maybe TypePath -> Maybe (CInitializer NodeInfo) -> CDecl

@@ -1,20 +1,15 @@
 module Kit.Compiler.Passes.ResolveModuleTypes where
 
-import Control.Exception
 import Control.Monad
 import Data.IORef
 import Data.List
 import Data.Maybe
-import System.Directory
-import System.FilePath
 import Kit.Ast
 import Kit.Compiler.Binding
 import Kit.Compiler.Context
 import Kit.NameMangling
 import Kit.Compiler.Module
-import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedDecl
 import Kit.Compiler.TypedExpr
 import Kit.Compiler.Typers.ConvertExpr
 import Kit.Compiler.Unify

@@ -3,7 +3,6 @@ module Kit.Ast.Declaration where
 import Kit.Ast.Definitions
 import Kit.Ast.TypePath
 import Kit.Ast.UsingType
-import Kit.Parser.Span
 import Kit.Str
 
 data Declaration a b

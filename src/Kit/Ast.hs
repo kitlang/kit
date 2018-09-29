@@ -10,6 +10,7 @@ module Kit.Ast (
   module Kit.Ast.Modifier,
   module Kit.Ast.ModulePath,
   module Kit.Ast.Operator,
+  module Kit.Ast.Span,
   module Kit.Ast.Statement,
   module Kit.Ast.TypeConstraint,
   module Kit.Ast.TypePath,
@@ -29,6 +30,7 @@ import Kit.Ast.Metadata
 import Kit.Ast.Modifier
 import Kit.Ast.ModulePath
 import Kit.Ast.Operator
+import Kit.Ast.Span
 import Kit.Ast.Statement
 import Kit.Ast.TypeConstraint
 import Kit.Ast.TypePath

@@ -1,6 +1,5 @@
 module Kit.Compiler.DumpAst where
 
-import Control.Exception
 import Control.Monad
 import Data.List
 import Data.Maybe
@@ -9,9 +8,6 @@ import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.TypedDecl
 import Kit.Compiler.TypedExpr
-import Kit.Error
-import Kit.HashTable
-import Kit.Log
 import Kit.Parser
 import Kit.Str
 

@@ -6,7 +6,6 @@ import Data.Hashable
 import GHC.Generics
 import Kit.Str
 import Kit.Ast
-import Kit.Parser.Span
 
 data IrExpr
   = IrBlock [IrExpr]

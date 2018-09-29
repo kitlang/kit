@@ -3,7 +3,6 @@ module Kit.Str where
 import Crypto.Hash.MD5
 import Data.ByteString.Base16
 import qualified Data.ByteString.Lazy.Char8 as B
-import qualified Data.ByteString.Internal as B (c2w, w2c)
 
 {-
   This typedef + methods are here to make it easier to swap out string

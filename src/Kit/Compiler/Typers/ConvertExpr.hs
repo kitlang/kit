@@ -1,21 +1,13 @@
 module Kit.Compiler.Typers.ConvertExpr where
 
-import Control.Applicative
 import Control.Monad
 import Data.List
 import Kit.Ast
 import Kit.Compiler.Context
 import Kit.Compiler.Module
-import Kit.Compiler.Scope
-import Kit.Compiler.TermRewrite
 import Kit.Compiler.TypeContext
 import Kit.Compiler.TypedExpr
-import Kit.Compiler.Typers.Base
-import Kit.Compiler.Unify
 import Kit.Error
-import Kit.HashTable
-import Kit.Parser
-import Kit.Str
 
 {-
   Transforms an Expr into a TypedExpr trivially, without fully typing. Every

@@ -3,18 +3,9 @@
 
 module Kit.Ast.Expr where
 
-import Kit.Ast.ConcreteType
-import Kit.Ast.Definitions
 import Kit.Ast.ExprType
-import Kit.Ast.Identifier
-import Kit.Ast.Metadata
-import Kit.Ast.Modifier
-import Kit.Ast.Operator
 import Kit.Ast.TypeSpec
-import Kit.Ast.Value
-import Kit.Parser.Span
-import Kit.Parser.Token
-import Kit.Str
+import Kit.Ast.Span
 
 type SyntacticExprType = ExprType Expr (Maybe TypeSpec)
 

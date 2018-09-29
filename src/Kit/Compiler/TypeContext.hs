@@ -1,6 +1,5 @@
 module Kit.Compiler.TypeContext where
 
-import Control.Applicative
 import Control.Exception
 import Control.Monad
 import Data.IORef
@@ -14,7 +13,6 @@ import Kit.Compiler.TypedExpr
 import Kit.Compiler.Utils
 import Kit.Error
 import Kit.HashTable
-import Kit.Log
 import Kit.Parser
 import Kit.Str
 

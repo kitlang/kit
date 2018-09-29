@@ -4,14 +4,11 @@ module Kit.Ast.ConcreteType where
 
 import Control.Monad
 import Data.Hashable
-import Data.IORef
 import Data.List
 import GHC.Generics
 import Kit.Ast.BasicType
-import Kit.Ast.ModulePath
 import Kit.Ast.TypePath
 import Kit.Ast.Value
-import Kit.Parser.Span
 import Kit.Str
 
 type ConcreteArgs = [(Str, ConcreteType)]

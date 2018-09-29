@@ -1,24 +1,15 @@
 module Kit.Compiler.Passes.SpecializeTypes where
 
-import Control.Exception
 import Control.Monad
-import Data.IORef
 import Data.List
 import Data.Maybe
 import Kit.Ast
-import Kit.Compiler.Binding
 import Kit.Compiler.Context
-import Kit.Compiler.Module
-import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedDecl
-import Kit.Compiler.TypedExpr
 import Kit.Compiler.Unify
 import Kit.Compiler.Utils
 import Kit.Error
 import Kit.HashTable
-import Kit.Ir
-import Kit.Parser
 import Kit.Str
 
 specializeTypes :: CompileContext -> IO Bool

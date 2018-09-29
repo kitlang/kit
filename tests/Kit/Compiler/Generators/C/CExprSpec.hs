@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -w #-}
 
-module Kit.CodeGen.C.CExprSpec where
+module Kit.Compiler.Generators.C.CExprSpec where
 
 import Test.Hspec
 import Test.QuickCheck
@@ -10,7 +10,7 @@ import Data.List
 import Kit.Ast
 import Kit.Ir
 import Kit.Str
-import Kit.CodeGen.C
+import Kit.Compiler.Generators.C
 
 showctype x = intercalate " " [ show $ pretty t | t <- fst $ ctype x ]
 showexpr x = renderStyle (Style {mode = LeftMode}) $ pretty $ transpileExpr x

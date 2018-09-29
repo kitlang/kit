@@ -1,14 +1,11 @@
 module Kit.Log where
 
-import Control.Exception
 import Control.Monad
 import Data.Time
 import Data.Time.Format
 import Data.Time.LocalTime
 import System.Console.ANSI
 import System.IO
-import Kit.Parser.Span
-import Kit.Str
 
 data LogLevel
   = Notice

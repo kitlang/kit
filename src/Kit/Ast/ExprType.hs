@@ -2,19 +2,14 @@
 
 module Kit.Ast.ExprType where
 
-import Kit.Ast.ConcreteType
 import Kit.Ast.Definitions
 import Kit.Ast.Identifier
 import Kit.Ast.Metadata
-import Kit.Ast.Modifier
-import Kit.Ast.ModulePath
 import Kit.Ast.Operator
 import Kit.Ast.TypePath
-import Kit.Ast.TypeSpec
 import Kit.Ast.UsingType
 import Kit.Ast.Value
 import Kit.Error
-import Kit.Parser.Span
 import Kit.Str
 
 data MatchCase a = MatchCase {matchPattern :: a, matchBody :: a} deriving (Eq, Show)

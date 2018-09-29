@@ -1,4 +1,4 @@
-module Kit.Compiler.Generators.TypedExprToIr where
+module Kit.Compiler.Ir.ExprToIr where
 
 import Control.Exception
 import Control.Monad
@@ -6,23 +6,17 @@ import Data.IORef
 import Data.List
 import Data.Maybe
 import Kit.Ast
-import Kit.Compiler.Binding
 import Kit.Compiler.Context
-import Kit.Compiler.Generators.FindUnderlyingType
-import Kit.NameMangling
-import Kit.Compiler.Generators.PatternMatch
-import Kit.Compiler.Generators.StringCompare
+import Kit.Compiler.Ir.FindUnderlyingType
+import Kit.Compiler.Ir.PatternMatchToIr
+import Kit.Compiler.Ir.StringCompare
 import Kit.Compiler.Module
-import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedDecl
 import Kit.Compiler.TypedExpr
-import Kit.Compiler.Unify
-import Kit.Compiler.Utils
 import Kit.Error
 import Kit.HashTable
 import Kit.Ir
-import Kit.Parser
+import Kit.NameMangling
 import Kit.Str
 
 data IrContext = IrContext {
@@ -33,7 +27,6 @@ data IrContext = IrContext {
 
 newIrContext :: IO IrContext
 newIrContext = do
-
   temps      <- h_new
   tempInfo   <- h_new
   nextTempId <- newIORef 1

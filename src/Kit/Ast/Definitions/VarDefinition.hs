@@ -1,14 +1,11 @@
 module Kit.Ast.Definitions.VarDefinition where
 
 import Control.Monad
-import Debug.Trace
 import Kit.Ast.Definitions.Base
 import Kit.Ast.Metadata
 import Kit.Ast.Modifier
-import Kit.Ast.ModulePath
 import Kit.Ast.TypePath
-import Kit.Ast.TypeSpec
-import Kit.Parser.Span
+import Kit.Ast.Span
 import Kit.Str
 
 data VarDefinition a b = VarDefinition {

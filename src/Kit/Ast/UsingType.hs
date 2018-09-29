@@ -1,9 +1,7 @@
 module Kit.Ast.UsingType where
 
 import Kit.Ast.Definitions.Base
-import Kit.Ast.TypePath
-import Kit.Parser.Span
-import Kit.Str
+import Kit.Ast.Span
 
 data UsingType a b
   = UsingRuleSet b

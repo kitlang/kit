@@ -1,4 +1,4 @@
-module Kit.Compiler.Generators.StringCompare where
+module Kit.Compiler.Ir.StringCompare where
 
 import Kit.Ast
 import Kit.Ir

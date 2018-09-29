@@ -11,10 +11,7 @@ module Kit.Compiler (
 
 import Control.Exception
 import Control.Monad
-import Data.IORef
 import Data.List
-import System.Directory
-import System.FilePath
 import System.Process
 import Kit.Ast
 import Kit.Ir
@@ -27,11 +24,8 @@ import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
 import Kit.Compiler.TypedExpr
 import Kit.Compiler.Unify
-import Kit.Compiler.Utils
 import Kit.Error
-import Kit.HashTable
 import Kit.Log
-import Kit.Parser
 import Kit.Str
 
 tryCompile :: CompileContext -> IO (Either KitError ())

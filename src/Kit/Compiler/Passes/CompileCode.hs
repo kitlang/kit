@@ -1,21 +1,14 @@
 module Kit.Compiler.Passes.CompileCode where
 
-import Control.Exception
 import Control.Monad
-import Data.IORef
 import Data.List
 import System.Directory
-import System.Environment
 import System.FilePath
 import System.Process
 import Kit.Ast
 import Kit.Compiler.Context
-import Kit.Compiler.Module
 import Kit.Compiler.Utils
-import Kit.Error
-import Kit.HashTable
 import Kit.Log
-import Kit.Parser
 import Kit.Str
 
 {-

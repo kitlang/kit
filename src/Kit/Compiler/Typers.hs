@@ -1,3 +1,8 @@
+{-
+  These modules are used to refine ConcreteTypes based on language semantics.
+  Functions generally take and return TypedExpr/ConcreteType but enforce type
+  constraints and try to infer type variable values.
+-}
 module Kit.Compiler.Typers (
   module Kit.Compiler.Typers.ConvertExpr,
   module Kit.Compiler.Typers.TypeExpression,
