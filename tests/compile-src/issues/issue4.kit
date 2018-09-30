@@ -1,0 +1,17 @@
+trait MyTrait {
+    public function echo(): Void;
+}
+
+implement MyTrait for Int {
+    public function echo() {
+        printf("hello from Int %i\n", this);
+    }
+}
+
+function main() {
+    var a: Int = 10;
+    // This will create a temp variable which relies on A, so temp variable
+    // generation must be in the correct order or the generated code won't
+    // compile.
+    (((a + 10) as Int) as Box[MyTrait]).echo();
+}

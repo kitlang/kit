@@ -41,6 +41,7 @@ data TypeContext = TypeContext {
 data TypeContextState
   = TypingExpression
   | TypingPattern
+  | TypingExprOrType
 
 newTypeContext :: [Scope Binding] -> IO TypeContext
 newTypeContext scopes = do
@@ -65,7 +66,11 @@ unknownType t pos = do
 resolveTypeParam :: TypePath -> [(TypePath, ConcreteType)] -> Maybe ConcreteType
 resolveTypeParam s (h : t) =
   if (snd (fst h) == snd s) && (null (fst s) || (fst (fst h) == fst s))
-    then Just $ snd h
+    then case snd h of
+      TypeTypeParam x -> case resolveTypeParam x t of
+        Just x  -> Just x
+        Nothing -> Just $ snd h
+      x -> Just x
     else resolveTypeParam s t
 resolveTypeParam s [] = Nothing
 

@@ -2,6 +2,7 @@ module Kit.Compiler.Ir.ExprToIr where
 
 import Control.Exception
 import Control.Monad
+import Data.Function
 import Data.IORef
 import Data.List
 import Data.Maybe
@@ -19,10 +20,17 @@ import Kit.Ir
 import Kit.NameMangling
 import Kit.Str
 
+data IrTempInfo = IrTempInfo {
+  irTempType :: BasicType,
+  irTempExpr :: Maybe IrExpr,
+  irTempOrder :: Int
+}
+
 data IrContext = IrContext {
   ictxTemps :: HashTable IrExpr Str,
-  ictxTempInfo :: HashTable Int (BasicType, Maybe IrExpr),
-  ictxNextTempId :: IORef Int
+  ictxTempInfo :: HashTable Int IrTempInfo,
+  ictxNextTempId :: IORef Int,
+  ictxChildNo :: Int
 }
 
 newIrContext :: IO IrContext
@@ -34,6 +42,7 @@ newIrContext = do
     { ictxTemps      = temps
     , ictxTempInfo   = tempInfo
     , ictxNextTempId = nextTempId
+    , ictxChildNo    = 0
     }
 
 makeIrTempVar :: IrContext -> IO Int
@@ -68,13 +77,23 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
 
     case et of
       (Block children) -> do
-        ictx      <- newIrContext
-        children  <- forMWithErrors children $ typedToIr ctx ictx mod
+        ictx     <- newIrContext
+        children <- forMWithErrors (zip [0 ..] children)
+          $ \(n, child) -> typedToIr ctx (ictx { ictxChildNo = n }) mod child
         lastId    <- readIORef (ictxNextTempId ictx)
         tempDecls <- forM [1 .. lastId - 1] $ \i -> do
-          (tempType, tempDefault) <- h_get (ictxTempInfo ictx) i
-          return $ IrVarDeclaration (irTempName i) tempType tempDefault
-        return $ IrBlock $ tempDecls ++ children
+          temp@(IrTempInfo { irTempType = tempType, irTempExpr = tempDefault, irTempOrder = tempOrder }) <-
+            h_get (ictxTempInfo ictx) i
+          return
+            $ ( tempOrder * 2
+              , IrVarDeclaration (irTempName i) tempType tempDefault
+              )
+        children <- return
+          [ (n * 2 + 1, child) | (n, child) <- zip [0 ..] children ]
+        allChildren <-
+          return $ map snd $ sortBy (compare `on` fst) $ tempDecls ++ children
+        -- interleave temp decls with block children
+        return $ IrBlock $ allChildren
       (Temp x) -> do
         t        <- findUnderlyingType ctx mod (Just pos) $ inferredType x
         x        <- r x
@@ -86,10 +105,18 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
             h_insert (ictxTemps ictx) x (irTempName nextId)
             if tIsLvalue e
               then do
-                h_insert (ictxTempInfo ictx) nextId (t, Just x)
+                h_insert (ictxTempInfo ictx) nextId $ IrTempInfo
+                  { irTempType  = t
+                  , irTempExpr  = Just x
+                  , irTempOrder = ictxChildNo ictx
+                  }
                 return $ IrIdentifier ([], irTempName nextId)
               else do
-                h_insert (ictxTempInfo ictx) nextId (t, Nothing)
+                h_insert (ictxTempInfo ictx) nextId $ IrTempInfo
+                  { irTempType  = t
+                  , irTempExpr  = Nothing
+                  , irTempOrder = ictxChildNo ictx
+                  }
                 return $ IrBinop Assign (IrIdentifier ([], irTempName nextId)) x
       (Using   _            e1) -> r e1
       (Meta    m            e1) -> r e1
@@ -119,7 +146,7 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
       (Method tp params name) -> do
         tctx   <- modTypeContext ctx mod
         params <- forMWithErrors params $ mapType $ follow ctx tctx
-        t <- mapType (follow ctx tctx) t
+        t      <- mapType (follow ctx tctx) t
         case t of
           TypeFunction rt args varargs _ -> do
             return $ IrIdentifier $ subPath (monomorphName tp params) $ name

@@ -58,14 +58,15 @@ typeTypeDefinition ctx tctx mod selfType def@(TypeDefinition { typeName = name }
           (\field -> case varDefault field of
             Just x -> do
               def <- typeExpr ctx tctx mod x
+              fieldType <- mapType (follow ctx tctx) $ varType field
               resolveConstraint
                 ctx
                 tctx
                 (TypeEq
+                  fieldType
                   (inferredType def)
-                  (varType field)
                   "Struct field default value must match the field's type"
-                  (varPos field)
+                  (tPos x)
                 )
               return $ field { varDefault = Just def }
             Nothing -> return field

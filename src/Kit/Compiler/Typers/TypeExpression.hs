@@ -148,6 +148,13 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
               x <- typeVarBinding ctx tctx (tpName vname) binding pos
               return $ x { tIsLvalue = True }
             _ -> return ex
+        (TypingExprOrType, Var vname) -> do
+          x <-
+            (try (typeExpr ctx (tctx { tctxState = TypingExpression }) mod ex)) :: IO
+              (Either KitError TypedExpr)
+          case x of
+            Right x   -> return x
+            Left  err -> return ex
         (TypingPattern, Hole) -> do
           return ex
         (_, Var vname) -> do
@@ -178,8 +185,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       let e = r1 { inferredType = t }
       tryRewrite e $ do
         resolve $ TypeEq
-          (inferredType r1)
           t
+          (inferredType r1)
           "Annotated expressions must match their type annotation"
           (tPos r1)
         return e
@@ -664,9 +671,12 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                   Just binding -> do
                     params <- makeGeneric ctx tp pos params
                     let
-                      tctx' = tctx
-                        { tctxSelf = Just $ TypeInstance tp $ map snd params
-                        }
+                      tctx' = addTypeParams
+                        (tctx
+                          { tctxSelf = Just $ TypeInstance tp $ map snd params
+                          }
+                        )
+                        params
                     x <- typeVarBinding ctx tctx' fieldName binding pos
                     f <- mapType (follow ctx tctx') $ inferredType x
                     case binding of
@@ -803,7 +813,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
     (ArrayAccess e1 e2) -> do
       r1 <- r e1
-      r2 <- r e2
+      r2 <- typeExpr ctx (tctx { tctxState = TypingExprOrType }) mod e2
       tryRewrite (unknownTyped $ ArrayAccess r1 r2) $ do
         let fail = throwk $ TypingError
               (  "Array access is not supported on values of type "
@@ -882,7 +892,21 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                   Literal v _ -> return $ r1
                     { inferredType = TypeTypeOf tp (params ++ [ConstantType v])
                     }
-                else fail
+                  _ -> throwk $ TypingError
+                    (  "Unknown constant expression used as constant type: "
+                    ++ show r2
+                    )
+                    pos
+                else do
+                  t <- exprToType ctx tctx mod (tPos r2) $ tExpr r2
+                  case t of
+                    Just t -> return
+                      $ r1 { inferredType = TypeTypeOf tp (params ++ [t]) }
+                    Nothing -> throwk $ TypingError
+                      (  "Unknown type parameter value: "
+                      ++ show (inferredType r2)
+                      )
+                      pos
 
             _ -> fail
 
@@ -1077,7 +1101,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
             (\((name, expr), fieldType) -> do
               r1        <- r expr
               converted <- tryAutoRefDeref ctx tctx fieldType r1
-              resolve $ TypeEq
+              resolveConstraint ctx tctx' $ TypeEq
                 fieldType
                 (inferredType converted)
                 "Struct field values must match the declared struct field type"
@@ -1381,3 +1405,15 @@ typeVarBinding ctx tctx name binding pos = do
                                             (TypeTypeOf (typeName t) [])
                                             pos
     _ -> throwk $ InternalError (show binding) (Just pos)
+
+exprToType
+  :: CompileContext
+  -> TypeContext
+  -> Module
+  -> Span
+  -> ExprType TypedExpr ConcreteType
+  -> IO (Maybe ConcreteType)
+exprToType ctx tctx mod pos (Identifier (Var s)) = do
+  t <- resolveType ctx tctx mod $ TypeSpec s [] pos
+  return $ Just t
+exprToType _ _ _ _ _ = return Nothing
