@@ -106,6 +106,12 @@ unifyBase ctx tctx strict a' b' = do
         (\((tp, params), _) -> r (TypeTraitConstraint (tp, params)) x)
       return $ checkResults ((Just $ [TypeVarIs i x]) : results)
     (_, TypeTypeVar _      ) -> r b a
+    -- these two rules are a hack to support pointer arithmetic; would be
+    -- better with a trait per operator and generic implementations for Ptr
+    (TypeTraitConstraint ((["kit", "numeric"], "Numeric"), []), TypePtr _) -> do
+      return $ Just []
+    (TypeTraitConstraint ((["kit", "numeric"], "Integral"), []), TypePtr _) -> do
+      return $ Just []
     (TypeTraitConstraint (tp1, params1), TypeBox tp2 params2) -> do
       if (tp1 == tp2) && (length params1 == length params2)
         then do

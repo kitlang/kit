@@ -3,6 +3,11 @@ include "stdlib.h";
 trait Allocator {
     function alloc(n: Size): Ptr[Void];
     function free(ptr: Ptr[Void]): Void;
+
+    // function safeAlloc(n: Size): Option[Ptr[Void]] {
+    //     var ptr = this.alloc(n);
+    //     return if ptr == null then None else Some(ptr);
+    // }
 }
 
 struct SimpleAllocator {
@@ -27,3 +32,108 @@ var simpleMalloc: SimpleAllocator = struct SimpleAllocator {
 
 // will be used as the default Ptr[Void] allocator
 var mallocator: Box[Allocator] = simpleMalloc as Box[Allocator];
+
+/**
+ * Preallocates a region of memory, then provides pointers to unused memory in
+ * linear order.
+ *
+ * Freeing individual allocations is a noop; instead, call `reset()` to free
+ * everything at once.
+ */
+struct LinearAllocator {
+    var start: Ptr[Void];
+    var curPtr: Ptr[Void];
+    var capacity: Size;
+
+    public static function new(from: Box[Allocator], capacity: Size) {
+        var start = from.alloc(capacity);
+        return struct LinearAllocator {
+            start,
+            curPtr: start,
+            capacity
+        };
+    }
+
+    public function alloc(n: Size): Option[Ptr[Void]] {
+        if this.capacity - (this.curPtr as Ptr[Uint8] - this.start as Ptr[Uint8]) as Size >= n {
+            var next = this.curPtr;
+            this.curPtr = this.curPtr as Ptr[Uint8] + n;
+            return Some(next);
+        } else {
+            return None;
+        }
+    }
+
+    public function reset() {
+        this.curPtr = this.start;
+    }
+
+    public function remaining(): Size {
+        return this.capacity - (this.curPtr as Ptr[Uint8] - this.start as Ptr[Uint8]) as Size;
+    }
+}
+
+/**
+ * Preallocates a region of memory for use as a custom stack. Values should
+ * be freed in LIFO order.
+ */
+struct StackAllocator {
+    var curPtr: Ptr[Void];
+    var capacity: Size;
+
+    public static function new(from: Box[Allocator], capacity: Size) {
+        var curPtr = from.alloc(capacity);
+        return struct StackAllocator {
+            curPtr,
+            capacity
+        };
+    }
+
+    public function alloc(n: Size): Option[Ptr[Void]] {
+        if this.capacity >= n {
+            var next = this.curPtr;
+            this.curPtr = (this.curPtr as Ptr[Uint8]) + n;
+            this.capacity -= n;
+            return Some(next);
+        } else {
+            return None;
+        }
+    }
+
+    public function free(ptr: Ptr[Void]) {
+        this.capacity += (this.curPtr as Ptr[Uint8] - ptr as Ptr[Uint8]) as Size;
+        this.curPtr = ptr;
+    }
+
+    public function remaining(): Size {
+        return this.capacity;
+    }
+}
+
+implement Allocator for LinearAllocator {
+    public function alloc(s): Ptr[Void] {
+        match this.alloc(s) {
+            Some(x) => return x;
+            default => {
+                panic("failed to allocate from LinearAllocator");
+                return null: Ptr[Void];
+            }
+        }
+    }
+    public function free(p) {}
+}
+
+implement Allocator for StackAllocator {
+    public function alloc(s): Ptr[Void] {
+        match this.alloc(s) {
+            Some(x) => return x;
+            default => {
+                panic("failed to allocate from StackAllocator");
+                return null: Ptr[Void];
+            }
+        }
+    }
+    public function free(p) {
+        this.free(p);
+    }
+}

@@ -100,7 +100,7 @@ typeIterative ctx input output limit = do
                    { functionName   = subPath (typeRealName t)
                      $ tpName
                      $ functionName f
-                   , functionBundle = Just $ typeRealName x
+                   , functionBundle = Just $ typeName x
                    }
                  , staticTctx
                  )
@@ -110,7 +110,7 @@ typeIterative ctx input output limit = do
                    { functionName   = subPath (typeRealName t)
                      $ tpName
                      $ functionName f
-                   , functionBundle = Just $ typeRealName x
+                   , functionBundle = Just $ typeName x
                    }
                  , instanceTctx
                  )
