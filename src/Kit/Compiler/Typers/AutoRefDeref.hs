@@ -109,7 +109,12 @@ makeBox ctx tctx tp params ex = do
             , tIsLocalPtr  = tIsLocal ref
             }
         Nothing -> return Nothing
-    Nothing -> makeBox ctx tctx tp params (makeLvalue ex)
+    Nothing -> do
+      result <- makeBox ctx tctx tp params (makeLvalue ex)
+      case result of
+        Just x  -> return $ Just $ x { tIsLocalPtr = True }
+        Nothing -> return Nothing
+
 
 addRef :: TypedExpr -> Maybe TypedExpr
 addRef ex@(TypedExpr { tExpr = PreUnop Deref inner }) = Just inner
