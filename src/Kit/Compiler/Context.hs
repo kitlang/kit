@@ -308,6 +308,7 @@ defaultIncludePaths = do
     Nothing -> case os of
       "linux"  -> return ["/usr/include/x86_64-linux-gnu", "/usr/include"]
       "darwin" -> return ["/usr/include"]
+      _        -> return []
 
 splitDirs f = case break (== ',') f of
   (a, ',' : b) -> a : splitDirs b
