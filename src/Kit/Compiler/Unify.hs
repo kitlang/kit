@@ -123,7 +123,6 @@ unifyBase ctx tctx strict a' b' = do
       if impl then return $ Just [] else fallBackToAbstractParent a b
     (_, TypeTraitConstraint v) -> r b a
     (TypeBasicType a, TypeBasicType b) -> return $ unifyBasic a b
-    (TypePtr a@(TypeBasicType BasicTypeVoid), TypePtr b@(TypeTypeVar _)) -> r a b
     (TypePtr (TypeBasicType BasicTypeVoid), TypePtr _) -> return $ Just []
     (TypePtr (TypeBasicType BasicTypeVoid), TypeArray _ _) -> return $ Just []
     (TypePtr _, TypePtr (TypeBasicType BasicTypeVoid)) -> return $ Just []

@@ -179,8 +179,7 @@ convertExpr ctx tctx mod e = do
       t' <- resolveType ctx tctx mod t
       return $ m (Implicit t') t'
     Null -> do
-      t <- mtv
-      return $ m Null $ TypePtr t
+      return $ m Null $ TypePtr voidType
     Empty -> do
       t <- mtv
       return $ m Empty t
