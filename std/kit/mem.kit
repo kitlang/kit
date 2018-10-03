@@ -116,7 +116,7 @@ implement Allocator for LinearAllocator {
             Some(x) => return x;
             default => {
                 panic("failed to allocate from LinearAllocator");
-                return null: Ptr[Void];
+                return null;
             }
         }
     }
@@ -129,7 +129,7 @@ implement Allocator for StackAllocator {
             Some(x) => return x;
             default => {
                 panic("failed to allocate from StackAllocator");
-                return null: Ptr[Void];
+                return null;
             }
         }
     }
