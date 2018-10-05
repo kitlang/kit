@@ -172,7 +172,10 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
             (do
               binding <- case fst vname of
                 [] -> resolveVar ctx (tctxScopes tctx) mod (tpName vname)
-                _  -> lookupBinding ctx vname
+                _  -> return Nothing
+              binding <- case binding of
+                Just _ -> return binding
+                _      -> lookupBinding ctx vname
               case binding of
                 Just binding -> do
                   x <- typeVarBinding ctx tctx (tpName vname) binding pos

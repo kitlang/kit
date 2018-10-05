@@ -34,8 +34,8 @@ patternMatch ctx mod typer pattern t ex = do
       resolvedParams <- forM params $ mapType $ follow ctx tctx
       let
         enumDiscriminant = case t of
-          BasicTypeSimpleEnum  _ -> ex
-          BasicTypeAnonEnum    _ -> ex
+          BasicTypeSimpleEnum _  -> ex
+          BasicTypeAnonEnum _ _  -> ex
           BasicTypeComplexEnum _ -> (IrField ex discriminantFieldName)
           _ -> throwk $ InternalError "Unexpected value used as enum"
                                       (Just $ tPos pattern)

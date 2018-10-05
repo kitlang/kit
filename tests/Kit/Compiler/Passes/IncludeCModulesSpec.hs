@@ -172,6 +172,7 @@ spec = do
       , ( "Parses anonymous struct typedefs"
         , "Struct2"
         , TypeAnonStruct
+          (Just "Struct2")
           [ ("field1", TypeBasicType $ BasicTypeInt 16)
           , ("field2", TypeBasicType $ BasicTypeFloat 64)
           ]
@@ -201,7 +202,7 @@ spec = do
         )
       , ( "Parses anonymous enum typedefs"
         , "Enum2"
-        , TypeAnonEnum ["kiwi", "lime", "mango"]
+        , TypeAnonEnum (Just "Enum2") ["kiwi", "lime", "mango"]
         , Nothing
         )
       ]

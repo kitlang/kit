@@ -119,7 +119,7 @@ generateHeaderForwardDecl decl = case decl of
 
 generateTypeForwardDecl :: BasicType -> Maybe String
 generateTypeForwardDecl t = case t of
-  BasicTypeAnonEnum    _ -> Nothing
+  BasicTypeAnonEnum _ _  -> Nothing
   BasicTypeSimpleEnum  _ -> Nothing
   BasicTypeComplexEnum _ -> Nothing
   _ -> Just (render $ pretty $ CDeclExt $ cDecl t Nothing Nothing)

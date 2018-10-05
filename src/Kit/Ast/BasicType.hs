@@ -26,13 +26,13 @@ data BasicType
   | BasicTypeFloat Int
   -- Anonymous structs from headers are supported, but can't be defined in Kit.
   | BasicTypeStruct TypePath
-  | BasicTypeAnonStruct BasicArgs
+  | BasicTypeAnonStruct (Maybe Str) BasicArgs
   | BasicTypeUnion TypePath
-  | BasicTypeAnonUnion BasicArgs
+  | BasicTypeAnonUnion (Maybe Str) BasicArgs
   -- "Simple" enums have no additional data and can be represented as C enums.
   -- Simple enums can be anonymous if they were defined in a header.
   | BasicTypeSimpleEnum TypePath
-  | BasicTypeAnonEnum [TypePath]
+  | BasicTypeAnonEnum (Maybe Str) [Str]
   -- "Complex" enums require defining an additional struct for each variant
   -- which contains data. The actual value type will be a struct of
   -- (discriminant, union of variant structs.)
@@ -105,11 +105,14 @@ instance Show BasicType where
   show (BasicTypeFloat 64) = "Double"
   show (BasicTypeFloat w) = "Float" ++ show w
   show (BasicTypeStruct name) = "struct " ++ (s_unpack $ showTypePath name)
-  show (BasicTypeAnonStruct _) = "(anon struct)"
+  show (BasicTypeAnonStruct (Just x) _) = "(anon struct" ++ s_unpack x ++ ")"
+  show (BasicTypeAnonStruct Nothing _) = "(anon struct)"
   show (BasicTypeUnion name) = "union " ++ (s_unpack $ showTypePath name)
-  show (BasicTypeAnonUnion _) = "(anon union)"
+  show (BasicTypeAnonUnion (Just x) _) = "(anon union" ++ s_unpack x ++ ")"
+  show (BasicTypeAnonUnion Nothing _) = "(anon union)"
   show (BasicTypeSimpleEnum name) = "enum " ++ (s_unpack $ showTypePath name)
-  show (BasicTypeAnonEnum _) = "(anon enum)"
+  show (BasicTypeAnonEnum (Just x) _) = "(anon enum " ++ s_unpack x ++ ")"
+  show (BasicTypeAnonEnum Nothing _) = "(anon enum)"
   show (BasicTypeComplexEnum name) = "enum " ++ (s_unpack $ showTypePath name)
   show (BasicTypeAtom) = "atom"
   show (BasicTypeFunction t args varargs) = "function (" ++ (intercalate ", " [s_unpack name ++ ": " ++ show argType | (name, argType) <- args]) ++ (if varargs then ", ..." else "") ++ "): " ++ show t

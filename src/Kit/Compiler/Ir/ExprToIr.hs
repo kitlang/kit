@@ -231,13 +231,13 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
         r2        <- maybeR e2
         matchType <- findUnderlyingType ctx mod (Just pos) (inferredType e1)
         let complexMatch = case matchType of
-              BasicTypeComplexEnum _ -> True
-              BasicTypeTuple _ _     -> True
-              BasicTypeStruct     _  -> True
-              BasicTypeAnonStruct _  -> True
-              BasicTypeUnion      _  -> True
-              BasicTypeAnonUnion  _  -> True
-              _                      -> False
+              BasicTypeComplexEnum _  -> True
+              BasicTypeTuple _ _      -> True
+              BasicTypeStruct _       -> True
+              BasicTypeAnonStruct _ _ -> True
+              BasicTypeUnion _        -> True
+              BasicTypeAnonUnion _ _  -> True
+              _                       -> False
         case matchType of
           _ | complexMatch -> do
             -- complex match with ADT
@@ -415,11 +415,11 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
       (Empty) -> do
         t' <- findUnderlyingType ctx mod (Just pos) t
         case t' of
-          CArray _ _             -> return ()
-          BasicTypeAnonStruct  _ -> return ()
-          BasicTypeStruct      _ -> return ()
-          BasicTypeComplexEnum _ -> return ()
-          _                      -> throwk $ TypingError
+          CArray              _ _ -> return ()
+          BasicTypeAnonStruct _ _ -> return ()
+          BasicTypeStruct      _  -> return ()
+          BasicTypeComplexEnum _  -> return ()
+          _                       -> throwk $ TypingError
             ("`empty` isn't a valid value of type " ++ show t')
             pos
         return IrEmpty

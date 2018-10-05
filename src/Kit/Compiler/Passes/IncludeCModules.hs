@@ -144,10 +144,35 @@ defineTypedef
   -> IO ()
 defineTypedef ctx mod typeSpec pos (name, declr) = do
   let t' = parseType (modPath mod) typeSpec declr
+  t' <- return $ case t' of
+    TypeAnonStruct Nothing x -> TypeAnonStruct (Just name) x
+    TypeAnonUnion  Nothing x -> TypeAnonUnion (Just name) x
+    TypeAnonEnum   Nothing x -> TypeAnonEnum (Just name) x
+    _                        -> t'
   veryNoisyDebugLog ctx $ "typedef " ++ (s_unpack name) ++ ": " ++ (show t')
   when (t' == TypeBasicType BasicTypeUnknown)
     $ unknownTypeWarning ctx mod name pos
   h_insert (ctxTypedefs ctx) name t'
+  case t' of
+    TypeAnonEnum _ variants -> do
+      forM_
+        variants
+        (\variant -> do
+          addBinding
+            ctx
+            ([], variant)
+            (VarBinding $ newVarDefinition { varName    = ([], variant)
+                                           , varMeta    = [metaExtern]
+                                           , varPos     = pos
+                                           , varType    = t'
+                                           , varDefault = Nothing
+                                           }
+            )
+          veryNoisyDebugLog ctx
+            $  "define enum constructor "
+            ++ (s_unpack $ variant)
+        )
+    _ -> return ()
 
 parseType :: ModulePath -> [CTypeSpec] -> [CDerivedDeclr] -> ConcreteType
 parseType m typeSpec declr =
@@ -212,6 +237,7 @@ _parseDeclSpec modPath (h : t) width signed float = case h of
           Just f  -> f
           Nothing -> []
     in  (if tag == CStructTag then TypeAnonStruct else TypeAnonUnion)
+          Nothing
           [ (name, parseType modPath typeSpec declr)
           | f <- fields'
           , let (_, typeSpec, init) = decomposeCDecl f
@@ -220,6 +246,7 @@ _parseDeclSpec modPath (h : t) width signed float = case h of
   (CEnumType (CEnum (Just (Ident x _ _)) _ _ _) _) ->
     TypeInstance (modPath, (s_pack x)) []
   (CEnumType (CEnum Nothing (Just variants) _ _) _) -> TypeAnonEnum
+    Nothing
     ([ s_pack $ case fst variant of
          Ident x _ _ -> x
      | variant <- variants
@@ -308,6 +335,7 @@ defineNamedStructsEnumsUnions ctx mod pos (h : t) = do
                 { enumUnderlyingType = TypeBasicType BasicTypeVoid
                 , enumVariants       = [ newEnumVariant
                                            { variantName = ([], s_pack variantName)
+                                           , variantParent = ([], s_pack name)
                                            , variantMeta = [metaExtern]
                                            }
                                        | (Ident variantName _ _, _) <- variants'

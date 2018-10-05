@@ -113,7 +113,11 @@ resolveType ctx tctx mod t = do
               binding <- lookupBinding ctx ([], s)
               case bindingToCt binding of
                 Just x  -> return x
-                Nothing -> unknownType (s_unpack $ showTypePath (m, s)) pos
+                Nothing -> do
+                  t <- h_lookup (ctxTypedefs ctx) s
+                  case t of
+                    Just x  -> follow ctx tctx x
+                    Nothing -> unknownType (s_unpack $ showTypePath (m, s)) pos
             [] -> do
               case (s, tctxSelf tctx) of
                 ("Self", Just self) -> return self
@@ -140,7 +144,13 @@ resolveType ctx tctx mod t = do
                             imports
                           case bound of
                             Just t -> return t
-                            _      -> unknownType s pos
+                            _      -> do
+                              t <- h_lookup (ctxTypedefs ctx) s
+                              case t of
+                                Just x  -> follow ctx tctx x
+                                Nothing -> unknownType
+                                  (s_unpack $ showTypePath (m, s))
+                                  pos
                       -- if this is a type instance, create a new generic
                       case ct of
                         TypeInstance tp@(modPath, name) p -> do
@@ -199,7 +209,7 @@ _follow ctx tctx stack t = do
     UnresolvedType typeSpec modPath -> do
       mod <- getMod ctx modPath
       resolveType ctx tctx mod typeSpec
-    TypeSelf                -> do
+    TypeSelf -> do
       case tctxSelf tctx of
         Just TypeSelf -> return TypeSelf
         Just x        -> r x

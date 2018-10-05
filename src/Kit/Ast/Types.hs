@@ -76,9 +76,11 @@ type TraitConstraint = (TypePath, [ConcreteType])
 data ConcreteType
   = TypeAtom
   | TypeInstance TypePath [ConcreteType]
-  | TypeAnonStruct [(Str, ConcreteType)]
-  | TypeAnonUnion [(Str, ConcreteType)]
-  | TypeAnonEnum [Str]
+  -- anonymous types have a Maybe Str name, which is populated if they were
+  -- defined in a typedef; otherwise we have no way to reference the type
+  | TypeAnonStruct (Maybe Str) [(Str, ConcreteType)]
+  | TypeAnonUnion (Maybe Str) [(Str, ConcreteType)]
+  | TypeAnonEnum (Maybe Str) [Str]
   | TypeTypedef Str
   | TypeFunction ConcreteType ConcreteArgs Bool [ConcreteType]
   | TypeBasicType BasicType
@@ -107,9 +109,12 @@ instance Show ConcreteType where
   show (TypeAtom) = "atom"
   show (TypePtr t) = "Ptr[" ++ show t ++ "]"
   show (TypeInstance tp params) = (s_unpack $ showTypePath tp) ++ showParams params
-  show (TypeAnonStruct f) = "(anon struct)"
-  show (TypeAnonEnum variants) = "(anon enum {" ++ (intercalate ", " (map s_unpack variants)) ++ "})"
-  show (TypeAnonUnion f) = "(anon union)"
+  show (TypeAnonStruct (Just x) f) = "struct typedef " ++ s_unpack x
+  show (TypeAnonStruct _ f) = "(anon struct"
+  show (TypeAnonEnum (Just x) variants) = "enum typedef " ++ s_unpack x
+  show (TypeAnonEnum _ variants) = "(anon enum {" ++ (intercalate ", " (map s_unpack variants)) ++ "})"
+  show (TypeAnonUnion (Just x) f) = "union typedef " ++ s_unpack x
+  show (TypeAnonUnion _ f) = "(anon union)"
   show (TypeTypedef name) = "typedef " ++ s_unpack name
   show (TypeFunction rt args var params) = "function (" ++ (intercalate ", " [show t | (_, t) <- args]) ++ (if var then ", ..." else "") ++ ") -> " ++ show rt
   show (TypeBasicType t) = show t
@@ -161,16 +166,16 @@ mapType
 mapType f (TypeInstance tp p) = do
   p' <- mapM f p
   f $ TypeInstance tp p'
-mapType f (TypeAnonStruct fields) = do
+mapType f (TypeAnonStruct x fields) = do
   fields' <- forM fields $ \(n, t) -> do
     t' <- f t
     return (n, t')
-  f $ TypeAnonStruct fields'
-mapType f (TypeAnonUnion fields) = do
+  f $ TypeAnonStruct x fields'
+mapType f (TypeAnonUnion x fields) = do
   fields' <- forM fields $ \(n, t) -> do
     t' <- f t
     return (n, t')
-  f $ TypeAnonUnion fields'
+  f $ TypeAnonUnion x fields'
 mapType f (TypeFunction rt args varargs p) = do
   rt'   <- f rt
   args' <- forM args $ \(n, t) -> do

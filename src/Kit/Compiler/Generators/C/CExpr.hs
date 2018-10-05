@@ -92,7 +92,7 @@ ctype (BasicTypeStruct name) =
     ]
   , []
   )
-ctype (BasicTypeAnonStruct args) =
+ctype (BasicTypeAnonStruct Nothing args) =
   ( [ u $ CSUType $ u $ CStruct
         CStructTag
         Nothing
@@ -106,15 +106,14 @@ ctype (BasicTypeAnonStruct args) =
   , []
   )
 ctype (BasicTypeUnion name) =
-  ( [ u $ CSUType $ u $ CStruct
-        CUnionTag
-        (Just $ cIdent $ mangleName name)
-        Nothing
-        []
+  ( [ u $ CSUType $ u $ CStruct CUnionTag
+                                (Just $ cIdent $ mangleName name)
+                                Nothing
+                                []
     ]
   , []
   )
-ctype (BasicTypeAnonUnion args) =
+ctype (BasicTypeAnonUnion Nothing args) =
   ( [ u $ CSUType $ u $ CStruct
         CUnionTag
         Nothing
@@ -128,13 +127,7 @@ ctype (BasicTypeAnonUnion args) =
   , []
   )
 ctype (BasicTypeSimpleEnum name) =
-  ( [ u $ CEnumType $ u $ CEnum
-        (Just (cIdent $ mangleName name))
-        Nothing
-        []
-    ]
-  , []
-  )
+  ([u $ CEnumType $ u $ CEnum (Just (cIdent $ mangleName name)) Nothing []], [])
 -- ctype (BasicTypeAnonEnum variants) =
 --   ( [ u $ CEnumType $ u $ CEnum Nothing
 --                                 (Just )
@@ -144,13 +137,7 @@ ctype (BasicTypeSimpleEnum name) =
 --   )
 ctype (BasicTypeComplexEnum name) = ctype (BasicTypeStruct name)
 ctype (BasicTypeTuple name t) =
-  ( [ u $ CSUType $ u $ CStruct CStructTag
-                                (Just (cIdent name))
-                                Nothing
-                                []
-    ]
-  , []
-  )
+  ([u $ CSUType $ u $ CStruct CStructTag (Just (cIdent name)) Nothing []], [])
 ctype (CPtr x) = (fst t, (u $ CPtrDeclr []) : snd t) where t = ctype x
 ctype (BasicTypeFunction rt args var) =
   let (rta, rtb) = ctype rt
@@ -162,8 +149,19 @@ ctype (BasicTypeFunction rt args var) =
         )
       : rtb
       )
-ctype (BasicTypeCFile     ) = ([u $ CTypeDef (internalIdent $ "FILE")], [])
-ctype (BasicTypeAnonEnum _) = undefined
+ctype (BasicTypeCFile) = ([u $ CTypeDef (internalIdent $ "FILE")], [])
+ctype (BasicTypeAnonEnum Nothing variants) =
+  ( [ u $ CEnumType $ u $ CEnum
+        Nothing
+        (Just
+          [ (internalIdent $ s_unpack variant, Nothing)
+          | variant <- variants
+          ]
+        )
+        []
+    ]
+  , []
+  )
 ctype (CArray x s) =
   ( fst t
   , (u $ CArrDeclr
@@ -177,13 +175,15 @@ ctype (CArray x s) =
     : snd t
   )
   where t = ctype x
+ctype (BasicTypeAnonStruct (Just x) _) = ([u $ CTypeDef $ cIdent x], [])
+ctype (BasicTypeAnonUnion (Just x) _) = ([u $ CTypeDef $ cIdent x], [])
+ctype (BasicTypeAnonEnum (Just x) _) = ([u $ CTypeDef $ cIdent x], [])
 ctype (BasicTypeUnknown) = undefined
 
 intFlags f = foldr (\f acc -> setFlag f acc) noFlags f
 
 transpileExpr :: IrExpr -> CExpr
-transpileExpr (IrIdentifier s) =
-  u $ CVar $ cIdent $ mangleName s
+transpileExpr (IrIdentifier s) = u $ CVar $ cIdent $ mangleName s
 transpileExpr (IrLiteral (BoolValue b) _) =
   CConst $ u $ CIntConst $ cInteger (if b then 1 else 0)
 transpileExpr (IrLiteral (IntValue i) t@(BasicTypeFloat _)) =
@@ -220,8 +220,7 @@ transpileExpr (IrPreUnop op e1) =
   u $ CUnary (transpilePreUnop op) (transpileExpr e1)
 transpileExpr (IrPostUnop op e1) =
   u $ CUnary (transpilePostUnop op) (transpileExpr e1)
-transpileExpr (IrField e s) =
-  u $ CMember (transpileExpr e) (cIdent s) False
+transpileExpr (IrField e s) = u $ CMember (transpileExpr e) (cIdent s) False
 transpileExpr (IrArrayAccess e1 e2) =
   u $ CIndex (transpileExpr e1) (transpileExpr e2)
 transpileExpr (IrCall e args) =
@@ -251,14 +250,12 @@ transpileExpr (IrCArrLiteral values x) = u $ CCompoundLit
     cdeclr                   = u $ CDeclr Nothing derivedDeclr Nothing []
 transpileExpr (IrStructInit t fields) = u $ CCompoundLit
   (cDecl t Nothing Nothing)
-  [ ( [u $ CMemberDesig (cIdent name)]
-    , u $ CInitExpr (transpileExpr e)
-    )
+  [ ([u $ CMemberDesig (cIdent name)], u $ CInitExpr (transpileExpr e))
   | (name, e) <- fields
   ]
 transpileExpr (IrEnumInit (BasicTypeSimpleEnum _) discriminant []) =
   transpileExpr (IrIdentifier discriminant)
-transpileExpr (IrEnumInit (BasicTypeAnonEnum _) discriminant []) =
+transpileExpr (IrEnumInit (BasicTypeAnonEnum _ _) discriminant []) =
   transpileExpr (IrIdentifier discriminant)
 transpileExpr (IrEnumInit t discriminant []) = u $ CCompoundLit
   (cDecl t Nothing Nothing)
@@ -351,8 +348,7 @@ transpileStmt (IrSwitch val cases def) = u $ CSwitch
   )
 transpileStmt e = u $ CExpr $ Just $ transpileExpr e
 
-var_to_cdeclr x =
-  u $ CDeclr (Just $ cIdent x) [] (Nothing) []
+var_to_cdeclr x = u $ CDeclr (Just $ cIdent x) [] (Nothing) []
 
 transpileBlockItem :: IrExpr -> CBlockItem
 transpileBlockItem (IrVarDeclaration v t (Just (IrCArrLiteral values _))) =

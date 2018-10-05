@@ -30,24 +30,24 @@ _findUnderlyingType ctx mod pos stack t = do
   x       <- case t of
     TypeBasicType b       -> return b
     TypeAtom              -> return $ BasicTypeAtom
-    TypeAnonStruct fields -> do
+    TypeAnonStruct s fields -> do
       fields' <- forM
         fields
         (\(name, t) -> do
           t' <- r t
           return (name, t')
         )
-      return $ BasicTypeAnonStruct fields'
-    TypeAnonUnion fields -> do
+      return $ BasicTypeAnonStruct s fields'
+    TypeAnonUnion s fields -> do
       fields' <- forM
         fields
         (\(name, t) -> do
           t' <- r t
           return (name, t')
         )
-      return $ BasicTypeAnonUnion fields'
-    TypeAnonEnum variants ->
-      return $ BasicTypeAnonEnum [ ([], n) | n <- variants ]
+      return $ BasicTypeAnonUnion s fields'
+    TypeAnonEnum s variants ->
+      return $ BasicTypeAnonEnum s variants
 
     -- TypeTypedef TypePath [ConcreteType]
     -- TypeFunction ConcreteType ConcreteArgs Bool
