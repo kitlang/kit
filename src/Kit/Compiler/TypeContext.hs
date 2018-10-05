@@ -88,9 +88,12 @@ resolveType ctx tctx mod t = do
     TupleTypeSpec    t pos -> do
       slots <- forM t (resolveType ctx tctx mod)
       return $ TypeTuple slots
+    PointerTypeSpec t pos -> do
+      t <- resolveType ctx tctx mod t
+      return $ TypePtr t
     TypeSpec (m, s) params pos -> do
-      builtin <- if null m
-        then builtinToConcreteType ctx tctx mod s params pos
+      builtin <- if null m && null params
+        then builtinToConcreteType ctx tctx mod s pos
         else return Nothing
       case builtin of
         Just t  -> follow ctx tctx t
@@ -114,7 +117,9 @@ resolveType ctx tctx mod t = do
             [] -> do
               case (s, tctxSelf tctx) of
                 ("Self", Just self) -> return self
-                _                   -> do
+                ("Self", Nothing) ->
+                  throwk $ TypingError "No Self type in this context" pos
+                _ -> do
                   case resolveTypeParam ([], s) (tctxTypeParams tctx) of
                     Just x -> return x
                     _      -> do
@@ -182,68 +187,72 @@ resolveMaybeType ctx tctx mod pos t = do
 
 follow :: CompileContext -> TypeContext -> ConcreteType -> IO ConcreteType
 follow ctx tctx t = do
+  veryNoisyDebugLog ctx $ "follow started"
+  _follow ctx tctx [] t
+_follow ctx tctx stack t = do
+  let r x = _follow ctx tctx (x : stack) x
+  when (length stack > 256) $ throwk $ InternalError
+    ("Maximum recursion depth in follow exceeded; " ++ show stack)
+    Nothing
   veryNoisyDebugLog ctx $ "follow " ++ show t
   case t of
-    TypeSelf -> do
+    UnresolvedType typeSpec modPath -> do
+      mod <- getMod ctx modPath
+      resolveType ctx tctx mod typeSpec
+    TypeSelf                -> do
       case tctxSelf tctx of
         Just TypeSelf -> return TypeSelf
-        Just x        -> follow ctx tctx x
+        Just x        -> r x
         Nothing       -> return TypeSelf
     TypeTypeParam p -> do
       case resolveTypeParam p (tctxTypeParams tctx) of
         Just (TypeTypeParam q) | p == q -> return $ TypeTypeParam p
-        Just x                          -> follow ctx tctx x
+        Just x                          -> r x
         Nothing                         -> return $ TypeTypeParam p
     TypeTypeVar x -> do
       info <- getTypeVar ctx x
       case typeVarValue info of
         -- Specific known type
-        Just t  -> follow ctx tctx t
+        Just t  -> r t
         -- No specific type; return type var
         Nothing -> return t
     TypeInstance tp params -> do
-      resolvedParams <- forM params (follow ctx tctx)
+      resolvedParams <- forM params (r)
       return $ TypeInstance tp resolvedParams
+    TypePtr t -> do
+      t <- r t
+      return $ TypePtr t
     TypeFunction t args varargs params -> do
-      resolved     <- follow ctx tctx t
+      resolved     <- r t
       resolvedArgs <- forM
         args
         (\(name, t) -> do
-          resolvedArg <- follow ctx tctx t
+          resolvedArg <- r t
           return (name, resolvedArg)
         )
-      resolvedParams <- forM params (follow ctx tctx)
+      resolvedParams <- forM params (r)
       return $ TypeFunction resolved resolvedArgs varargs resolvedParams
-    TypePtr t -> do
-      resolved <- follow ctx tctx t
-      return $ TypePtr resolved
-    TypeBox tp params -> do
-      resolvedParams <- forM params (follow ctx tctx)
-      return $ TypeBox tp resolvedParams
-    TypeArray t len -> do
-      resolved <- follow ctx tctx t
-      return $ TypeArray resolved len
     TypeEnumConstructor tp d args params -> do
       resolvedArgs <- forM
         args
         (\(name, t) -> do
-          resolvedArg <- follow ctx tctx t
+          resolvedArg <- r t
           return (name, resolvedArg)
         )
-      resolvedParams <- forM params (follow ctx tctx)
+      resolvedParams <- forM params (r)
       return $ TypeEnumConstructor tp d resolvedArgs resolvedParams
     TypeTypedef name -> do
       typedef <- h_lookup (ctxTypedefs ctx) name
       case typedef of
-        Just t  -> follow ctx tctx t
+        Just t  -> r t
         Nothing -> throwk $ InternalError
           ("Unexpected missing typedef: " ++ (s_unpack name))
           Nothing
     TypeTuple t -> do
-      resolvedT <- forM t $ follow ctx tctx
+      resolvedT <- forM t $ r
       return $ TypeTuple resolvedT
     TypeTraitConstraint (tp, params) -> do
-      resolvedParams <- forM params (follow ctx tctx)
+      resolvedParams <- forM params (r)
       return $ TypeTraitConstraint (tp, resolvedParams)
     _ -> return t
 
@@ -286,61 +295,36 @@ builtinToConcreteType
   -> TypeContext
   -> Module
   -> Str
-  -> [TypeSpec]
   -> Span
   -> IO (Maybe ConcreteType)
-builtinToConcreteType ctx tctx mod s p pos = do
-  case (s, p) of
+builtinToConcreteType ctx tctx mod s pos = do
+  case s of
     -- basics
-    ("CString", []) -> return $ Just $ TypePtr $ TypeBasicType $ BasicTypeCChar
-    ("Char"   , []) -> return $ Just $ TypeBasicType $ BasicTypeCChar
-    ("Int"    , []) -> return $ Just $ TypeBasicType $ BasicTypeCInt
-    ("Size"   , []) -> return $ Just $ TypeBasicType $ BasicTypeCSize
-    ("Bool"   , []) -> return $ Just $ TypeBasicType $ BasicTypeBool
-    ("Int8"   , []) -> return $ Just $ TypeBasicType $ BasicTypeInt 8
-    ("Int16"  , []) -> return $ Just $ TypeBasicType $ BasicTypeInt 16
-    ("Int32"  , []) -> return $ Just $ TypeBasicType $ BasicTypeInt 32
-    ("Int64"  , []) -> return $ Just $ TypeBasicType $ BasicTypeInt 64
-    ("Uint8"  , []) -> return $ Just $ TypeBasicType $ BasicTypeUint 8
-    ("Uint16" , []) -> return $ Just $ TypeBasicType $ BasicTypeUint 16
-    ("Uint32" , []) -> return $ Just $ TypeBasicType $ BasicTypeUint 32
-    ("Uint64" , []) -> return $ Just $ TypeBasicType $ BasicTypeUint 64
-    ("Float32", []) -> return $ Just $ TypeBasicType $ BasicTypeFloat 32
-    ("Float64", []) -> return $ Just $ TypeBasicType $ BasicTypeFloat 64
-    ("FILE"   , []) -> return $ Just $ TypeBasicType $ BasicTypeCFile
+    "CString" -> return $ Just $ TypePtr $ TypeBasicType $ BasicTypeCChar
+    "Char"    -> return $ Just $ TypeBasicType $ BasicTypeCChar
+    "Int"     -> return $ Just $ TypeBasicType $ BasicTypeCInt
+    "Size"    -> return $ Just $ TypeBasicType $ BasicTypeCSize
+    "Bool"    -> return $ Just $ TypeBasicType $ BasicTypeBool
+    "Int8"    -> return $ Just $ TypeBasicType $ BasicTypeInt 8
+    "Int16"   -> return $ Just $ TypeBasicType $ BasicTypeInt 16
+    "Int32"   -> return $ Just $ TypeBasicType $ BasicTypeInt 32
+    "Int64"   -> return $ Just $ TypeBasicType $ BasicTypeInt 64
+    "Uint8"   -> return $ Just $ TypeBasicType $ BasicTypeUint 8
+    "Uint16"  -> return $ Just $ TypeBasicType $ BasicTypeUint 16
+    "Uint32"  -> return $ Just $ TypeBasicType $ BasicTypeUint 32
+    "Uint64"  -> return $ Just $ TypeBasicType $ BasicTypeUint 64
+    "Float32" -> return $ Just $ TypeBasicType $ BasicTypeFloat 32
+    "Float64" -> return $ Just $ TypeBasicType $ BasicTypeFloat 64
+    "FILE"    -> return $ Just $ TypeBasicType $ BasicTypeCFile
     -- aliases
-    ("Byte"   , []) -> builtinToConcreteType ctx tctx mod "Uint8" [] pos
-    ("Short"  , []) -> builtinToConcreteType ctx tctx mod "Int16" [] pos
-    ("Long"   , []) -> builtinToConcreteType ctx tctx mod "Int64" [] pos
-    ("Uint"   , []) -> builtinToConcreteType ctx tctx mod "Uint32" [] pos
-    ("Float"  , []) -> builtinToConcreteType ctx tctx mod "Float32" [] pos
-    ("Double" , []) -> builtinToConcreteType ctx tctx mod "Float64" [] pos
-    ("Void"   , []) -> return $ Just $ TypeBasicType BasicTypeVoid
-    -- compound
-    ("Box"    , []) -> throwk $ BasicError
-      "Can't infer the trait that a Box should contain; use Box[T] instead"
-      (Just pos)
-    ("Box", [x]) -> do
-      trait <- resolveType ctx tctx mod x
-      case trait of
-        TypeTraitConstraint (tp, params) -> do
-          params <- makeGeneric ctx tp pos params
-          return $ Just $ TypeBox tp (map snd params)
-        _ -> return Nothing
-    ("Ptr", []) -> do
-      param <- makeTypeVar ctx pos
-      return $ Just $ TypePtr param
-    ("Ptr", [x]) -> do
-      param <- resolveType ctx tctx mod x
-      return $ Just $ TypePtr param
-    ("CArray", [x]) -> do
-      param <- resolveType ctx tctx mod x
-      return $ Just $ TypeArray param Nothing
-    ("CArray", [x, size]) -> do
-      param <- resolveType ctx tctx mod x
-      size  <- resolveType ctx tctx mod size
-      return $ Just $ TypeArray param (Just size)
-    _ -> return Nothing
+    "Byte"    -> builtinToConcreteType ctx tctx mod "Uint8" pos
+    "Short"   -> builtinToConcreteType ctx tctx mod "Int16" pos
+    "Long"    -> builtinToConcreteType ctx tctx mod "Int64" pos
+    "Uint"    -> builtinToConcreteType ctx tctx mod "Uint32" pos
+    "Float"   -> builtinToConcreteType ctx tctx mod "Float32" pos
+    "Double"  -> builtinToConcreteType ctx tctx mod "Float64" pos
+    "Void"    -> return $ Just $ TypeBasicType BasicTypeVoid
+    _         -> return Nothing
 
 getTraitImpl
   :: CompileContext
@@ -389,12 +373,3 @@ typeUnresolved ctx tctx ct = do
   case t of
     TypeTypeVar _ -> return True
     _             -> return False
-
-getArraySize
-  :: CompileContext -> TypeContext -> Maybe Span -> ConcreteType -> IO Int
-getArraySize ctx tctx pos s = do
-  s <- mapType (follow ctx tctx) s
-  case s of
-    ConstantType (IntValue i) -> return i
-    _ ->
-      throwk $ InternalError ("Invalid array size parameter: " ++ show s) pos

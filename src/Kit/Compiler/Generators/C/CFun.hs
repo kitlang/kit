@@ -11,7 +11,7 @@ cfunDecl :: TypePath -> BasicType -> CDecl
 cfunDecl name (BasicTypeFunction rt args varargs) = u $ CDecl
   (map CTypeSpec $ typeSpec)
   [ ( Just $ u $ CDeclr
-      (Just $ internalIdent $ s_unpack $ mangleName name)
+      (Just $ cIdent $ mangleName name)
       ((u $ CFunDeclr (Right (map cfunArg args, varargs)) []) : derivedDeclr)
       Nothing
       []
@@ -25,7 +25,7 @@ cfunDef :: TypePath -> BasicType -> IrExpr -> CFunDef
 cfunDef name (BasicTypeFunction rt args varargs) body = u $ CFunDef
   (map CTypeSpec $ typeSpec)
   (u $ CDeclr
-    (Just $ internalIdent $ s_unpack $ mangleName name)
+    (Just $ cIdent $ mangleName name)
     ((u $ CFunDeclr (Right (map cfunArg args, varargs)) []) : derivedDeclr)
     Nothing
     []

@@ -6,8 +6,9 @@ import Kit.Ast.Definitions.FunctionDefinition
 import Kit.Ast.Definitions.RewriteRule
 import Kit.Ast.Metadata
 import Kit.Ast.Modifier
+import Kit.Ast.TypeParam
 import Kit.Ast.TypePath
-import Kit.Ast.TypeSpec
+import Kit.Ast.Types
 import Kit.NameMangling
 import Kit.Ast.Span
 import Kit.Str
@@ -19,8 +20,8 @@ data TraitDefinition a b = TraitDefinition {
   traitDoc :: Maybe Str,
   traitMeta :: [Metadata],
   traitModifiers :: [Modifier],
-  traitParams :: [TypeParam],
-  traitAssocParams :: [TypeParam],
+  traitParams :: [TypeParam b],
+  traitAssocParams :: [TypeParam b],
   traitRules :: [RewriteRule a b],
   traitMethods :: [FunctionDefinition a b]
 } deriving (Eq, Show)
@@ -63,14 +64,16 @@ convertTraitDefinition paramConverter t = do
     (\f -> convertFunctionDefinition methodParamConverter
       $ f { functionName = traitSubPath t (tpName $ functionName f) }
     )
-  rules <- forM (traitRules t) $ convertRewriteRule converter
+  rules       <- forM (traitRules t) $ convertRewriteRule converter
+  params      <- forM (traitParams t) $ convertTypeParam converter
+  assocParams <- forM (traitAssocParams t) $ convertTypeParam converter
   return $ (newTraitDefinition) { traitName        = traitName t
                                 , traitPos         = traitPos t
                                 , traitDoc         = traitDoc t
                                 , traitMeta        = traitMeta t
                                 , traitModifiers   = traitModifiers t
-                                , traitParams      = traitParams t
-                                , traitAssocParams = traitAssocParams t
+                                , traitParams      = params
+                                , traitAssocParams = assocParams
                                 , traitMethods     = methods
                                 , traitRules       = rules
                                 }

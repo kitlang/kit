@@ -13,13 +13,14 @@ spec :: Spec
 spec = parallel $ do
   describe "Lexer" $ do
     it "lexes identifiers" $ do
-      lx2 "apple Banana $macro_var ${macro_var2} _ __"
+      lx2 "apple Banana $macro_var ${macro_var2} _ __ @true"
         `shouldBe` [ (LowerIdentifier "apple"     , sp "" 1 1 1 5)
                    , (UpperIdentifier "Banana"    , sp "" 1 7 1 12)
                    , (MacroIdentifier "macro_var" , sp "" 1 14 1 23)
                    , (MacroIdentifier "macro_var2", sp "" 1 25 1 37)
                    , (Underscore                  , sp "" 1 39 1 39)
                    , (LowerIdentifier "__"        , sp "" 1 41 1 42)
+                   , (LowerIdentifier "true"      , sp "" 1 44 1 48)
                    ]
     it "lexes parens" $ do
       lx2 "()"

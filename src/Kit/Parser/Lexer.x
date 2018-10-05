@@ -150,6 +150,7 @@ tokens :-
   -- identifiers
   [_]*[a-z][a-zA-Z0-9_]* "!" { tok' (\s -> Lex $ s_take (s_length s - 1) s) }
   [_]*[a-z][a-zA-Z0-9_]* { tokString LowerIdentifier }
+  [@][a-z][a-zA-Z0-9_]* { tok' $ \s -> LowerIdentifier $ s_drop 1 s }
   "`" [^`]+ "`" { tok' (\s -> LowerIdentifier $ s_take (s_length s - 2) $ s_drop 1 s) }
   [_]*[A-Z][a-zA-Z0-9_]* { tokString UpperIdentifier }
   "``" ([^`]|\`[^`])+ "``" { tok' (\s -> UpperIdentifier $ s_take (s_length s - 4) $ s_drop 2 s) }

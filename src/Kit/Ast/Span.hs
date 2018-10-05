@@ -1,10 +1,15 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Kit.Ast.Span where
 
+import Data.Hashable
+import GHC.Generics
 import Control.Applicative
 
 data Span
   = Span {file :: FilePath, startLine :: Int, startCol :: Int, endLine :: Int, endCol :: Int, rewrittenFrom :: Maybe Span}
   | NoPos
+  deriving (Generic)
 
 instance Eq Span where
   (==) NoPos _ = True
@@ -18,6 +23,8 @@ instance Show Span where
               (if (startCol span /= endCol span) || (startLine span /= endLine span)
                 then "-" ++ (if startLine span /= endLine span then (show $ endLine span) ++ ":" else "") ++ (show $ endCol span)
                 else "") ++ (case rewrittenFrom span of {Just x -> " <= " ++ show x; Nothing -> ""})
+
+instance Hashable Span
 
 sp :: FilePath -> Int -> Int -> Int -> Int -> Span
 sp f a b c d = Span

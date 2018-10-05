@@ -13,6 +13,45 @@ import Kit.Ir
 import Kit.Ast.Span
 import Kit.Str
 
+reservedWord :: String -> Bool
+reservedWord "auto"     = True
+reservedWord "break"    = True
+reservedWord "case"     = True
+reservedWord "char"     = True
+reservedWord "const"    = True
+reservedWord "continue" = True
+reservedWord "default"  = True
+reservedWord "do"       = True
+reservedWord "int"      = True
+reservedWord "long"     = True
+reservedWord "register" = True
+reservedWord "return"   = True
+reservedWord "short"    = True
+reservedWord "signed"   = True
+reservedWord "sizeof"   = True
+reservedWord "static"   = True
+reservedWord "struct"   = True
+reservedWord "switch"   = True
+reservedWord "typedef"  = True
+reservedWord "union"    = True
+reservedWord "unsigned" = True
+reservedWord "void"     = True
+reservedWord "volatile" = True
+reservedWord "while"    = True
+reservedWord "double"   = True
+reservedWord "else"     = True
+reservedWord "enum"     = True
+reservedWord "extern"   = True
+reservedWord "float"    = True
+reservedWord "for"      = True
+reservedWord "goto"     = True
+reservedWord "if"       = True
+reservedWord _          = False
+
+cIdent x =
+  internalIdent
+    $ let s = s_unpack x in if reservedWord s then "__kit__" ++ s else s
+
 cDecl :: BasicType -> Maybe TypePath -> Maybe (CInitializer NodeInfo) -> CDecl
 cDecl t ident body = u
   $ CDecl (map CTypeSpec typeSpec) [(Just cdeclr, body, Nothing)]
@@ -20,7 +59,7 @@ cDecl t ident body = u
   (typeSpec, derivedDeclr) = ctype t
   cdeclr                   = u $ CDeclr
     (case ident of
-      Just x  -> Just $ internalIdent $ s_unpack $ mangleName x
+      Just x  -> Just $ cIdent $ mangleName x
       Nothing -> Nothing
     )
     derivedDeclr
@@ -36,7 +75,7 @@ ctype BasicTypeVoid    = ([u CVoidType], [])
 ctype BasicTypeBool    = ([u CBoolType], [])
 ctype (BasicTypeCChar) = ([u CCharType], [])
 ctype (BasicTypeCInt ) = ([u CIntType], [])
-ctype (BasicTypeCSize) = ([u $ CTypeDef (internalIdent $ "size_t")], [])
+ctype (BasicTypeCSize) = ([u $ CTypeDef (internalIdent "size_t")], [])
 ctype (BasicTypeInt n) =
   ([u $ CTypeDef (internalIdent $ "int" ++ show n ++ "_t")], [])
 ctype (BasicTypeUint n) =
@@ -46,11 +85,10 @@ ctype (BasicTypeFloat 64) = ([u CDoubleType], [])
 ctype (BasicTypeFloat _ ) = undefined
 ctype (BasicTypeAtom    ) = ([u CUnsigType, u CLongType], [])
 ctype (BasicTypeStruct name) =
-  ( [ u $ CSUType $ u $ CStruct
-        CStructTag
-        (Just $ internalIdent $ s_unpack $ mangleName name)
-        Nothing
-        []
+  ( [ u $ CSUType $ u $ CStruct CStructTag
+                                (Just $ cIdent $ mangleName name)
+                                Nothing
+                                []
     ]
   , []
   )
@@ -70,7 +108,7 @@ ctype (BasicTypeAnonStruct args) =
 ctype (BasicTypeUnion name) =
   ( [ u $ CSUType $ u $ CStruct
         CUnionTag
-        (Just $ internalIdent $ s_unpack $ mangleName name)
+        (Just $ cIdent $ mangleName name)
         Nothing
         []
     ]
@@ -91,7 +129,7 @@ ctype (BasicTypeAnonUnion args) =
   )
 ctype (BasicTypeSimpleEnum name) =
   ( [ u $ CEnumType $ u $ CEnum
-        (Just (internalIdent $ s_unpack $ mangleName name))
+        (Just (cIdent $ mangleName name))
         Nothing
         []
     ]
@@ -107,7 +145,7 @@ ctype (BasicTypeSimpleEnum name) =
 ctype (BasicTypeComplexEnum name) = ctype (BasicTypeStruct name)
 ctype (BasicTypeTuple name t) =
   ( [ u $ CSUType $ u $ CStruct CStructTag
-                                (Just (internalIdent $ s_unpack name))
+                                (Just (cIdent name))
                                 Nothing
                                 []
     ]
@@ -145,7 +183,7 @@ intFlags f = foldr (\f acc -> setFlag f acc) noFlags f
 
 transpileExpr :: IrExpr -> CExpr
 transpileExpr (IrIdentifier s) =
-  u $ CVar $ internalIdent $ s_unpack $ mangleName s
+  u $ CVar $ cIdent $ mangleName s
 transpileExpr (IrLiteral (BoolValue b) _) =
   CConst $ u $ CIntConst $ cInteger (if b then 1 else 0)
 transpileExpr (IrLiteral (IntValue i) t@(BasicTypeFloat _)) =
@@ -183,7 +221,7 @@ transpileExpr (IrPreUnop op e1) =
 transpileExpr (IrPostUnop op e1) =
   u $ CUnary (transpilePostUnop op) (transpileExpr e1)
 transpileExpr (IrField e s) =
-  u $ CMember (transpileExpr e) (internalIdent $ s_unpack s) False
+  u $ CMember (transpileExpr e) (cIdent s) False
 transpileExpr (IrArrayAccess e1 e2) =
   u $ CIndex (transpileExpr e1) (transpileExpr e2)
 transpileExpr (IrCall e args) =
@@ -213,7 +251,7 @@ transpileExpr (IrCArrLiteral values x) = u $ CCompoundLit
     cdeclr                   = u $ CDeclr Nothing derivedDeclr Nothing []
 transpileExpr (IrStructInit t fields) = u $ CCompoundLit
   (cDecl t Nothing Nothing)
-  [ ( [u $ CMemberDesig (internalIdent $ s_unpack name)]
+  [ ( [u $ CMemberDesig (cIdent name)]
     , u $ CInitExpr (transpileExpr e)
     )
   | (name, e) <- fields
@@ -224,14 +262,14 @@ transpileExpr (IrEnumInit (BasicTypeAnonEnum _) discriminant []) =
   transpileExpr (IrIdentifier discriminant)
 transpileExpr (IrEnumInit t discriminant []) = u $ CCompoundLit
   (cDecl t Nothing Nothing)
-  [ ( [u $ CMemberDesig (internalIdent $ s_unpack discriminantFieldName)]
+  [ ( [u $ CMemberDesig (cIdent discriminantFieldName)]
     , u $ CInitExpr $ transpileExpr (IrIdentifier discriminant)
     )
   ]
 transpileExpr (IrEnumInit t@(BasicTypeComplexEnum name) discriminant fields) =
   u $ CCompoundLit
     (cDecl t Nothing Nothing)
-    [ ( [u $ CMemberDesig (internalIdent $ s_unpack discriminantFieldName)]
+    [ ( [u $ CMemberDesig (cIdent discriminantFieldName)]
       , u $ CInitExpr $ transpileExpr (IrIdentifier discriminant)
       )
     , ( [ u
@@ -314,7 +352,7 @@ transpileStmt (IrSwitch val cases def) = u $ CSwitch
 transpileStmt e = u $ CExpr $ Just $ transpileExpr e
 
 var_to_cdeclr x =
-  u $ CDeclr (Just $ internalIdent $ s_unpack x) [] (Nothing) []
+  u $ CDeclr (Just $ cIdent x) [] (Nothing) []
 
 transpileBlockItem :: IrExpr -> CBlockItem
 transpileBlockItem (IrVarDeclaration v t (Just (IrCArrLiteral values _))) =

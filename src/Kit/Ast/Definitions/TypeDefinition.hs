@@ -8,8 +8,9 @@ import Kit.Ast.Definitions.RewriteRule
 import Kit.Ast.Definitions.VarDefinition
 import Kit.Ast.Metadata
 import Kit.Ast.Modifier
+import Kit.Ast.TypeParam
 import Kit.Ast.TypePath
-import Kit.Ast.TypeSpec
+import Kit.Ast.Types
 import Kit.NameMangling
 import Kit.Ast.Span
 import Kit.Str
@@ -27,7 +28,7 @@ data TypeDefinition a b = TypeDefinition {
   typeStaticMethods :: [FunctionDefinition a b],
   typeRules :: [RewriteRule a b],
   typeSubtype :: TypeDefinitionType a b,
-  typeParams :: [TypeParam]
+  typeParams :: [TypeParam b]
 } deriving (Eq, Show)
 
 typeSubPath :: TypeDefinition a b -> Str -> TypePath
@@ -127,8 +128,9 @@ convertTypeDefinition paramConverter t = do
       $ f { functionName = typeSubPath t (tpName $ functionName f) }
     )
 
-  mono  <- forM (typeMonomorph t) $ typeConverter (typePos t)
-  rules <- forM (typeRules t) $ convertRewriteRule converter
+  mono   <- forM (typeMonomorph t) $ typeConverter (typePos t)
+  rules  <- forM (typeRules t) $ convertRewriteRule converter
+  params <- forM (typeParams t) $ convertTypeParam converter
 
   return $ (newTypeDefinition) { typeName          = typeName t
                                , typeMonomorph     = mono
@@ -136,7 +138,7 @@ convertTypeDefinition paramConverter t = do
                                , typeDoc           = typeDoc t
                                , typeMeta          = typeMeta t
                                , typeModifiers     = typeModifiers t
-                               , typeParams        = typeParams t
+                               , typeParams        = params
                                , typeSubtype       = newType
                                , typePos           = typePos t
                                , typeStaticFields  = staticFields

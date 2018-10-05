@@ -157,8 +157,8 @@ parseDerivedType m (h' : t') ct =
   in
     case h' of
       (CPtrDeclr _ _) -> p (TypePtr ct)
-      (CArrDeclr _                         (CNoArrSize _) _) -> p (TypeArray ct Nothing)
-      (CArrDeclr _                         (CArrSize _ _) _) -> p (TypeArray ct Nothing) -- FIXME
+      (CArrDeclr _                         (CNoArrSize _) _) -> p (TypeArray ct 0)
+      (CArrDeclr _                         (CArrSize _ _) _) -> p (TypeArray ct 0) -- FIXME
       (CFunDeclr (Right (params, varargs)) _              _) -> p
         (TypeFunction
           ct

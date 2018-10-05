@@ -194,19 +194,35 @@ parseModuleExprs ctx mod fp pos = do
       h_insert (ctxFailedModules ctx) mod ()
       throwk e
 
+interfaceTypeConverter
+  :: CompileContext
+  -> Module
+  -> Span
+  -> [TypePath]
+  -> Maybe TypeSpec
+  -> IO ConcreteType
+interfaceTypeConverter ctx mod pos typeParams (Just (ConstantTypeSpec v _)) =
+  return $ ConstantType v
+interfaceTypeConverter ctx mod pos (h : t) x@(Just (TypeSpec tp [] _)) =
+  if h == tp || ((null $ fst tp) && tpName tp == tpName h)
+    then return $ TypeTypeParam h
+    else interfaceTypeConverter ctx mod pos t x
+interfaceTypeConverter ctx mod pos typeParams (Just x) =
+  return $ UnresolvedType x $ modPath mod
+interfaceTypeConverter ctx mod pos typeParams x = makeTypeVar ctx pos
+
 addStmtToModuleInterface
   :: CompileContext -> Module -> Statement -> IO [(SyntacticDecl, Span)]
 addStmtToModuleInterface ctx mod s = do
   -- the expressions from these conversions shouldn't be used;
   -- we'll use the actual typed versions generated later
-  let interfaceConverter = converter
+  let interfaceParamConverter params = converter
         (\e -> do
           tv <- makeTypeVar ctx (ePos e)
           return $ makeExprTyped (This) tv (ePos e)
         )
-        (\pos _ -> do
-          makeTypeVar ctx pos
-        )
+        (\pos t -> interfaceTypeConverter ctx mod pos params t)
+  let interfaceConverter = interfaceParamConverter []
   decls <- case stmt s of
     TypeDeclaration d -> do
       let extern = hasMeta "extern" (typeMeta d)
@@ -214,8 +230,7 @@ addStmtToModuleInterface ctx mod s = do
       let tp     = (if extern then [] else modPath mod, name)
 
       converted <- do
-        c <- convertTypeDefinition (\_ -> interfaceConverter)
-                                   (d { typeName = tp })
+        c <- convertTypeDefinition interfaceParamConverter (d { typeName = tp })
         if null (typeMethods d)
           then return c
           else do
@@ -250,7 +265,7 @@ addStmtToModuleInterface ctx mod s = do
     TraitDeclaration d -> do
       let name = tpName $ traitName d
       let tp   = (modPath mod, name)
-      converted <- convertTraitDefinition (\_ -> interfaceConverter)
+      converted <- convertTraitDefinition interfaceParamConverter
                                           (d { traitName = tp })
       forM_
         (traitMethods converted)
@@ -288,7 +303,7 @@ addStmtToModuleInterface ctx mod s = do
         let extern = (hasMeta "extern" (functionMeta d)) || isMain
         let name   = tpName $ functionName d
         let tp     = (if extern then [] else modPath mod, name)
-        converted <- convertFunctionDefinition (\_ -> interfaceConverter)
+        converted <- convertFunctionDefinition (interfaceParamConverter)
                                                (d { functionName = tp })
         when extern $ recordGlobalName name
         addToInterface ctx

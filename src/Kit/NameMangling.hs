@@ -3,8 +3,8 @@ module Kit.NameMangling where
 import Data.List
 import Data.Maybe
 import Kit.Ast.BasicType
-import Kit.Ast.ConcreteType
 import Kit.Ast.TypePath
+import Kit.Ast.Types
 import Kit.Str
 
 validName :: Str -> Str
