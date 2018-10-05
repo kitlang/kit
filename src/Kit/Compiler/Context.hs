@@ -218,7 +218,9 @@ makeGeneric ctx tp@(modPath, name) pos existing = do
         -- TODO: add param constraints here
               tv <- case value of
                 Just x  -> return x
-                Nothing -> makeTypeVar ctx pos
+                Nothing -> case typeParamDefault param of
+                  Just x  -> return x
+                  Nothing -> makeTypeVar ctx pos
               return ((subPath tp $ paramName param), tv)
       let paramTypes = map snd params
       -- if the supplied type parameters are generic, this isn't a real monomorph

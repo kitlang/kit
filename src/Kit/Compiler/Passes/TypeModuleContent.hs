@@ -86,13 +86,15 @@ typeIterative ctx input output limit = do
           let staticTctx   = tctx { tctxSelf = Just thisType }
           let instanceTctx = staticTctx { tctxThis = tctxSelf staticTctx }
           return
-            ( Just
-              ( mod
-              , DeclType x { typeStaticFields  = []
-                           , typeStaticMethods = []
-                           , typeMethods       = []
-                           }
-              )
+            ( if hasMeta "builtin" (typeMeta t)
+              then Nothing
+              else Just
+                ( mod
+                , DeclType x { typeStaticFields  = []
+                             , typeStaticMethods = []
+                             , typeMethods       = []
+                             }
+                )
             , [ (DeclVar $ v { varBundle = Just $ typeRealName x }, staticTctx)
               | v <- typeStaticFields x
               ]
@@ -189,8 +191,5 @@ typeIterative ctx input output limit = do
                            (limit - 1)
         else if null incomplete
           then return complete
-          else
-            throwk
-            $ KitErrors
-            $ reverse errors
+          else throwk $ KitErrors $ reverse errors
     else typeIterative ctx incomplete complete (limit - 1)

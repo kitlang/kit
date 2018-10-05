@@ -8,7 +8,7 @@ import Kit.NameMangling
 import Kit.Ir
 import Kit.Str
 
-typeNameDecl name = CTypeSpec $ u $ CTypeDef $ internalIdent $ s_unpack name
+typeNameDecl name = CTypeSpec $ u $ CTypeDef $ cIdent name
 
 makeSUFields fields = [ cDecl t (Just n) Nothing | (n, t) <- fields ]
 
@@ -18,7 +18,7 @@ cTypeDecl t@(TypeDefinition { typeName = name }) = case typeSubtype t of
     -> [ u $ CDecl
            [ CTypeSpec $ u $ CSUType $ u $ CStruct
                CStructTag
-               (Just $ internalIdent $ s_unpack $ mangleName name)
+               (Just $ cIdent $ mangleName name)
                (Just $ makeSUFields
                  [ (varName field, varType field) | field <- fields ]
                )
@@ -31,7 +31,7 @@ cTypeDecl t@(TypeDefinition { typeName = name }) = case typeSubtype t of
     -> [ u $ CDecl
            [ CTypeSpec $ u $ CSUType $ u $ CStruct
                CUnionTag
-               (Just $ internalIdent $ s_unpack $ mangleName name)
+               (Just $ cIdent $ mangleName name)
                (Just $ makeSUFields
                  [ (varName field, varType field) | field <- fields ]
                )
@@ -65,7 +65,7 @@ cTypeDecl t@(TypeDefinition { typeName = name }) = case typeSubtype t of
     enumStruct name discriminantName variants = u $ CDecl
       [ CTypeSpec $ u $ CSUType $ u $ CStruct
           CStructTag
-          (Just $ internalIdent $ s_unpack $ mangleName name)
+          (Just $ cIdent $ mangleName name)
           (Just f)
           []
       ]
@@ -73,12 +73,12 @@ cTypeDecl t@(TypeDefinition { typeName = name }) = case typeSubtype t of
     f =
       [ u $ CDecl
         [ CTypeSpec $ u $ CEnumType $ u $ CEnum
-            (Just (internalIdent $ s_unpack discriminantName))
+            (Just (cIdent discriminantName))
             Nothing
             []
         ]
         [ ( Just $ u $ CDeclr
-            (Just $ internalIdent $ s_unpack discriminantFieldName)
+            (Just $ cIdent discriminantFieldName)
             []
             Nothing
             []
@@ -93,7 +93,7 @@ cTypeDecl t@(TypeDefinition { typeName = name }) = case typeSubtype t of
                                                 []
         ]
         [ ( Just $ u $ CDeclr
-            (Just $ internalIdent $ s_unpack variantFieldName)
+            (Just $ cIdent variantFieldName)
             []
             Nothing
             []
@@ -106,7 +106,7 @@ cTypeDecl t@(TypeDefinition { typeName = name }) = case typeSubtype t of
       [ u $ CDecl
           [ CTypeSpec $ u $ CSUType $ u $ CStruct
               CStructTag
-              (Just $ internalIdent $ s_unpack $ mangleName $ subPath
+              (Just $ cIdent $ mangleName $ subPath
                 (variantName variant)
                 "data"
               )
@@ -114,7 +114,7 @@ cTypeDecl t@(TypeDefinition { typeName = name }) = case typeSubtype t of
               []
           ]
           [ ( Just $ u $ CDeclr
-              (Just $ internalIdent $ s_unpack $ s_concat
+              (Just $ cIdent $ s_concat
                 ["variant_", tpName $ variantName variant]
               )
               []
@@ -151,11 +151,11 @@ cTypeDecl t@(TypeDefinition { typeName = name }) = case typeSubtype t of
 enumDiscriminant name variantNames = u $ CDecl
   [ CTypeSpec $ u $ CEnumType $ u $ CEnum
       (case name of
-        Just name -> Just $ internalIdent $ s_unpack name
+        Just name -> Just $ cIdent name
         Nothing   -> Nothing
       )
       (Just
-        [ (internalIdent $ s_unpack $ mangleName v, Nothing)
+        [ (cIdent $ mangleName v, Nothing)
         | v <- variantNames
         ]
       )
@@ -167,7 +167,7 @@ cTupleDecl name slots =
   [ u $ CDecl
       [ CTypeSpec $ u $ CSUType $ u $ CStruct
           CStructTag
-          (Just $ internalIdent $ s_unpack name)
+          (Just $ cIdent name)
           (Just $ makeSUFields
             [ (([], s_pack $ "__slot" ++ show i), slot)
             | (i, slot) <- zip [0 ..] slots

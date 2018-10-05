@@ -12,6 +12,7 @@ data MetaArg
 
 meta s = Metadata {metaName = s, metaArgs = []}
 metaExtern = meta "extern"
+metaBuiltin = meta "builtin"
 
 hasMeta :: Str -> [Metadata] -> Bool
 hasMeta s [] = False

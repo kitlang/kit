@@ -4,8 +4,9 @@ import Control.Monad
 import Kit.Ast.Definitions.Base
 import Kit.Ast.Metadata
 import Kit.Ast.Modifier
+import Kit.Ast.TypeParam
 import Kit.Ast.TypePath
-import Kit.Ast.TypeSpec
+import Kit.Ast.Types
 import Kit.NameMangling
 import Kit.Ast.Span
 import Kit.Str
@@ -18,7 +19,7 @@ data FunctionDefinition a b = FunctionDefinition {
   functionDoc :: Maybe Str,
   functionMeta :: [Metadata],
   functionModifiers :: [Modifier],
-  functionParams :: [TypeParam],
+  functionParams :: [TypeParam b],
   functionArgs :: [ArgSpec a b],
   functionType :: b,
   functionBody :: Maybe a,
@@ -62,16 +63,17 @@ convertFunctionDefinition paramConverter f = do
   let
     converter@(Converter { exprConverter = exprConverter, typeConverter = typeConverter })
       = paramConverter params
-  rt   <- typeConverter (functionPos f) (functionType f)
-  args <- forM (functionArgs f) (convertArgSpec converter)
-  body <- maybeConvert exprConverter (functionBody f)
+  rt     <- typeConverter (functionPos f) (functionType f)
+  args   <- forM (functionArgs f) (convertArgSpec converter)
+  body   <- maybeConvert exprConverter (functionBody f)
+  params <- forM (functionParams f) $ convertTypeParam converter
 
   return $ (newFunctionDefinition) { functionName      = functionName f
                                    , functionBundle    = functionBundle f
                                    , functionDoc       = functionDoc f
                                    , functionMeta      = functionMeta f
                                    , functionModifiers = functionModifiers f
-                                   , functionParams    = functionParams f
+                                   , functionParams    = params
                                    , functionArgs      = args
                                    , functionType      = rt
                                    , functionBody      = body

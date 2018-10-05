@@ -152,7 +152,7 @@ convertExpr ctx tctx mod e = do
     ArrayLiteral args  -> do
       t    <- mtv
       args <- mapM r args
-      return $ m (ArrayLiteral args) (TypeArray t $ Just $ ConstantType $ IntValue $ length args)
+      return $ m (ArrayLiteral args) (TypeArray t $ length args)
     TupleInit args -> do
       args <- mapM r args
       return $ m (TupleInit args) (TypeTuple (map inferredType args))

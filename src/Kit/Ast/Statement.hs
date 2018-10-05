@@ -4,7 +4,7 @@ import Kit.Ast.Declaration
 import Kit.Ast.Definitions
 import Kit.Ast.Expr
 import Kit.Ast.ModulePath
-import Kit.Ast.TypeSpec
+import Kit.Ast.Types
 import Kit.Ast.UsingType
 import Kit.Ast.Span
 import Kit.Str

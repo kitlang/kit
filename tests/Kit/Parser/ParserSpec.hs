@@ -270,15 +270,18 @@ spec = parallel $ do
                          , functionModifiers = [Inline]
                          , functionParams    = [ makeTypeParam "A"
                                                , (makeTypeParam "B")
-                                                 { constraints = [ makeTypeSpec
-                                                                     "Int"
+                                                 { constraints = [ Just
+                                                                     $ makeTypeSpec
+                                                                         "Int"
                                                                  ]
                                                  }
                                                , (makeTypeParam "C")
-                                                 { constraints = [ makeTypeSpec
-                                                                   "ToString"
-                                                                 , makeTypeSpec
-                                                                   "ToInt"
+                                                 { constraints = [ Just
+                                                                   $ makeTypeSpec
+                                                                       "ToString"
+                                                                 , Just
+                                                                   $ makeTypeSpec
+                                                                       "ToInt"
                                                                  ]
                                                  }
                                                ]

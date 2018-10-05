@@ -128,6 +128,7 @@ resolveTypesForMod ctx (mod, contents) = do
   converted <- forM
     contents
     (\(decl, pos) -> do
+      debugLog ctx $ "resolving types for " ++ (s_unpack $ showTypePath $ declName decl)
       case decl of
         DeclUsing u -> do
           return Nothing

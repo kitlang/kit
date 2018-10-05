@@ -262,7 +262,7 @@ AssocTypes :: {[TypeSpec]}
   : {[]}
   | '(' CommaDelimitedTypes ')' {reverse $2}
 
-AssocTypeDeclarations :: {[TypeParam]}
+AssocTypeDeclarations :: {[TypeParam (Maybe TypeSpec)]}
   : {[]}
   | '(' TypeParams_ ')' {$2}
 
@@ -392,13 +392,11 @@ TypeAnnotation :: {(Maybe TypeSpec, Span)}
   | ':' TypeSpec {(Just $ fst $2, snd $1 <+> snd $2)}
 
 TypeSpec :: {(TypeSpec, Span)}
-  : TypePath TypeSpecParams {(TypeSpec (fst $1) (fst $2) (snd $1 <+> snd $2), snd $1 <+> snd $2)}
+  : TypePath TypeSpecParams {(if (fst $1) == ([], "Ptr") && length (fst $2) == 1 then PointerTypeSpec (head $ fst $2) (snd $1 <+> snd $2) else TypeSpec (fst $1) (fst $2) (snd $1 <+> snd $2), snd $1 <+> snd $2)}
+  | '&' TypeSpec {(PointerTypeSpec (fst $2) (snd $1 <+> snd $2), snd $1 <+> snd $2)}
   | function FunctionTypeSpec {$2}
-  | TupleTypeSpec {$1}
+  | '(' TypeSpec ',' CommaDelimitedTypes ')' {let p = snd $1 <+> snd $5 in (TupleTypeSpec ((fst $2) : (reverse $4)) p, p)}
   | Term {(ConstantTypeSpec (fst $ fst $1) (snd $1), snd $1)}
-
-TupleTypeSpec :: {(TypeSpec, Span)}
-  : '(' TypeSpec ',' CommaDelimitedTypes ')' {let p = snd $1 <+> snd $5 in (TupleTypeSpec ((fst $2) : (reverse $4)) p, p)}
 
 FunctionTypeSpec :: {(TypeSpec, Span)}
   : '(' ')' "->" TypeSpec {let p = snd $1 <+> snd $4 in (FunctionTypeSpec (fst $4) [] False p, p)}
@@ -418,17 +416,18 @@ OptionalRuleBody :: {Maybe Expr}
   : ';' {Nothing}
   | "=>" StandaloneExpr {Just $2}
 
-TypeParams :: {([TypeParam], Span)}
+TypeParams :: {([TypeParam (Maybe TypeSpec)], Span)}
   : {([], NoPos)}
   | '[' TypeParams_ ']' {(reverse $2, snd $1 <+> snd $3)}
 
-TypeParams_ :: {[TypeParam]}
+TypeParams_ :: {[TypeParam (Maybe TypeSpec)]}
   : TypeParam {[$1]}
   | TypeParams_ ',' TypeParam {$3 : $1}
 
-TypeParam :: {TypeParam}
-  : upper_identifier TypeConstraints {TypeParam {paramName = (extract_upper_identifier $1), constraints = $2, typeParamIsConstant = False}}
-  | '$' upper_identifier {TypeParam {paramName = (extract_upper_identifier $2), constraints = [], typeParamIsConstant = True}}
+TypeParam :: {TypeParam (Maybe TypeSpec)}
+  : TypeParam '=' TypeSpec {$1 {typeParamDefault = Just $ Just $ fst $3}}
+  | upper_identifier TypeConstraints {(makeTypeParam (extract_upper_identifier $1)) {constraints = map Just $2, typeParamIsConstant = False, typeParamPos = snd $1}}
+  | '$' upper_identifier {(makeTypeParam (extract_upper_identifier $2)) {constraints = [], typeParamIsConstant = True, typeParamPos = snd $1 <+> snd $2}}
 
 TypeSpecParams :: {([TypeSpec], Span)}
   : {([], NoPos)}

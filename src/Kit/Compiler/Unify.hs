@@ -105,13 +105,15 @@ unifyBase ctx tctx strict a' b' = do
         constraints
         (\((tp, params), _) -> r (TypeTraitConstraint (tp, params)) x)
       return $ checkResults ((Just $ [TypeVarIs i x]) : results)
-    (_, TypeTypeVar _      ) -> r b a
+    (_, TypeTypeVar _) -> r b a
     -- these two rules are a hack to support pointer arithmetic; would be
     -- better with a trait per operator and generic implementations for Ptr
-    (TypeTraitConstraint ((["kit", "numeric"], "Numeric"), []), TypePtr _) -> do
-      return $ Just []
-    (TypeTraitConstraint ((["kit", "numeric"], "Integral"), []), TypePtr _) -> do
-      return $ Just []
+    (TypeTraitConstraint ((["kit", "numeric"], "Numeric"), []), TypePtr _) ->
+      do
+        return $ Just []
+    (TypeTraitConstraint ((["kit", "numeric"], "Integral"), []), TypePtr _) ->
+      do
+        return $ Just []
     (TypeTraitConstraint (tp1, params1), TypeBox tp2 params2) -> do
       if (tp1 == tp2) && (length params1 == length params2)
         then do
@@ -124,11 +126,8 @@ unifyBase ctx tctx strict a' b' = do
     (_, TypeTraitConstraint v) -> r b a
     (TypeBasicType a, TypeBasicType b) -> return $ unifyBasic a b
     (TypePtr (TypeBasicType BasicTypeVoid), TypePtr _) -> return $ Just []
-    (TypePtr (TypeBasicType BasicTypeVoid), TypeArray _ _) -> return $ Just []
     (TypePtr _, TypePtr (TypeBasicType BasicTypeVoid)) -> return $ Just []
-    (TypeArray _ _, TypePtr (TypeBasicType BasicTypeVoid)) -> return $ Just []
     (TypePtr a, TypePtr b) -> r a b
-    (TypePtr a, TypeArray b _) -> r a b
     (TypeTuple a, TypeTuple b) | length a == length b -> do
       vals <- forM (zip a b) (\(a, b) -> r a b)
       return $ checkResults vals
@@ -136,16 +135,6 @@ unifyBase ctx tctx strict a' b' = do
       rt   <- r rt1 rt2
       args <- forM (zip args1 args2) (\((_, a), (_, b)) -> r a b)
       return $ checkResults $ rt : args
-    (TypeInstance tp1 params1, TypeInstance tp2 params2) -> do
-      if (tp1 == tp2) && (length params1 == length params2)
-        then do
-          paramMatch <- mapM (\(a, b) -> rStrict a b) (zip params1 params2)
-          return $ checkResults paramMatch
-        else if strict then return Nothing else fallBackToAbstractParent a b
-    (_, TypeInstance tp1 params1) -> do
-      if a == b
-        then return $ Just []
-        else if strict then return Nothing else fallBackToAbstractParent a b
     (TypeEnumConstructor tp1 d1 _ params1, TypeEnumConstructor tp2 d2 _ params2)
       -> do
         if (tp1 == tp2) && (d1 == d2) && (length params1 == length params2)
@@ -159,13 +148,20 @@ unifyBase ctx tctx strict a' b' = do
           paramMatch <- mapM (\(a, b) -> rStrict a b) (zip params1 params2)
           return $ checkResults paramMatch
         else return Nothing
-    (TypeArray t1 (Just s1), TypeArray t2 (Just s2)) -> do
-      a <- r s1 s2
-      b <- r t1 t2
-      return $ checkResults [a, b]
-    (TypeArray t1 Nothing, TypeArray t2 _) -> r t1 t2
+    (TypeArray t1 s1, TypeArray t2 s2) | (s1 > 0) && (s1 == s2) -> r t1 t2
+    (TypeArray t1 0 , TypeArray t2 _ )                          -> r t1 t2
     (ConstantType a, ConstantType b) ->
       return $ if a == b then Just [] else Nothing
+    (TypeInstance tp1 params1, TypeInstance tp2 params2) -> do
+      if (tp1 == tp2) && (length params1 == length params2)
+        then do
+          paramMatch <- mapM (\(a, b) -> rStrict a b) (zip params1 params2)
+          return $ checkResults paramMatch
+        else if strict then return Nothing else fallBackToAbstractParent a b
+    (_, TypeInstance tp1 params1) -> do
+      if a == b
+        then return $ Just []
+        else if strict then return Nothing else fallBackToAbstractParent a b
     (a, b) | a == b -> return $ Just []
     _               -> return Nothing
  where

@@ -17,36 +17,6 @@ import Kit.Error
 import Kit.HashTable
 import Kit.Parser
 
-constantScopes
-  :: CompileContext
-  -> TypeContext
-  -> [TypeParam]
-  -> [ConcreteType]
-  -> Span
-  -> IO [Scope Binding]
-constantScopes ctx tctx params paramValues pos = do
-  let consts =
-        [ (param, ct)
-        | (param, ct) <- zip params paramValues
-        , typeParamIsConstant param
-        ]
-  scopes <- if null consts
-    then return $ tctxScopes tctx
-    else do
-      scope <- newScope
-      forMWithErrors_ consts $ \(param, ct) -> do
-        case ct of
-          ConstantType v -> do
-            tv <- makeTypeVar ctx pos
-            bindToScope scope
-                        (paramName param)
-                        (ExprBinding $ makeExprTyped (Literal v tv) tv pos)
-          x -> throwk $ TypingError
-            ("Invalid value for constant type parameter: " ++ show x)
-            pos
-      return $ scope : tctxScopes tctx
-  return scopes
-
 generateMonomorphs :: CompileContext -> IO [(Module, TypedDeclWithContext)]
 generateMonomorphs ctx = do
   pendingGenerics <- readIORef (ctxPendingGenerics ctx)
@@ -75,17 +45,14 @@ generateMonomorphs ctx = do
                         [ (functionSubPath def $ paramName param, ct)
                         | (param, ct) <- zip (functionParams def) params
                         ]
-                  scopes <- constantScopes ctx
-                                           monoTctx
-                                           (functionParams def)
-                                           params
-                                           (functionPos def)
-                  return $ Just $ Right
-                    ( mod
-                    , ( DeclFunction $ def { functionMonomorph = params }
-                      , monoTctx { tctxScopes = scopes }
-                      )
-                    )
+                  return
+                    $ Just
+                    $ Right
+                        ( mod
+                        , ( DeclFunction $ def { functionMonomorph = params }
+                          , monoTctx
+                          )
+                        )
 
                 TypeBinding def -> do
                   let thisType = TypeInstance (typeName def) params
@@ -96,19 +63,18 @@ generateMonomorphs ctx = do
                           | (param, ct) <- zip (typeParams def) params
                           ]
                         )
-                  scopes <- constantScopes ctx
-                                           monoTctx
-                                           (typeParams def)
-                                           params
-                                           (typePos def)
                   return
-                    $ Just
-                    $ Right
-                    $ ( mod
-                      , ( DeclType $ def { typeMonomorph = params }
-                        , monoTctx { tctxScopes = scopes }
-                        )
-                      )
+                    $ if hasMeta "builtin" (typeMeta def)
+                      then
+                        Nothing
+                      else
+                        Just
+                        $ Right
+                        $ ( mod
+                          , ( DeclType $ def { typeMonomorph = params }
+                            , monoTctx
+                            )
+                          )
 
                 TraitBinding def -> do
                   let thisType = TypeBox (traitName def) params
@@ -117,17 +83,14 @@ generateMonomorphs ctx = do
                         [ (traitSubPath def $ paramName param, ct)
                         | (param, ct) <- zip (traitAllParams def) params
                         ]
-                  scopes <- constantScopes ctx
-                                           monoTctx
-                                           (traitParams def)
-                                           params
-                                           (traitPos def)
-                  return $ Just $ Right
-                    ( mod
-                    , ( DeclTrait $ def { traitMonomorph = params }
-                      , monoTctx { tctxScopes = scopes }
-                      )
-                    )
+                  return
+                    $ Just
+                    $ Right
+                        ( mod
+                        , ( DeclTrait $ def { traitMonomorph = params }
+                          , monoTctx
+                          )
+                        )
 
                 _ -> return Nothing
 

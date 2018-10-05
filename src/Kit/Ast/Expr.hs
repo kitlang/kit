@@ -4,7 +4,7 @@
 module Kit.Ast.Expr where
 
 import Kit.Ast.ExprType
-import Kit.Ast.TypeSpec
+import Kit.Ast.Types
 import Kit.Ast.Span
 
 type SyntacticExprType = ExprType Expr (Maybe TypeSpec)

@@ -4,8 +4,9 @@ import Control.Monad
 import Kit.Ast.Definitions.Base
 import Kit.Ast.Definitions.FunctionDefinition
 import Kit.Ast.Definitions.TraitDefinition
+import Kit.Ast.TypeParam
 import Kit.Ast.TypePath
-import Kit.Ast.TypeSpec
+import Kit.Ast.Types
 import Kit.Ast.Span
 import Kit.Str
 
@@ -13,7 +14,7 @@ data TraitImplementation a b = TraitImplementation {
   implName :: TypePath,
   implTrait :: b,
   implFor :: b,
-  implParams :: [TypeParam],
+  implParams :: [TypeParam b],
   implAssocTypes :: [b],
   implMethods :: [FunctionDefinition a b],
   implDoc :: Maybe Str,
@@ -48,10 +49,11 @@ convertTraitImplementation converter@(Converter { exprConverter = exprConverter,
     assocTypes <- forM (implAssocTypes i) $ typeConverter (implPos i)
     methods    <- forM (implMethods i)
                        (\f -> convertFunctionDefinition (\p -> converter) f)
+    params <- forM (implParams i) $ convertTypeParam converter
     return $ (newTraitImplementation) { implName       = implName i
                                       , implTrait      = trait
                                       , implFor        = for
-                                      , implParams     = implParams i
+                                      , implParams     = params
                                       , implAssocTypes = assocTypes
                                       , implMethods    = methods
                                       , implDoc        = implDoc i

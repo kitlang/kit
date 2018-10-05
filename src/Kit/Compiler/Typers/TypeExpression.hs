@@ -1,5 +1,6 @@
 module Kit.Compiler.Typers.TypeExpression where
 
+import Control.Applicative
 import Control.Exception
 import Control.Monad
 import Data.List
@@ -72,25 +73,33 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                 Just x  -> inferredType x
                 Nothing -> TypeBasicType BasicTypeUnknown
           tctx <- case thisType of
-            TypeInstance tp params -> do
+            TypeBox tp params -> do
               params <- makeGeneric ctx tp (tPos x) params
               return $ addTypeParams tctx params
-            TypeBox tp params -> do
+            TypeInstance tp params -> do
               params <- makeGeneric ctx tp (tPos x) params
               return $ addTypeParams tctx params
             _ -> return tctx
           case acc of
-            Just x -> return $ Just x
-            Nothing ->
-              rewriteExpr ctx tctx mod rule x (\tctx -> typeExpr ctx tctx mod)
+            Just x  -> return $ Just x
+            Nothing -> do
+              result <- rewriteExpr ctx
+                                    tctx
+                                    mod
+                                    rule
+                                    x
+                                    (\tctx -> typeExpr ctx tctx mod)
+              case result of
+                Just x  -> return $ Just (x, tctx)
+                Nothing -> return Nothing
         )
         Nothing
         (  implicitRules
         ++ [ rule | ruleset <- tctxRules tctx, rule <- ruleSetRules ruleset ]
         )
       case result of
-        Just x  -> r x
-        Nothing -> y
+        Just (x, tctx) -> r x
+        Nothing        -> y
 
   result <- case et of
     (Block children) -> do
@@ -161,14 +170,32 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           tryRewrite
             ex
             (do
-              binding <- resolveVar ctx (tctxScopes tctx) mod (tpName vname)
+              binding <- case fst vname of
+                [] -> resolveVar ctx (tctxScopes tctx) mod (tpName vname)
+                _  -> lookupBinding ctx vname
               case binding of
                 Just binding -> do
                   x <- typeVarBinding ctx tctx (tpName vname) binding pos
                   return $ x { tIsLvalue = True }
-                Nothing -> throwk $ TypingError
-                  ("Unknown identifier: " ++ (s_unpack $ showTypePath vname))
-                  pos
+                Nothing ->
+                  case
+                      foldr
+                        (\(paramName, paramType) acc ->
+                          acc <|> case paramType of
+                            ConstantType v -> Just v
+                            _              -> Nothing
+                        )
+                        Nothing
+                        (tctxTypeParams tctx)
+                    of
+                      Just v -> do
+                        tv <- makeTypeVar ctx pos
+                        r $ makeExprTyped (Literal v tv) tv pos
+                      Nothing -> throwk $ TypingError
+                        (  "Unknown identifier: "
+                        ++ (s_unpack $ showTypePath vname)
+                        )
+                        pos
             )
         (_, MacroVar vname t) -> do
           case find (\(name, _) -> name == vname) (tctxMacroVars tctx) of
@@ -575,86 +602,6 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           typeFieldAccess t fieldName = do
             t <- follow ctx tctx t
             case t of
-              TypeInstance tp params -> do
-                templateDef <- getTypeDefinition ctx tp
-                let
-                  tctx' =
-                    (addTypeParams
-                        tctx
-                        [ (typeSubPath templateDef $ paramName param, val)
-                        | (param, val) <- zip (typeParams templateDef) params
-                        ]
-                      )
-                      { tctxSelf = Just t
-                      }
-                def <- followType ctx tctx' templateDef
-                let subtype = typeSubtype def
-                binding <- lookupBinding ctx $ subPath tp fieldName
-                case binding of
-                  Just x -> do
-                    -- this is a local method
-                    typed' <- typeVarBinding ctx tctx' fieldName x pos
-                    t      <- mapType (follow ctx tctx') (inferredType typed')
-                    let typed = typed' { inferredType = t }
-                    -- this may be a template; replace `this` with the actual
-                    -- type to guarantee the implicit pass will work
-                    let f = case inferredType typed of
-                          TypeFunction rt args varargs _ -> TypeFunction
-                            rt
-                            ( (let (name, _) = (head args)
-                               in  (name, TypePtr $ inferredType r1)
-                              )
-                            : (tail args)
-                            )
-                            varargs
-                            params
-                    return $ (makeExprTyped (Method tp params fieldName) f pos)
-                      { tImplicits = r1 : tImplicits typed
-                      }
-
-                  _ -> case subtype of
-                    Struct { structFields = fields } -> do
-                      result <- typeStructUnionFieldAccess ctx
-                                                           tctx'
-                                                           fields
-                                                           r1
-                                                           fieldName
-                                                           pos
-                      case result of
-                        Just x -> return $ x { tIsLvalue = True }
-                        _      -> throwk $ TypingError
-                          (  "Struct "
-                          ++ s_unpack (showTypePath tp)
-                          ++ " doesn't have a field called `"
-                          ++ s_unpack fieldName
-                          ++ "`"
-                          )
-                          pos
-
-                    Union { unionFields = fields } -> do
-                      result <- typeStructUnionFieldAccess ctx
-                                                           tctx'
-                                                           fields
-                                                           r1
-                                                           fieldName
-                                                           pos
-                      case result of
-                        Just x -> return $ x { tIsLvalue = True }
-                        _      -> throwk $ TypingError
-                          (  "Union doesn't have a field called `"
-                          ++ s_unpack fieldName
-                          ++ "`"
-                          )
-                          pos
-
-                    Abstract { abstractUnderlyingType = u } ->
-                      -- forward to parent
-                      typeFieldAccess u fieldName
-
-                    x -> throwk $ TypingError
-                      ("Field access is not allowed on " ++ show x)
-                      pos
-
               TypePtr x ->
                 -- try to auto-dereference
                            r $ makeExprTyped
@@ -771,16 +718,85 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                     )
                     pos
 
-              TypeArray _ (Just s) | fieldName == "length" -> do
-                n <- getArraySize ctx tctx (Just pos) s
-                return
-                  $ (makeExprTyped
-                      (Literal (IntValue n) $ TypeBasicType BasicTypeCSize)
-                      (TypeBasicType BasicTypeCSize)
-                      pos
-                    )
-                      { tIsCompileTime = True
+              TypeInstance tp params -> do
+                templateDef <- getTypeDefinition ctx tp
+                let
+                  tctx' =
+                    (addTypeParams
+                        tctx
+                        [ (typeSubPath templateDef $ paramName param, val)
+                        | (param, val) <- zip (typeParams templateDef) params
+                        ]
+                      )
+                      { tctxSelf = Just t
                       }
+                def <- followType ctx tctx' templateDef
+                let subtype = typeSubtype def
+                binding <- lookupBinding ctx $ subPath tp fieldName
+                case binding of
+                  Just x -> do
+                    -- this is a local method
+                    typed' <- typeVarBinding ctx tctx' fieldName x pos
+                    t      <- mapType (follow ctx tctx') (inferredType typed')
+                    let typed = typed' { inferredType = t }
+                    -- this may be a template; replace `this` with the actual
+                    -- type to guarantee the implicit pass will work
+                    let f = case inferredType typed of
+                          TypeFunction rt args varargs _ -> TypeFunction
+                            rt
+                            ( (let (name, _) = (head args)
+                               in  (name, TypePtr $ inferredType r1)
+                              )
+                            : (tail args)
+                            )
+                            varargs
+                            params
+                    return $ (makeExprTyped (Method tp params fieldName) f pos)
+                      { tImplicits = r1 : tImplicits typed
+                      }
+
+                  _ -> case subtype of
+                    Struct { structFields = fields } -> do
+                      result <- typeStructUnionFieldAccess ctx
+                                                           tctx'
+                                                           fields
+                                                           r1
+                                                           fieldName
+                                                           pos
+                      case result of
+                        Just x -> return $ x { tIsLvalue = True }
+                        _      -> throwk $ TypingError
+                          (  "Struct "
+                          ++ s_unpack (showTypePath tp)
+                          ++ " doesn't have a field called `"
+                          ++ s_unpack fieldName
+                          ++ "`"
+                          )
+                          pos
+
+                    Union { unionFields = fields } -> do
+                      result <- typeStructUnionFieldAccess ctx
+                                                           tctx'
+                                                           fields
+                                                           r1
+                                                           fieldName
+                                                           pos
+                      case result of
+                        Just x -> return $ x { tIsLvalue = True }
+                        _      -> throwk $ TypingError
+                          (  "Union doesn't have a field called `"
+                          ++ s_unpack fieldName
+                          ++ "`"
+                          )
+                          pos
+
+                    Abstract { abstractUnderlyingType = u } ->
+                      -- forward to parent
+                      typeFieldAccess u fieldName
+
+                    x -> throwk $ TypingError
+                      ("Field access is not allowed on " ++ show x)
+                      pos
 
               x -> throwk $ TypingError
                 ("Field access is not allowed on " ++ show x)
@@ -823,6 +839,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         let
           resolveArrayAccess t = case (t, tExpr r2) of
             (TypeTuple t, Literal (IntValue i) _) ->
+              -- FIXME: this should work with any constant Int expression
               -- compile-time tuple slot access
               if (i >= 0) && (i < length t)
                 then r
@@ -837,29 +854,11 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                   ++ " slots)"
                   )
                   pos
+
             (TypeTuple t, _) -> throwk $ TypingError
               "Array access on tuples is only allowed using int literals"
               pos
-            (TypePtr t, _) -> do
-              resolveConstraint
-                ctx
-                tctx
-                (TypeEq
-                  t
-                  (inferredType ex)
-                  "Array access on a pointer will dereference the pointer"
-                  (tPos ex)
-                )
-              resolveConstraint
-                ctx
-                tctx
-                (TypeEq
-                  typeClassIntegral
-                  (inferredType r2)
-                  "Array access on a pointer requires an Integral argument"
-                  (tPos r2)
-                )
-              return $ makeExprTyped (ArrayAccess r1 r2) (inferredType ex) pos
+
             (TypeArray t _, _) -> do
               resolveConstraint
                 ctx
@@ -880,10 +879,35 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                 )
               return $ (makeExprTyped (ArrayAccess r1 r2) (inferredType ex) pos) { tIsLvalue = True
                                                                                  }
+
+            (TypePtr t, _) -> do
+              resolveConstraint
+                ctx
+                tctx
+                (TypeEq
+                  t
+                  (inferredType ex)
+                  "Array access on a pointer will dereference the pointer"
+                  (tPos ex)
+                )
+              resolveConstraint
+                ctx
+                tctx
+                (TypeEq
+                  typeClassIntegral
+                  (inferredType r2)
+                  "Array access on a pointer requires an Integral argument"
+                  (tPos r2)
+                )
+              return $ makeExprTyped (ArrayAccess r1 r2) (inferredType ex) pos
+
             (TypeInstance tp params, _) -> do
               def <- getTypeDefinition ctx tp
               case typeSubtype def of
-                Abstract { abstractUnderlyingType = t } -> resolveArrayAccess t
+                Abstract { abstractUnderlyingType = t } -> do
+                  params <- makeGeneric ctx tp pos params
+                  t      <- follow ctx (addTypeParams tctx params) t
+                  resolveArrayAccess t
                 _ -> fail
 
             (TypeTypeOf tp params, _) -> do
@@ -968,18 +992,15 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       items <- mapM r items
       case inferredType ex of
         TypeArray t s -> do
-          case s of
-            Just ct -> do
-              size <- getArraySize ctx tctx (Just pos) ct
-              unless (length items == size) $ throwk $ TypingError
-                (  "The Array's length parameter ("
-                ++ show s
-                ++ ") must match the number of elements ("
-                ++ show (length items)
-                ++ ")"
-                )
-                pos
-            Nothing -> return ()
+          when (s > 0) $ do
+            unless (length items == s) $ throwk $ TypingError
+              (  "The Array's length parameter ("
+              ++ show s
+              ++ ") must match the number of elements ("
+              ++ show (length items)
+              ++ ")"
+              )
+              pos
           forM_ items $ \val -> resolve $ TypeEq
             t
             (inferredType val)
@@ -987,6 +1008,12 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
             (tPos val)
         _ -> throwk $ TypingError "Array literals must be typed as arrays" pos
       return $ makeExprTyped (ArrayLiteral items) (inferredType ex) pos
+
+    (VarDeclaration s@(MacroVar vname _) a b) -> do
+      case find (\(name, _) -> name == vname) (tctxMacroVars tctx) of
+        Just (_, x@TypedExpr { tExpr = Identifier v@(Var vname) }) ->
+          r $ makeExprTyped (VarDeclaration v a b) (inferredType ex) pos
+        x -> throwk $ InternalError ("oh no: " ++ show x) (Just pos)
 
     (VarDeclaration (Var vname) _ init) -> do
       let
@@ -1158,12 +1185,12 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
   tryRewrite result $ return result
 
 ownRules ctx this = case inferredType this of
-  TypeInstance tp params -> do
-    def <- getTypeDefinition ctx tp
-    return $ [ rule { ruleThis = Just this } | rule <- typeRules def ]
   TypeBox tp params -> do
     def <- getTraitDefinition ctx tp
     return $ [ rule { ruleThis = Just this } | rule <- traitRules def ]
+  TypeInstance tp params -> do
+    def <- getTypeDefinition ctx tp
+    return $ [ rule { ruleThis = Just this } | rule <- typeRules def ]
   _ -> return []
 
 alignCallArgs
