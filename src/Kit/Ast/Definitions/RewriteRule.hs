@@ -1,6 +1,9 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Kit.Ast.Definitions.RewriteRule where
 
 import Control.Monad
+import GHC.Generics
 import Kit.Ast.Definitions.Base
 import Kit.Ast.TypePath
 import Kit.Ast.Span
@@ -12,7 +15,7 @@ data RewriteRule a b = RewriteRule {
   ruleBody :: Maybe a,
   rulePos :: Span,
   ruleThis :: Maybe a
-} deriving (Eq, Show)
+} deriving (Eq, Generic, Show)
 
 newRewriteRule = RewriteRule
   { ruleDoc     = Nothing

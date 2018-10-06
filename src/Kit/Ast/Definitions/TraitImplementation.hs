@@ -1,6 +1,9 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Kit.Ast.Definitions.TraitImplementation where
 
 import Control.Monad
+import GHC.Generics
 import Kit.Ast.Definitions.Base
 import Kit.Ast.Definitions.FunctionDefinition
 import Kit.Ast.Definitions.TraitDefinition
@@ -19,7 +22,7 @@ data TraitImplementation a b = TraitImplementation {
   implMethods :: [FunctionDefinition a b],
   implDoc :: Maybe Str,
   implPos :: Span
-} deriving (Eq, Show)
+} deriving (Eq, Generic, Show)
 
 associatedTypes traitDef impl =
   [ (traitSubPath traitDef $ paramName p, t)

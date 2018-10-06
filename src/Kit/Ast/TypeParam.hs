@@ -1,7 +1,10 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Kit.Ast.TypeParam where
 
 import Control.Monad
 import Data.List
+import GHC.Generics
 import Kit.Ast.Definitions.Base
 import Kit.Ast.TypePath
 import Kit.Ast.Types
@@ -15,7 +18,7 @@ data TypeParam b = TypeParam {
   constraints :: [b],
   typeParamIsConstant :: Bool,
   typeParamDefault :: Maybe b
-} deriving (Eq, Show)
+} deriving (Eq, Generic, Show)
 
 makeTypeParam :: Str -> TypeParam b
 makeTypeParam s = TypeParam

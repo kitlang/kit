@@ -2,8 +2,7 @@ import kit.sys.dir;
 
 function main() {
     var path = "tests/compile-src/std/sys/";
-    var d = readDir(path);
-    for dir in d {
+    for dir in readDir(path) {
         var path = (*dir).path;
         if path == "dir.kit" {
             printf("found dir.kit\n");

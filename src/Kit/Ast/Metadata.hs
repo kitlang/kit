@@ -1,14 +1,17 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Kit.Ast.Metadata where
 
+import GHC.Generics
 import Kit.Ast.Value
 import Kit.Str
 
-data Metadata = Metadata {metaName :: Str, metaArgs :: [MetaArg]} deriving (Eq, Show)
+data Metadata = Metadata {metaName :: Str, metaArgs :: [MetaArg]} deriving (Eq, Generic, Show)
 
 data MetaArg
   = MetaIdentifier Str
   | MetaLiteral ValueLiteral
-  deriving (Eq, Show)
+  deriving (Eq, Generic, Show)
 
 meta s = Metadata {metaName = s, metaArgs = []}
 metaExtern = meta "extern"

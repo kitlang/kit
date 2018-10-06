@@ -124,7 +124,12 @@ ruleMatch ctx tctx pattern te thisExpr = do
     (Field x (Var a), Field y (Var b)) ->
       if a == b then r x y else return Nothing
     (Cast x t1, Cast y t2) -> if t1 == t2 then r x y else return Nothing
-    (a        , b        ) -> if exprDiscriminant a == exprDiscriminant b
+    (ArrayLiteral x, ArrayLiteral y) -> if length x == length y
+      then do
+        results <- forM (zip x y) $ \(a, b) -> r a b
+        combineResults results
+      else return Nothing
+    (a, b) -> if exprDiscriminant a == exprDiscriminant b
       then
         let (c1, c2) = (exprChildren a, exprChildren b)
         in  if length c1 == length c2

@@ -1,6 +1,9 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Kit.Ast.Definitions.FunctionDefinition where
 
 import Control.Monad
+import GHC.Generics
 import Kit.Ast.Definitions.Base
 import Kit.Ast.Metadata
 import Kit.Ast.Modifier
@@ -24,7 +27,7 @@ data FunctionDefinition a b = FunctionDefinition {
   functionType :: b,
   functionBody :: Maybe a,
   functionVarargs :: Bool
-} deriving (Eq, Show)
+} deriving (Eq, Generic, Show)
 
 functionSubPath :: FunctionDefinition a b -> Str -> TypePath
 functionSubPath def s = if hasMeta "extern" (functionMeta def)
@@ -86,7 +89,7 @@ data ArgSpec a b = ArgSpec {
   argType :: b,
   argDefault :: Maybe a,
   argPos :: Span
-} deriving (Show)
+} deriving (Generic, Show)
 
 instance (Eq a, Eq b) => Eq (ArgSpec a b) where
   (==) a b = (argName a == argName b) && (argType a == argType b) && (argDefault a == argDefault b)

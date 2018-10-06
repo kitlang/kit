@@ -1,7 +1,9 @@
+{-# LANGUAGE DeriveGeneric #-}
 {-# OPTIONS_GHC -fno-warn-overlapping-patterns #-}
 
 module Kit.Ast.ExprType where
 
+import GHC.Generics
 import Kit.Ast.Definitions
 import Kit.Ast.Identifier
 import Kit.Ast.Metadata
@@ -12,7 +14,7 @@ import Kit.Ast.Value
 import Kit.Error
 import Kit.Str
 
-data MatchCase a = MatchCase {matchPattern :: a, matchBody :: a} deriving (Eq, Show)
+data MatchCase a = MatchCase {matchPattern :: a, matchBody :: a} deriving (Eq, Generic, Show)
 
 newMatchCase = MatchCase {matchPattern = undefined, matchBody = undefined}
 matchCase x y = MatchCase {matchPattern = x, matchBody = y}
@@ -86,7 +88,7 @@ data ExprType a b
   | Temp a
   | Null
   | Empty
-  deriving (Eq, Show)
+  deriving (Eq, Generic, Show)
 
 exprDiscriminant :: ExprType a b -> Int
 exprDiscriminant et = case et of

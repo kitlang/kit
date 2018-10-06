@@ -1,5 +1,8 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Kit.Ast.Identifier where
 
+import GHC.Generics
 import Kit.Ast.TypePath
 import Kit.Str
 
@@ -10,7 +13,7 @@ data Identifier b
   -- `$abc` or `${abc: Int}`
   | MacroVar Str b
   | Hole
-  deriving (Eq)
+  deriving (Eq, Generic)
 
 instance Show (Identifier b) where
   show (Var s) = s_unpack $ showTypePath s

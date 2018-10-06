@@ -1,6 +1,9 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Kit.Ast.Definitions.TraitDefinition where
 
 import Control.Monad
+import GHC.Generics
 import Kit.Ast.Definitions.Base
 import Kit.Ast.Definitions.FunctionDefinition
 import Kit.Ast.Definitions.RewriteRule
@@ -24,7 +27,7 @@ data TraitDefinition a b = TraitDefinition {
   traitAssocParams :: [TypeParam b],
   traitRules :: [RewriteRule a b],
   traitMethods :: [FunctionDefinition a b]
-} deriving (Eq, Show)
+} deriving (Eq, Generic, Show)
 
 traitSubPath :: TraitDefinition a b -> Str -> TypePath
 traitSubPath def s = subPath (traitName def) s

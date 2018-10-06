@@ -21,28 +21,30 @@ import Kit.NameMangling
 import Kit.Str
 
 data IrTempInfo = IrTempInfo {
-  irTempType :: BasicType,
-  irTempExpr :: Maybe IrExpr,
+  irTempType :: ConcreteType,
+  irTempExpr :: Maybe TypedExpr,
   irTempOrder :: Int
 }
 
 data IrContext = IrContext {
-  ictxTemps :: HashTable IrExpr Str,
+  ictxTemps :: HashTable TypedExpr Str,
   ictxTempInfo :: HashTable Int IrTempInfo,
   ictxNextTempId :: IORef Int,
-  ictxChildNo :: Int
+  ictxChildNo :: Int,
+  ictxIsLoopCondition :: Bool
 }
 
 newIrContext :: IO IrContext
 newIrContext = do
-  temps      <- h_new
+  d          <- h_new
   tempInfo   <- h_new
   nextTempId <- newIORef 1
   return $ IrContext
-    { ictxTemps      = temps
-    , ictxTempInfo   = tempInfo
-    , ictxNextTempId = nextTempId
-    , ictxChildNo    = 0
+    { ictxTemps           = d
+    , ictxTempInfo        = tempInfo
+    , ictxNextTempId      = nextTempId
+    , ictxChildNo         = 0
+    , ictxIsLoopCondition = False
     }
 
 makeIrTempVar :: IrContext -> IO Int
@@ -84,40 +86,45 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
         tempDecls <- forM [1 .. lastId - 1] $ \i -> do
           temp@(IrTempInfo { irTempType = tempType, irTempExpr = tempDefault, irTempOrder = tempOrder }) <-
             h_get (ictxTempInfo ictx) i
-          return
-            $ ( tempOrder * 2
-              , IrVarDeclaration (irTempName i) tempType tempDefault
-              )
+          x <- typedToIr ctx ictx mod $ makeExprTyped
+            (VarDeclaration (Var ([], irTempName i)) tempType True tempDefault)
+            tempType
+            pos
+          return $ (tempOrder * 2, x)
         children <- return
           [ (n * 2 + 1, child) | (n, child) <- zip [0 ..] children ]
         allChildren <-
-          return $ map snd $ sortBy (compare `on` fst) $ tempDecls ++ children
+          return
+          $ map snd
+          $ sortBy (compare `on` fst)
+          $ [ (n, xi)
+            | (n, x) <- (tempDecls ++ children)
+            , xi     <- case x of
+              IrCompound xs -> xs
+              _             -> [x]
+            ]
         -- interleave temp decls with block children
         return $ IrBlock $ allChildren
       (Temp x) -> do
-        t        <- findUnderlyingType ctx mod (Just pos) $ inferredType x
-        x        <- r x
         existing <- h_lookup (ictxTemps ictx) x
         case existing of
           Just s  -> return $ IrIdentifier ([], s)
           Nothing -> do
-            nextId <- makeIrTempVar ictx
-            h_insert (ictxTemps ictx) x (irTempName nextId)
-            if tIsLvalue e
-              then do
+            let assignable = case f of
+                  CArray _ _ -> False
+                  _          -> True
+            if not assignable
+              then r x
+              else do
+                r x
+                nextId <- makeIrTempVar ictx
+                h_insert (ictxTemps ictx) x (irTempName nextId)
                 h_insert (ictxTempInfo ictx) nextId $ IrTempInfo
                   { irTempType  = t
                   , irTempExpr  = Just x
                   , irTempOrder = ictxChildNo ictx
                   }
                 return $ IrIdentifier ([], irTempName nextId)
-              else do
-                h_insert (ictxTempInfo ictx) nextId $ IrTempInfo
-                  { irTempType  = t
-                  , irTempExpr  = Nothing
-                  , irTempOrder = ictxChildNo ictx
-                  }
-                return $ IrBinop Assign (IrIdentifier ([], irTempName nextId)) x
       (Using   _            e1) -> r e1
       (Meta    m            e1) -> r e1
       (Literal (IntValue v) _ ) -> do
@@ -193,8 +200,7 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
       (Binop Assign e1 (TypedExpr { tExpr = ArrayLiteral values })) -> do
         r1     <- r e1
         values <- mapM r values
-        -- TODO: could use appropriately sized int type for index
-        return $ IrBlock
+        return $ IrCompound
           [ IrBinop Assign
                     (IrArrayAccess r1 (IrLiteral (IntValue i) BasicTypeCSize))
                     val
@@ -207,12 +213,12 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
       (For e1@(TypedExpr { tExpr = Identifier (Var id) }) (TypedExpr { tExpr = RangeLiteral eFrom eTo }) e3)
         -> do
           t     <- findUnderlyingType ctx mod (Just $ tPos e1) (inferredType e1)
-          rFrom <- r eFrom
-          rTo   <- r eTo
+          rFrom <- typedToIr ctx (ictx { ictxIsLoopCondition = True }) mod eFrom
+          rTo   <- typedToIr ctx (ictx { ictxIsLoopCondition = True }) mod eTo
           r3    <- r e3
           return $ IrFor (tpName id) t rFrom rTo r3
       (While e1 e2 d) -> do
-        r1 <- r e1
+        r1 <- typedToIr ctx (ictx { ictxIsLoopCondition = True }) mod e1
         r2 <- r e2
         return $ IrWhile r1 r2 d
       (If e1 e2 e3) -> do
@@ -334,9 +340,29 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
                 ("unexpected array literal type: " ++ show f)
                 (Just pos)
         return $ IrCArrLiteral items' contentType
-      (VarDeclaration (Var name) ts _ def) -> do
-        def <- maybeR def
-        return $ IrVarDeclaration (tpName name) f def
+      (VarDeclaration (Var name) ts const def) -> do
+        case (def, f) of
+          (Just x, CArray _ _)
+            | case x of
+              TypedExpr { tExpr = Empty } -> False
+              _                           -> True
+            -> do
+              a <- typedToIr ctx ictx mod $ makeExprTyped
+                (VarDeclaration (Var name) ts const Nothing)
+                (inferredType e)
+                pos
+              b <- typedToIr ctx ictx mod $ makeExprTyped
+                (Binop
+                  Assign
+                  (makeExprTyped (Identifier (Var name)) (inferredType e) pos)
+                  x
+                )
+                (inferredType e)
+                pos
+              return $ IrCompound [a, b]
+          _ -> do
+            def <- maybeR def
+            return $ IrVarDeclaration (tpName name) f def
       (VarDeclaration (MacroVar v _) _ _ _) -> do
         throwk $ BasicError
           ("unexpected macro var (" ++ (s_unpack v) ++ ") in typed AST")

@@ -19,8 +19,9 @@ abstract DirectoryReader: Ptr[DIR] {
 
     rules {
         (for $ident in $this {$e}) => {
+            var __dir = $this;
             do {
-                var __next: Ptr[Directory] = readdir($this) as Ptr[Directory];
+                var __next: Ptr[Directory] = readdir(__dir) as Ptr[Directory];
                 if __next == null {
                     break;
                 } else {

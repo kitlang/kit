@@ -221,6 +221,7 @@ dumpAst ctx indent e@(TypedExpr { tExpr = texpr, inferredType = t, tPos = pos })
       Box         _ x -> i "box" [x]
       BoxedVtable _ x -> i "box vtable" [x]
       BoxedValue x    -> i "box value" [x]
+      Temp       x    -> i "temp value" [x]
       _               -> return $ f $ "??? " ++ show texpr
 
     return $ result

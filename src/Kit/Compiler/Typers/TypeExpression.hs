@@ -210,11 +210,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                     }
                   )
                   mod
-                $ if isValidExpr tExpr (tExpr expr)
-                  then
-                    (makeExprTyped (Temp expr) (inferredType expr) (tPos expr))
-                  else
-                    expr
+                $ expr
             Nothing -> return ex
 
     (TypeAnnotation e1 t) -> do
@@ -1203,7 +1199,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
     (Temp x) -> do
       rx <- r x
       return
-        $ (makeExprTyped (Temp rx) (inferredType rx) pos) { tIsLocal = True }
+        $ (makeExprTyped (Temp rx) (inferredType rx) (tPos rx)) { tIsLocal = True }
 
     _ -> return $ ex
 

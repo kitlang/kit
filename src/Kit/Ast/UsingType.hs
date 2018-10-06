@@ -1,12 +1,15 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Kit.Ast.UsingType where
 
+import GHC.Generics
 import Kit.Ast.Definitions.Base
 import Kit.Ast.Span
 
 data UsingType a b
   = UsingRuleSet b
   | UsingImplicit a
-  deriving (Eq)
+  deriving (Eq, Generic)
 
 instance (Show a, Show b) => Show (UsingType a b) where
   show (UsingRuleSet b) = "rules " ++ show b
