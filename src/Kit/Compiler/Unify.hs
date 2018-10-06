@@ -150,6 +150,7 @@ unifyBase ctx tctx strict a' b' = do
         else return Nothing
     (TypeArray t1 s1, TypeArray t2 s2) | (s1 > 0) && (s1 == s2) -> r t1 t2
     (TypeArray t1 0 , TypeArray t2 _ )                          -> r t1 t2
+    (TypeArray t1 _ , TypePtr t2     )                          -> r t1 t2
     (ConstantType a, ConstantType b) ->
       return $ if a == b then Just [] else Nothing
     (TypeInstance tp1 params1, TypeInstance tp2 params2) -> do

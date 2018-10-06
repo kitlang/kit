@@ -177,3 +177,37 @@ exprMapReduce mapper reducer getter initialValue ex = foldr
   (\a d -> exprMapReduce mapper reducer getter d a)
   (reducer (mapper ex) (initialValue))
   (exprChildren $ getter ex)
+
+isValidExpr :: (a -> ExprType a b) -> ExprType a b -> Bool
+isValidExpr getter x = case x of
+  Using   _ x        -> isValidExpr getter $ getter x
+  Meta    _ x        -> isValidExpr getter $ getter x
+  Literal _ _        -> True
+  This               -> True
+  Self               -> True
+  Identifier _       -> True
+  TypeAnnotation x _ -> isValidExpr getter $ getter x
+  PreUnop        _ x -> isValidExpr getter $ getter x
+  PostUnop       _ x -> isValidExpr getter $ getter x
+  Binop _ x y        -> isValidExpr getter (getter x) && isValidExpr getter (getter y)
+  If    a b (Just c) -> all (isValidExpr getter) $ map getter [a, b, c]
+  Field      _ _     -> True
+  StructInit _ _     -> True
+  EnumInit  _ _ _    -> True
+  EnumField _ _ _    -> True
+  TupleInit _        -> True
+  TupleSlot   _ _    -> True
+  ArrayAccess _ _    -> True
+  Call        _ _    -> True
+  Cast        _ _    -> True
+  Unsafe x           -> isValidExpr getter $ getter x
+  Box _ _            -> True
+  BoxedValue _       -> True
+  BoxedVtable _ _    -> True
+  SizeOf _           -> True
+  Method _ _ _       -> True
+  Implicit _         -> True
+  Temp     _         -> True
+  Null               -> True
+  Empty              -> True
+  _                  -> False

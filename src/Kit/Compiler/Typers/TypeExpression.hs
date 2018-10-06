@@ -202,12 +202,19 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
             )
         (_, MacroVar vname t) -> do
           case find (\(name, _) -> name == vname) (tctxMacroVars tctx) of
-            Just (name, expr) -> typeExpr
-              ctx
-              (tctx { tctxMacroVars = delete (name, expr) (tctxMacroVars tctx) }
-              )
-              mod
-              expr
+            Just (name, expr) ->
+              typeExpr
+                  ctx
+                  (tctx
+                    { tctxMacroVars = delete (name, expr) (tctxMacroVars tctx)
+                    }
+                  )
+                  mod
+                $ if isValidExpr tExpr (tExpr expr)
+                  then
+                    (makeExprTyped (Temp expr) (inferredType expr) (tPos expr))
+                  else
+                    expr
             Nothing -> return ex
 
     (TypeAnnotation e1 t) -> do
@@ -954,7 +961,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
     (Cast e1 t) -> do
       r1 <- r e1
-      tryRewrite (unknownTyped $ Cast r1 t) $ do
+      tryRewrite (makeExprTyped (Cast r1 t) t pos) $ do
         let cast = return $ makeExprTyped (Cast r1 t) t pos
         let invalidCast = throwk $ TypingError
               ("Invalid cast: " ++ show (inferredType r1) ++ " as " ++ show t)
@@ -986,10 +993,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
             t' <- unify ctx tctx x y
             x' <- unify ctx tctx x (typeClassNumeric)
             y' <- unify ctx tctx y (typeClassNumeric)
-            -- TODO: allow cast from abstract parent to child
-            -- TODO: allow cast from value to box
             case (t', x', y') of
-              (Just _, _     , _     ) -> cast
+              (Just _, _     , _     ) -> cast -- FIXME
               (_     , Just _, Just _) -> cast
               _                        -> invalidCast
 

@@ -109,7 +109,8 @@ ruleMatch ctx tctx pattern te thisExpr = do
     (Identifier (Var x), Identifier (Var y)) ->
       return $ if x == y then Just [] else Nothing
     (Identifier _, Identifier _) -> return Nothing
-    (Literal a _, Literal b _) -> return $ if valueEq a b then Just [] else Nothing
+    (Literal a _, Literal b _) ->
+      return $ if valueEq a b then Just [] else Nothing
     (Binop op1 a b, Binop op2 c d) -> if op1 == op2
       then do
         x <- r a c
@@ -122,7 +123,8 @@ ruleMatch ctx tctx pattern te thisExpr = do
       if op1 == op2 then r x y else return Nothing
     (Field x (Var a), Field y (Var b)) ->
       if a == b then r x y else return Nothing
-    (a, b) -> if exprDiscriminant a == exprDiscriminant b
+    (Cast x t1, Cast y t2) -> if t1 == t2 then r x y else return Nothing
+    (a        , b        ) -> if exprDiscriminant a == exprDiscriminant b
       then
         let (c1, c2) = (exprChildren a, exprChildren b)
         in  if length c1 == length c2

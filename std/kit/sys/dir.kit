@@ -2,28 +2,49 @@ include "dirent.h";
 include "unistd.h";
 include "sys/time.h";
 
-struct DirectoryReader {
-    var path: CString;
-    var dirEntry: Ptr[dirent];
-    var dir: Ptr[DIR];
+function readDir(path: CString): DirectoryReader {
+    return DirectoryReader.new(path);
+}
 
-    public static function new(path: CString) {
-        var dir = opendir(path);
-        return struct Self {
-            path,
-            dir,
-            dirEntry: null,
-        };
+abstract Directory: dirent {
+    rules {
+        ($this.path) => $this.d_name as CString;
     }
 }
 
-implement Iterator for DirectoryReader {
-    public function next(): CString {
-        this.dirEntry = readdir(this.dir);
-        if this.dirEntry != null {
-            return this.dirEntry;
+abstract DirectoryReader: Ptr[DIR] {
+    public static function new(path: CString) {
+        return opendir(path) as DirectoryReader;
+    }
+
+    rules {
+        (for $ident in $this {$e}) => {
+            do {
+                var __next: Ptr[Directory] = readdir($this) as Ptr[Directory];
+                if __next == null {
+                    break;
+                } else {
+                    var $ident = __next;
+                    {$e}
+                }
+            } while true;
+        }
+    }
+}
+
+implement Iterable(Ptr[Directory]) for DirectoryReader {
+    public function iterator(): Box[Iterator[Ptr[Directory]]] {
+        return this;
+    }
+}
+
+implement Iterator[Ptr[Directory]] for DirectoryReader {
+    public function next(): (Box[Iterator[Ptr[Directory]]], Option[Ptr[Directory]]) {
+        var dir = readdir(this) as Ptr[Directory];
+        if dir != null {
+            return (this, Some(dir));
         } else {
-            return null;
+            return (this, None);
         }
     }
 }
