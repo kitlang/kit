@@ -75,7 +75,7 @@ data ExprType a b
   | RangeLiteral a a
   | ArrayLiteral [a]
   -- var id[: type] [= default];
-  | VarDeclaration (Identifier b) b (Maybe a)
+  | VarDeclaration (Identifier b) b Bool (Maybe a)
   | Defer a
   | Box (TraitImplementation a b) a
   | BoxedValue (TraitDefinition a b) a
@@ -90,87 +90,87 @@ data ExprType a b
 
 exprDiscriminant :: ExprType a b -> Int
 exprDiscriminant et = case et of
-  Block _              -> 1
-  Using   _ _          -> 1
-  Meta    _ _          -> 3
-  Literal _ _          -> 4
-  This                 -> 5
-  Self                 -> 6
-  Identifier _         -> 7
-  TypeAnnotation _ _   -> 8
-  PreUnop        _ _   -> 9
-  PostUnop       _ _   -> 10
-  Binop _ _ _          -> 11
-  For   _ _ _          -> 12
-  While _ _ _          -> 13
-  If    _ _ _          -> 14
-  Continue             -> 15
-  Break                -> 16
-  Return _             -> 17
-  Throw  _             -> 18
-  Match _ _ _          -> 19
-  InlineCall _         -> 20
-  Field      _ _       -> 21
-  StructInit _ _       -> 22
-  EnumInit  _ _ _      -> 23
-  EnumField _ _ _      -> 40
-  ArrayAccess _ _      -> 24
-  Call        _ _      -> 25
-  Cast        _ _      -> 26
-  Unsafe       _       -> 27
-  BlockComment _       -> 28
-  RangeLiteral _ _     -> 29
-  ArrayLiteral _       -> 30
-  VarDeclaration _ _ _ -> 31
-  Defer _              -> 32
-  Box         _ _      -> 33
-  BoxedValue  _ _      -> 34
-  BoxedVtable _ _      -> 35
-  SizeOf    _          -> 36
-  TupleInit _          -> 37
-  TupleSlot _ _        -> 38
-  Method _ _ _         -> 39
-  Implicit _           -> 40
-  Temp     _           -> 41
-  Null                 -> 42
-  Empty                -> 43
+  Block _                -> 1
+  Using   _ _            -> 1
+  Meta    _ _            -> 3
+  Literal _ _            -> 4
+  This                   -> 5
+  Self                   -> 6
+  Identifier _           -> 7
+  TypeAnnotation _ _     -> 8
+  PreUnop        _ _     -> 9
+  PostUnop       _ _     -> 10
+  Binop _ _ _            -> 11
+  For   _ _ _            -> 12
+  While _ _ _            -> 13
+  If    _ _ _            -> 14
+  Continue               -> 15
+  Break                  -> 16
+  Return _               -> 17
+  Throw  _               -> 18
+  Match _ _ _            -> 19
+  InlineCall _           -> 20
+  Field      _ _         -> 21
+  StructInit _ _         -> 22
+  EnumInit  _ _ _        -> 23
+  EnumField _ _ _        -> 40
+  ArrayAccess _ _        -> 24
+  Call        _ _        -> 25
+  Cast        _ _        -> 26
+  Unsafe       _         -> 27
+  BlockComment _         -> 28
+  RangeLiteral _ _       -> 29
+  ArrayLiteral _         -> 30
+  VarDeclaration _ _ _ _ -> 31
+  Defer _                -> 32
+  Box         _ _        -> 33
+  BoxedValue  _ _        -> 34
+  BoxedVtable _ _        -> 35
+  SizeOf    _            -> 36
+  TupleInit _            -> 37
+  TupleSlot _ _          -> 38
+  Method _ _ _           -> 39
+  Implicit _             -> 40
+  Temp     _             -> 41
+  Null                   -> 42
+  Empty                  -> 43
   x -> throwk $ InternalError "Expression has no discriminant!" Nothing
 
 exprChildren :: ExprType a b -> [a]
 exprChildren et = case et of
-  Block x                     -> x
-  Using          _ x          -> [x]
-  Meta           _ x          -> [x]
-  TypeAnnotation x _          -> [x]
-  PreUnop        _ x          -> [x]
-  PostUnop       _ x          -> [x]
-  Binop _ x y                 -> [x, y]
-  For   x y z                 -> [x, y, z]
-  While x y _                 -> [x, y]
-  If    x y (Just z)          -> [x, y, z]
-  If    x y Nothing           -> [x, y]
-  Throw x                     -> [x]
-  Match x _ _                 -> [x]
-  InlineCall x                -> [x]
-  Field      x _              -> [x]
-  StructInit _ fields         -> map snd fields
-  EnumInit  _ _ x             -> map snd x
-  EnumField x _ _             -> [x]
-  ArrayAccess x y             -> [x, y]
-  Call        x args          -> x : args
-  Cast        x _             -> [x]
-  Unsafe x                    -> [x]
-  RangeLiteral x y            -> [x, y]
-  ArrayLiteral x              -> x
-  VarDeclaration _ _ (Just x) -> [x]
-  Defer x                     -> [x]
-  Box         _ x             -> [x]
-  BoxedValue  _ x             -> [x]
-  BoxedVtable _ x             -> [x]
-  TupleInit x                 -> x
-  TupleSlot x _               -> [x]
-  Temp x                      -> [x]
-  _                           -> []
+  Block x                       -> x
+  Using          _ x            -> [x]
+  Meta           _ x            -> [x]
+  TypeAnnotation x _            -> [x]
+  PreUnop        _ x            -> [x]
+  PostUnop       _ x            -> [x]
+  Binop _ x y                   -> [x, y]
+  For   x y z                   -> [x, y, z]
+  While x y _                   -> [x, y]
+  If    x y (Just z)            -> [x, y, z]
+  If    x y Nothing             -> [x, y]
+  Throw x                       -> [x]
+  Match x _ _                   -> [x]
+  InlineCall x                  -> [x]
+  Field      x _                -> [x]
+  StructInit _ fields           -> map snd fields
+  EnumInit  _ _ x               -> map snd x
+  EnumField x _ _               -> [x]
+  ArrayAccess x y               -> [x, y]
+  Call        x args            -> x : args
+  Cast        x _               -> [x]
+  Unsafe x                      -> [x]
+  RangeLiteral x y              -> [x, y]
+  ArrayLiteral x                -> x
+  VarDeclaration _ _ _ (Just x) -> [x]
+  Defer x                       -> [x]
+  Box         _ x               -> [x]
+  BoxedValue  _ x               -> [x]
+  BoxedVtable _ x               -> [x]
+  TupleInit x                   -> x
+  TupleSlot x _                 -> [x]
+  Temp x                        -> [x]
+  _                             -> []
 
 exprMapReduce :: (a -> c) -> (c -> d -> d) -> (a -> ExprType a b) -> d -> a -> d
 exprMapReduce mapper reducer getter initialValue ex = foldr

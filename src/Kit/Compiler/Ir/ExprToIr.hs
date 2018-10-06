@@ -334,10 +334,10 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
                 ("unexpected array literal type: " ++ show f)
                 (Just pos)
         return $ IrCArrLiteral items' contentType
-      (VarDeclaration (Var name) ts def) -> do
+      (VarDeclaration (Var name) ts _ def) -> do
         def <- maybeR def
         return $ IrVarDeclaration (tpName name) f def
-      (VarDeclaration (MacroVar v _) _ _) -> do
+      (VarDeclaration (MacroVar v _) _ _ _) -> do
         throwk $ BasicError
           ("unexpected macro var (" ++ (s_unpack v) ++ ") in typed AST")
           (Just pos)

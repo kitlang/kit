@@ -206,7 +206,7 @@ dumpAst ctx indent e@(TypedExpr { tExpr = texpr, inferredType = t, tPos = pos })
       -- LexMacro Str [TokenClass]
       RangeLiteral a b      -> i "_ ... _" [a, b]
       ArrayLiteral x        -> i "[]" x
-      VarDeclaration id _ a -> i ("var " ++ show id) (catMaybes [a])
+      VarDeclaration id _ const a -> i ((if const then "const " else "var ") ++ show id) (catMaybes [a])
       Using u x             -> i ("using " ++ show u) [x]
       TupleInit slots       -> i "tuple" slots
       TupleSlot   x n       -> i ("tuple." ++ show n) [x]

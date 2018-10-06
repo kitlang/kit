@@ -268,7 +268,7 @@ AssocTypeDeclarations :: {[TypeParam (Maybe TypeSpec)]}
 
 TopLevelExpr :: {Expr}
   : StandaloneExpr {$1}
-  | var Identifier TypeAnnotation OptionalStandaloneDefault {pe (snd $1 <+> snd $4) $ VarDeclaration (fst $2) (fst $3) (fst $4)}
+  | ConstOrVar Identifier TypeAnnotation OptionalStandaloneDefault {pe (snd $1 <+> snd $4) $ VarDeclaration (fst $2) (fst $3) (fst $1) (fst $4)}
   | return TopLevelExpr {pe (snd $1 <+> pos $2) $ Return $ Just $2}
   | return ';' {pe (snd $1 <+> snd $2) $ Return $ Nothing}
   | defer TopLevelExpr {pe (snd $1 <+> pos $2) $ Defer $ $2}
@@ -374,7 +374,6 @@ MetaMods :: {(([Metadata], [Modifier]), Span)}
   | MetaMods public {let (meta, mods) = fst $1 in (((meta, Public : mods)), snd $1 <+> snd $2)}
   | MetaMods private {let (meta, mods) = fst $1 in (((meta, Private : mods)), snd $1 <+> snd $2)}
   | MetaMods inline {let (meta, mods) = fst $1 in (((meta, Inline : mods)), snd $1 <+> snd $2)}
-  | MetaMods const {let (meta, mods) = fst $1 in ((meta, (Const : mods)), snd $1 <+> snd $2)}
 
 DocMetaMods :: {((Maybe Str, [Metadata], [Modifier]), Span)}
   : MetaMods {((Nothing, fst $ fst $1, snd $ fst $1), snd $1)}
@@ -456,8 +455,12 @@ TypePath :: {(TypePath, Span)}
   | UpperOrLowerIdentifier {(([], fst $1), snd $1)}
   | Self {(([], B.pack "Self"), snd $1)}
 
+ConstOrVar :: {(Bool, Span)}
+  : var { (False, snd $1) }
+  | const { (True, snd $1) }
+
 VarDefinition :: {VarDefinition Expr (Maybe TypeSpec)}
-  : DocMetaMods var UpperOrLowerIdentifier TypeAnnotation OptionalDefault ';' {
+  : DocMetaMods ConstOrVar UpperOrLowerIdentifier TypeAnnotation OptionalDefault ';' {
     newVarDefinition {
       varName = ns $ fst $ $3,
       varDoc = doc $1,
@@ -465,12 +468,13 @@ VarDefinition :: {VarDefinition Expr (Maybe TypeSpec)}
       varType = fst $4,
       varModifiers = reverse (mods $1),
       varDefault = $5,
-      varPos = snd $2 <+> snd $3
+      varPos = snd $2 <+> snd $3,
+      varIsConst = fst $2
     }
   }
 
 StaticVarDefinition :: {VarDefinition Expr (Maybe TypeSpec)}
-  : StaticDocMetaMods var UpperOrLowerIdentifier TypeAnnotation OptionalDefault ';' {
+  : StaticDocMetaMods ConstOrVar UpperOrLowerIdentifier TypeAnnotation OptionalDefault ';' {
     newVarDefinition {
       varName = ns $ fst $ $3,
       varDoc = doc $1,
@@ -478,7 +482,8 @@ StaticVarDefinition :: {VarDefinition Expr (Maybe TypeSpec)}
       varType = fst $4,
       varModifiers = reverse (mods $1),
       varDefault = $5,
-      varPos = snd $2 <+> snd $3
+      varPos = snd $2 <+> snd $3,
+      varIsConst = fst $2
     }
   }
 

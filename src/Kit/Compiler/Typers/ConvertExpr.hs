@@ -156,11 +156,11 @@ convertExpr ctx tctx mod e = do
     TupleInit args -> do
       args <- mapM r args
       return $ m (TupleInit args) (TypeTuple (map inferredType args))
-    VarDeclaration id t e1 -> do
+    VarDeclaration id t const e1 -> do
       id <- convertIdentifier typeOrTypeVar id
       r1 <- maybeR e1
       t  <- resolveMaybeType ctx tctx mod pos' t
-      return $ m (VarDeclaration id t r1) t
+      return $ m (VarDeclaration id t const r1) t
     Defer  e1       -> singleWrapper e1 Defer
     -- Box impl e1 -> do
     --   impl' <- convertTraitImplementation (converter r (\_ -> typeOrTypeVar))

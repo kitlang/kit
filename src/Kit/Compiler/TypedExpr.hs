@@ -14,6 +14,7 @@ data TypedExpr = TypedExpr {
   tIsLocal :: Bool,
   tIsLocalPtr :: Bool,
   tIsCompileTime :: Bool,
+  tIsConst :: Bool,
   tImplicitRules :: [RewriteRule TypedExpr ConcreteType]
   -- tSubTypes :: [ConcreteType]
 } deriving (Eq, Show)
@@ -29,5 +30,6 @@ makeExprTyped et t pos = TypedExpr
   , tIsLocal       = False
   , tIsLocalPtr    = False
   , tIsCompileTime = False
+  , tIsConst       = False
   , tImplicitRules = []
   }

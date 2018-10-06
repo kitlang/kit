@@ -298,6 +298,9 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           _ -> do
             r1        <- r e1
             converted <- tryAutoRefDeref ctx tctx (inferredType r1) r2
+            when (tIsConst r1) $ throwk $ TypingError
+              "Can't reassign a const value"
+              pos
             resolve $ TypeEq
               (inferredType r1)
               (inferredType converted)
@@ -382,7 +385,12 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
           scope <- newScope
           bindToScope scope (tpName id)
-            $ VarBinding (newVarDefinition { varName = id, varType = tv })
+            $ VarBinding
+                (newVarDefinition { varName    = id
+                                  , varType    = tv
+                                  , varIsConst = True
+                                  }
+                )
           r3 <- typeExpr
             ctx
             (tctx { tctxScopes    = scope : (tctxScopes tctx)
@@ -590,7 +598,12 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
               pattern
         forMWithErrors_ ids $ \(id, t, pos) -> do
           bindToScope patternScope (tpName id)
-            $ VarBinding (newVarDefinition { varName = id, varType = t })
+            $ VarBinding
+                (newVarDefinition { varName    = id
+                                  , varType    = t
+                                  , varIsConst = True
+                                  }
+                )
         let tctx' = tctx { tctxScopes = patternScope : (tctxScopes tctx) }
         body <- typeExpr ctx tctx' mod $ matchBody c
         return $ MatchCase {matchPattern = pattern, matchBody = body}
@@ -820,7 +833,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                 )
             case binding of
               Just b@(VarBinding v@(VarDefinition { varType = ct@(TypeFunction _ _ _ _) }))
-                -> return $ fn (varName v) ct
+                -> return $ (fn (varName v) ct) { tIsConst = varIsConst v }
               Just b@(FunctionBinding f) ->
                 return $ fn (functionName f) $ functionConcrete f
               _ -> throw err
@@ -1012,13 +1025,13 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         _ -> throwk $ TypingError "Array literals must be typed as arrays" pos
       return $ makeExprTyped (ArrayLiteral items) (inferredType ex) pos
 
-    (VarDeclaration s@(MacroVar vname _) a b) -> do
+    (VarDeclaration s@(MacroVar vname _) a const b) -> do
       case find (\(name, _) -> name == vname) (tctxMacroVars tctx) of
         Just (_, x@TypedExpr { tExpr = Identifier v@(Var vname) }) ->
-          r $ makeExprTyped (VarDeclaration v a b) (inferredType ex) pos
+          r $ makeExprTyped (VarDeclaration v a const b) (inferredType ex) pos
         x -> throwk $ InternalError ("oh no: " ++ show x) (Just pos)
 
-    (VarDeclaration (Var vname) _ init) -> do
+    (VarDeclaration (Var vname) _ const init) -> do
       let
         typeVarDec = do
           let varType = inferredType ex
@@ -1048,12 +1061,14 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                                   , varDefault = init'
                                   , varPos     = pos
                                   , varIsLocal = True
+                                  , varIsConst = const
                                   }
                 )
               )
-          return $ makeExprTyped (VarDeclaration (Var vname) (varType) init')
-                                 varType
-                                 pos
+          return $ makeExprTyped
+            (VarDeclaration (Var vname) (varType) const init')
+            varType
+            pos
 
       result <- (try $ typeVarDec) :: IO (Either KitError TypedExpr)
       case result of
@@ -1375,12 +1390,12 @@ typeStructUnionFieldAccess ctx tctx fields r fieldName pos = do
   case findStructUnionField fields fieldName of
     Just field -> do
       return
-        $ (Just $ (makeExprTyped (Field r (Var ([], fieldName)))
-                                 (varType field)
-                                 pos
-                  )
-            { tIsLvalue = True
-            }
+        $ ( Just
+          $ (makeExprTyped (Field r (Var ([], fieldName))) (varType field) pos
+            )
+              { tIsLvalue = True
+              , tIsConst  = varIsConst field
+              }
           )
 
     Nothing -> return Nothing
@@ -1416,6 +1431,7 @@ typeVarBinding ctx tctx name binding pos = do
                )
         { tIsLvalue = True
         , tIsLocal  = varIsLocal v
+        , tIsConst  = varIsConst v
         }
     FunctionBinding def -> do
       let t  = functionConcrete def
