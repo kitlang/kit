@@ -191,29 +191,37 @@ dumpAst ctx indent e@(TypedExpr { tExpr = texpr, inferredType = t, tPos = pos })
         "match"
         (x : (foldr (++) [] [ [matchPattern c, matchBody c] | c <- cases ]))
       InlineCall a          -> i "inline" [a]
-      Method tp params name -> i ("method " ++ s_unpack name ++ " of " ++ s_unpack (showTypePath tp) ++ show params) []
-      Field a id            -> i ("field " ++ show id) [a]
+      Method tp params name -> i
+        (  "method "
+        ++ s_unpack name
+        ++ " of "
+        ++ s_unpack (showTypePath tp)
+        ++ show params
+        )
+        []
+      Field a id -> i ("field " ++ show id) [a]
       StructInit (TypeInstance tp _) fields ->
         i ("struct " ++ s_unpack (showTypePath tp)) (map snd fields)
       EnumInit _ constructor fields ->
         i ("enum " ++ (s_unpack $ showTypePath constructor)) (map snd fields)
-      ArrayAccess a b       -> i "array access" [a, b]
-      Call        a args    -> i "call" (a : args)
-      Cast        a _       -> i "cast" [a]
+      ArrayAccess a b    -> i "array access" [a, b]
+      Call        a args -> i "call" (a : args)
+      Cast        a _    -> i "cast" [a]
       -- TokenExpr [TokenClass]
-      Unsafe       a        -> i "unsafe" [a]
-      BlockComment _        -> return $ f "/** ... */"
+      Unsafe       a     -> i "unsafe" [a]
+      BlockComment _     -> return $ f "/** ... */"
       -- LexMacro Str [TokenClass]
-      RangeLiteral a b      -> i "_ ... _" [a, b]
-      ArrayLiteral x        -> i "[]" x
-      VarDeclaration id _ const a -> i ((if const then "const " else "var ") ++ show id) (catMaybes [a])
-      Using u x             -> i ("using " ++ show u) [x]
-      TupleInit slots       -> i "tuple" slots
-      TupleSlot   x n       -> i ("tuple." ++ show n) [x]
-      Box         _ x       -> i "box" [x]
-      BoxedVtable _ x       -> i "box vtable" [x]
-      BoxedValue  _ x       -> i "box value" [x]
-      _                     -> return $ f $ "??? " ++ show texpr
+      RangeLiteral a b   -> i "_ ... _" [a, b]
+      ArrayLiteral x     -> i "[]" x
+      VarDeclaration id _ const a ->
+        i ((if const then "const " else "var ") ++ show id) (catMaybes [a])
+      Using u x       -> i ("using " ++ show u) [x]
+      TupleInit slots -> i "tuple" slots
+      TupleSlot   x n -> i ("tuple." ++ show n) [x]
+      Box         _ x -> i "box" [x]
+      BoxedVtable _ x -> i "box vtable" [x]
+      BoxedValue x    -> i "box value" [x]
+      _               -> return $ f $ "??? " ++ show texpr
 
     return $ result
 

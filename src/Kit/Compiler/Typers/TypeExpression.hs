@@ -695,7 +695,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                         t <- mapType (follow ctx tctx') (inferredType x)
                         return $ typed
                           { tImplicits   = [ makeExprTyped
-                                               (BoxedValue traitDef r1)
+                                               (BoxedValue r1)
                                                ( TypePtr
                                                $ TypeBasicType BasicTypeVoid
                                                )
@@ -960,10 +960,12 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
               ("Invalid cast: " ++ show (inferredType r1) ++ " as " ++ show t)
               pos
         case (inferredType r1, t) of
-          (TypePtr (TypeBasicType BasicTypeVoid), TypePtr _) -> cast
-          (TypePtr _, TypePtr (TypeBasicType BasicTypeVoid)) -> cast
+          (TypeBox _ _, TypePtr (TypeBasicType BasicTypeVoid)) ->
+            return $ makeExprTyped (BoxedValue r1) (TypePtr voidType) pos
+          (TypeBox _ _  , TypePtr (TypeBasicType BasicTypeVoid)) -> cast
+          (TypePtr _    , TypePtr (TypeBasicType BasicTypeVoid)) -> cast
           (TypeArray _ _, TypePtr (TypeBasicType BasicTypeVoid)) -> cast
-          (TypeArray t _, TypePtr t2) -> do
+          (TypeArray t _, TypePtr t2                           ) -> do
             t' <- unifyStrict ctx tctx t2 t
             case t' of
               Just _ -> cast

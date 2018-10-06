@@ -402,7 +402,7 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
       (Box t _) -> throwk $ InternalError
         ("Invalid boxed implementation: " ++ show t)
         (Just pos)
-      (BoxedValue trait x) -> do
+      (BoxedValue x) -> do
         box <- r x
         return $ IrField box valuePointerName
       (BoxedVtable trait x) -> do

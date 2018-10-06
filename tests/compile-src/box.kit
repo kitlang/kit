@@ -1,5 +1,5 @@
 struct MyStruct {
-    public var a: Int32;
+    public var a: Int;
     public var b: Float;
 }
 
@@ -7,7 +7,7 @@ trait Greeter {
     public function greet(): Void;
 }
 
-implement Greeter for Int32 {
+implement Greeter for Int {
     public function greet() {
         printf("Hello from Int %i\n", this);
     }
@@ -55,11 +55,14 @@ function greet(x: Box[Greeter]) {
 }
 
 function main() {
-    var a: Int32 = 1;
+    var a: Int = 1;
     var x: Box[Greeter] = a;
     greet(x);
 
-    var b = 7_i32;
+    var a1 = (x as Ptr[Void]) as Ptr[Int];
+    printf("%i\n", *a1);
+
+    var b = 7_i;
     greet(b);
     greet(5_f32);
     greet(10000000000000_i64);

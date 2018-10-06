@@ -78,7 +78,7 @@ data ExprType a b
   | VarDeclaration (Identifier b) b Bool (Maybe a)
   | Defer a
   | Box (TraitImplementation a b) a
-  | BoxedValue (TraitDefinition a b) a
+  | BoxedValue a
   | BoxedVtable (TraitDefinition a b) a
   | SizeOf b
   | Method TypePath [b] Str
@@ -123,8 +123,8 @@ exprDiscriminant et = case et of
   ArrayLiteral _         -> 30
   VarDeclaration _ _ _ _ -> 31
   Defer _                -> 32
-  Box         _ _        -> 33
-  BoxedValue  _ _        -> 34
+  Box _ _                -> 33
+  BoxedValue _           -> 34
   BoxedVtable _ _        -> 35
   SizeOf    _            -> 36
   TupleInit _            -> 37
@@ -164,8 +164,8 @@ exprChildren et = case et of
   ArrayLiteral x                -> x
   VarDeclaration _ _ _ (Just x) -> [x]
   Defer x                       -> [x]
-  Box         _ x               -> [x]
-  BoxedValue  _ x               -> [x]
+  Box _ x                       -> [x]
+  BoxedValue x                  -> [x]
   BoxedVtable _ x               -> [x]
   TupleInit x                   -> x
   TupleSlot x _                 -> [x]
