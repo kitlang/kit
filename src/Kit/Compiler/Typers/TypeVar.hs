@@ -9,6 +9,7 @@ import Kit.Compiler.TypedDecl
 import Kit.Compiler.TypedExpr
 import Kit.Compiler.Typers.TypeExpression
 import Kit.Compiler.Unify
+import Kit.Error
 
 {-
   Type checks a variable declaration.
@@ -43,4 +44,8 @@ typeVarDefinition ctx tctx mod def = do
           (varPos def)
         )
       return $ def { varDefault = Just typed }
-    _ -> return def
+    Nothing -> do
+      when (varIsConst def) $ throwk $ TypingError
+        ("const must have an initial value")
+        (varPos def)
+      return def

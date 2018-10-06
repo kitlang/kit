@@ -1032,6 +1032,10 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         x -> throwk $ InternalError ("oh no: " ++ show x) (Just pos)
 
     (VarDeclaration (Var vname) _ const init) -> do
+      when (const && isNothing init) $ throwk $ TypingError
+        ("const must have an initial value")
+        pos
+
       let
         typeVarDec = do
           let varType = inferredType ex

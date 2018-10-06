@@ -57,7 +57,7 @@ typeTypeDefinition ctx tctx mod selfType def@(TypeDefinition { typeName = name }
           f
           (\field -> case varDefault field of
             Just x -> do
-              def <- typeExpr ctx tctx mod x
+              def       <- typeExpr ctx tctx mod x
               fieldType <- mapType (follow ctx tctx) $ varType field
               resolveConstraint
                 ctx
@@ -69,7 +69,11 @@ typeTypeDefinition ctx tctx mod selfType def@(TypeDefinition { typeName = name }
                   (tPos x)
                 )
               return $ field { varDefault = Just def }
-            Nothing -> return field
+            Nothing -> do
+              when (varIsConst field) $ throwk $ TypingError
+                ("const must have an initial value")
+                (varPos field)
+              return field
           )
         return $ s { structFields = fields }
       Union { unionFields = f } -> do
