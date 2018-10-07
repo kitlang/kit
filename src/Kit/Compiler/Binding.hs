@@ -31,3 +31,8 @@ bindingPos (EnumConstructor x   ) = variantPos x
 bindingPos (RuleSetBinding  x   ) = ruleSetPos x
 bindingPos (TypedefBinding _ pos) = pos
 bindingPos (ExprBinding x       ) = tPos x
+
+bindingIsPublic binding = case binding of
+  VarBinding      v -> isPublic (varModifiers v)
+  FunctionBinding f -> isPublic (functionModifiers f)
+  _                 -> True

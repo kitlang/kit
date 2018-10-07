@@ -16,3 +16,8 @@ instance Show Modifier where
   show Private = "private"
   show Inline = "inline"
   show Static = "static"
+
+isPublic :: [Modifier] -> Bool
+isPublic (Public  : t) = True
+isPublic (_       : t) = isPublic t
+isPublic []            = False
