@@ -620,6 +620,13 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         let
           typeFieldAccess t fieldName = do
             t <- follow ctx tctx t
+            let failNotPublic = throwk $ TypingError
+                  (  "Can't access non-public field "
+                  ++ s_unpack fieldName
+                  ++ " of "
+                  ++ show t
+                  )
+                  pos
             case t of
               TypePtr x ->
                 -- try to auto-dereference
@@ -643,6 +650,10 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                           }
                         )
                         params
+                    let accessible = case tctxSelf tctx of
+                          Just (TypeInstance tp2 params2) | tp2 == tp -> True
+                          _ -> bindingIsPublic binding
+                    when (not accessible) failNotPublic
                     x <- typeVarBinding ctx tctx' fieldName binding pos
                     f <- mapType (follow ctx tctx') $ inferredType x
                     case binding of
@@ -754,6 +765,10 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                 binding <- lookupBinding ctx $ subPath tp fieldName
                 case binding of
                   Just x -> do
+                    let accessible = case tctxSelf tctx of
+                          Just (TypeInstance tp2 params2) | tp2 == tp -> True
+                          _ -> bindingIsPublic x
+                    when (not accessible) failNotPublic
                     -- this is a local method
                     typed' <- typeVarBinding ctx tctx' fieldName x pos
                     t      <- mapType (follow ctx tctx') (inferredType typed')
@@ -778,6 +793,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                     Struct { structFields = fields } -> do
                       result <- typeStructUnionFieldAccess ctx
                                                            tctx'
+                                                           t
                                                            fields
                                                            r1
                                                            fieldName
@@ -796,6 +812,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                     Union { unionFields = fields } -> do
                       result <- typeStructUnionFieldAccess ctx
                                                            tctx'
+                                                           t
                                                            fields
                                                            r1
                                                            fieldName
@@ -1198,8 +1215,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
     (Temp x) -> do
       rx <- r x
-      return
-        $ (makeExprTyped (Temp rx) (inferredType rx) (tPos rx)) { tIsLocal = True }
+      return $ (makeExprTyped (Temp rx) (inferredType rx) (tPos rx)) { tIsLocal = True
+                                                                     }
 
     _ -> return $ ex
 
@@ -1388,24 +1405,34 @@ typeEnumConstructorCall ctx tctx mod e args tp discriminant argTypes params =
 typeStructUnionFieldAccess
   :: CompileContext
   -> TypeContext
+  -> ConcreteType
   -> [VarDefinition TypedExpr ConcreteType]
   -> TypedExpr
   -> Str
   -> Span
   -> IO (Maybe TypedExpr)
-typeStructUnionFieldAccess ctx tctx fields r fieldName pos = do
-  case findStructUnionField fields fieldName of
-    Just field -> do
-      return
-        $ ( Just
-          $ (makeExprTyped (Field r (Var ([], fieldName))) (varType field) pos
+typeStructUnionFieldAccess ctx tctx t@(TypeInstance tp params) fields r fieldName pos
+  = do
+    case findStructUnionField fields fieldName of
+      Just field -> do
+        let accessible = case tctxSelf tctx of
+              Just (TypeInstance tp2 params2) | tp == tp2 -> True
+              Nothing -> isPublic (varModifiers field)
+        when (not accessible) $ throwk $ TypingError
+          ("Can't access non-public field " ++ s_unpack fieldName ++ " of " ++ show t)
+          pos
+        return
+          $ ( Just
+            $ (makeExprTyped (Field r (Var ([], fieldName)))
+                             (varType field)
+                             pos
+              )
+                { tIsLvalue = True
+                , tIsConst  = varIsConst field
+                }
             )
-              { tIsLvalue = True
-              , tIsConst  = varIsConst field
-              }
-          )
 
-    Nothing -> return Nothing
+      Nothing -> return Nothing
 
 findStructUnionField :: [VarDefinition a b] -> Str -> Maybe (VarDefinition a b)
 findStructUnionField (h : t) fieldName = if (tpName $ varName h) == fieldName
