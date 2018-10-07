@@ -14,8 +14,9 @@ data MetaArg
   deriving (Eq, Generic, Show)
 
 meta s = Metadata {metaName = s, metaArgs = []}
-metaExtern = meta "extern"
-metaBuiltin = meta "builtin"
+metaExtern = "extern" :: Str
+metaBuiltin = "builtin" :: Str
+metaPromote = "promote" :: Str
 
 hasMeta :: Str -> [Metadata] -> Bool
 hasMeta s [] = False

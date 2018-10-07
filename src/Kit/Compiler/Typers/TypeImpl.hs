@@ -40,21 +40,23 @@ typeImpl ctx tctx' mod def = do
     ++ " for "
     ++ show (implFor def)
 
-  forMWithErrors_ (traitMethods traitDef) $ \method ->
+  methods <- forMWithErrors (traitMethods traitDef) $ \method ->
     case findMethodByName (implMethods def) (tpName $ functionName method) of
-      Just _  -> return ()
-      Nothing -> throwk $ TypingError
-        (  "Trait implementation of "
-        ++ s_unpack (showTypePath $ traitName traitDef)
-        ++ " for "
-        ++ show (implFor def)
-        ++ " is missing method "
-        ++ s_unpack (tpName $ functionName method)
-        )
-        (implPos def)
+      Just x  -> return x
+      Nothing -> case functionBody method of
+        Just x  -> return method
+        Nothing -> throwk $ TypingError
+          (  "Trait implementation of "
+          ++ s_unpack (showTypePath $ traitName traitDef)
+          ++ " for "
+          ++ show (implFor def)
+          ++ " is missing method "
+          ++ s_unpack (tpName $ functionName method)
+          )
+          (implPos def)
 
   methods <- forMWithErrors
-    (implMethods def)
+    methods
     (\method -> do
       typed <- typeFunctionDefinition ctx tctx mod method
       case

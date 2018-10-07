@@ -1,4 +1,5 @@
 include "stdio.h";
+include "unistd.h";
 
 // enum SeekFrom {
 //     Beginning = SEEK_SET;
@@ -7,39 +8,63 @@ include "stdio.h";
 // }
 
 abstract File: Ptr[FILE] {
-    public static function read(path: CString): File {
+    public static function read(path: Path): File {
         return fopen(path, "r") as File;
     }
 
-    public static function write(path: CString): File {
+    public static function write(path: Path): File {
         return fopen(path, "w") as File;
     }
 
-    public static function append(path: CString): File {
+    public static function append(path: Path): File {
         return fopen(path, "a") as File;
     }
 
-    public static function update(path: CString): File {
+    public static function update(path: Path): File {
         return fopen(path, "r+") as File;
+    }
+
+    public static function exists(path: Path): Bool {
+        return access(path, ${F_OK: Int}) != -1;
+    }
+
+    public static function remove(path: Path): Bool {
+        return remove(path) == 0;
     }
 
     // public function seek(offset: Int, from: SeekFrom) {
     //     fseek(this, offset, from);
     // }
 
+    public function readBytes(buf: Ptr[Void], bytes: Size): Size {
+        return fread(buf, 1, bytes, this);
+    }
+
+    public function writeBytes(buf: Ptr[Void], bytes: Size): Size {
+        return fwrite(buf, 1, bytes, this);
+    }
+
     public function close() {
         fclose(this);
     }
 }
 
-// implement Reader[CString] for File {
-//     public function read(): CString {
-//         return fread(this);
-//     }
-// }
+implement Reader for File {
+    public function readBytes(buf: Ptr[Void], bytes: Size): Size {
+        return this.readBytes(buf, bytes);
+    }
 
-implement Writer[CString] for File {
-    public function write(value: CString) {
-        fwrite(value, sizeof Char, strlen(value), this);
+    public function close() {
+        this.close();
+    }
+}
+
+implement Writer for File {
+    public function writeBytes(buf: Ptr[Void], bytes: Size): Size {
+        return this.writeBytes(buf, bytes);
+    }
+
+    public function close() {
+        this.close();
     }
 }

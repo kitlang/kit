@@ -162,7 +162,7 @@ defineTypedef ctx mod typeSpec pos (name, declr) = do
             ctx
             ([], variant)
             (VarBinding $ newVarDefinition { varName    = ([], variant)
-                                           , varMeta    = [metaExtern]
+                                           , varMeta    = [meta metaExtern]
                                            , varPos     = pos
                                            , varType    = t'
                                            , varDefault = Nothing
@@ -266,7 +266,7 @@ addCDecl ctx mod name t pos = do
         TypeFunction t argTypes isVariadic _ -> FunctionBinding
           (newFunctionDefinition
             { functionName    = ([], name)
-            , functionMeta    = [metaExtern]
+            , functionMeta    = [meta metaExtern]
             , functionPos     = pos
             , functionType    = t
             , functionArgs    = [ newArgSpec { argName    = argName
@@ -280,7 +280,7 @@ addCDecl ctx mod name t pos = do
           )
         _ -> VarBinding
           (newVarDefinition { varName    = ([], name)
-                            , varMeta    = [metaExtern]
+                            , varMeta    = [meta metaExtern]
                             , varPos     = pos
                             , varType    = t
                             , varDefault = Nothing
@@ -314,7 +314,7 @@ defineNamedStructsEnumsUnions ctx mod pos (h : t) = do
       let typeDef =
             ((newTypeDefinition)
               { typeName    = ([], s_pack name)
-              , typeMeta    = [metaExtern]
+              , typeMeta    = [meta metaExtern]
               , typeSubtype = if tag == CStructTag
                 then Struct {structFields = fields}
                 else Union {unionFields = fields}
@@ -330,13 +330,13 @@ defineNamedStructsEnumsUnions ctx mod pos (h : t) = do
         typeDef
           = (((newTypeDefinition) :: TypeDefinition TypedExpr ConcreteType)
               { typeName    = ([], s_pack name)
-              , typeMeta    = [metaExtern]
+              , typeMeta    = [meta metaExtern]
               , typeSubtype = Enum
                 { enumUnderlyingType = TypeBasicType BasicTypeVoid
                 , enumVariants       = [ newEnumVariant
                                            { variantName = ([], s_pack variantName)
                                            , variantParent = ([], s_pack name)
-                                           , variantMeta = [metaExtern]
+                                           , variantMeta = [meta metaExtern]
                                            }
                                        | (Ident variantName _ _, _) <- variants'
                                        ]

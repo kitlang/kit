@@ -21,10 +21,10 @@ testHeader = do
   parseCHeader ctx mod testHeader
   return (ctx, mod)
 
-externVarDef s = newVarDefinition { varName = s, varMeta = [metaExtern] }
+externVarDef s = newVarDefinition { varName = s, varMeta = [meta metaExtern] }
 
 externFunctionDef s =
-  newFunctionDefinition { functionName = s, functionMeta = [metaExtern] }
+  newFunctionDefinition { functionName = s, functionMeta = [meta metaExtern] }
 
 spec :: Spec
 spec = do

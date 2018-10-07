@@ -163,6 +163,9 @@ unifyBase ctx tctx strict a' b' = do
       if a == b
         then return $ Just []
         else if strict then return Nothing else fallBackToAbstractParent a b
+    (TypeInstance tp1 params1, _) ->
+      -- in case of #[promote]
+      fallBackToAbstractParent a b
     (a, b) | a == b -> return $ Just []
     _               -> return Nothing
  where
@@ -170,7 +173,20 @@ unifyBase ctx tctx strict a' b' = do
   rStrict = unifyStrict ctx tctx
   fallBackToAbstractParent a b = do
     parents <- getAbstractParents ctx tctx b
-    if null parents then return Nothing else r a (head $ reverse parents)
+    if not (null parents)
+      then r a (head $ reverse parents)
+      else
+        case a of
+          TypeInstance tp params -> do
+            t <- getTypeDefinition ctx tp
+            case typeSubtype t of
+              Abstract {} | hasMeta metaPromote (typeMeta t) -> do
+                parents2 <- getAbstractParents ctx tctx a
+                if not (null parents2)
+                  then r (head $ reverse parents2) b
+                  else return Nothing
+              _ -> return Nothing
+          _ -> return Nothing
 
 unifyBasic :: BasicType -> BasicType -> Maybe [TypeInformation]
 unifyBasic (BasicTypeVoid)    (BasicTypeVoid) = Just []

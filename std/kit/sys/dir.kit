@@ -2,18 +2,18 @@ include "dirent.h";
 include "unistd.h";
 include "sys/time.h";
 
-function readDir(path: CString): DirectoryReader {
+function readDir(path: Path): DirectoryReader {
     return DirectoryReader.new(path);
 }
 
 abstract Directory: dirent {
     rules {
-        ($this.path) => $this.d_name as CString;
+        ($this.path) => ($this.d_name as CString) as Path;
     }
 }
 
 abstract DirectoryReader: Ptr[DIR] {
-    public static function new(path: CString) {
+    public static function new(path: Path) {
         return opendir(path) as DirectoryReader;
     }
 

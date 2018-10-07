@@ -1,13 +1,36 @@
 /**
  * An abstract reader.
  */
-trait Reader[T] {
-    public function read(): T;
+trait Reader {
+    public function readBytes(buf: Ptr[Void], bytes: Size): Size;
+    public function close(): Void;
 }
 
 /**
  * An abstract writer.
  */
-trait Writer[T] {
-    public function write(value: T): Void;
+trait Writer {
+    public function writeBytes(buf: Ptr[Void], bytes: Size): Size;
+
+    public function write(v: Box[Writable]): Size {
+        return this.writeBytes(v.ptr(), v.size());
+    }
+
+    public function flush(): Void {}
+    public function close(): Void {}
+}
+
+trait Writable {
+    public function ptr(): Ptr[Void];
+    public function size(): Size;
+}
+
+implement Writable for CString {
+    public function ptr(): Ptr[Void] {
+        return this;
+    }
+
+    public function size(): Size {
+        return strlen(this) + 1;
+    }
 }
