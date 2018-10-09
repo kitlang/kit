@@ -32,12 +32,11 @@ spec = parallel $ do
                    , (FunctionArrow, sp "" 1 7 1 8)
                    ]
     it "lexes keywords" $ do
-      lx "abstract inline for in atom public rule rules"
+      lx "abstract inline for in public rule rules"
         `shouldBe` [ KeywordAbstract
                    , KeywordInline
                    , KeywordFor
                    , KeywordIn
-                   , KeywordAtom
                    , KeywordPublic
                    , KeywordRule
                    , KeywordRules
@@ -51,11 +50,6 @@ spec = parallel $ do
     it "skips multiline comments" $ do
       lx2 "  /* this is a comment\n that spans multiple lines */a"
         `shouldBe` [(LowerIdentifier "a", sp "" 2 30 2 30)]
-    it "lexes doc comments" $ do
-      lx2 "  /** this is a comment\n*/a"
-        `shouldBe` [ (DocComment ("this is a comment\n"), sp "" 1 3 2 2)
-                   , (LowerIdentifier "a"               , sp "" 2 3 2 3)
-                   ]
     it "lexes operators" $ do
       lx "a++ += = 2 + 3 4;"
         `shouldBe` [ LowerIdentifier "a"

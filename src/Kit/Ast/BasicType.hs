@@ -38,7 +38,6 @@ data BasicType
   -- (discriminant, union of variant structs.)
   -- Complex enums can't be anonymous, since they can only come from Kit.
   | BasicTypeComplexEnum TypePath
-  | BasicTypeAtom
   | BasicTypeFunction BasicType BasicArgs Bool
   | BasicTypeTuple Str [BasicType]
   | BasicTypeCFile
@@ -72,7 +71,6 @@ data BasicType
 -- basicTypeAbbreviation (BasicTypeSimpleEnum  n) = "e" ++ s_unpack n
 -- basicTypeAbbreviation (BasicTypeAnonEnum    _) = "e_" -- TODO
 -- basicTypeAbbreviation (BasicTypeComplexEnum n) = "E" ++ s_unpack n
--- basicTypeAbbreviation (BasicTypeAtom         ) = "a"
 -- basicTypeAbbreviation (BasicTypeFunction rt args v) =
 --   "f"
 --     ++ show (length args)
@@ -114,7 +112,6 @@ instance Show BasicType where
   show (BasicTypeAnonEnum (Just x) _) = "(anon enum " ++ s_unpack x ++ ")"
   show (BasicTypeAnonEnum Nothing _) = "(anon enum)"
   show (BasicTypeComplexEnum name) = "enum " ++ (s_unpack $ showTypePath name)
-  show (BasicTypeAtom) = "atom"
   show (BasicTypeFunction t args varargs) = "function (" ++ (intercalate ", " [s_unpack name ++ ": " ++ show argType | (name, argType) <- args]) ++ (if varargs then ", ..." else "") ++ "): " ++ show t
   show (BasicTypeTuple _ t) = "tuple (" ++ intercalate ", " (map show t) ++ ")"
   show (BasicTypeCFile) = "FILE"

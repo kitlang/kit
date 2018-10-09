@@ -38,14 +38,12 @@ tokens :-
   ".*" { tok WildcardSuffix }
 
   -- comments
-  "/**" ([^\*]|\*[^\/]|\*\n|\n)* "*/" { tok' (\s -> DocComment $ s_dropWhile whitespace $ s_take (s_length s - 5) $ s_drop 3 s) }
   "/*" ([^\*]|\*[^\/]|\*\n|\n)* "*/";
   "//" [^\n]*;
 
   -- keywords
   abstract { tok KeywordAbstract }
   as { tok KeywordAs }
-  atom { tok KeywordAtom }
   break { tok KeywordBreak }
   const { tok KeywordConst }
   continue { tok KeywordContinue }

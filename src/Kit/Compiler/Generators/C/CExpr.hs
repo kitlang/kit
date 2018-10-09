@@ -83,7 +83,6 @@ ctype (BasicTypeUint n) =
 ctype (BasicTypeFloat 32) = ([u CFloatType], [])
 ctype (BasicTypeFloat 64) = ([u CDoubleType], [])
 ctype (BasicTypeFloat _ ) = undefined
-ctype (BasicTypeAtom    ) = ([u CUnsigType, u CLongType], [])
 ctype (BasicTypeStruct name) =
   ( [ u $ CSUType $ u $ CStruct CStructTag
                                 (Just $ cIdent $ mangleName name)

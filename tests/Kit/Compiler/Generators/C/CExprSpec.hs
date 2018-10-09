@@ -41,8 +41,6 @@ spec = do
       showctype (BasicTypeFloat 64) `shouldBe` "double"
     it "transpiles void types" $ do
       showctype BasicTypeVoid `shouldBe` "void"
-    it "transpiles atom types" $ do
-      showctype BasicTypeAtom `shouldBe` "unsigned long"
     it "transpiles basic enum types" $ do
       showctype (BasicTypeSimpleEnum ([], "MyEnum")) `shouldBe` "enum MyEnum"
     it "transpiles complex enum types" $ do

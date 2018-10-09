@@ -74,8 +74,7 @@ type TraitConstraint = (TypePath, [ConcreteType])
   underlying BasicType will be the expression's runtime type.
 -}
 data ConcreteType
-  = TypeAtom
-  | TypeInstance TypePath [ConcreteType]
+  = TypeInstance TypePath [ConcreteType]
   -- anonymous types have a Maybe Str name, which is populated if they were
   -- defined in a typedef; otherwise we have no way to reference the type
   | TypeAnonStruct (Maybe Str) [(Str, ConcreteType)]
@@ -106,7 +105,6 @@ pattern TypeArray :: ConcreteType -> Int -> ConcreteType
 pattern TypeArray t n = TypeInstance (["kit", "common"], "CArray") [t, ConstantType (IntValue n)]
 
 instance Show ConcreteType where
-  show (TypeAtom) = "atom"
   show (TypePtr t) = "Ptr[" ++ show t ++ "]"
   show (TypeInstance tp params) = (s_unpack $ showTypePath tp) ++ showParams params
   show (TypeAnonStruct (Just x) f) = "struct typedef " ++ s_unpack x
@@ -130,7 +128,6 @@ instance Show ConcreteType where
   show (ConstantType v) = "$" ++ show v
 
 -- concreteTypeAbbreviation t = case t of
---   TypeAtom = "m"
 --   TypeInstance (m,n) params = (intercalate "_" $ map s_unpack m) ++ n ++ (show $ length params) ++ (foldr (++) "" params)
 --   TypeAnonStruct [(Str, ConcreteType)]
 --   TypeAnonUnion [(Str, ConcreteType)]
@@ -210,26 +207,6 @@ substituteParam :: [(TypePath, ConcreteType)] -> TypePath -> IO ConcreteType
 substituteParam ((p, ct) : t) s =
   if p == s then return ct else substituteParam t s
 substituteParam [] s = return $ TypeTypeParam s
-
--- = TypeAtom
--- | TypeInstance TypePath [ConcreteType]
--- | TypeAnonStruct [(Str, ConcreteType)]
--- | TypeAnonUnion [(Str, ConcreteType)]
--- | TypeAnonEnum [Str]
--- | TypeTypedef TypePath [ConcreteType]
--- | TypeFunction ConcreteType ConcreteArgs Bool
--- | TypeBasicType BasicType
--- | TypePtr ConcreteType
--- | TypeArray ConcreteType (Maybe Int)
--- | TypeEnumConstructor TypePath Str ConcreteArgs
--- | TypeRange
--- | TypeTraitConstraint TraitConstraint
--- | TypeTuple [ConcreteType]
--- | TypeTypeOf TypePath
--- | TypeTypeVar TypeVar
--- | TypeTypeParam Str
--- | TypeRuleSet TypePath
--- | TypeBox TypePath [ConcreteType]
 
 isPtr (TypePtr _) = True
 isPtr _           = False

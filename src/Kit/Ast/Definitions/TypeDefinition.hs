@@ -20,7 +20,6 @@ data TypeDefinition a b = TypeDefinition {
   typeBundle :: Maybe TypePath,
   typeMonomorph :: [b],
   typePos :: Span,
-  typeDoc :: Maybe Str,
   typeMeta :: [Metadata],
   typeModifiers :: [Modifier],
   typeMethods :: [FunctionDefinition a b],
@@ -39,8 +38,7 @@ typeRealName t = if hasMeta "extern" (typeMeta t)
   else monomorphName (typeName t) (typeMonomorph t)
 
 data TypeDefinitionType a b
-  = Atom
-  | Struct {structFields :: [VarDefinition a b]}
+  = Struct {structFields :: [VarDefinition a b]}
   | Union {unionFields :: [VarDefinition a b]}
   | Enum {enumVariants :: [EnumVariant a b], enumUnderlyingType :: b}
   | Abstract {abstractUnderlyingType :: b}
@@ -50,7 +48,6 @@ newTypeDefinition = TypeDefinition
   { typeName          = undefined
   , typeBundle        = Nothing
   , typeMonomorph     = []
-  , typeDoc           = Nothing
   , typeMeta          = []
   , typeModifiers     = []
   , typeMethods       = []
@@ -87,7 +84,6 @@ convertTypeDefinition paramConverter t = do
   let methodParamConverter methodParams =
         paramConverter (methodParams ++ params)
   newType <- case typeSubtype t of
-    Atom                        -> return Atom
     Struct { structFields = f } -> do
       fields <- forM f (convertVarDefinition converter)
       return $ Struct {structFields = fields}
@@ -135,7 +131,6 @@ convertTypeDefinition paramConverter t = do
   return $ (newTypeDefinition) { typeName          = typeName t
                                , typeMonomorph     = mono
                                , typeBundle        = typeBundle t
-                               , typeDoc           = typeDoc t
                                , typeMeta          = typeMeta t
                                , typeModifiers     = typeModifiers t
                                , typeParams        = params

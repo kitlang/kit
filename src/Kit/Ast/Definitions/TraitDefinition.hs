@@ -20,7 +20,6 @@ data TraitDefinition a b = TraitDefinition {
   traitName :: TypePath,
   traitMonomorph :: [b],
   traitPos :: Span,
-  traitDoc :: Maybe Str,
   traitMeta :: [Metadata],
   traitModifiers :: [Modifier],
   traitParams :: [TypeParam b],
@@ -41,7 +40,6 @@ newTraitDefinition = TraitDefinition
   { traitName        = undefined
   , traitMonomorph   = []
   , traitPos         = NoPos
-  , traitDoc         = Nothing
   , traitMeta        = []
   , traitModifiers   = []
   , traitParams      = []
@@ -72,7 +70,6 @@ convertTraitDefinition paramConverter t = do
   assocParams <- forM (traitAssocParams t) $ convertTypeParam converter
   return $ (newTraitDefinition) { traitName        = traitName t
                                 , traitPos         = traitPos t
-                                , traitDoc         = traitDoc t
                                 , traitMeta        = traitMeta t
                                 , traitModifiers   = traitModifiers t
                                 , traitParams      = params

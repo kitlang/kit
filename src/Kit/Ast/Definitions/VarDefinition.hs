@@ -12,7 +12,6 @@ data VarDefinition a b = VarDefinition {
   varName :: TypePath,
   varBundle :: Maybe TypePath,
   varPos :: Span,
-  varDoc :: Maybe Str,
   varMeta :: [Metadata],
   varModifiers :: [Modifier],
   varType :: b,
@@ -28,7 +27,6 @@ newVarDefinition :: VarDefinition a b
 newVarDefinition = VarDefinition
   { varName      = undefined
   , varBundle    = Nothing
-  , varDoc       = Nothing
   , varMeta      = []
   , varModifiers = [Public]
   , varType      = undefined
@@ -49,7 +47,6 @@ convertVarDefinition (Converter { exprConverter = exprConverter, typeConverter =
     newDefault <- maybeConvert exprConverter (varDefault v)
     return $ (newVarDefinition) { varName      = varName v
                                 , varBundle    = varBundle v
-                                , varDoc       = varDoc v
                                 , varMeta      = varMeta v
                                 , varModifiers = varModifiers v
                                 , varType      = newType

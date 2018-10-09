@@ -109,7 +109,6 @@ bundleDef s = "KIT_INCLUDE__" ++ s_unpack s
 generateHeaderForwardDecl :: IrDecl -> Maybe String
 generateHeaderForwardDecl decl = case decl of
   DeclTuple t -> generateTypeForwardDecl t
-  DeclType  def@(TypeDefinition { typeSubtype = Atom }) -> Nothing
   DeclType  def@(TypeDefinition { typeName = name }   ) -> do
     case typeBasicType def of
       -- ISO C forbids forward references to enum types
@@ -129,8 +128,6 @@ generateHeaderDef decl = case decl of
   DeclTuple (BasicTypeTuple name slots) ->
     let decls = cTupleDecl name slots
     in  Just $ intercalate "\n" $ map (\d -> render $ pretty $ CDeclExt d) decls
-
-  DeclType def@(TypeDefinition { typeSubtype = Atom }) -> Nothing
 
   DeclType def@(TypeDefinition{}) ->
     let decls = cTypeDecl def

@@ -13,7 +13,6 @@ data EnumVariant a b = EnumVariant {
   variantName :: TypePath,
   variantParent :: TypePath,
   variantPos :: Span,
-  variantDoc :: Maybe Str,
   variantMeta :: [Metadata],
   variantModifiers :: [Modifier],
   variantArgs :: [ArgSpec a b],
@@ -27,7 +26,6 @@ variantRealName v = if hasMeta "extern" (variantMeta v)
 newEnumVariant = EnumVariant
   { variantName      = undefined
   , variantParent    = undefined
-  , variantDoc       = Nothing
   , variantMeta      = []
   , variantModifiers = []
   , variantArgs      = []
@@ -45,7 +43,6 @@ convertEnumVariant converter@(Converter { exprConverter = exprConverter }) v =
     newValue <- maybeConvert exprConverter (variantValue v)
     return $ newEnumVariant { variantName      = variantName v
                             , variantParent    = variantParent v
-                            , variantDoc       = variantDoc v
                             , variantMeta      = variantMeta v
                             , variantModifiers = variantModifiers v
                             , variantArgs      = newArgs

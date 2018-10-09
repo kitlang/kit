@@ -29,7 +29,6 @@ _findUnderlyingType ctx mod pos stack t = do
   modTctx <- modTypeContext ctx mod
   x       <- case t of
     TypeBasicType b       -> return b
-    TypeAtom              -> return $ BasicTypeAtom
     TypeAnonStruct s fields -> do
       fields' <- forM
         fields

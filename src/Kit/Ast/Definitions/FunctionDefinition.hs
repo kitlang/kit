@@ -19,7 +19,6 @@ data FunctionDefinition a b = FunctionDefinition {
   functionMonomorph :: [b],
   functionBundle :: Maybe TypePath,
   functionPos :: Span,
-  functionDoc :: Maybe Str,
   functionMeta :: [Metadata],
   functionModifiers :: [Modifier],
   functionParams :: [TypeParam b],
@@ -44,7 +43,6 @@ newFunctionDefinition = FunctionDefinition
   { functionName      = undefined
   , functionMonomorph = []
   , functionBundle    = Nothing
-  , functionDoc       = Nothing
   , functionMeta      = []
   , functionModifiers = [Public]
   , functionParams    = []
@@ -73,7 +71,6 @@ convertFunctionDefinition paramConverter f = do
 
   return $ (newFunctionDefinition) { functionName      = functionName f
                                    , functionBundle    = functionBundle f
-                                   , functionDoc       = functionDoc f
                                    , functionMeta      = functionMeta f
                                    , functionModifiers = functionModifiers f
                                    , functionParams    = params

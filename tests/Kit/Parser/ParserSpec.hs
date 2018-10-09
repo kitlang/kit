@@ -261,7 +261,6 @@ spec = parallel $ do
                            (Maybe TypeSpec)
                        )
                          { functionName      = ([], "abc")
-                         , functionDoc       = Just "test"
                          , functionMeta      = [ Metadata
                                                    { metaName = "meta"
                                                    , metaArgs = []
@@ -332,7 +331,6 @@ spec = parallel $ do
         `shouldBe` [makeStmt $ Typedef "MyType" $ makeTypeSpec "OtherType"]
       {-testParse "typedef MyType[A] = OtherType[B];" `shouldBe` [makeStmt $ TypeDeclaration $ TypeDefinition {
         typeName = "MyType",
-        typeDoc = Nothing,
         typeMeta = [],
         typeModifiers = [],
         typeRules = [],
@@ -341,56 +339,6 @@ spec = parallel $ do
           typedef_definition = TypeSpec ([], "OtherType") [TypeParam {paramType = makeTypeSpec "B", constraints = []}] NoPos
         }
       }]-}
-
-    it "parses atoms" $ do
-      testParse "atom MyAtom;"
-        `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition)
-                       { typeName      = ([], "MyAtom")
-                       , typeSubtype   = Atom
-                       , typeDoc       = Nothing
-                       , typeMeta      = []
-                       , typeModifiers = []
-                       , typeRules     = []
-                       , typeParams    = []
-                       }
-                   ]
-      testParse "public atom MyAtom;"
-        `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition)
-                       { typeName      = ([], "MyAtom")
-                       , typeSubtype   = Atom
-                       , typeDoc       = Nothing
-                       , typeMeta      = []
-                       , typeModifiers = [Public]
-                       , typeRules     = []
-                       , typeParams    = []
-                       }
-                   ]
-      testParse "/** Doc*/ atom MyAtom;"
-        `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition)
-                       { typeName      = ([], "MyAtom")
-                       , typeSubtype   = Atom
-                       , typeDoc       = Just "Doc"
-                       , typeMeta      = []
-                       , typeModifiers = []
-                       , typeRules     = []
-                       , typeParams    = []
-                       }
-                   ]
-      testParse "/** Doc*/ #[meta] public atom MyAtom;"
-        `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition)
-                       { typeName      = ([], "MyAtom")
-                       , typeSubtype   = Atom
-                       , typeDoc       = Just "Doc"
-                       , typeMeta      = [ Metadata
-                                             { metaName = "meta"
-                                             , metaArgs = []
-                                             }
-                                         ]
-                       , typeModifiers = [Public]
-                       , typeRules     = []
-                       , typeParams    = []
-                       }
-                   ]
 
     it "parses enums" $ do
       testParse
@@ -401,7 +349,6 @@ spec = parallel $ do
             \}"
         `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition)
                        { typeName      = ([], "MyEnum")
-                       , typeDoc       = Nothing
                        , typeMeta      = []
                        , typeModifiers = []
                        , typeRules     = []
@@ -411,7 +358,6 @@ spec = parallel $ do
                          , enumVariants       = [ newEnumVariant
                                                   { variantName = ([], "Apple")
                                                   , variantParent = ([], "MyEnum")
-                                                  , variantDoc       = Nothing
                                                   , variantArgs      = []
                                                   , variantMeta      = []
                                                   , variantModifiers = []
@@ -420,7 +366,6 @@ spec = parallel $ do
                                                 , newEnumVariant
                                                   { variantName = ([], "Banana")
                                                   , variantParent = ([], "MyEnum")
-                                                  , variantDoc = Nothing
                                                   , variantArgs = [ newArgSpec
                                                                       { argName = "i"
                                                                       , argType = Just
@@ -436,7 +381,6 @@ spec = parallel $ do
                                                 , newEnumVariant
                                                   { variantName = ([], "Strawberry")
                                                   , variantParent = ([], "MyEnum")
-                                                  , variantDoc = Just "Abc"
                                                   , variantArgs = []
                                                   , variantMeta = []
                                                   , variantModifiers = []
@@ -460,14 +404,12 @@ spec = parallel $ do
             \}"
         `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition)
                        { typeName          = ([], "MyStruct")
-                       , typeDoc           = Nothing
                        , typeMeta          = []
                        , typeModifiers     = []
                        , typeRules         = []
                        , typeParams        = []
                        , typeStaticFields  = [ newVarDefinition
                                                  { varName      = ([], "ghi")
-                                                 , varDoc       = Nothing
                                                  , varMeta      = []
                                                  , varModifiers = [Static]
                                                  , varType      = Nothing
@@ -476,7 +418,6 @@ spec = parallel $ do
                                              ]
                        , typeStaticMethods = [ newFunctionDefinition
                                                  { functionName = ([], "jkl")
-                                                 , functionDoc       = Nothing
                                                  , functionMeta      = []
                                                  , functionModifiers = [Static]
                                                  , functionParams    = []
@@ -493,7 +434,6 @@ spec = parallel $ do
                                                 (Maybe TypeSpec)
                                             )
                                             { varName      = ([], "abc")
-                                            , varDoc       = Nothing
                                             , varMeta      = []
                                             , varModifiers = []
                                             , varType      = Nothing
@@ -504,7 +444,6 @@ spec = parallel $ do
                                                 (Maybe TypeSpec)
                                             )
                                             { varName      = ([], "def")
-                                            , varDoc       = Nothing
                                             , varMeta      = []
                                             , varModifiers = [Public]
                                             , varType      = Nothing
@@ -515,7 +454,6 @@ spec = parallel $ do
                                                 (Maybe TypeSpec)
                                             )
                                             { varName      = ([], "ghi")
-                                            , varDoc       = Just "test "
                                             , varMeta      = [ Metadata
                                                                  { metaName = "meta"
                                                                  , metaArgs = []

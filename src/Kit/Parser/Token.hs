@@ -28,10 +28,8 @@ data TokenClass
   | Question
   | Underscore
   | WildcardSuffix
-  | DocComment Str
   | KeywordAbstract
   | KeywordAs
-  | KeywordAtom
   | KeywordBreak
   | KeywordConst
   | KeywordContinue
@@ -120,11 +118,9 @@ instance Show TokenClass where
     FunctionArrow -> "->"
     Question -> "?"
     Underscore -> "_"
-    DocComment _ -> "/** doc comment */"
     WildcardSuffix -> ".*"
     KeywordAbstract -> "abstract"
     KeywordAs -> "as"
-    KeywordAtom -> "atom"
     KeywordBreak -> "break"
     KeywordConst -> "const"
     KeywordContinue -> "continue"

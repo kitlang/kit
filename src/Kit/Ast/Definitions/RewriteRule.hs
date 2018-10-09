@@ -10,7 +10,6 @@ import Kit.Ast.Span
 import Kit.Str
 
 data RewriteRule a b = RewriteRule {
-  ruleDoc :: Maybe Str,
   rulePattern :: a,
   ruleBody :: Maybe a,
   rulePos :: Span,
@@ -18,8 +17,7 @@ data RewriteRule a b = RewriteRule {
 } deriving (Eq, Generic, Show)
 
 newRewriteRule = RewriteRule
-  { ruleDoc     = Nothing
-  , rulePattern = undefined
+  { rulePattern = undefined
   , ruleBody    = Nothing
   , rulePos     = NoPos
   , ruleThis    = Nothing
@@ -31,8 +29,7 @@ convertRewriteRule converter r = do
   pattern  <- (exprConverter converter) $ rulePattern r
   body     <- maybeConvert (exprConverter converter) $ ruleBody r
   this     <- maybeConvert (exprConverter converter) $ ruleThis r
-  return $ (newRewriteRule) { ruleDoc     = ruleDoc r
-                            , rulePattern = pattern
+  return $ (newRewriteRule) { rulePattern = pattern
                             , ruleBody    = body
                             , rulePos     = rulePos r
                             , ruleThis    = this
@@ -41,14 +38,12 @@ convertRewriteRule converter r = do
 data RuleSet a b = RuleSet {
   ruleSetName :: TypePath,
   ruleSetPos :: Span,
-  ruleSetDoc :: Maybe Str,
   ruleSetRules :: [RewriteRule a b]
 } deriving (Eq, Show)
 
 newRuleSet = RuleSet
   { ruleSetName  = undefined
   , ruleSetPos   = NoPos
-  , ruleSetDoc   = Nothing
   , ruleSetRules = []
   }
 
@@ -58,6 +53,5 @@ convertRuleSet converter r = do
   rules <- forM (ruleSetRules r) $ convertRewriteRule converter
   return $ (newRuleSet) { ruleSetName  = ruleSetName r
                         , ruleSetPos   = ruleSetPos r
-                        , ruleSetDoc   = ruleSetDoc r
                         , ruleSetRules = rules
                         }

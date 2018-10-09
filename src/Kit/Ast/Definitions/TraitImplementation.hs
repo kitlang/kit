@@ -20,7 +20,6 @@ data TraitImplementation a b = TraitImplementation {
   implParams :: [TypeParam b],
   implAssocTypes :: [b],
   implMethods :: [FunctionDefinition a b],
-  implDoc :: Maybe Str,
   implPos :: Span
 } deriving (Eq, Generic, Show)
 
@@ -36,7 +35,6 @@ newTraitImplementation = TraitImplementation
   , implParams     = []
   , implAssocTypes = []
   , implMethods    = []
-  , implDoc        = Nothing
   , implPos        = NoPos
   }
 
@@ -59,7 +57,6 @@ convertTraitImplementation converter@(Converter { exprConverter = exprConverter,
                                       , implParams     = params
                                       , implAssocTypes = assocTypes
                                       , implMethods    = methods
-                                      , implDoc        = implDoc i
                                       , implPos        = implPos i
                                       }
 
