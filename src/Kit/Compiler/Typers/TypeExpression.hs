@@ -775,16 +775,20 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                     let typed = typed' { inferredType = t }
                     -- this may be a template; replace `this` with the actual
                     -- type to guarantee the implicit pass will work
-                    let f = case inferredType typed of
-                          TypeFunction rt args varargs _ -> TypeFunction
-                            rt
-                            ( (let (name, _) = (head args)
-                               in  (name, TypePtr $ inferredType r1)
-                              )
-                            : (tail args)
+                    let
+                      f = case inferredType typed of
+                        TypeFunction rt args varargs _ -> TypeFunction
+                          rt
+                          ( (let (name, _) = (head args)
+                             in  (name, TypePtr $ inferredType r1)
                             )
-                            varargs
-                            params
+                          : (tail args)
+                          )
+                          varargs
+                          params
+                        _ -> throwk $ TypingError
+                          "Static fields and methods can't be accessed from individual values"
+                          pos
                     return $ (makeExprTyped (Method tp params fieldName) f pos)
                       { tImplicits = r1 : tImplicits typed
                       }
@@ -1419,7 +1423,11 @@ typeStructUnionFieldAccess ctx tctx t@(TypeInstance tp params) fields r fieldNam
               Just (TypeInstance tp2 params2) | tp == tp2 -> True
               Nothing -> isPublic (varModifiers field)
         when (not accessible) $ throwk $ TypingError
-          ("Can't access non-public field " ++ s_unpack fieldName ++ " of " ++ show t)
+          (  "Can't access non-public field "
+          ++ s_unpack fieldName
+          ++ " of "
+          ++ show t
+          )
           pos
         return
           $ ( Just

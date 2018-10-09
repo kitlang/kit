@@ -451,6 +451,24 @@ StaticVarDefinition :: {VarDefinition Expr (Maybe TypeSpec)}
     }
   }
 
+VarDefinitions :: {[VarDefinition Expr (Maybe TypeSpec)]}
+  : {[]}
+  | VarDefinitions VarDefinition {$2 : $1}
+
+StaticVarDefinitions :: {[VarDefinition Expr (Maybe TypeSpec)]}
+  : {[]}
+  | StaticVarDefinitions StaticVarDefinition {$2 : $1}
+
+VarBlock :: {[VarDefinition Expr (Maybe TypeSpec)]}
+  : MetaMods '{' VarDefinitions '}' {
+    [v {varMeta = varMeta v ++ metas $1, varModifiers = varModifiers v ++ mods $1} | v <- $3]
+  }
+
+StaticVarBlock :: {[VarDefinition Expr (Maybe TypeSpec)]}
+  : StaticMetaMods '{' VarDefinitions '}' {
+    [v {varMeta = varMeta v ++ metas $1, varModifiers = varModifiers v ++ mods $1} | v <- $3]
+  }
+
 OptionalStandaloneDefault :: {(Maybe Expr, Span)}
   : ';' {(Nothing, snd $1)}
   | '=' StandaloneExpr {(Just $2, snd $1 <+> pos $2)}
@@ -515,6 +533,7 @@ RulesMethods :: {[Member Expr (Maybe TypeSpec)]}
   | RulesMethods RuleBlock {(map RuleMember $2) ++ $1}
   | RulesMethods Method {$2 : $1}
   | RulesMethods StaticVarDefinition {StaticFieldMember $2 : $1}
+  | RulesMethods StaticVarBlock {(map FieldMember $2 ++ $1)}
 
 RulesMethodsFields :: {[Member Expr (Maybe TypeSpec)]}
   : {[]}
@@ -523,6 +542,8 @@ RulesMethodsFields :: {[Member Expr (Maybe TypeSpec)]}
   | RulesMethodsFields Method {$2 : $1}
   | RulesMethodsFields StaticVarDefinition {StaticFieldMember $2 : $1}
   | RulesMethodsFields VarDefinition {(FieldMember $2 : $1)}
+  | RulesMethodsFields StaticVarBlock {(map StaticFieldMember $2 ++ $1)}
+  | RulesMethodsFields VarBlock {(map FieldMember $2 ++ $1)}
 
 RulesMethodsVariants :: {[Member Expr (Maybe TypeSpec)]}
   : {[]}
@@ -531,6 +552,7 @@ RulesMethodsVariants :: {[Member Expr (Maybe TypeSpec)]}
   | RulesMethodsVariants Method {$2 : $1}
   | RulesMethodsVariants StaticVarDefinition {StaticFieldMember $2 : $1}
   | RulesMethodsVariants EnumVariant {(VariantMember $2 : $1)}
+  | RulesMethodsVariants StaticVarBlock {(map StaticFieldMember $2 ++ $1)}
 
 Methods :: {[Member Expr (Maybe TypeSpec)]}
   : {[]}
