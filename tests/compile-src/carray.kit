@@ -1,3 +1,12 @@
+struct A {
+    var a: Int;
+}
+
+struct B {
+    var b: Int;
+    var a: CArray[A];
+}
+
 function main() {
     var a: CArray[Int, 3] = empty;
     printf("%i\n", a[0]);

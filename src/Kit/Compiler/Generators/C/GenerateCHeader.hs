@@ -99,6 +99,9 @@ btOrder dependencies memos t = do
         BasicTypeUnion       tp -> tpScore tp
         BasicTypeSimpleEnum  tp -> tpScore tp
         BasicTypeComplexEnum tp -> tpScore tp
+        CArray t _              ->do
+          depScore <- btOrder dependencies memos t
+          return $ depScore + 1
         _                       -> return (-1)
       h_insert memos t score
       return score
@@ -109,7 +112,7 @@ bundleDef s = "KIT_INCLUDE__" ++ s_unpack s
 generateHeaderForwardDecl :: IrDecl -> Maybe String
 generateHeaderForwardDecl decl = case decl of
   DeclTuple t -> generateTypeForwardDecl t
-  DeclType  def@(TypeDefinition { typeName = name }   ) -> do
+  DeclType  def@(TypeDefinition { typeName = name }) -> do
     case typeBasicType def of
       -- ISO C forbids forward references to enum types
       Just t  -> generateTypeForwardDecl t
