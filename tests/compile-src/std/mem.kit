@@ -83,7 +83,38 @@ function testStackAllocator() {
     }
 }
 
+function testPoolAllocator() {
+    printf("testing pool allocator\n");
+    var a = PoolAllocator[Int].new(2);
+    var i1 = a.alloc(1);
+    printf("%s\n", if i1.isSome() then "got a pointer" else "didn't get a pointer");
+    var i2 = a.alloc(1);
+    printf("%s\n", if i2.isSome() then "got a pointer" else "didn't get a pointer");
+    var i3 = a.alloc(1);
+    printf("%s\n", if i3.isSome() then "got a pointer" else "didn't get a pointer");
+
+    match i2 {
+        Some(x) => {
+            a.free(x as Ptr[Void]);
+        }
+    }
+    var i4 = a.alloc(1);
+    printf("%s\n", if i4.isSome() then "got a pointer" else "didn't get a pointer");
+
+    match i2 {
+        Some(x) => match i4 {
+            Some(y) => {
+                printf("recycled pointer reused as expected\n");
+            }
+        }
+    }
+
+    var i5 = a.alloc(1);
+    printf("%s\n", if i5.isSome() then "got a pointer" else "didn't get a pointer");
+}
+
 function main() {
     testLinearAllocator();
     testStackAllocator();
+    testPoolAllocator();
 }

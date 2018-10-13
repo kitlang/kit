@@ -977,6 +977,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         resolveArrayAccess $ inferredType r1
 
     (Cast e1 t) -> do
+      t <- mapType (follow ctx tctx) t
+      t <- makeGenericConcrete ctx pos t
       r1 <- r e1
       tryRewrite (makeExprTyped (Cast r1 t) t pos) $ do
         let cast = return $ makeExprTyped (Cast r1 t) t pos
@@ -1222,6 +1224,10 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       return $ (makeExprTyped (Temp rx) (inferredType rx) (tPos rx)) { tIsLocal = True
                                                                      }
 
+    (SizeOf t) -> do
+      t <- mapType (follow ctx tctx) $ t
+      return $ makeExprTyped (SizeOf t) (inferredType ex) pos
+
     _ -> return $ ex
 
   t'       <- mapType (follow ctx tctx) $ inferredType result
@@ -1459,7 +1465,7 @@ typeVarBinding ctx tctx name binding pos = do
       let extern       = hasMeta "extern" (variantMeta def)
       params <- makeGeneric ctx parentTp pos []
       let tctx' = addTypeParams tctx params
-      let ct    = TypeInstance parentTp (map snd params)
+      let ct    = TypeInstance parentTp $ map snd params
       let args  = [ (argName arg, argType arg) | arg <- variantArgs def ]
       if null args
         then return $ makeExprTyped (EnumInit ct discriminant []) ct pos

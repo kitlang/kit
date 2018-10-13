@@ -195,6 +195,12 @@ mapType f (TypeTraitConstraint (tp, p)) = do
   f $ TypeTraitConstraint (tp, p')
 mapType f t = f t
 
+-- FIXME: name...
+mapType_ :: (ConcreteType -> a) -> ConcreteType -> [a]
+mapType_ f t = (f t) : (case t of
+                          TypePtr t -> mapType_ f t
+                          _ -> [])
+
 substituteParams
   :: [(TypePath, ConcreteType)] -> ConcreteType -> IO ConcreteType
 substituteParams params = mapType

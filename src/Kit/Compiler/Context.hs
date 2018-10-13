@@ -217,7 +217,7 @@ makeGeneric ctx tp@(modPath, name) pos existing = do
           $ \(param, value) -> do
         -- TODO: add param constraints here
               tv <- case value of
-                Just x  -> return x
+                Just x  -> makeGenericConcrete ctx pos x
                 Nothing -> case typeParamDefault param of
                   Just x  -> return x
                   Nothing -> makeTypeVar ctx pos
@@ -225,15 +225,33 @@ makeGeneric ctx tp@(modPath, name) pos existing = do
       let paramTypes = map snd params
       -- if the supplied type parameters are generic, this isn't a real monomorph
       unless
-          (any
-            (\t -> case t of
-              TypeTypeParam _ -> True
-              _               -> False
+          (or $ foldr (++) [] $ map
+            (mapType_
+              (\t -> case t of
+                TypeTypeParam _ -> True
+                _               -> False
+              )
             )
             (map snd params)
           )
         $ modifyIORef (ctxPendingGenerics ctx) (\acc -> (tp, paramTypes) : acc)
       return params
+
+makeGenericConcrete :: CompileContext -> Span -> ConcreteType -> IO ConcreteType
+makeGenericConcrete ctx pos t = case t of
+  TypePtr t -> do
+    t <- makeGenericConcrete ctx pos t
+    return $ TypePtr t
+  TypeInstance tp p -> do
+    params <- makeGeneric ctx tp pos p
+    return $ TypeInstance tp $ map snd params
+  TypeBox tp p -> do
+    params <- makeGeneric ctx tp pos p
+    return $ TypeBox tp $ map snd params
+  TypeTraitConstraint (tp, p) -> do
+    params <- makeGeneric ctx tp pos p
+    return $ TypeTraitConstraint (tp, map snd params)
+  _ -> return t
 
 getTypeDefinition
   :: CompileContext -> TypePath -> IO (TypeDefinition TypedExpr ConcreteType)

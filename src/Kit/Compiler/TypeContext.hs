@@ -152,17 +152,7 @@ resolveType ctx tctx mod t = do
                                   (s_unpack $ showTypePath (m, s))
                                   pos
                       -- if this is a type instance, create a new generic
-                      case ct of
-                        TypeInstance tp@(modPath, name) p -> do
-                          params <- makeGeneric ctx tp (typeSpecPosition t) p
-                          return $ TypeInstance tp (map snd params)
-                        TypeBox tp@(modPath, name) p -> do
-                          params <- makeGeneric ctx tp (typeSpecPosition t) p
-                          return $ TypeBox tp (map snd params)
-                        TypeTraitConstraint (tp@(modPath, name), p) -> do
-                          params <- makeGeneric ctx tp (typeSpecPosition t) p
-                          return $ TypeTraitConstraint (tp, (map snd params))
-                        _ -> return ct
+                      makeGenericConcrete ctx (typeSpecPosition t) ct
             m -> do
               -- search only a specific module for this type
               result <- lookupBinding ctx (m, s)

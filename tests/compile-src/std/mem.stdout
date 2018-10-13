@@ -21,3 +21,10 @@ remaining: 1
 remaining: 1
 remaining: 0
 via box, they're the same as expected
+testing pool allocator
+got a pointer
+got a pointer
+didn't get a pointer
+got a pointer
+recycled pointer reused as expected
+didn't get a pointer

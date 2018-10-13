@@ -41,13 +41,15 @@ var mallocator: Box[Allocator] = simpleMalloc as Box[Allocator];
  * everything at once.
  */
 struct LinearAllocator {
+    var parent: Box[Allocator];
     var start: Ptr[Void];
     var curPtr: Ptr[Void];
     var capacity: Size;
 
-    public static function new(from: Box[Allocator], capacity: Size) {
-        var start = from.alloc(capacity);
+    public static function new(parent: Box[Allocator], capacity: Size) {
+        var start = parent.alloc(capacity);
         return struct LinearAllocator {
+            parent,
             start,
             curPtr: start,
             capacity
@@ -71,6 +73,24 @@ struct LinearAllocator {
     public function remaining(): Size {
         return this.capacity - (this.curPtr as Ptr[Uint8] - this.start as Ptr[Uint8]) as Size;
     }
+
+    public function destroy() {
+        this.parent.free(this.start);
+    }
+}
+
+implement Allocator for LinearAllocator {
+    public function alloc(s): Ptr[Void] {
+        match this.alloc(s) {
+            Some(x) => return x;
+            default => {
+                panic("failed to allocate from LinearAllocator");
+                return null;
+            }
+        }
+    }
+
+    public function free(p) {}
 }
 
 /**
@@ -78,12 +98,16 @@ struct LinearAllocator {
  * be freed in LIFO order.
  */
 struct StackAllocator {
+    var parent: Box[Allocator];
+    var start: Ptr[Void];
     var curPtr: Ptr[Void];
     var capacity: Size;
 
-    public static function new(from: Box[Allocator], capacity: Size) {
-        var curPtr = from.alloc(capacity);
+    public static function new(parent: Box[Allocator], capacity: Size) {
+        var curPtr = parent.alloc(capacity);
         return struct StackAllocator {
+            parent,
+            start: curPtr,
             curPtr,
             capacity
         };
@@ -108,19 +132,10 @@ struct StackAllocator {
     public function remaining(): Size {
         return this.capacity;
     }
-}
 
-implement Allocator for LinearAllocator {
-    public function alloc(s): Ptr[Void] {
-        match this.alloc(s) {
-            Some(x) => return x;
-            default => {
-                panic("failed to allocate from LinearAllocator");
-                return null;
-            }
-        }
+    public function destroy() {
+        this.parent.free(this.start);
     }
-    public function free(p) {}
 }
 
 implement Allocator for StackAllocator {
@@ -133,7 +148,79 @@ implement Allocator for StackAllocator {
             }
         }
     }
+
     public function free(p) {
         this.free(p);
     }
 }
+
+struct PoolNode[T] {
+    var val: T;
+    var next: Ptr[PoolNode[T]];
+}
+
+struct PoolAllocator[T] {
+    var parent: Box[Allocator];
+    var capacity: Size;
+    var next: Ptr[PoolNode[T]];
+    var start: Ptr[PoolNode[T]];
+
+    public static function new(parent: Box[Allocator], count: Size) {
+        var start = parent.alloc(count * sizeof T) as Ptr[PoolNode[T]];
+        var pool = struct PoolAllocator[T] {
+            parent,
+            start,
+            capacity: count,
+            next: null
+        };
+        for i in 0 ... count - 1 {
+            pool.start[i].next = start + i + 1;
+        }
+        pool.start[count - 1].next = null;
+        pool.next = pool.start;
+        return pool;
+    }
+
+    public function alloc(n: Size): Option[Ptr[T]] {
+        if this.capacity > 0 && this.next != null {
+            --this.capacity;
+            var next = this.next;
+            this.next = next.next;
+            next.next = null;
+            return Some(next as Ptr[T]);
+        } else {
+            return None;
+        }
+    }
+
+    public function free(ptr: Ptr[T]) {
+        ++this.capacity;
+        var recycled = ptr as Ptr[PoolNode[T]];
+        recycled.next = this.next;
+        this.next = recycled;
+    }
+
+    public function remaining(): Size {
+        return this.capacity;
+    }
+
+    public function destroy() {
+        this.parent.free(this.start);
+    }
+}
+
+// implement Allocator for PoolAllocator[T] {
+//     public function alloc(s): Ptr[Void] {
+//         match this.alloc(s) {
+//             Some(x) => return x;
+//             default => {
+//                 panic("failed to allocate from PoolAllocator");
+//                 return null;
+//             }
+//         }
+//     }
+
+//     public function free(p) {
+//         this.free(p);
+//     }
+// }
