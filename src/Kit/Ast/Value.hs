@@ -11,9 +11,15 @@ data ValueLiteral
   | IntValue Int
   | FloatValue Str
   | StringValue Str
-  deriving (Eq, Show, Generic)
+  deriving (Eq, Generic)
 
 instance Hashable ValueLiteral
+
+instance Show ValueLiteral where
+  show (BoolValue b) = if b then "true" else "false"
+  show (IntValue i) = show i
+  show (FloatValue s) = s_unpack s
+  show (StringValue s) = show $ s_unpack s
 
 valueEq :: ValueLiteral -> ValueLiteral -> Bool
 valueEq (BoolValue   a) (BoolValue   b) = a == b
