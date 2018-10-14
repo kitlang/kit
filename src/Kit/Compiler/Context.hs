@@ -16,7 +16,7 @@ import Kit.Compiler.TypedExpr
 import Kit.Error
 import Kit.HashTable
 import Kit.Log
-import Kit.Ast.Span
+import Kit.NameMangling
 import Kit.Str
 
 data CompileContext = CompileContext {
@@ -26,7 +26,9 @@ data CompileContext = CompileContext {
   ctxPreludes :: HashTable ModulePath [Statement],
   ctxIncludes :: IORef [FilePath],
   ctxLastTypeVar :: IORef Int,
+  ctxLastTemplateVar :: IORef Int,
   ctxTypeVariables :: HashTable Int TypeVarInfo,
+  ctxTemplateVariables :: HashTable Int (HashTable Str Int),
   ctxTraitSpecializations :: HashTable TypePath (ConcreteType, Span),
   ctxImpls :: HashTable TraitConstraint (HashTable ConcreteType (TraitImplementation TypedExpr ConcreteType)),
   -- ctxGenericImpls :: HashTable
@@ -64,11 +66,13 @@ newCompileContext = do
   preludes         <- h_new
   includes         <- newIORef []
   lastTypeVar      <- newIORef 0
+  lastTemplateVar  <- newIORef 0
   specs            <- h_new
   impls            <- h_new
   typedefs         <- h_new
   -- make these big so we're less likely to have to resize later
   typeVars         <- h_newSized 4096
+  templateVars     <- h_newSized 2048
   bindings         <- h_newSized 4096
   pendingGenerics  <- newIORef []
   completeGenerics <- h_new
@@ -89,8 +93,10 @@ newCompileContext = do
     , ctxVerbose              = 0
     , ctxIncludes             = includes
     , ctxLastTypeVar          = lastTypeVar
+    , ctxLastTemplateVar      = lastTemplateVar
     , ctxUnresolvedTypeVars   = unresolved
     , ctxTypeVariables        = typeVars
+    , ctxTemplateVariables    = templateVars
     , ctxTraitSpecializations = specs
     , ctxImpls                = impls
     , ctxTypedefs             = typedefs
@@ -169,12 +175,40 @@ makeTypeVar ctx pos = do
     ++ show pos
   return $ TypeTypeVar next
 
+makeTemplateVar ctx requiredParams pos = do
+  last <- readIORef (ctxLastTemplateVar ctx)
+  let next = last + 1
+  writeIORef (ctxLastTemplateVar ctx) next
+  vals <- h_new
+  h_insert (ctxTemplateVariables ctx) next vals
+  when (ctxVerbose ctx > 1)
+    $  logMsg (Just Debug)
+    $  "made template var: "
+    ++ show next
+    ++ " at "
+    ++ show pos
+  return $ TypeTemplateVar requiredParams next
+
 getTypeVar :: CompileContext -> Int -> IO TypeVarInfo
 getTypeVar ctx tv = do
   info <- h_get (ctxTypeVariables ctx) tv
   case typeVarValue info of
     Just (TypeTypeVar tv') -> getTypeVar ctx tv'
     _                      -> return info
+
+templateVarToTypeVar
+  :: CompileContext -> Int -> [ConcreteType] -> Span -> IO Int
+templateVarToTypeVar ctx tv params pos = do
+  let key = hashParams params
+  vals <- h_get (ctxTemplateVariables ctx) tv
+  val  <- h_lookup vals key
+  case val of
+    Just i  -> return i
+    Nothing -> do
+      -- create a new type var for this monomorph
+      (TypeTypeVar i) <- makeTypeVar ctx pos
+      h_insert vals key i
+      return i
 
 resolveVar
   :: CompileContext -> [Scope Binding] -> Module -> Str -> IO (Maybe Binding)
