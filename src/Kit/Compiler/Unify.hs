@@ -69,7 +69,8 @@ unifyBase
   -> ConcreteType
   -> ConcreteType
   -> IO (Maybe [TypeInformation])
-unifyBase ctx tctx strict a' b' = do
+unifyBase _   _    _      a  b | a == b = return $ Just []
+unifyBase ctx tctx strict a' b'         = do
   let checkResults x = foldr
         (\result acc -> case acc of
           Just x -> case result of
@@ -82,8 +83,7 @@ unifyBase ctx tctx strict a' b' = do
   a <- mapType (follow ctx tctx) a'
   b <- mapType (follow ctx tctx) b'
   case (a, b) of
-    (TypeSelf, TypeSelf) -> return $ Just []
-    (TypeSelf, x       ) -> case tctxSelf tctx of
+    (TypeSelf, x) -> case tctxSelf tctx of
       Just y  -> r y x
       Nothing -> return Nothing
     (TypeTypeVar i, TypeTraitConstraint t) -> do
@@ -91,8 +91,7 @@ unifyBase ctx tctx strict a' b' = do
       return $ if elem t (map fst $ typeVarConstraints info)
         then Just []
         else Just [TypeVarConstraint i t]
-    (TypeTypeVar a, TypeTypeVar b) | a == b -> return $ Just []
-    (TypeTypeVar a, TypeTypeVar b)          -> do
+    (TypeTypeVar a, TypeTypeVar b) -> do
       info1 <- getTypeVar ctx a
       info2 <- getTypeVar ctx b
       return $ if (typeVarId info1 == typeVarId info2)
@@ -149,10 +148,8 @@ unifyBase ctx tctx strict a' b' = do
           return $ checkResults paramMatch
         else return Nothing
     (TypeArray t1 s1, TypeArray t2 s2) | (s1 > 0) && (s1 == s2) -> r t1 t2
-    (TypeArray t1 0 , TypeArray t2 _ )                          -> r t1 t2
-    (TypeArray t1 _ , TypePtr t2     )                          -> r t1 t2
-    (ConstantType a, ConstantType b) ->
-      return $ if a == b then Just [] else Nothing
+    (TypeArray t1 0, TypeArray t2 _) -> r t1 t2
+    (TypeArray t1 _, TypePtr t2) -> r t1 t2
     (TypeInstance tp1 params1, TypeInstance tp2 params2) -> do
       if (tp1 == tp2) && (length params1 == length params2)
         then do
@@ -166,8 +163,7 @@ unifyBase ctx tctx strict a' b' = do
     (TypeInstance tp1 params1, _) ->
       -- in case of #[promote]
       fallBackToAbstractParent a b
-    (a, b) | a == b -> return $ Just []
-    _               -> return Nothing
+    _ -> return Nothing
  where
   r       = unifyBase ctx tctx strict
   rStrict = unifyStrict ctx tctx
@@ -175,18 +171,17 @@ unifyBase ctx tctx strict a' b' = do
     parents <- getAbstractParents ctx tctx b
     if not (null parents)
       then r a (head $ reverse parents)
-      else
-        case a of
-          TypeInstance tp params -> do
-            t <- getTypeDefinition ctx tp
-            case typeSubtype t of
-              Abstract {} | hasMeta metaPromote (typeMeta t) -> do
-                parents2 <- getAbstractParents ctx tctx a
-                if not (null parents2)
-                  then r (head $ reverse parents2) b
-                  else return Nothing
-              _ -> return Nothing
-          _ -> return Nothing
+      else case a of
+        TypeInstance tp params -> do
+          t <- getTypeDefinition ctx tp
+          case typeSubtype t of
+            Abstract{} | hasMeta metaPromote (typeMeta t) -> do
+              parents2 <- getAbstractParents ctx tctx a
+              if not (null parents2)
+                then r (head $ reverse parents2) b
+                else return Nothing
+            _ -> return Nothing
+        _ -> return Nothing
 
 unifyBasic :: BasicType -> BasicType -> Maybe [TypeInformation]
 unifyBasic (BasicTypeVoid)    (BasicTypeVoid) = Just []

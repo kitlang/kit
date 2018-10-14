@@ -90,6 +90,7 @@ data ConcreteType
   | TypeTuple [ConcreteType]
   | TypeTypeOf TypePath [ConcreteType]
   | TypeTypeVar TypeVar
+  | TypeTemplateVar [TypePath] Int Span
   | TypeTypeParam TypePath
   | TypeRuleSet TypePath
   | TypeSelf
@@ -122,6 +123,7 @@ instance Show ConcreteType where
   show (TypeTuple t) = "(" ++ intercalate ", " (map show t) ++ ")"
   show (TypeTypeOf t params) = "typeof " ++ s_unpack (showTypePath t) ++ showParams params
   show (TypeTypeVar i) = "(unknown type #" ++ show i ++ ")"
+  show (TypeTemplateVar _ i _) = "(unknown template type #" ++ show i ++ ")"
   show (TypeTypeParam tp) = "type param " ++ s_unpack (showTypePath tp)
   show (TypeRuleSet tp) = "rules " ++ (s_unpack $ showTypePath tp)
   show (TypeSelf) = "Self"
@@ -197,9 +199,12 @@ mapType f t = f t
 
 -- FIXME: name...
 mapType_ :: (ConcreteType -> a) -> ConcreteType -> [a]
-mapType_ f t = (f t) : (case t of
-                          TypePtr t -> mapType_ f t
-                          _ -> [])
+mapType_ f t =
+  (f t)
+    : (case t of
+        TypePtr t -> mapType_ f t
+        _         -> []
+      )
 
 substituteParams
   :: [(TypePath, ConcreteType)] -> ConcreteType -> IO ConcreteType

@@ -216,6 +216,17 @@ _follow ctx tctx stack t = do
         Just t  -> r t
         -- No specific type; return type var
         Nothing -> return t
+    TypeTemplateVar requiredParams i pos -> do
+      params <- forMWithErrors requiredParams $ \tp -> do
+        case resolveTypeParam tp (tctxTypeParams tctx) of
+          Just t  -> return t
+          Nothing -> throwk $ TypingError
+            (  "Required type parameter not in scope: "
+            ++ s_unpack (showTypePath tp)
+            )
+            NoPos
+      i <- templateVarToTypeVar ctx i params pos
+      r $ TypeTypeVar i
     TypeInstance tp params -> do
       resolvedParams <- forM params (r)
       return $ TypeInstance tp resolvedParams
