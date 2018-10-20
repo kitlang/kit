@@ -20,6 +20,7 @@ data Binding a b
   | RuleSetBinding (RuleSet a b)
   | TypedefBinding ConcreteType Span
   | ExprBinding a
+  | ModuleBinding TypePath
   deriving (Show, Eq)
 
 bindingPos (VarBinding      x   ) = varPos x
@@ -29,7 +30,8 @@ bindingPos (TraitBinding    x   ) = traitPos x
 bindingPos (EnumConstructor x   ) = variantPos x
 bindingPos (RuleSetBinding  x   ) = ruleSetPos x
 bindingPos (TypedefBinding _ pos) = pos
-bindingPos (ExprBinding x       ) = position x
+bindingPos (ExprBinding   x     ) = position x
+bindingPos (ModuleBinding _     ) = NoPos
 
 bindingIsPublic binding = case binding of
   VarBinding      v -> isPublic (varModifiers v)

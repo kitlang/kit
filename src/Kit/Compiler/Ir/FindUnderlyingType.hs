@@ -28,7 +28,7 @@ _findUnderlyingType ctx mod pos stack t = do
   veryNoisyDebugLog ctx $ "find underlying type " ++ show t
   modTctx <- modTypeContext ctx mod
   x       <- case t of
-    TypeBasicType b       -> return b
+    TypeBasicType b         -> return b
     TypeAnonStruct s fields -> do
       fields' <- forM
         fields
@@ -45,8 +45,7 @@ _findUnderlyingType ctx mod pos stack t = do
           return (name, t')
         )
       return $ BasicTypeAnonUnion s fields'
-    TypeAnonEnum s variants ->
-      return $ BasicTypeAnonEnum s variants
+    TypeAnonEnum s variants -> return $ BasicTypeAnonEnum s variants
 
     -- TypeTypedef TypePath [ConcreteType]
     -- TypeFunction ConcreteType ConcreteArgs Bool
@@ -54,15 +53,16 @@ _findUnderlyingType ctx mod pos stack t = do
     -- TypeEnumConstructor TypePath ConcreteArgs
     -- TypeRange
     -- TypeTraitPointer TypePath
-    TypeArray t s -> do
+    TypeArray    t s        -> do
       t <- r t
       return $ CArray t (if s == 0 then Nothing else Just s)
     TypeInstance (["kit", "common"], "CArray") [t, s] -> do
       tctx <- newTypeContext []
       size <- follow ctx tctx s
       case size of
-        s@(ConstantType (IntValue i)) -> findUnderlyingType ctx mod pos (TypeArray t i)
-        _                  -> throwk
+        s@(ConstantType (IntValue i)) ->
+          findUnderlyingType ctx mod pos (TypeArray t i)
+        _ -> throwk
           $ BasicError ("Invalid Array size parameter: " ++ show size) pos
     TypePtr t -> do
       t' <- r t
@@ -102,9 +102,9 @@ _findUnderlyingType ctx mod pos stack t = do
         ++ "; this is probably an error with monomorph generation!"
         )
         pos
-    ConstantType x    -> return BasicTypeUnknown {-throwk $ InternalError
-      ("Constant type (" ++ show x ++ ") can't be used as the type of a value")
-      pos-}
+    ConstantType x -> return BasicTypeUnknown
+    ModuleType tp ->
+      throwk $ InternalError "Modules can't be used as runtime values" pos
     TypeInstance tp p -> do
       templateDef <- getTypeDefinition ctx tp
       params      <- forM p (mapType $ follow ctx modTctx)

@@ -626,7 +626,7 @@ BinopTermCons :: {Expr}
 --   : token LexMacroTokenAny {pe (snd $1 <+> snd $2) $ TokenExpr $ tc [$2]}
   -- | BinopTermTernary {$1}
 BinopTermTernary :: {Expr}
-  : if BinopTermOr then BinopTermOr else BinopTermTernary {pe (snd $1 <+> pos $6) $ If $2 $4 (Just $6)}
+  : if BinopTermTernary then BinopTermTernary else BinopTermTernary {pe (snd $1 <+> pos $6) $ If $2 $4 (Just $6)}
   | BinopTermOr {$1}
 BinopTermOr :: {Expr}
   : BinopTermAnd {$1}
@@ -667,8 +667,12 @@ BinopTermMul :: {Expr}
   | BinopTermMul '/' BinopTermCustom {pe (pos $1 <+> pos $3) $ Binop Div $1 $3}
   | BinopTermMul '%' BinopTermCustom {pe (pos $1 <+> pos $3) $ Binop Mod $1 $3}
 BinopTermCustom :: {Expr}
-  : Unop {$1}
-  | BinopTermCustom custom_op Unop {pe (pos $1 <+> pos $3) $ Binop (Custom $ extract_custom_op $2) $1 $3}
+  : CastExpr {$1}
+  | BinopTermCustom custom_op CastExpr {pe (pos $1 <+> pos $3) $ Binop (Custom $ extract_custom_op $2) $1 $3}
+
+CastExpr :: {Expr}
+  : CastExpr as TypeSpec {pe (pos $1 <+> snd $3) $ Cast $1 (Just $ fst $3)}
+  | Unop {$1}
 
 Unop :: {Expr}
   : "++" VecExpr {pe (snd $1 <+> pos $2) $ PreUnop Inc $2}
@@ -686,15 +690,11 @@ VecExpr :: {Expr}
   : '[' ArrayElems ']' {pe (snd $1 <+> snd $3) $ ArrayLiteral $ reverse $2}
   | '[' ArrayElems ',' ']' {pe (snd $1 <+> snd $4) $ ArrayLiteral $ reverse $2}
   | '[' ']' { pe (snd $1 <+> snd $2) $ ArrayLiteral []}
-  | CastExpr {$1}
+  | ArrayAccessCallFieldExpr {$1}
 
 ArrayElems :: {[Expr]}
   : Expr {[$1]}
   | ArrayElems ',' Expr {$3 : $1}
-
-CastExpr :: {Expr}
-  : CastExpr as TypeSpec {pe (pos $1 <+> snd $3) $ Cast $1 (Just $ fst $3)}
-  | ArrayAccessCallFieldExpr {$1}
 
 ArrayAccessCallFieldExpr :: {Expr}
   : ArrayAccessCallFieldExpr '[' ArrayElems ']' {foldr (\x acc -> pe (pos $1 <+> snd $4) $ ArrayAccess acc x) $1 $3}

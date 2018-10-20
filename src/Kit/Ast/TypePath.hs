@@ -20,3 +20,6 @@ addNamespace n (_, s) = (n, s)
 
 tpShift ([], s) = ([], s)
 tpShift (n , s) = let (h : t) = reverse n in (reverse t, h)
+
+modulePathToTypePath :: ModulePath -> TypePath
+modulePathToTypePath mod = let (h : t) = reverse mod in (reverse t, h)

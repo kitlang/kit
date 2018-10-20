@@ -1,0 +1,12 @@
+function panic(i: Int) {
+    // this should shadow the builtin panic function
+    printf("called local panic\n");
+}
+
+function main() {
+    panic(1);
+
+    // the function signature differs, so this will fail to compile unless
+    // it resolve to the real builtin panic function
+    var x: function (CString) -> Void = kit.utils.panic;
+}

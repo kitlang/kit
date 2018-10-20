@@ -154,7 +154,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           binding <- resolveVar ctx (tctxScopes tctx) mod (tpName vname)
           case binding of
             Just binding@(EnumConstructor _) -> do
-              x <- typeVarBinding ctx tctx (tpName vname) binding pos
+              x <- typeVarBinding ctx tctx binding pos
               return $ x { tIsLvalue = True }
             _ -> return ex
         (TypingExprOrType, Var vname) -> do
@@ -178,7 +178,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                 _      -> lookupBinding ctx vname
               case binding of
                 Just binding -> do
-                  x <- typeVarBinding ctx tctx (tpName vname) binding pos
+                  x <- typeVarBinding ctx tctx binding pos
                   return $ x { tIsLvalue = True }
                 Nothing ->
                   case
@@ -657,7 +657,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                           Just (TypeInstance tp2 params2) | tp2 == tp -> True
                           _ -> bindingIsPublic binding
                     when (not accessible) failNotPublic
-                    x <- typeVarBinding ctx tctx' fieldName binding pos
+                    x <- typeVarBinding ctx tctx' binding pos
                     f <- mapType (follow ctx tctx') $ inferredType x
                     case binding of
                       FunctionBinding _ -> return $ makeExprTyped
@@ -696,7 +696,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                     method <- lookupBinding ctx $ subPath tp fieldName
                     case method of
                       Just binding -> do
-                        x <- typeVarBinding ctx tctx' fieldName binding pos
+                        x <- typeVarBinding ctx tctx' binding pos
                         let
                           typed = makeExprTyped
                             (Field
@@ -737,7 +737,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                   Just binding -> do
                     params <- makeGeneric ctx tp pos params
                     let tctx' = addTypeParams tctx params
-                    result <- typeVarBinding ctx tctx' fieldName binding pos
+                    result <- typeVarBinding ctx tctx' binding pos
                     t      <- mapType (follow ctx tctx') $ inferredType result
                     return $ result
                       { inferredType = t
@@ -773,7 +773,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                           _ -> bindingIsPublic x
                     when (not accessible) failNotPublic
                     -- this is a local method
-                    typed' <- typeVarBinding ctx tctx' fieldName x pos
+                    typed' <- typeVarBinding ctx tctx' x pos
                     t      <- mapType (follow ctx tctx') (inferredType typed')
                     let typed = typed' { inferredType = t }
                     -- this may be a template; replace `this` with the actual
@@ -840,6 +840,17 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                     x -> throwk $ TypingError
                       ("Field access is not allowed on " ++ show x)
                       pos
+
+              ModuleType tp -> do
+                let newPath = subPath tp fieldName
+                binding <- lookupBinding ctx newPath
+                case binding of
+                  Just binding -> do
+                    x <- typeVarBinding ctx tctx binding pos
+                    return $ x { tIsLvalue = True }
+                  Nothing -> throwk $ TypingError
+                    ("Unknown identifier " ++ s_unpack (showTypePath newPath))
+                    pos
 
               x -> throwk $ TypingError
                 ("Field access is not allowed on " ++ show x)
@@ -1068,7 +1079,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       let
         typeVarDec = do
           varType <- follow ctx tctx $ inferredType ex
-          init' <- case init of
+          init'   <- case init of
             Just e1 -> do
               r1        <- r e1
               converted <- tryAutoRefDeref ctx tctx varType r1
@@ -1459,8 +1470,8 @@ findStructUnionField (h : t) fieldName = if (tpName $ varName h) == fieldName
 findStructUnionField [] _ = Nothing
 
 typeVarBinding
-  :: CompileContext -> TypeContext -> Str -> TypedBinding -> Span -> IO TypedExpr
-typeVarBinding ctx tctx name binding pos = do
+  :: CompileContext -> TypeContext -> TypedBinding -> Span -> IO TypedExpr
+typeVarBinding ctx tctx binding pos = do
   case binding of
     ExprBinding     x   -> return x
     EnumConstructor def -> do
@@ -1502,6 +1513,8 @@ typeVarBinding ctx tctx name binding pos = do
     TypeBinding t -> return $ makeExprTyped (Identifier (Var $ typeName t))
                                             (TypeTypeOf (typeName t) [])
                                             pos
+    ModuleBinding tp ->
+      return $ makeExprTyped (Identifier (Var tp)) (ModuleType tp) pos
     _ -> throwk $ InternalError (show binding) (Just pos)
 
 exprToType

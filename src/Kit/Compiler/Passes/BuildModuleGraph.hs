@@ -166,9 +166,23 @@ _loadModule ctx mod pos = do
   imports <- findImports ctx mod stmts
   let includes   = findIncludes stmts
   let createdMod = m { modImports = imports }
-  writeIORef (modIncludes createdMod) includes
+  writeIORef     (modIncludes createdMod) includes
+  addModuleTypes ctx                      (modulePathToTypePath mod)
   decls <- forMWithErrors stmts (addStmtToModuleInterface ctx m)
   return (createdMod, foldr (++) [] decls)
+
+addModuleTypes :: CompileContext -> TypePath -> IO ()
+addModuleTypes ctx tp = do
+  -- TODO: error on collision
+  existing <- h_lookup (ctxBindings ctx) tp
+  case existing of
+    Just (ModuleBinding _) -> return ()
+    Just x                 -> throwk $ BasicError
+      ("Module name shadows a module binding: " ++ s_unpack (showTypePath tp))
+      (Just $ bindingPos x)
+    Nothing -> return ()
+  h_insert (ctxBindings ctx) tp $ ModuleBinding tp
+  when (not $ null $ tpNamespace tp) $ addModuleTypes ctx $ tpShift tp
 
 _loadImportedModule
   :: CompileContext

@@ -96,6 +96,7 @@ data ConcreteType
   | TypeRuleSet TypePath
   | TypeSelf
   | ConstantType ValueLiteral
+  | ModuleType TypePath
   | UnresolvedType TypeSpec ModulePath
   deriving (Eq, Generic)
 
@@ -129,6 +130,7 @@ instance Show ConcreteType where
   show (TypeRuleSet tp) = "rules " ++ (s_unpack $ showTypePath tp)
   show (TypeSelf) = "Self"
   show (ConstantType v) = "$" ++ show v
+  show (ModuleType tp) = "module " ++ s_unpack (showTypePath tp)
   show (UnresolvedType t _) = show t
 
 -- concreteTypeAbbreviation t = case t of
