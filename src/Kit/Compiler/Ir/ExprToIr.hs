@@ -380,6 +380,7 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
       (EnumInit (TypeInstance tp p) discriminant args) -> do
         tctx           <- modTypeContext ctx mod
         resolvedParams <- forM p $ mapType $ follow ctx tctx
+        f <- findUnderlyingType ctx mod (Just pos) (TypeInstance tp resolvedParams)
         let disc = if null $ tpNamespace discriminant
               then discriminant
               else subPath (monomorphName tp resolvedParams)

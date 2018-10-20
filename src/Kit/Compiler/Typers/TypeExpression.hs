@@ -653,7 +653,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                           }
                         )
                         params
-                    let accessible = case tctxSelf tctx of
+                    let accessible = case tctxSelf tctx' of
                           Just (TypeInstance tp2 params2) | tp2 == tp -> True
                           _ -> bindingIsPublic binding
                     when (not accessible) failNotPublic
@@ -1478,6 +1478,7 @@ typeVarBinding ctx tctx binding pos = do
       let parentTp     = variantParent def
       let discriminant = variantName def
       let extern       = hasMeta "extern" (variantMeta def)
+      -- FIXME
       params <- makeGeneric ctx parentTp pos []
       let tctx' = addTypeParams tctx params
       let ct    = TypeInstance parentTp $ map snd params

@@ -291,6 +291,11 @@ resolveTypesForMod pass ctx (mod, contents) = do
           case typeSubtype converted of
             Enum { enumVariants = variants } ->
               forMWithErrors_ variants $ \variant -> do
+                print variant
+                h_insert
+                  (ctxBindings ctx)
+                  (subPath (typeName converted) (tpName $ variantName variant))
+                  (EnumConstructor variant)
                 addToInterface ctx
                                mod
                                ([], tpName $ variantName variant)
