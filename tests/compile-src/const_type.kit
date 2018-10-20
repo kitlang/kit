@@ -1,0 +1,56 @@
+struct ByteBuffer[$N] {
+    var data: CArray[Uint8, N] = empty;
+
+    rules {
+        // BUG: type rules need to resolve type params in the context of their definer
+        ($this[$i]) => if $i < 0 then $this.data[N - $i] else $this.data[$i];
+    }
+
+    public static function new(): ByteBuffer[N] {
+        return struct Self {
+            data: empty,
+        };
+    }
+
+    public static function new2(): ByteBuffer[N] {
+        var s = struct Self {};
+        s.data[0] = 1;
+        return s;
+    }
+
+    public function capacity(): Size {
+        return N;
+    }
+
+    public function eq(other: Self): Bool {
+        for i in 0 ... N {
+            if this.data[i] != other.data[i] {
+                return false;
+            }
+        }
+        return true;
+    }
+}
+
+function main() {
+    var x: ByteBuffer[2] = struct ByteBuffer[2] {data: empty};
+    x.data = [1, 2];
+    printf("%zu\n", x.capacity());
+
+    var y: ByteBuffer[0x2] = ByteBuffer.new();
+    var z: ByteBuffer[0b10] = ByteBuffer.new2();
+    printf("%s\n", if y.eq(z) then "equal" else "not equal");
+
+    // BUG: having two monomorphs breaks the type interface!
+    var a: ByteBuffer[0x100] = ByteBuffer[0x100].new();
+    // not yet implemented
+    // var b: ByteBuffer[128 + 128] = a;
+    printf("%zu\n", a.capacity());
+    // printf("%zu\n", b.capacity());
+    a.data[0] = 1;
+
+    // a[2] = 0xfe;
+    // a[0xff] = 0xed;
+    // printf("%.2x\n", a[2]);
+    // printf("%.2x\n", a[-1]);
+}

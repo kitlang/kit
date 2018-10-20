@@ -37,7 +37,7 @@ h_get m k = do
   val <- h_lookup m k
   return $ case val of
     Just x  -> x
-    Nothing -> error ("Unexpected missing HashTable key: " ++ show k)
+    Nothing -> error $ "Unexpected missing HashTable key: " ++ show k
 
 h_toList :: (Eq k, Hashable k) => HashTable k v -> IO [(k, v)]
 h_toList = H.toList

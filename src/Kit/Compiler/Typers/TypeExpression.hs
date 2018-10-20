@@ -377,7 +377,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
     (For e1@(TypedExpr { tExpr = Identifier (Var id) }) e2 e3) -> do
       r2 <- r e2
-      let tv = inferredType e1
+      tv <- follow ctx tctx $ inferredType e1
       case tExpr r2 of
         RangeLiteral eFrom eTo -> do
           forMWithErrors_ [eFrom, eTo] $ \x -> resolve $ TypeEq
@@ -403,7 +403,9 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
             mod
             e3
 
-          return $ makeExprTyped (For e1 r2 r3) voidType pos
+          return $ makeExprTyped (For (e1 { inferredType = tv }) r2 r3)
+                                 voidType
+                                 pos
 
         _ -> do
           tryRewrite (makeExprTyped (For e1 r2 e3) voidType pos) $ do
@@ -505,6 +507,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       r1 <- typeMaybeExpr ctx tctx mod e1
       case (tctxReturnType tctx, r1) of
         (Just rt, Just r1) -> do
+          rt <- follow ctx tctx rt
           r1 <- tryAutoRefDeref ctx tctx rt r1
           resolve $ TypeEq (rt)
                            (inferredType r1)
@@ -977,8 +980,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         resolveArrayAccess $ inferredType r1
 
     (Cast e1 t) -> do
-      t <- mapType (follow ctx tctx) t
-      t <- makeGenericConcrete ctx pos t
+      t  <- mapType (follow ctx tctx) t
+      t  <- makeGenericConcrete ctx pos t
       r1 <- r e1
       tryRewrite (makeExprTyped (Cast r1 t) t pos) $ do
         let cast = return $ makeExprTyped (Cast r1 t) t pos
@@ -1064,7 +1067,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
       let
         typeVarDec = do
-          let varType = inferredType ex
+          varType <- follow ctx tctx $ inferredType ex
           init' <- case init of
             Just e1 -> do
               r1        <- r e1
@@ -1124,6 +1127,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       throwk $ InternalError "Not yet implemented" (Just pos)
 
     (StructInit structType@(TypeInstance tp p) fields) -> do
+      p         <- forMWithErrors p $ follow ctx tctx
       params    <- makeGeneric ctx tp pos p
       structDef <- getTypeDefinition ctx tp
       let tctx' = addTypeParams tctx params
@@ -1455,7 +1459,7 @@ findStructUnionField (h : t) fieldName = if (tpName $ varName h) == fieldName
 findStructUnionField [] _ = Nothing
 
 typeVarBinding
-  :: CompileContext -> TypeContext -> Str -> Binding -> Span -> IO TypedExpr
+  :: CompileContext -> TypeContext -> Str -> TypedBinding -> Span -> IO TypedExpr
 typeVarBinding ctx tctx name binding pos = do
   case binding of
     ExprBinding     x   -> return x

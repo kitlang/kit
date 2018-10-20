@@ -30,6 +30,9 @@ data TypeDefinition a b = TypeDefinition {
   typeParams :: [TypeParam b]
 } deriving (Eq, Show)
 
+instance Positioned (TypeDefinition a b) where
+  position = typePos
+
 typeSubPath :: TypeDefinition a b -> Str -> TypePath
 typeSubPath def s = subPath (typeName def) s
 

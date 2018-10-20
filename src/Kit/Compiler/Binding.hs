@@ -2,7 +2,6 @@ module Kit.Compiler.Binding where
 
 import Kit.Ast
 import Kit.Compiler.TypedExpr
-import Kit.Ast.Span
 
 {-
   Bindings are used as part of each Module's interface; they map names to type
@@ -12,15 +11,15 @@ import Kit.Ast.Span
 
   Types in these bindings will be type variables; expressions are meaningless.
 -}
-data Binding
-  = VarBinding (VarDefinition TypedExpr ConcreteType)
-  | FunctionBinding (FunctionDefinition TypedExpr ConcreteType)
-  | TypeBinding (TypeDefinition TypedExpr ConcreteType)
-  | TraitBinding (TraitDefinition TypedExpr ConcreteType)
-  | EnumConstructor (EnumVariant TypedExpr ConcreteType)
-  | RuleSetBinding (RuleSet TypedExpr ConcreteType)
+data Binding a b
+  = VarBinding (VarDefinition a b)
+  | FunctionBinding (FunctionDefinition a b)
+  | TypeBinding (TypeDefinition a b)
+  | TraitBinding (TraitDefinition a b)
+  | EnumConstructor (EnumVariant a b)
+  | RuleSetBinding (RuleSet a b)
   | TypedefBinding ConcreteType Span
-  | ExprBinding TypedExpr
+  | ExprBinding a
   deriving (Show, Eq)
 
 bindingPos (VarBinding      x   ) = varPos x
@@ -30,9 +29,12 @@ bindingPos (TraitBinding    x   ) = traitPos x
 bindingPos (EnumConstructor x   ) = variantPos x
 bindingPos (RuleSetBinding  x   ) = ruleSetPos x
 bindingPos (TypedefBinding _ pos) = pos
-bindingPos (ExprBinding x       ) = tPos x
+bindingPos (ExprBinding x       ) = position x
 
 bindingIsPublic binding = case binding of
   VarBinding      v -> isPublic (varModifiers v)
   FunctionBinding f -> isPublic (functionModifiers f)
   _                 -> True
+
+type SyntacticBinding = Binding Expr (Maybe TypeSpec)
+type TypedBinding = Binding TypedExpr ConcreteType

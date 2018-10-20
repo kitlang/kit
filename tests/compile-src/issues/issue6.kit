@@ -1,0 +1,43 @@
+struct GenericStruct[T, $N] {
+    public static function staticFunction(): T {
+        return 1;
+    }
+
+    rules {
+        ($this.capacity) => N as Size;
+    }
+
+    public var data: CArray[T, N] = empty;
+
+    public function testFunc(): T {
+        return this.data[0];
+    }
+
+    public function zero(): T {
+        var x: CArray[T, N] = empty;
+        return x[0];
+    }
+}
+
+function main() {
+    var a = struct GenericStruct[Int, 1];
+    var b = struct GenericStruct[Float, 2];
+    var c = struct GenericStruct[Int, 3];
+    a.data[0] = 1;
+    b.data[0] = 2.5;
+    b.data[1] = 3.5;
+
+    printf("%zu\n", a.capacity);
+    printf("%zu\n", b.capacity);
+    printf("%zu\n", c.capacity);
+
+    printf(if sizeof GenericStruct[Int, 1] < sizeof GenericStruct[Float, 2] then "smaller; expected\n" else "bigger; unexpected\n");
+    printf("%i\n", a.testFunc());
+    printf("%.2f\n", b.testFunc());
+
+    printf("%i\n", a.zero());
+    printf("%.2f\n", b.zero());
+
+    var e = GenericStruct[Int, 4].staticFunction();
+    var f = GenericStruct[Int, 7].staticFunction();
+}

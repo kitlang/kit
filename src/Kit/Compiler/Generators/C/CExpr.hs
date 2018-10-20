@@ -68,7 +68,7 @@ cDecl t ident body = u
 
 u x = x undefNode
 cpos p x =
-  x $ mkNodeInfoOnlyPos $ position 0 (file p) (startLine p) (startCol p) Nothing
+  x $ mkNodeInfoOnlyPos $ Language.C.Data.Position.position 0 (file p) (startLine p) (startCol p) Nothing
 
 ctype :: BasicType -> ([CTypeSpec], [CDerivedDeclr])
 ctype BasicTypeVoid    = ([u CVoidType], [])

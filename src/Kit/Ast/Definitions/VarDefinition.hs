@@ -20,6 +20,9 @@ data VarDefinition a b = VarDefinition {
   varIsConst :: Bool
 } deriving (Eq, Show)
 
+instance Positioned (VarDefinition a b) where
+  position = varPos
+
 varRealName f =
   if hasMeta "extern" (varMeta f) then ([], tpName $ varName f) else varName f
 

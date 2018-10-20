@@ -212,8 +212,6 @@ resolveConstraint ctx tctx constraint@(TypeEq a b reason pos) = do
         h_insert (ctxTypeVariables ctx)
                  (typeVarId info2)
                  (info2 { typeVarConstraints = constraints })
-        unresolved <- h_exists (ctxUnresolvedTypeVars ctx) (typeVarId info1)
-        when unresolved $ h_delete (ctxUnresolvedTypeVars ctx) (typeVarId info1)
     TypeVarIs id x -> do
       info <- getTypeVar ctx id
       let constraints = typeVarConstraints info
@@ -228,8 +226,6 @@ resolveConstraint ctx tctx constraint@(TypeEq a b reason pos) = do
       h_insert (ctxTypeVariables ctx)
                (typeVarId info)
                (info { typeVarValue = Just x })
-      unresolved <- h_exists (ctxUnresolvedTypeVars ctx) (typeVarId info)
-      when unresolved $ h_delete (ctxUnresolvedTypeVars ctx) (typeVarId info)
     TypeVarConstraint id constraint -> do
       info <- getTypeVar ctx id
       h_insert (ctxTypeVariables ctx)

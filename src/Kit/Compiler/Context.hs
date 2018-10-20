@@ -32,11 +32,13 @@ data CompileContext = CompileContext {
   ctxTraitSpecializations :: HashTable TypePath (ConcreteType, Span),
   ctxImpls :: HashTable TraitConstraint (HashTable ConcreteType (TraitImplementation TypedExpr ConcreteType)),
   -- ctxGenericImpls :: HashTable
-  ctxBindings :: HashTable TypePath Binding,
+  ctxTypes :: HashTable TypePath SyntacticBinding,
+  ctxBindings :: HashTable TypePath TypedBinding,
   ctxTypedefs :: HashTable Str ConcreteType,
   ctxPendingGenerics :: IORef [(TypePath, [ConcreteType])],
-  ctxCompleteGenerics :: HashTable (TypePath, [ConcreteType]) (),
-  ctxUnresolvedTypeVars :: HashTable Int (),
+  ctxCompleteGenerics :: HashTable TypePath (HashTable [ConcreteType] ()),
+  ctxUnresolvedTypeVars :: IORef [Int],
+  ctxUnresolvedTemplateVars :: IORef [(Int, [ConcreteType], Span)],
 
   -- options
   ctxVerbose :: Int,
@@ -61,57 +63,61 @@ data CompileContext = CompileContext {
 
 newCompileContext :: IO CompileContext
 newCompileContext = do
-  mods             <- h_new
-  failed           <- h_new
-  preludes         <- h_new
-  includes         <- newIORef []
-  lastTypeVar      <- newIORef 0
-  lastTemplateVar  <- newIORef 0
-  specs            <- h_new
-  impls            <- h_new
-  typedefs         <- h_new
+  mods               <- h_new
+  failed             <- h_new
+  preludes           <- h_new
+  includes           <- newIORef []
+  lastTypeVar        <- newIORef 0
+  lastTemplateVar    <- newIORef 0
+  specs              <- h_new
+  impls              <- h_new
+  typedefs           <- h_new
   -- make these big so we're less likely to have to resize later
-  typeVars         <- h_newSized 4096
-  templateVars     <- h_newSized 2048
-  bindings         <- h_newSized 4096
-  pendingGenerics  <- newIORef []
-  completeGenerics <- h_new
-  unresolved       <- h_new
-  defaultIncludes  <- defaultIncludePaths
+  typeVars           <- h_newSized 4096
+  templateVars       <- h_newSized 2048
+  types              <- h_newSized 256
+  bindings           <- h_newSized 4096
+  pendingGenerics    <- newIORef []
+  completeGenerics   <- h_new
+  unresolved         <- newIORef []
+  unresolvedTemplate <- newIORef []
+  defaultIncludes    <- defaultIncludePaths
   return $ CompileContext
-    { ctxMainModule           = ["main"]
-    , ctxIsLibrary            = False
-    , ctxSourcePaths          = ["src"]
-    , ctxCompilerPath         = Nothing
-    , ctxIncludePaths         = defaultIncludes
-    , ctxBuildDir             = "build"
-    , ctxOutputPath           = "main"
-    , ctxDefines              = []
-    , ctxModules              = mods
-    , ctxFailedModules        = failed
-    , ctxPreludes             = preludes
-    , ctxVerbose              = 0
-    , ctxIncludes             = includes
-    , ctxLastTypeVar          = lastTypeVar
-    , ctxLastTemplateVar      = lastTemplateVar
-    , ctxUnresolvedTypeVars   = unresolved
-    , ctxTypeVariables        = typeVars
-    , ctxTemplateVariables    = templateVars
-    , ctxTraitSpecializations = specs
-    , ctxImpls                = impls
-    , ctxTypedefs             = typedefs
-    , ctxBindings             = bindings
-    , ctxPendingGenerics      = pendingGenerics
-    , ctxCompleteGenerics     = completeGenerics
-    , ctxCompilerFlags        = []
-    , ctxLinkerFlags          = []
-    , ctxNoCompile            = False
-    , ctxNoLink               = False
-    , ctxDumpAst              = False
-    , ctxNoCcache             = False
-    , ctxRecursionLimit       = 64
-    , ctxRun                  = False
-    , ctxNameMangling         = True
+    { ctxMainModule             = ["main"]
+    , ctxIsLibrary              = False
+    , ctxSourcePaths            = ["src"]
+    , ctxCompilerPath           = Nothing
+    , ctxIncludePaths           = defaultIncludes
+    , ctxBuildDir               = "build"
+    , ctxOutputPath             = "main"
+    , ctxDefines                = []
+    , ctxModules                = mods
+    , ctxFailedModules          = failed
+    , ctxPreludes               = preludes
+    , ctxVerbose                = 0
+    , ctxIncludes               = includes
+    , ctxLastTypeVar            = lastTypeVar
+    , ctxLastTemplateVar        = lastTemplateVar
+    , ctxUnresolvedTypeVars     = unresolved
+    , ctxUnresolvedTemplateVars = unresolvedTemplate
+    , ctxTypeVariables          = typeVars
+    , ctxTemplateVariables      = templateVars
+    , ctxTraitSpecializations   = specs
+    , ctxImpls                  = impls
+    , ctxTypedefs               = typedefs
+    , ctxTypes                  = types
+    , ctxBindings               = bindings
+    , ctxPendingGenerics        = pendingGenerics
+    , ctxCompleteGenerics       = completeGenerics
+    , ctxCompilerFlags          = []
+    , ctxLinkerFlags            = []
+    , ctxNoCompile              = False
+    , ctxNoLink                 = False
+    , ctxDumpAst                = False
+    , ctxNoCcache               = False
+    , ctxRecursionLimit         = 64
+    , ctxRun                    = False
+    , ctxNameMangling           = True
     }
 
 ctxSourceModules :: CompileContext -> IO [Module]
@@ -119,13 +125,16 @@ ctxSourceModules ctx = do
   mods <- (h_toList (ctxModules ctx))
   return $ filter (\m -> not (modIsCModule m)) (map snd mods)
 
-addBinding :: CompileContext -> TypePath -> Binding -> IO ()
+addBinding :: CompileContext -> TypePath -> TypedBinding -> IO ()
 addBinding ctx tp b = h_insert (ctxBindings ctx) tp b
 
-lookupBinding :: CompileContext -> TypePath -> IO (Maybe Binding)
+addTypeBinding :: CompileContext -> TypePath -> SyntacticBinding -> IO ()
+addTypeBinding ctx tp b = h_insert (ctxTypes ctx) tp b
+
+lookupBinding :: CompileContext -> TypePath -> IO (Maybe TypedBinding)
 lookupBinding ctx tp = h_lookup (ctxBindings ctx) tp
 
-getBinding :: CompileContext -> TypePath -> IO Binding
+getBinding :: CompileContext -> TypePath -> IO TypedBinding
 getBinding ctx tp = do
   b <- lookupBinding ctx tp
   case b of
@@ -133,19 +142,6 @@ getBinding ctx tp = do
     Nothing -> throwk $ KitError $ InternalError
       ("Unexpected missing binding for " ++ s_unpack (showTypePath tp))
       Nothing
-
-addToInterface
-  :: CompileContext -> Module -> Str -> Binding -> Bool -> Bool -> IO ()
-addToInterface ctx mod name b namespace allowCollisions = do
-  unless allowCollisions $ do
-    existing <- h_lookup (ctxBindings ctx) (modPath mod, name)
-    case existing of
-      Just x -> throwk $ DuplicateDeclarationError (modPath mod)
-                                                   name
-                                                   (bindingPos x)
-                                                   (bindingPos b)
-      _ -> return ()
-  h_insert (ctxBindings ctx) (modPath mod, name) b
 
 getMod :: CompileContext -> ModulePath -> IO Module
 getMod ctx mod = do
@@ -165,8 +161,8 @@ makeTypeVar ctx pos = do
   last <- readIORef (ctxLastTypeVar ctx)
   let next = last + 1
   writeIORef (ctxLastTypeVar ctx) next
-  h_insert (ctxTypeVariables ctx)      next (newTypeVarInfo next pos)
-  h_insert (ctxUnresolvedTypeVars ctx) next ()
+  h_insert (ctxTypeVariables ctx) next (newTypeVarInfo next pos)
+  modifyIORef (ctxUnresolvedTypeVars ctx) (\existing -> next : existing)
   when (ctxVerbose ctx > 1)
     $  logMsg (Just Debug)
     $  "made type var: "
@@ -175,6 +171,7 @@ makeTypeVar ctx pos = do
     ++ show pos
   return $ TypeTypeVar next
 
+makeTemplateVar :: CompileContext -> [TypePath] -> Span -> IO ConcreteType
 makeTemplateVar ctx requiredParams pos = do
   last <- readIORef (ctxLastTemplateVar ctx)
   let next = last + 1
@@ -187,7 +184,7 @@ makeTemplateVar ctx requiredParams pos = do
     ++ show next
     ++ " at "
     ++ show pos
-  return $ TypeTemplateVar requiredParams next
+  return $ TypeTemplateVar requiredParams next pos
 
 getTypeVar :: CompileContext -> Int -> IO TypeVarInfo
 getTypeVar ctx tv = do
@@ -207,11 +204,17 @@ templateVarToTypeVar ctx tv params pos = do
     Nothing -> do
       -- create a new type var for this monomorph
       (TypeTypeVar i) <- makeTypeVar ctx pos
+      modifyIORef (ctxUnresolvedTemplateVars ctx)
+                  (\existing -> (tv, params, pos) : existing)
       h_insert vals key i
       return i
 
 resolveVar
-  :: CompileContext -> [Scope Binding] -> Module -> Str -> IO (Maybe Binding)
+  :: CompileContext
+  -> [Scope TypedBinding]
+  -> Module
+  -> Str
+  -> IO (Maybe TypedBinding)
 resolveVar ctx scopes mod s = do
   local <- resolveBinding scopes s
   case local of
@@ -238,11 +241,28 @@ makeGeneric
   -> [ConcreteType]
   -> IO [(TypePath, ConcreteType)]
 makeGeneric ctx tp@(modPath, name) pos existing = do
-  binding <- getBinding ctx tp
-  let params = case binding of
-        TypeBinding     def -> typeParams def
-        FunctionBinding def -> functionParams def
-        TraitBinding    def -> traitAllParams def
+  when (ctxVerbose ctx > 2)
+    $  logMsg (Just Debug)
+    $  "make generic: "
+    ++ s_unpack (showTypePath tp)
+    ++ show existing
+  params <- do
+    binding <- h_lookup (ctxBindings ctx) tp
+    case binding of
+      Just x -> case x of
+        TypeBinding     def -> return $ typeParams def
+        FunctionBinding def -> return $ functionParams def
+        TraitBinding    def -> return $ traitAllParams def
+      Nothing -> do
+        binding <- h_get (ctxTypes ctx) tp
+        let c = converter (\expr -> undefined)
+                          (\_ (Just t) -> return $ UnresolvedType t modPath)
+        let params = case binding of
+              TypeBinding     def -> typeParams def
+              FunctionBinding def -> functionParams def
+              TraitBinding    def -> traitAllParams def
+        forMWithErrors params $ convertTypeParam c
+
   if null params
     then return []
     else do
@@ -252,9 +272,10 @@ makeGeneric ctx tp@(modPath, name) pos existing = do
         -- TODO: add param constraints here
               tv <- case value of
                 Just x  -> makeGenericConcrete ctx pos x
-                Nothing -> case typeParamDefault param of
-                  Just x  -> return x
-                  Nothing -> makeTypeVar ctx pos
+                Nothing -> do
+                  case typeParamDefault param of
+                    Just x -> return x
+                    _      -> makeTypeVar ctx pos
               return ((subPath tp $ paramName param), tv)
       let paramTypes = map snd params
       -- if the supplied type parameters are generic, this isn't a real monomorph

@@ -25,18 +25,25 @@ generateMonomorphs ctx = do
       mod        <- getMod ctx modPath
       tctx       <- modTypeContext ctx mod
       params     <- forM params' (mapType $ follow ctx tctx)
-      unresolved <- forM params $ typeUnresolved ctx tctx
+      let unresolved = map typeUnresolved params
       if or unresolved
         -- don't try to generate a monomorph if the params contain unresolved
         -- type variables; if we needed this monomorph and don't know its param
         -- values, it'll blow up elsewhere
         then return $ Just $ Left (tp, params')
         else do
-          existing <- h_lookup (ctxCompleteGenerics ctx) (tp, params)
+          tpMonos <- h_lookup (ctxCompleteGenerics ctx) tp
+          tpMonos <- case tpMonos of
+            Just x  -> return x
+            Nothing -> do
+              monos <- h_new
+              h_insert (ctxCompleteGenerics ctx) tp monos
+              return monos
+          existing <- h_lookup tpMonos params
           case existing of
             Just x -> return Nothing
             _      -> do
-              h_insert (ctxCompleteGenerics ctx) (tp, params) ()
+              h_insert tpMonos params ()
               binding <- getBinding ctx tp
               case binding of
                 FunctionBinding def -> do

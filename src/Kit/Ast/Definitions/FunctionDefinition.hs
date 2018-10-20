@@ -28,6 +28,9 @@ data FunctionDefinition a b = FunctionDefinition {
   functionVarargs :: Bool
 } deriving (Eq, Generic, Show)
 
+instance Positioned (FunctionDefinition a b) where
+  position = functionPos
+
 functionSubPath :: FunctionDefinition a b -> Str -> TypePath
 functionSubPath def s = if hasMeta "extern" (functionMeta def)
   then ([], s)
@@ -87,6 +90,9 @@ data ArgSpec a b = ArgSpec {
   argDefault :: Maybe a,
   argPos :: Span
 } deriving (Generic, Show)
+
+instance Positioned (ArgSpec a b) where
+  position = argPos
 
 instance (Eq a, Eq b) => Eq (ArgSpec a b) where
   (==) a b = (argName a == argName b) && (argType a == argType b) && (argDefault a == argDefault b)
