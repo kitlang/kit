@@ -7,32 +7,41 @@ import Kit.NameMangling
 import Kit.Ir
 import Kit.Str
 
-cfunDecl :: TypePath -> BasicType -> CDecl
-cfunDecl name (BasicTypeFunction rt args varargs) = u $ CDecl
-  (map CTypeSpec $ typeSpec)
-  [ ( Just $ u $ CDeclr
+cfunDecl :: FunctionDefinition IrExpr BasicType -> CDecl
+cfunDecl f@(FunctionDefinition { functionName = name, functionType = rt, functionArgs = args, functionVarargs = varargs })
+  = u $ CDecl
+    (map CTypeSpec typeSpec)
+    [ ( Just $ u $ CDeclr
+        (Just $ cIdent $ mangleName name)
+        ((u $ CFunDeclr (Right (map cfunArg args, varargs)) []) : derivedDeclr)
+        Nothing
+        (attributesFromMeta $ functionMeta f)
+      , Nothing
+      , Nothing
+      )
+    ]
+  where (typeSpec, derivedDeclr) = ctype rt
+
+cfunDef :: FunctionDefinition IrExpr BasicType -> CFunDef
+cfunDef f@(FunctionDefinition { functionName = name, functionType = rt, functionArgs = args, functionVarargs = varargs, functionBody = Just body })
+  = u $ CFunDef
+    (map CTypeSpec typeSpec)
+    (u $ CDeclr
       (Just $ cIdent $ mangleName name)
       ((u $ CFunDeclr (Right (map cfunArg args, varargs)) []) : derivedDeclr)
       Nothing
       []
-    , Nothing
-    , Nothing
     )
-  ]
-  where (typeSpec, derivedDeclr) = ctype rt
-
-cfunDef :: TypePath -> BasicType -> IrExpr -> CFunDef
-cfunDef name (BasicTypeFunction rt args varargs) body = u $ CFunDef
-  (map CTypeSpec $ typeSpec)
-  (u $ CDeclr
-    (Just $ cIdent $ mangleName name)
-    ((u $ CFunDeclr (Right (map cfunArg args, varargs)) []) : derivedDeclr)
-    Nothing
     []
-  )
-  []
-  (transpileStmt body)
+    (transpileStmt body)
   where (typeSpec, derivedDeclr) = ctype rt
 
-cfunArg :: (Str, BasicType) -> CDecl
-cfunArg (argName, argType) = cDecl argType (Just ([], argName)) Nothing
+cfunArg :: ArgSpec IrExpr BasicType -> CDecl
+cfunArg arg = cDecl (argType arg) (Just ([], argName arg)) Nothing
+
+attributesFromMeta :: [Metadata] -> [CAttr]
+attributesFromMeta (h : t) = case metaName h of
+  "inline"   -> (u $ CAttr (internalIdent "always_inline") []) : attributesFromMeta t
+  "noreturn" -> (u $ CAttr (internalIdent "noreturn") []) : attributesFromMeta t
+  _          -> attributesFromMeta t
+attributesFromMeta [] = []

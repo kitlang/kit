@@ -20,6 +20,17 @@ specializeTypes ctx = do
   templateVars <- unifyTemplateVars ctx
   return $ typeVars || templateVars
 
+{-
+  When we have unresolved type variables and typing isn't making progress,
+  we try to specialize type variables by looping over them and finding any
+  trait specializations that satisfy the type variable's constraints. If we
+  are able to specialize any, we should try typing again - the selection of a
+  default type might remove the blocker and allow full typing.
+
+  This is an attempt to unblock typing; we don't *need* to specialize all
+  unresolved type variables, and we might not be able to do so, so this step
+  shouldn't cause a failure.
+-}
 specializeTypeVars ctx = do
   unresolved          <- readIORef (ctxUnresolvedTypeVars ctx)
   (result, remaining) <- foldM
@@ -104,6 +115,15 @@ findDefaultType ctx id = do
               )
               (Just $ head $ typeVarPositions info)
 
+{-
+  Template variables generate a new type variable for each combination of
+  generic parameters for a given generic. Sometimes we have only partial
+  parameters, so we may create multiple type variables that eventually end up
+  pointing to the same monomorph - for example, we may have List[Int] and
+  List[Unknown 1] and later unify Unknown 1 with Int. When this happens, we
+  need to unify all of the type variables from both monomorphs' template
+  variables to infer their types and make sure they're consistent.
+-}
 unifyTemplateVars :: CompileContext -> IO Bool
 unifyTemplateVars ctx = do
   unresolved          <- readIORef (ctxUnresolvedTemplateVars ctx)

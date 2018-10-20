@@ -15,7 +15,7 @@ rules FormatString {
     // println(s.toString());
 // }
 
-function panic(msg: CString) {
+#[noreturn] function panic(msg: CString) {
     printf("%s\n", msg);
     exit(1);
 }

@@ -17,6 +17,7 @@ meta s = Metadata {metaName = s, metaArgs = []}
 metaExtern = "extern" :: Str
 metaBuiltin = "builtin" :: Str
 metaPromote = "promote" :: Str
+metaNoreturn = "noreturn" :: Str
 
 hasMeta :: Str -> [Metadata] -> Bool
 hasMeta s [] = False

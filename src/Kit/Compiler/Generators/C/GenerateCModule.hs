@@ -69,7 +69,7 @@ generateDef ctx codeFile decl = do
       -> do
         hPutStrLn
           codeFile
-          ("\n" ++ (render $ pretty $ cfunDef name (functionBasicType def) body)
+          ("\n" ++ (render $ pretty $ cfunDef def)
           )
 
     DeclVar def@(VarDefinition { varName = name, varType = t@(BasicTypeStruct n), varDefault = Just val })
