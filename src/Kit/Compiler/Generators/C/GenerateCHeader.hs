@@ -99,10 +99,10 @@ btOrder dependencies memos t = do
         BasicTypeUnion       tp -> tpScore tp
         BasicTypeSimpleEnum  tp -> tpScore tp
         BasicTypeComplexEnum tp -> tpScore tp
-        CArray t _              ->do
+        CArray t _              -> do
           depScore <- btOrder dependencies memos t
           return $ depScore + 1
-        _                       -> return (-1)
+        _ -> return (-1)
       h_insert memos t score
       return score
 
@@ -136,9 +136,7 @@ generateHeaderDef decl = case decl of
     let decls = cTypeDecl def
     in  Just $ intercalate "\n" $ map (\d -> render $ pretty $ CDeclExt d) decls
 
-  DeclFunction def@(FunctionDefinition { functionType = t, functionArgs = args, functionVarargs = varargs })
-    -> Just $ render $ pretty $ CDeclExt $ cfunDecl (functionName def)
-                                                    (functionBasicType def)
+  DeclFunction def -> Just $ render $ pretty $ CDeclExt $ cfunDecl def
 
   DeclVar def@(VarDefinition { varType = t }) ->
     Just $ render $ pretty $ CDeclExt $ cDecl t (Just $ varRealName def) Nothing
