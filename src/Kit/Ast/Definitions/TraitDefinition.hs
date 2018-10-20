@@ -28,6 +28,9 @@ data TraitDefinition a b = TraitDefinition {
   traitMethods :: [FunctionDefinition a b]
 } deriving (Eq, Generic, Show)
 
+instance Positioned (TraitDefinition a b) where
+  position = traitPos
+
 traitSubPath :: TraitDefinition a b -> Str -> TypePath
 traitSubPath def s = subPath (traitName def) s
 

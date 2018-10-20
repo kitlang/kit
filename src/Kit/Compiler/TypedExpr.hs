@@ -24,6 +24,9 @@ data TypedExpr = TypedExpr {
   -- tSubTypes :: [ConcreteType]
 } deriving (Eq, Generic, Show)
 
+instance Positioned TypedExpr where
+  position = tPos
+
 instance Hashable TypedExpr
 instance Hashable Metadata
 instance Hashable MetaArg

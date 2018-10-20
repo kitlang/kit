@@ -16,6 +16,9 @@ data RewriteRule a b = RewriteRule {
   ruleThis :: Maybe a
 } deriving (Eq, Generic, Show)
 
+instance Positioned (RewriteRule a b) where
+  position = rulePos
+
 newRewriteRule = RewriteRule
   { rulePattern = undefined
   , ruleBody    = Nothing
@@ -40,6 +43,9 @@ data RuleSet a b = RuleSet {
   ruleSetPos :: Span,
   ruleSetRules :: [RewriteRule a b]
 } deriving (Eq, Show)
+
+instance Positioned (RuleSet a b) where
+  position = ruleSetPos
 
 newRuleSet = RuleSet
   { ruleSetName  = undefined

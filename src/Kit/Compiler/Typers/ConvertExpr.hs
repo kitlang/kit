@@ -14,15 +14,15 @@ import Kit.Error
   subexpression that needs typing will be typed with either its resolved
   annotation or a new type variable.
 -}
-convertExpr :: CompileContext -> TypeContext -> Module -> Expr -> IO TypedExpr
-convertExpr ctx tctx mod e = do
+convertExpr :: CompileContext -> TypeContext -> Module -> [TypePath] -> Expr -> IO TypedExpr
+convertExpr ctx tctx mod params e = do
   let pos'          = pos e
   -- "make type variable"
-  let mtv           = makeTypeVar ctx pos'
+  let mtv           = resolveMaybeType ctx tctx mod params pos' Nothing
   -- "resolve" - shortcut to recursively call this function on children
-  let r             = convertExpr ctx tctx mod
+  let r             = convertExpr ctx tctx mod params
   -- return a ConcreteType, either the annotated type or a type var if none
-  let typeOrTypeVar = resolveMaybeType ctx tctx mod pos'
+  let typeOrTypeVar = resolveMaybeType ctx tctx mod params pos'
   -- resolve, but for Maybe Expr
   let maybeR x =
         (case x of
@@ -69,7 +69,7 @@ convertExpr ctx tctx mod e = do
       singleWrapper e1 (Using using')
     Meta meta e1           -> singleWrapper e1 (Meta meta)
     Literal v t -> do
-      t' <- resolveMaybeType ctx tctx mod pos' t
+      t' <- resolveMaybeType ctx tctx mod params pos' t
       return $ m (Literal v t') t'
     This                       -> container0 This
     Self                       -> container0 Self
@@ -159,7 +159,7 @@ convertExpr ctx tctx mod e = do
     VarDeclaration id t const e1 -> do
       id <- convertIdentifier typeOrTypeVar id
       r1 <- maybeR e1
-      t  <- resolveMaybeType ctx tctx mod pos' t
+      t  <- resolveMaybeType ctx tctx mod params pos' t
       return $ m (VarDeclaration id t const r1) t
     Defer  e1       -> singleWrapper e1 Defer
     -- Box impl e1 -> do

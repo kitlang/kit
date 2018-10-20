@@ -41,12 +41,13 @@ typeSpecParams (TypeSpec _ params _     ) = params
 typeSpecParams (FunctionTypeSpec _ _ _ _) = []
 typeSpecParams _                          = []
 
-typeSpecPosition (TypeSpec _ _ pos          ) = pos
-typeSpecPosition (PointerTypeSpec t pos     ) = pos
-typeSpecPosition (FunctionTypeSpec t _ _ pos) = pos
-typeSpecPosition (TupleTypeSpec _ pos       ) = pos
-typeSpecPosition (ConcreteType _            ) = NoPos
-typeSpecPosition (ConstantTypeSpec _ pos    ) = pos
+instance Positioned TypeSpec where
+  position (TypeSpec _ _ pos          ) = pos
+  position (PointerTypeSpec t pos     ) = pos
+  position (FunctionTypeSpec t _ _ pos) = pos
+  position (TupleTypeSpec _ pos       ) = pos
+  position (ConcreteType _            ) = NoPos
+  position (ConstantTypeSpec _ pos    ) = pos
 
 instance Show TypeSpec where
   show (TypeSpec (tp) params _) = (s_unpack $ showTypePath tp) ++ (if params == [] then "" else "[" ++ (intercalate "," [show param | param <- params]) ++ "]")
@@ -128,6 +129,7 @@ instance Show ConcreteType where
   show (TypeRuleSet tp) = "rules " ++ (s_unpack $ showTypePath tp)
   show (TypeSelf) = "Self"
   show (ConstantType v) = "$" ++ show v
+  show (UnresolvedType t _) = show t
 
 -- concreteTypeAbbreviation t = case t of
 --   TypeInstance (m,n) params = (intercalate "_" $ map s_unpack m) ++ n ++ (show $ length params) ++ (foldr (++) "" params)
@@ -224,3 +226,6 @@ isPtr _           = False
 
 isTypeVar (TypeTypeVar _) = True
 isTypeVar _               = False
+
+typeUnresolved (TypeTypeVar _) = True
+typeUnresolved _ = False

@@ -23,6 +23,9 @@ data TraitImplementation a b = TraitImplementation {
   implPos :: Span
 } deriving (Eq, Generic, Show)
 
+instance Positioned (TraitImplementation a b) where
+  position = implPos
+
 associatedTypes traitDef impl =
   [ (traitSubPath traitDef $ paramName p, t)
   | (p, t) <- zip (traitAssocParams traitDef) (implAssocTypes impl)

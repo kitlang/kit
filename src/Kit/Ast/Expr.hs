@@ -23,3 +23,6 @@ pe p et = ep et p
 
 me :: Span -> Expr -> Expr
 me p ex = Expr {expr = expr ex, pos = p}
+
+instance Positioned Expr where
+  position = pos

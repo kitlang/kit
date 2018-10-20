@@ -26,6 +26,9 @@ instance Show Span where
 
 instance Hashable Span
 
+class Positioned a where
+  position :: a -> Span
+
 sp :: FilePath -> Int -> Int -> Int -> Int -> Span
 sp f a b c d = Span
   { file          = f
