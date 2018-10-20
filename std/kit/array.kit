@@ -1,74 +1,68 @@
 /**
- * Array is a mutable, dynamically-resizing wrapper around the fixed-length
- * Vector.
+ * Array is a mutable, dynamically-resizing wrapper around Vector. Arrays start
+ * with a capacity and a length of 0; when their length exceeds their capacity,
+ * a new vector will be allocated.
  */
 struct Array[T] {
-    var a: Vector[T];
-    var _length: Int;
+    var allocator: Box[Allocator];
+    public var length: Size;
+    var data: Ptr[Vector[T]];
 
-    // public static function new(capacity: Int = 16) {
-    public static function new(capacity: Int) {
-        var a: Vector[T] = Vector.new(capacity);
+    public static function new(allocator: Box[Allocator], capacity: Size): Array[T] using implicit allocator {
+        var data: Ptr[Vector[T]] = Vector.new(capacity);
         return struct Self {
-            a,
-            _length: 0
+            allocator,
+            length: 0,
+            data,
         };
     }
 
-    /**
-     * Create a new Array with a reserved capacity. If you know the size you
-     * need initially, this is more efficient than allowing the Array to
-     * dynamically expand.
-     */
-    public static function withCapacity(n: Int): Array[T] {
-        return new(n);
-    }
-
-    public function pop(): Null[T] {
-        if _length >= 0 {
-            Some(a[--_length]);
-        } else {
-            Null;
-        }
-    }
-
     public function push(value: T): T {
-        ensureSize(_length + 1);
-        return a[_length++] = value;
+        this.ensureSize(this.length + 1);
+        return this[this.length++] = value;
+    }
+
+    public function pop(): Option[T] {
+        if this.length > 0 {
+            return Some(this[--this.length]);
+        } else {
+            return None;
+        }
     }
 
     public function concat(other: Array[T]): Array[T] {
-        var n = Array.new(length + other.length);
-        for i in 0 ... length {
-            n.push(this[i]);
+        var newArray = Self.new(this.length + other.length);
+        for i in 0 ... this.length {
+            newArray.push(this[i]);
         }
         for i in 0 ... other.length {
-            n.push(other[i]);
+            newArray.push(other[i]);
         }
-        return i;
+        return newArray;
     }
 
-    function ensureSize(n: Int) {
-        if a.len < n {
-            var l = _length;
+    function ensureSize(n: Int): Void {
+        if this.data.length < n {
+            var l = this.length;
             while l < n {
-                l *= 1.5;
+                l <<= 1;
             }
-            var newVec = Vector.new(l);
-            a.blit(newVec, 0, _length);
-            a = newVec;
+            var newVec = using implicit this.allocator Vector[T].new(l);
+            this.data.blit(newVec, 0, this.length);
+            this.allocator.free(this.data);
+            this.data = newVec;
         }
     }
 
     rules {
-        (this :: (other: Self)) => (concat(other));
-        (this.length) => this._length;
+        ($this :: (other: Self)) => (concat(other));
+        ($this as Vector) => ($this.data);
 
         /**
          * Returns the first element in the array, or None if the array is empty.
          */
-        (this.first) => if _length > 0 {
-            Some(this[0]);
+        ($this.first) => if _length > 0 {
+            Some($this[0]);
         } else {
             None;
         }
@@ -76,52 +70,49 @@ struct Array[T] {
         /**
          * Returns the last element in the array, or None if the array is empty.
          */
-        (this.last) => if _length > 0 {
-            Some(this[_length - 1]);
+        ($this.last) => if $this.length > 0 {
+            Some($this[$this.length - 1]);
         } else {
             None;
         }
 
-        (this[pos: Int]) => this.a[pos];
-
-        (this[pos: Int] = (val: T)) => this.a[pos] = val;
+        ($this[$i]) => (*$this.data)[$i];
 
         // optimize Array iteration at compile time when the type is known
-        (for $ident in this {$e}) => {
-            var __id = 0;
-            var __length = this.length;
-            while __i++ < __length {
-                var $ident = this[__i];
+        (for $ident in $this {$e}) => {
+            var __length = $this.length;
+            for __i in 0 ... __length {
+                var $ident = $this[__i];
                 {$e}
             }
         }
     }
 }
 
-implement Iterable[T] for Array[T] {
-    public function iterator() {
-        return ArrayIterator.new(this);
-    }
-}
+// implement Iterable[T] for Array[T] {
+//     public function iterator() {
+//         return ArrayIterator.new(this);
+//     }
+// }
 
-struct ArrayIterator[T] {
-    public var index: Uint;
-    public var array: Ptr[Array[T]];
+// struct ArrayIterator[T] {
+//     public var index: Uint;
+//     public var array: Ptr[Array[T]];
 
-    public static function new(array: Ptr[Array[T]]) {
-        return struct Self {
-            array,
-            index: 0
-        };
-    }
-}
+//     public static function new(array: Ptr[Array[T]]) {
+//         return struct Self {
+//             array,
+//             index: 0
+//         };
+//     }
+// }
 
-implement Iterator[T] for ArrayIterator[T] {
-    public function next(): Null[T] {
-        return if index < array.length {
-            Some(array[index++]);
-        } else {
-            None;
-        }
-    }
-}
+// implement Iterator[T] for ArrayIterator[T] {
+//     public function next(): Null[T] {
+//         return if index < array.length {
+//             Some(array[index++]);
+//         } else {
+//             None;
+//         }
+//     }
+// }

@@ -25,13 +25,22 @@ implement Allocator for SimpleAllocator {
     }
 }
 
+function callocWrapper(n: Size): Ptr[Void] {
+    return calloc(n, 1);
+}
+
 var simpleMalloc: SimpleAllocator = struct SimpleAllocator {
     alloc: malloc,
+    free: free,
+};
+var simpleCalloc: SimpleAllocator = struct SimpleAllocator {
+    alloc: callocWrapper,
     free: free,
 };
 
 // will be used as the default Ptr[Void] allocator
 var mallocator: Box[Allocator] = simpleMalloc as Box[Allocator];
+var callocator: Box[Allocator] = simpleCalloc as Box[Allocator];
 
 /**
  * Preallocates a region of memory, then provides pointers to unused memory in

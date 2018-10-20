@@ -62,7 +62,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
   let unknownTyped x = makeExprTyped x (TypeBasicType BasicTypeUnknown) pos
   let
     tryRewrite x y = do
-      ownRules <- ownRules ctx x
+      ownRules <- ownRules ctx tctx x
       let implicitRules =
             nub
               $  ownRules
@@ -252,7 +252,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
     (Binop Assign e1 e2) -> do
       r2 <- r e2
-      tryRewrite (unknownTyped $ Binop Assign e1 r2) $ do
+      tryRewrite (makeExprTyped (Binop Assign e1 r2) (inferredType ex) pos) $ do
         case tExpr e1 of
           TupleInit t -> do
             case inferredType r2 of
@@ -414,7 +414,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                 -- try to convert to an Iterable
                 let
                   fail = throwk $ TypingError
-                    "For statements must iterate over a supported type, such as `Iterator` or `Iterable`"
+                    "For statements must iterate over a supported type, such as `Iterator` or `Iterable`, with a `for` rewrite rule"
                     pos
                 box <- autoRefDeref ctx
                                     tctx
@@ -884,7 +884,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
     (ArrayAccess e1 e2) -> do
       r1 <- r e1
       r2 <- typeExpr ctx (tctx { tctxState = TypingExprOrType }) mod e2
-      tryRewrite (unknownTyped $ ArrayAccess r1 r2) $ do
+      tryRewrite (makeExprTyped (ArrayAccess r1 r2) (inferredType ex) pos) $ do
         let fail = throwk $ TypingError
               (  "Array access is not supported on values of type "
               ++ show (inferredType r1)
@@ -931,8 +931,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                   "Array access on an array requires an Integral argument"
                   (tPos r2)
                 )
-              return $ (makeExprTyped (ArrayAccess r1 r2) (inferredType ex) pos) { tIsLvalue = True
-                                                                                 }
+              return $ (makeExprTyped (ArrayAccess r1 r2) t pos) { tIsLvalue = True
+                                                                 }
 
             (TypePtr t, _) -> do
               resolveConstraint
@@ -1069,7 +1069,13 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       case find (\(name, _) -> name == vname) (tctxMacroVars tctx) of
         Just (_, x@TypedExpr { tExpr = Identifier v@(Var vname) }) ->
           r $ makeExprTyped (VarDeclaration v a const b) (inferredType ex) pos
-        x -> throwk $ InternalError ("oh no: " ++ show x) (Just pos)
+        x -> throwk $ InternalError
+          (  "Macro var $"
+          ++ s_unpack vname
+          ++ " isn't bound to an identifier: "
+          ++ show x
+          )
+          (Just pos)
 
     (VarDeclaration (Var vname) _ const init) -> do
       when (const && isNothing init) $ throwk $ TypingError
@@ -1247,11 +1253,11 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
   t'       <- mapType (follow ctx tctx) $ inferredType result
   result   <- return $ result { inferredType = t' }
-  ownRules <- ownRules ctx result
+  ownRules <- ownRules ctx tctx result
   result   <- return $ result { tImplicitRules = ownRules }
   tryRewrite result $ return result
 
-ownRules ctx this = case inferredType this of
+ownRules ctx tctx this = case inferredType this of
   TypeBox tp params -> do
     def <- getTraitDefinition ctx tp
     return $ [ rule { ruleThis = Just this } | rule <- traitRules def ]
@@ -1478,7 +1484,7 @@ typeVarBinding ctx tctx binding pos = do
       let parentTp     = variantParent def
       let discriminant = variantName def
       let extern       = hasMeta "extern" (variantMeta def)
-      -- FIXME
+      -- FIXME: pull params from tctx
       params <- makeGeneric ctx parentTp pos []
       let tctx' = addTypeParams tctx params
       let ct    = TypeInstance parentTp $ map snd params

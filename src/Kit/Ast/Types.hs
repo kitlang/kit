@@ -24,7 +24,6 @@ data TypeSpec
   | TupleTypeSpec [TypeSpec] Span
   | PointerTypeSpec TypeSpec Span
   | FunctionTypeSpec TypeSpec [TypeSpec] Bool Span
-  -- | TypeSpecConstant ValueLiteral
   {-
     This constructor can be used to force the TypeSpec to resolve to a specific
     ConcreteType without going through normal namespace resolution. This is
@@ -51,6 +50,7 @@ instance Positioned TypeSpec where
 
 instance Show TypeSpec where
   show (TypeSpec (tp) params _) = (s_unpack $ showTypePath tp) ++ (if params == [] then "" else "[" ++ (intercalate "," [show param | param <- params]) ++ "]")
+  show (ConstantTypeSpec v _) = show v
   show (PointerTypeSpec t _) = "&" ++ show t
   show (TupleTypeSpec t _) = "(" ++ intercalate ", " (map show t) ++ ")"
   show (FunctionTypeSpec t args var _) = "(" ++ intercalate ", " (map show args) ++ (if var then (if null args then "..." else ", ...") else "") ++ ") -> " ++ show t
@@ -59,6 +59,8 @@ instance Show TypeSpec where
 instance Eq TypeSpec where
   (==) (TypeSpec tp1 params1 _) (TypeSpec tp2 params2 _) = (tp1 == tp2) && (params1 == params2)
   (==) (TupleTypeSpec t1 _) (TupleTypeSpec t2 _) = (t1 == t2)
+  (==) (ConstantTypeSpec v1 _) (ConstantTypeSpec v2 _) = (v1 == v2)
+  (==) (PointerTypeSpec t1 _) (PointerTypeSpec t2 _) = (t1 == t2)
   (==) (FunctionTypeSpec tp1 params1 args1 v1) (FunctionTypeSpec tp2 params2 args2 v2) = (tp1 == tp2) && (params1 == params2) && (args1 == args2) && (v1 == v2)
   (==) (ConcreteType ct1) (ConcreteType ct2) = ct1 == ct2
   (==) a b = False

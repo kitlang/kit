@@ -1,24 +1,36 @@
 /**
- * Vector is a fixed-length collection type.
+ * Vector is a heap-allocated, length-prefixed, fixed-length collection type.
  */
 struct Vector[T] {
-    public var length: Uint;
-    public var a: CArray[T];
+    public var length: Size;
+    var data: CArray[T];
 
-    public static function new(length: Int): Vector[T] {
-        var a = malloc(sizeof T * capacity);
-        return struct Vector[T] {
-            length,
-            a
-        };
+    public static function new(allocator: Box[Allocator], capacity: Size): Ptr[Vector[T]] {
+        var v: Ptr[Vector[T]] = allocator.alloc(sizeof Vector[T] + sizeof T * capacity);
+        v.length = capacity;
+        return v;
     }
 
     rules {
+        ($this[$i]) => $this.data[$i];
+
         // optimize Vector iteration at compile time when the type is known
         (for $ident in $this {$e}) => {
-            var $ident = 0;
             var __length = $this.length;
-            while __i++ < __length {$e}
+            for __i in 0 ... __length {
+                var $ident = $this.data[__i];
+                {$e}
+            }
         }
+    }
+
+    public function blit(other: Ptr[Vector[T]], start: Size, length: Size): Void {
+        memcpy(&(other.data[start]) as Ptr[Void], this.data as Ptr[Void], length * sizeof T);
+    }
+
+    public function copy(allocator: Box[Allocator]): Ptr[Vector[T]] using implicit allocator {
+        var v = Self.new(this.length);
+        this.blit(v, 0, this.length);
+        return v;
     }
 }

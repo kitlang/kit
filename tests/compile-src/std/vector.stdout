@@ -1,0 +1,18 @@
+original
+length = 4
+first element = 11
+second element = 23
+third element = 35
+fourth element = 47
+iterating: 11
+iterating: 23
+iterating: 35
+iterating: 47
+copy
+length = 4
+first element = 11
+third element = 35
+11
+23
+35
+47

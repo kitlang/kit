@@ -122,7 +122,7 @@ addRef ex@(TypedExpr { tIsLvalue = True }) =
   Just $ (makeExprTyped (PreUnop Ref ex) (TypePtr $ inferredType ex) (tPos ex))
     { tIsLocalPtr = tIsLocal ex
     }
-addRef ex = Nothing
+addRef ex = addRef (makeLvalue ex)
 
 addDeref :: TypedExpr -> Maybe TypedExpr
 addDeref (ex@(TypedExpr { tExpr = PreUnop Ref inner })) = Just inner

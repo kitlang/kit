@@ -12,6 +12,7 @@ import Kit.Str
 %name parseTokens Statements
 %name parseExpr Expr
 %name parseTopLevelExpr TopLevelExpr
+%name parseTypeSpec TypeSpec
 %tokentype {Token}
 %error {parseError}
 
@@ -416,8 +417,7 @@ UpperOrLowerIdentifier :: {(Str, Span)}
   | upper_identifier {(extract_upper_identifier $1, snd $1)}
 
 TypePath :: {(TypePath, Span)}
-  : ModulePath '.' Self {((fst $1, B.pack "Self"), snd $1 <+> snd $3)}
-  | ModulePath '.' upper_identifier {((fst $1, extract_upper_identifier $3), snd $1 <+> snd $3)}
+  : ModulePath '.' UpperOrLowerIdentifier {((fst $1, fst $3), snd $1 <+> snd $3)}
   | UpperOrLowerIdentifier {(([], fst $1), snd $1)}
   | Self {(([], B.pack "Self"), snd $1)}
 
