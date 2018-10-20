@@ -6,7 +6,7 @@
 struct Array[T] {
     var allocator: Box[Allocator];
     public var length: Size;
-    var data: Ptr[Vector[T]];
+    var data: Vector[T];
 
     public static function new(allocator: Box[Allocator], capacity: Size): Array[T] using implicit allocator {
         var data: Ptr[Vector[T]] = Vector.new(capacity);
@@ -49,7 +49,7 @@ struct Array[T] {
             }
             var newVec = using implicit this.allocator Vector[T].new(l);
             this.data.blit(newVec, 0, this.length);
-            this.allocator.free(this.data);
+            using implicit this.allocator this.data.free();
             this.data = newVec;
         }
     }
@@ -76,7 +76,7 @@ struct Array[T] {
             None;
         }
 
-        ($this[$i]) => (*$this.data)[$i];
+        ($this[$i]) => $this.data[$i];
 
         // optimize Array iteration at compile time when the type is known
         (for $ident in $this {$e}) => {
