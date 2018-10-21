@@ -1,33 +1,18 @@
-length = 0
-capacity = 4
-length = 1
-capacity = 4
-some
-length = 0
-capacity = 4
-none
-length = 0
-capacity = 4
+original
 length = 4
-capacity = 4
-iterate: 11
-iterate: 22
-iterate: 33
-iterate: 44
-length = 5
-capacity = 8
-length = 7
-capacity = 8
-iterate: 11
-iterate: 22
-iterate: 33
-iterate: 44
-iterate: 55
-iterate: 66
-iterate: 77
+first element = 11
+second element = 23
+third element = 35
+fourth element = 47
+iterating: 11
+iterating: 23
+iterating: 35
+iterating: 47
+copy
 length = 4
-capacity = 8
-iterate: 11
-iterate: 22
-iterate: 33
-iterate: 44
+first element = 11
+third element = 35
+11
+23
+35
+47

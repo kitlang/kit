@@ -1,42 +1,114 @@
 /**
- * Vector is a heap-allocated, length-prefixed, fixed-length collection type.
+ * Vector is a mutable, dynamically-resizing wrapper around Array. Vectors start
+ * with a capacity and a length of 0; when their length exceeds their capacity,
+ * a new vector will be allocated.
  */
 struct Vector[T] {
+    var allocator: Box[Allocator];
     public var length: Size;
-    var data: Ptr[T];
+    var data: Array[T];
 
-    public static function new(allocator: Box[Allocator], length: Size): Vector[T] {
-        var data: Ptr[T] = allocator.alloc(sizeof T * length);
-        return struct Vector[T] {
-            length,
+    public static function new(allocator: Box[Allocator], capacity: Size): Vector[T] using implicit allocator {
+        var data: Array[T] = Array.new(capacity);
+        return struct Self {
+            allocator,
+            length: 0,
             data,
         };
     }
 
+    public function push(value: T): T {
+        this.ensureSize(this.length + 1);
+        return this[this.length++] = value;
+    }
+
+    public function pop(): Option[T] {
+        if this.length > 0 {
+            return Some(this[--this.length]);
+        } else {
+            return None;
+        }
+    }
+
+    public function concat(other: Vector[T]): Vector[T] {
+        var newVector = Self.new(this.length + other.length);
+        for i in 0 ... this.length {
+            newVector.push(this[i]);
+        }
+        for i in 0 ... other.length {
+            newVector.push(other[i]);
+        }
+        return newVector;
+    }
+
+    function ensureSize(n: Int): Void {
+        if this.data.length < n {
+            var l = this.length;
+            while l < n {
+                l <<= 1;
+            }
+            // resize and swap the underlying data of the vector
+            var newData: Ptr[T] = this.allocator.alloc(l);
+            var oldData = this.data.data;
+            memcpy(newData, oldData, this.length * sizeof T);
+            this.data.length = l;
+            this.data.data = newData;
+            this.allocator.free(oldData);
+        }
+    }
+
     rules {
+        ($this :: (other: Self)) => (concat(other));
+        // FIXME: implement term rewriting for casts
+        ($this as Array) => ($this.data);
+
+        /**
+         * Returns the first element in the Vector, or None if the Vector is empty.
+         */
+        ($this.first) => if _length > 0 then Some($this[0]) else None;
+
+        /**
+         * Returns the last element in the Vector, or None if the Vector is empty.
+         */
+        ($this.last) => if $this.length > 0 then Some($this[$this.length - 1]) else None;
+
         ($this[$i]) => $this.data[$i];
 
         // optimize Vector iteration at compile time when the type is known
         (for $ident in $this {$e}) => {
             var __length = $this.length;
             for __i in 0 ... __length {
-                var $ident = $this.data[__i];
+                var $ident = $this[__i];
                 {$e}
             }
         }
     }
-
-    public function blit(other: Ptr[Vector[T]], start: Size, length: Size): Void {
-        memcpy(&(other.data[start]) as Ptr[Void], this.data as Ptr[Void], length * sizeof T);
-    }
-
-    public function copy(allocator: Box[Allocator]): Vector[T] using implicit allocator {
-        var v = Self.new(this.length);
-        this.blit(v, 0, this.length);
-        return v;
-    }
-
-    public function free(allocator: Box[Allocator]) {
-        allocator.free(this.data);
-    }
 }
+
+// implement Iterable[T] for Vector[T] {
+//     public function iterator() {
+//         return VectorIterator.new(this);
+//     }
+// }
+
+// struct VectorIterator[T] {
+//     public var index: Uint;
+//     public var Vector: Ptr[Vector[T]];
+
+//     public static function new(Vector: Ptr[Vector[T]]) {
+//         return struct Self {
+//             Vector,
+//             index: 0
+//         };
+//     }
+// }
+
+// implement Iterator[T] for VectorIterator[T] {
+//     public function next(): Null[T] {
+//         return if index < Vector.length {
+//             Some(Vector[index++]);
+//         } else {
+//             None;
+//         }
+//     }
+// }

@@ -1,50 +1,26 @@
 function main() {
-    var a: Array[Int] = Array.new(4);
+    printf("original\n");
+    var a: Array[Int] = Array[Int].new(4);
     printf("length = %zu\n", a.length);
-    printf("capacity = %zu\n", a.data.length);
-
-    a.push(1);
-    printf("length = %zu\n", a.length);
-    printf("capacity = %zu\n", a.data.length);
-    printf(if a.pop().isSome() then "some\n" else "none\n");
-    printf("length = %zu\n", a.length);
-    printf("capacity = %zu\n", a.data.length);
-    printf(if a.pop().isSome() then "some\n" else "none\n");
-    printf("length = %zu\n", a.length);
-    printf("capacity = %zu\n", a.data.length);
-
-    a.push(11);
-    a.push(22);
-    a.push(33);
-    a.push(44);
-    printf("length = %zu\n", a.length);
-    printf("capacity = %zu\n", a.data.length);
-
-    for i in a {
-        printf("iterate: %i\n", i);
+    a[0] = 11;
+    a[1] = 23;
+    a[2] = 35;
+    a[3] = 47;
+    // a = [1, 2, 3, 4];
+    printf("first element = %i\n", a[0]);
+    printf("second element = %i\n", a[1]);
+    printf("third element = %i\n", a[2]);
+    printf("fourth element = %i\n", a[3]);
+    for x in a {
+        printf("iterating: %i\n", x);
     }
 
-    a.push(55);
-    printf("length = %zu\n", a.length);
-    printf("capacity = %zu\n", a.data.length);
-
-    a.push(66);
-    a.push(77);
-    printf("length = %zu\n", a.length);
-    printf("capacity = %zu\n", a.data.length);
-
-    for i in a {
-        printf("iterate: %i\n", i);
-    }
-
-    a.pop();
-    a.pop();
-    a.pop();
-
-    printf("length = %zu\n", a.length);
-    printf("capacity = %zu\n", a.data.length);
-
-    for i in a {
-        printf("iterate: %i\n", i);
+    printf("copy\n");
+    var a2: Array[Int] = a.copy();
+    printf("length = %zu\n", a2.length);
+    printf("first element = %i\n", a2[0]);
+    printf("third element = %i\n", a2[2]);
+    for x in a2 {
+        printf("%i\n", x);
     }
 }

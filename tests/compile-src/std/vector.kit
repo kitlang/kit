@@ -1,26 +1,50 @@
 function main() {
-    printf("original\n");
-    var v: Vector[Int] = Vector[Int].new(4);
+    var v: Vector[Int] = Vector.new(4);
     printf("length = %zu\n", v.length);
-    v[0] = 11;
-    v[1] = 23;
-    v[2] = 35;
-    v[3] = 47;
-    // v = [1, 2, 3, 4];
-    printf("first element = %i\n", v[0]);
-    printf("second element = %i\n", v[1]);
-    printf("third element = %i\n", v[2]);
-    printf("fourth element = %i\n", v[3]);
-    for x in v {
-        printf("iterating: %i\n", x);
+    printf("capacity = %zu\n", v.data.length);
+
+    v.push(1);
+    printf("length = %zu\n", v.length);
+    printf("capacity = %zu\n", v.data.length);
+    printf(if v.pop().isSome() then "some\n" else "none\n");
+    printf("length = %zu\n", v.length);
+    printf("capacity = %zu\n", v.data.length);
+    printf(if v.pop().isSome() then "some\n" else "none\n");
+    printf("length = %zu\n", v.length);
+    printf("capacity = %zu\n", v.data.length);
+
+    v.push(11);
+    v.push(22);
+    v.push(33);
+    v.push(44);
+    printf("length = %zu\n", v.length);
+    printf("capacity = %zu\n", v.data.length);
+
+    for i in v {
+        printf("iterate: %i\n", i);
     }
 
-    printf("copy\n");
-    var v2: Vector[Int] = v.copy();
-    printf("length = %zu\n", v2.length);
-    printf("first element = %i\n", v2[0]);
-    printf("third element = %i\n", v2[2]);
-    for x in v2 {
-        printf("%i\n", x);
+    v.push(55);
+    printf("length = %zu\n", v.length);
+    printf("capacity = %zu\n", v.data.length);
+
+    v.push(66);
+    v.push(77);
+    printf("length = %zu\n", v.length);
+    printf("capacity = %zu\n", v.data.length);
+
+    for i in v {
+        printf("iterate: %i\n", i);
+    }
+
+    v.pop();
+    v.pop();
+    v.pop();
+
+    printf("length = %zu\n", v.length);
+    printf("capacity = %zu\n", v.data.length);
+
+    for i in v {
+        printf("iterate: %i\n", i);
     }
 }

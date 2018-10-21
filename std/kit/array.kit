@@ -1,118 +1,42 @@
 /**
- * Array is a mutable, dynamically-resizing wrapper around Vector. Arrays start
- * with a capacity and a length of 0; when their length exceeds their capacity,
- * a new vector will be allocated.
+ * Array is a heap-allocated, length-prefixed, fixed-length collection type.
  */
 struct Array[T] {
-    var allocator: Box[Allocator];
     public var length: Size;
-    var data: Vector[T];
+    var data: Ptr[T];
 
-    public static function new(allocator: Box[Allocator], capacity: Size): Array[T] using implicit allocator {
-        var data: Ptr[Vector[T]] = Vector.new(capacity);
-        return struct Self {
-            allocator,
-            length: 0,
+    public static function new(allocator: Box[Allocator], length: Size): Array[T] {
+        var data: Ptr[T] = allocator.alloc(sizeof T * length);
+        return struct Array[T] {
+            length,
             data,
         };
     }
 
-    public function push(value: T): T {
-        this.ensureSize(this.length + 1);
-        return this[this.length++] = value;
-    }
-
-    public function pop(): Option[T] {
-        if this.length > 0 {
-            return Some(this[--this.length]);
-        } else {
-            return None;
-        }
-    }
-
-    public function concat(other: Array[T]): Array[T] {
-        var newArray = Self.new(this.length + other.length);
-        for i in 0 ... this.length {
-            newArray.push(this[i]);
-        }
-        for i in 0 ... other.length {
-            newArray.push(other[i]);
-        }
-        return newArray;
-    }
-
-    function ensureSize(n: Int): Void {
-        if this.data.length < n {
-            var l = this.length;
-            while l < n {
-                l <<= 1;
-            }
-            var newVec = using implicit this.allocator Vector[T].new(l);
-            this.data.blit(newVec, 0, this.length);
-            using implicit this.allocator this.data.free();
-            this.data = newVec;
-        }
-    }
-
     rules {
-        ($this :: (other: Self)) => (concat(other));
-        ($this as Vector) => ($this.data);
-
-        /**
-         * Returns the first element in the array, or None if the array is empty.
-         */
-        ($this.first) => if _length > 0 {
-            Some($this[0]);
-        } else {
-            None;
-        }
-
-        /**
-         * Returns the last element in the array, or None if the array is empty.
-         */
-        ($this.last) => if $this.length > 0 {
-            Some($this[$this.length - 1]);
-        } else {
-            None;
-        }
-
         ($this[$i]) => $this.data[$i];
 
         // optimize Array iteration at compile time when the type is known
         (for $ident in $this {$e}) => {
             var __length = $this.length;
             for __i in 0 ... __length {
-                var $ident = $this[__i];
+                var $ident = $this.data[__i];
                 {$e}
             }
         }
     }
+
+    public function blit(other: Ptr[Array[T]], start: Size, length: Size): Void {
+        memcpy(&(other.data[start]) as Ptr[Void], this.data as Ptr[Void], length * sizeof T);
+    }
+
+    public function copy(allocator: Box[Allocator]): Array[T] using implicit allocator {
+        var a = Self.new(this.length);
+        this.blit(a, 0, this.length);
+        return a;
+    }
+
+    public function free(allocator: Box[Allocator]) {
+        allocator.free(this.data);
+    }
 }
-
-// implement Iterable[T] for Array[T] {
-//     public function iterator() {
-//         return ArrayIterator.new(this);
-//     }
-// }
-
-// struct ArrayIterator[T] {
-//     public var index: Uint;
-//     public var array: Ptr[Array[T]];
-
-//     public static function new(array: Ptr[Array[T]]) {
-//         return struct Self {
-//             array,
-//             index: 0
-//         };
-//     }
-// }
-
-// implement Iterator[T] for ArrayIterator[T] {
-//     public function next(): Null[T] {
-//         return if index < array.length {
-//             Some(array[index++]);
-//         } else {
-//             None;
-//         }
-//     }
-// }
