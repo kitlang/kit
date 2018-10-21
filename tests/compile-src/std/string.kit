@@ -1,0 +1,30 @@
+function main() {
+    var s: String = String.fromCString("hello, world!");
+    printf("length: %zu\n", s.length);
+    printf("value: %s\n", s.chars);
+    // var cs = s as CString;
+
+    var buf = StringBuffer.new(16);
+    buf.add("abc");
+    buf.add("def");
+    var s2 = buf.toString();
+    printf("length: %zu\n", s2.length);
+    printf("value: %s\n", s2.chars);
+
+    buf.add("ghi");
+    var s3 = buf.toString();
+    printf("length: %zu\n", s3.length);
+    printf("value: %s\n", s3.chars);
+
+    // var box1: Box[ToString] = *s;
+    // var box2: Box[ToString] = "hello there!";
+
+    // FIXME: eventually rewrite rules will allow casting instead of accessing
+    // `chars` directly
+    // printf("%s\n", box1.toString().chars);
+    // printf("%s\n", box2.toString().chars);
+
+    // for cchar in *s {
+    //     printf("%c\n", cchar);
+    // }
+}

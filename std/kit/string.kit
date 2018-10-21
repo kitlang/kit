@@ -1,32 +1,45 @@
-// /**
-//  * A String is a length-prefixed and zero-terminated, immutable collection of
-//  * chars.
-//  */
-// struct String {
-//     public var length: Size;
-//     public var chars: CArray[Char];
+/**
+ * A String is a length-prefixed and zero-terminated collection of Chars.
+ */
+struct String {
+    public var length: Size;
+    public var chars: CString;
 
-    // public static function fromCString(allocator: Box[Allocator], source: CString): Ptr[String]
-    // {
-    //     var length = strlen(source);
-    //     var s: Ptr[String] = allocator.alloc(sizeof String + length + 1);
-    //     s.length = length;
-    //     memcpy(s.chars, source, length + 1);
-    //     return s;
-    // }
+    public static function fromCString(allocator: Box[Allocator], source: CString): String {
+        var length = strlen(source);
+        var chars: CString = allocator.alloc(length + 1);
+        strcpy(chars, source);
+        return struct String {
+            length,
+            chars,
+        };
+    }
 
-    // rules {
-    //     (this as CString) => (this.chars as CString);
-    //     (${s: CString} as String) => String.fromCString($s);
-    // }
-// }
+    rules {
+        (this as CString) => (this.chars as CString);
+        (${s: CString} as String) => String.fromCString($s);
+    }
+}
 
 // implement Iterable(Char) for String {
 //     public function iterator(): Box[Iterator[Char]] {
-//         return struct CountdownIterator[Char] {
-//             length: this.length,
-//             ptr: this.chars,
-//         } as Box[Iterator];
+//         return this.chars as Box[Iterator[Char]];
+//     }
+// }
+
+// implement Iterable(Char) for CString {
+//     public function iterator(): Box[Iterator[Char]] {
+//         return this as Box[Iterator[Char]];
+//     }
+// }
+
+// implement Iterator[Char] for CString {
+//     public function next(): (Box[Iterator[Char]], Option[Char]) {
+//         if this[0] == 0 {
+//             return (this, None);
+//         } else {
+//             return (this + 1, Some(this[0]));
+//         }
 //     }
 // }
 
@@ -53,17 +66,35 @@
 //     }
 // }
 
-// /**
-//  * A StringBuffer is a dynamically resizing collection (Array) of bytes.
-//  */
-// abstract StringBuffer: Array[Uint8] {
-//     rules {
-//         (${v: Array[Uint8]} as StringBuffer);
-//         (this as Array[Uint8]);
-//         (${v: String} as StringBuffer) => (($v as Vector[Uint8]) as Array[Uint8]) as StringBuffer;
-//         (this as String) => ((this as Array[Uint8]) as Vector[Uint8]) as String;
-//     }
-// }
+/**
+ * A StringBuffer is a dynamically resizing collection (Vector) of characters.
+ */
+abstract StringBuffer: Vector[Char] {
+    public static function new(allocator: Box[Allocator], capacity: Size): StringBuffer using implicit allocator {
+        return Vector[Char].new(capacity) as StringBuffer;
+    }
+
+    public function add(s: CString) {
+        var l = strlen(s);
+        for i in 0 ... l {
+            this.push(s[i]);
+        }
+    }
+
+    public function toString(): String using implicit this.allocator {
+        this.push(0);
+        var s = String.fromCString(this.data.data);
+        this.pop();
+        return s;
+    }
+
+    rules {
+        (${v: Array[Uint8]} as StringBuffer);
+        (this as Array[Uint8]);
+        (${v: String} as StringBuffer) => (($v as Vector[Uint8]) as Array[Uint8]) as StringBuffer;
+        (this as String) => ((this as Array[Uint8]) as Vector[Uint8]) as String;
+    }
+}
 
 // implement ToString for StringBuffer {
 //     public function toString(): String {
