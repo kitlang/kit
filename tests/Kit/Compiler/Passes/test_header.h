@@ -34,6 +34,7 @@ enum Enum1 enum_var1;
 short *pointer_var1;
 short **pointer_var2;
 short (*pointer_var3)(short arg1);
+void (*func_pointer)(void);
 
 // functions
 
@@ -44,3 +45,4 @@ struct Struct1 struct_func(struct Struct2 a);
 float * pointer_func(int *arg1);
 void varargs_func(short a, ...);
 long void_func(void);
+int fake_atexit (void (*__func) (void));

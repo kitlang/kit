@@ -90,6 +90,10 @@ spec = do
             )
           )
         )
+      , ( "Parses void function pointers"
+        , "func_pointer"
+        , (TypePtr $ TypeFunction (TypeBasicType $ BasicTypeVoid) [] False [])
+        )
       , ( "Parses void functions"
         , "void_func1"
         , TypeFunction (TypeBasicType $ BasicTypeVoid) [] False []
@@ -132,6 +136,17 @@ spec = do
       , ( "Parses void arg functions"
         , "void_func"
         , TypeFunction (TypeBasicType $ BasicTypeInt 32) [] False []
+        )
+      , ( "Parses atexit"
+        , "fake_atexit"
+        , TypeFunction
+          (TypeBasicType $ BasicTypeCInt)
+          [ ( "__func"
+            , TypePtr $ TypeFunction (TypeBasicType $ BasicTypeVoid) [] False []
+            )
+          ]
+          False
+          []
         )
       ]
       (\(label, name, ct) -> it label $ do
