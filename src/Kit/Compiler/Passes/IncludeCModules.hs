@@ -192,7 +192,7 @@ parseDerivedType m (h' : t') ct =
             [ let (_, typeSpec', init) = decomposeCDecl p
               in  let (name, derivedSpec') =
                         if null init then ("_", []) else (head init)
-                  in  (name, parseType m typeSpec' derivedSpec')
+                  in  (name, parseType m typeSpec' $ reverse derivedSpec')
             | p <- params
             ]
           )
