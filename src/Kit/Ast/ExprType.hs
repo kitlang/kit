@@ -82,6 +82,7 @@ data ExprType a b
   | Box (TraitImplementation a b) a
   | BoxedValue a
   | BoxedVtable (TraitDefinition a b) a
+  | StaticVtable (TraitImplementation a b)
   | SizeOf b
   | Method TypePath [b] Str
   | Implicit b

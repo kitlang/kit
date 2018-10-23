@@ -49,9 +49,7 @@ _autoRefDeref ctx tctx toType fromType ex = do
           Just x  -> return $ Just x
           Nothing -> return Nothing
       (TypePtr a, TypePtr b) -> _autoRefDeref ctx tctx a b ex
-      (TypePtr a, b        ) -> case addRef ex of
-        Just x  -> _autoRefDeref ctx tctx a b x
-        Nothing -> return Nothing
+      (TypePtr a, b        ) -> _autoRefDeref ctx tctx a b (addRef ex)
       (a, TypePtr (TypeBasicType BasicTypeVoid)) ->
         -- don't try to deref a void pointer
         return Nothing
@@ -92,36 +90,30 @@ makeBox
   -> TypedExpr
   -> IO (Maybe TypedExpr)
 makeBox ctx tctx tp params ex = do
-  case addRef ex of
-    Just ref -> do
-      traitDef <- getTraitDefinition ctx tp
-      impl     <- getTraitImpl ctx tctx (tp, params) (inferredType ex)
-      case impl of
-        Just impl -> do
-          params <- makeGeneric ctx tp (tPos ex) params
-          useImpl ctx tctx (tPos ex) traitDef impl (map snd params)
-          t' <- mapType (follow ctx tctx) $ TypeBox tp $ map snd $ params
-          return $ Just $ ex
-            { tExpr        = Box
-              (impl { implTrait = TypeTraitConstraint (tp, map snd params) })
-              ref
-            , inferredType = t'
-            , tIsLocalPtr  = tIsLocal ref
-            }
-        Nothing -> return Nothing
-    Nothing -> do
-      result <- makeBox ctx tctx tp params (makeLvalue ex)
-      case result of
-        Just x  -> return $ Just $ x { tIsLocalPtr = True }
-        Nothing -> return Nothing
+  let ref = addRef ex
+  traitDef <- getTraitDefinition ctx tp
+  impl     <- getTraitImpl ctx tctx (tp, params) (inferredType ex)
+  case impl of
+    Just impl -> do
+      params <- makeGeneric ctx tp (tPos ex) params
+      useImpl ctx tctx (tPos ex) traitDef impl (map snd params)
+      t' <- mapType (follow ctx tctx) $ TypeBox tp $ map snd $ params
+      return $ Just $ ex
+        { tExpr        = Box
+          (impl { implTrait = TypeTraitConstraint (tp, map snd params) })
+          ref
+        , inferredType = t'
+        , tIsLocalPtr  = tIsLocal ref
+        }
+    Nothing -> return Nothing
 
 
-addRef :: TypedExpr -> Maybe TypedExpr
-addRef ex@(TypedExpr { tExpr = PreUnop Deref inner }) = Just inner
+addRef :: TypedExpr -> TypedExpr
+addRef ex@(TypedExpr { tExpr = PreUnop Deref inner }) = inner
 addRef ex@(TypedExpr { tIsLvalue = True }) =
-  Just $ (makeExprTyped (PreUnop Ref ex) (TypePtr $ inferredType ex) (tPos ex))
-    { tIsLocalPtr = tIsLocal ex
-    }
+  (makeExprTyped (PreUnop Ref ex) (TypePtr $ inferredType ex) (tPos ex)) { tIsLocalPtr = tIsLocal
+                                                                           ex
+                                                                         }
 addRef ex = addRef (makeLvalue ex)
 
 addDeref :: TypedExpr -> Maybe TypedExpr
