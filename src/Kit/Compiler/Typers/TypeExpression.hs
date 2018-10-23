@@ -730,11 +730,12 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                     let tctx' = addTypeParams tctx params
                     result <- typeVarBinding ctx tctx' binding pos
                     t      <- mapType (follow ctx tctx') $ inferredType result
-                    return $ (makeExprTyped (Field r1 $ Var ([], fieldName)) t pos)
-                      { tImplicits   = if null $ tImplicits r1
-                        then [ref { inferredType = TypePtr $ voidType }]
-                        else tImplicits r1
-                      }
+                    return
+                      $ (makeExprTyped (Field r1 $ Var ([], fieldName)) t pos)
+                          { tImplicits = if null $ tImplicits r1
+                            then [ref { inferredType = TypePtr $ voidType }]
+                            else tImplicits r1
+                          }
                   _ -> throwk $ TypingError
                     (  "Trait "
                     ++ s_unpack (showTypePath tp)
@@ -896,6 +897,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                                              { inferredType = TypePtr voidType
                                              }
                                          ]
+                          , tIsLvalue  = True
                           }
                   Nothing -> throwk $ TypingError
                     (  "Couldn't find an implementation of trait "

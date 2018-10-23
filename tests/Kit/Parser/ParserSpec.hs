@@ -9,12 +9,57 @@ import Kit.Parser
 testParse s = unwrapParsed $ parseTokens (scanTokens "" s)
 testParseExpr s = unwrapParsed $ parseExpr (scanTokens "" s)
 testParseTopLevel s = unwrapParsed $ parseTopLevelExpr (scanTokens "" s)
+testParseTypeSpec s = fst $ unwrapParsed $ parseTypeSpec (scanTokens "" s)
 unwrapParsed x = case x of
   ParseResult r -> r
   Err         e -> error $ show e
 
 spec :: Spec
 spec = parallel $ do
+  describe "Parse type specs" $ do
+    it "parses type names" $ do
+      testParseTypeSpec "SomeType" `shouldBe` TypeSpec ([], "SomeType") [] NoPos
+
+    it "parses type names with parameters" $ do
+      testParseTypeSpec "A[B]"
+        `shouldBe` TypeSpec ([], "A")
+                            [typeParamToSpec $ makeTypeParam "B"]
+                            NoPos
+
+    it "parses type paths" $ do
+      testParseTypeSpec "a.b.C" `shouldBe` TypeSpec (["a", "b"], "C") [] NoPos
+
+    it "parses type paths with parameters" $ do
+      testParseTypeSpec "a.b.C[D]"
+        `shouldBe` TypeSpec (["a", "b"], "C")
+                            [typeParamToSpec $ makeTypeParam "D"]
+                            NoPos
+
+    it "parses constant types" $ do
+      testParseTypeSpec "1" `shouldBe` ConstantTypeSpec (IntValue 1) NoPos
+
+    it "parses pointer sigil types" $ do
+      testParseTypeSpec "&MyType[Abc]"
+        `shouldBe` PointerTypeSpec
+                     (TypeSpec ([], "MyType")
+                               [typeParamToSpec $ makeTypeParam "Abc"]
+                               NoPos
+                     )
+                     NoPos
+
+    it "parses function types" $ do
+      testParseTypeSpec "function (A, B) -> C[Abc]"
+        `shouldBe` FunctionTypeSpec
+                     (TypeSpec ([], "C")
+                               [typeParamToSpec $ makeTypeParam "Abc"]
+                               NoPos
+                     )
+                     [ (TypeSpec ([], "A") [] NoPos)
+                     , (TypeSpec ([], "B") [] NoPos)
+                     ]
+                     False
+                     NoPos
+
   describe "Parse expressions" $ do
     it "parses identifiers" $ do
       testParseExpr "apple"
@@ -358,10 +403,10 @@ spec = parallel $ do
                          , enumVariants       = [ newEnumVariant
                                                   { variantName = ([], "Apple")
                                                   , variantParent = ([], "MyEnum")
-                                                  , variantArgs      = []
-                                                  , variantMeta      = []
+                                                  , variantArgs = []
+                                                  , variantMeta = []
                                                   , variantModifiers = []
-                                                  , variantValue     = Nothing
+                                                  , variantValue = Nothing
                                                   }
                                                 , newEnumVariant
                                                   { variantName = ([], "Banana")
