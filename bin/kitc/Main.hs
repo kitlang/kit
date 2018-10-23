@@ -44,7 +44,7 @@ options =
           str
           (  metavar "MODULE"
           <> help
-               "module containing the main() function (for binaries) or compilation entry point for libraries"
+               "module or file containing the main() function (for binaries) or compilation entry point for libraries"
           )
     <*> switch (long "version" <> help "show the version number and exit")
     <*> (length <$> many
@@ -155,18 +155,15 @@ main = do
       baseContext     <- newCompileContext
       defaultIncludes <- defaultIncludePaths
       let
+        (mainModule, sourcePaths) = decideModuleAndSourcePaths (s_pack $ optMainModule opts) (optSourcePaths opts)
         ctx = baseContext
-          { ctxMainModule   = parseModulePath $ s_pack $ optMainModule opts
+          { ctxMainModule   = parseModulePath $ mainModule
           , ctxIsLibrary    = optIsLibrary opts
           , ctxBuildDir     = optBuildDir opts
           , ctxOutputPath   = optOutputPath opts
           , ctxCompilerPath = optCompilerPath opts
           , ctxIncludePaths = optIncludePaths opts ++ defaultIncludes
-          , ctxSourcePaths  = (if null $ optSourcePaths opts
-                                then ["src"]
-                                else optSourcePaths opts
-                              )
-            ++ stdPath
+          , ctxSourcePaths  = sourcePaths ++ stdPath
           , ctxDefines      = map
             (\s -> (takeWhile (/= '=') s, drop 1 $ dropWhile (/= '=') s))
             (optDefines opts)
