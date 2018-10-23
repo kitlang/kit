@@ -125,6 +125,10 @@ _findUnderlyingType ctx mod pos stack t = do
             then BasicTypeSimpleEnum typeName
             else BasicTypeComplexEnum typeName
         Abstract { abstractUnderlyingType = u } -> r u
+
+    TypeTraitConstraint (tp, p) -> do
+      return $ BasicTypeStruct $ subPath (monomorphName tp p) "vtable"
+
     _ -> -- TODO: REMOVE
          throwk
       $ InternalError ("Couldn't find underlying type for " ++ show t) pos

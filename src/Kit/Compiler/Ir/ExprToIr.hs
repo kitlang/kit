@@ -380,7 +380,10 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
       (EnumInit (TypeInstance tp p) discriminant args) -> do
         tctx           <- modTypeContext ctx mod
         resolvedParams <- forM p $ mapType $ follow ctx tctx
-        f <- findUnderlyingType ctx mod (Just pos) (TypeInstance tp resolvedParams)
+        f              <- findUnderlyingType ctx
+                                             mod
+                                             (Just pos)
+                                             (TypeInstance tp resolvedParams)
         let disc = if null $ tpNamespace discriminant
               then discriminant
               else subPath (monomorphName tp resolvedParams)
@@ -435,6 +438,12 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
       (BoxedVtable trait x) -> do
         box <- r x
         return $ IrPreUnop Deref (IrField box vtablePointerName)
+      (StaticVtable i@(TraitImplementation { implTrait = TypeTraitConstraint ((modPath, traitName), params) }))
+        -> do
+          return $ IrIdentifier $ monomorphName
+            (monomorphName (modPath, traitName) params)
+            [implFor i]
+
       (SizeOf t) -> do
         t <- findUnderlyingType ctx mod (Just pos) t
         return $ IrSizeOf t

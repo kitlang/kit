@@ -631,15 +631,6 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                   )
                   pos
             case t of
-              TypePtr x ->
-                -- try to auto-dereference
-                           r $ makeExprTyped
-                (Field (makeExprTyped (PreUnop Deref r1) x (tPos r1))
-                       (Var ([], fieldName))
-                )
-                (inferredType ex)
-                pos
-
               TypeTypeOf tp params -> do
                 -- look for a static method or field
                 findStatic <- lookupBinding ctx $ subPath tp fieldName
@@ -724,8 +715,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                         ((show t) ++ " has no field " ++ s_unpack fieldName)
                         pos
 
-              TypeTraitConstraint (tp, params) | tIsLvalue r1 -> do
-                let (Just ref) = addRef r1
+              TypeTraitConstraint (tp, params) -> do
+                let ref = addRef r1
                 trait    <- lookupBinding ctx tp
                 traitDef <- case trait of
                   Just (TraitBinding t) -> return t
@@ -739,9 +730,10 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                     let tctx' = addTypeParams tctx params
                     result <- typeVarBinding ctx tctx' binding pos
                     t      <- mapType (follow ctx tctx') $ inferredType result
-                    return $ result
-                      { inferredType = t
-                      , tImplicits = [ref { inferredType = TypePtr $ voidType }]
+                    return $ (makeExprTyped (Field r1 $ Var ([], fieldName)) t pos)
+                      { tImplicits   = if null $ tImplicits r1
+                        then [ref { inferredType = TypePtr $ voidType }]
+                        else tImplicits r1
                       }
                   _ -> throwk $ TypingError
                     (  "Trait "
@@ -862,6 +854,18 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         case result of
           Right r   -> return r
           Left  err -> do
+            let fail = do
+                  case inferredType r1 of
+                    TypePtr x ->
+                      -- try to auto-dereference
+                                 r $ makeExprTyped
+                      (Field (makeExprTyped (PreUnop Deref r1) x (tPos r1))
+                             (Var ([], tpName fieldName))
+                      )
+                      (inferredType ex)
+                      pos
+                    _ -> throw err
+            -- UFCS: check for a function that takes the LHS as its first argument
             binding <- resolveVar ctx (tctxScopes tctx) mod (tpName fieldName)
             let
               fn tp ct =
@@ -870,11 +874,37 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                                                               }
                 )
             case binding of
-              Just b@(VarBinding v@(VarDefinition { varType = ct@(TypeFunction _ _ _ _) }))
+              Just (VarBinding v@(VarDefinition { varType = ct@(TypeFunction _ _ _ _) }))
                 -> return $ (fn (varName v) ct) { tIsConst = varIsConst v }
-              Just b@(FunctionBinding f) ->
+              Just (FunctionBinding f) ->
                 return $ fn (functionName f) $ functionConcrete f
-              _ -> throw err
+              Just (TraitBinding t) -> do
+                -- static trait dispatch: get a trait implementation for this type
+                -- FIXME: for generic traits
+                impl <- getTraitImpl ctx
+                                     tctx
+                                     (traitName t, [])
+                                     (inferredType r1)
+                case impl of
+                  Just x -> do
+                    return
+                      $ (makeExprTyped (StaticVtable x)
+                                       (TypeTraitConstraint (traitName t, []))
+                                       pos
+                        )
+                          { tImplicits = [ (addRef r1)
+                                             { inferredType = TypePtr voidType
+                                             }
+                                         ]
+                          }
+                  Nothing -> throwk $ TypingError
+                    (  "Couldn't find an implementation of trait "
+                    ++ s_unpack (showTypePath $ traitName t)
+                    ++ " for type "
+                    ++ show (inferredType r1)
+                    )
+                    pos
+              _ -> fail
 
     (Field e1 _) -> do
       throwk $ InternalError
@@ -980,6 +1010,30 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                   case t of
                     Just t -> return
                       $ r1 { inferredType = TypeTypeOf tp (params ++ [t]) }
+                    Nothing -> throwk $ TypingError
+                      (  "Unknown type parameter value: "
+                      ++ show (inferredType r2)
+                      )
+                      pos
+
+            (TypeTraitConstraint (tp, params), _) -> do
+              if tIsCompileTime r2
+                then case tExpr r2 of
+                  Literal v _ -> return $ r1
+                    { inferredType = TypeTraitConstraint
+                      (tp, params ++ [ConstantType v])
+                    }
+                  _ -> throwk $ TypingError
+                    (  "Unknown constant expression used as constant type: "
+                    ++ show r2
+                    )
+                    pos
+                else do
+                  t <- exprToType ctx tctx mod (tPos r2) $ tExpr r2
+                  case t of
+                    Just t -> return $ r1
+                      { inferredType = TypeTraitConstraint (tp, params ++ [t])
+                      }
                     Nothing -> throwk $ TypingError
                       (  "Unknown type parameter value: "
                       ++ show (inferredType r2)
@@ -1517,12 +1571,17 @@ typeVarBinding ctx tctx binding pos = do
                 TypeFunction rt args varargs _ ->
                   TypeFunction rt args varargs (map snd params)
           return $ makeExprTyped (Identifier $ Var tp) ft pos
+    -- TODO: these are invalid runtime values; don't abuse Identifier for them
     TypeBinding t -> return $ makeExprTyped (Identifier (Var $ typeName t))
                                             (TypeTypeOf (typeName t) [])
                                             pos
+    TraitBinding t -> return $ makeExprTyped
+      (Identifier (Var $ traitName t))
+      (TypeTraitConstraint (traitName t, []))
+      pos
     ModuleBinding tp ->
       return $ makeExprTyped (Identifier (Var tp)) (ModuleType tp) pos
-    _ -> throwk $ InternalError (show binding) (Just pos)
+    _ -> throwk $ InternalError "Invalid binding" (Just pos)
 
 exprToType
   :: CompileContext
