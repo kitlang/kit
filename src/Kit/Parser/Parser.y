@@ -363,6 +363,7 @@ TypeSpec :: {(TypeSpec, Span)}
   | function FunctionTypeSpec {$2}
   | '(' TypeSpec ',' CommaDelimitedTypes ')' {let p = snd $1 <+> snd $5 in (TupleTypeSpec ((fst $2) : (reverse $4)) p, p)}
   | Term {(ConstantTypeSpec (fst $ fst $1) (snd $1), snd $1)}
+  | Self {(TypeSpec ([], B.pack "Self") [] (snd $1), snd $1)}
 
 FunctionTypeSpec :: {(TypeSpec, Span)}
   : '(' ')' "->" TypeSpec {let p = snd $1 <+> snd $4 in (FunctionTypeSpec (fst $4) [] False p, p)}
@@ -417,9 +418,8 @@ UpperOrLowerIdentifier :: {(Str, Span)}
   | upper_identifier {(extract_upper_identifier $1, snd $1)}
 
 TypePath :: {(TypePath, Span)}
-  : ModulePath '.' UpperOrLowerIdentifier {((fst $1, fst $3), snd $1 <+> snd $3)}
+  : TypePath '.' UpperOrLowerIdentifier {(subPath (fst $1) (fst $3), snd $1 <+> snd $3)}
   | UpperOrLowerIdentifier {(([], fst $1), snd $1)}
-  | Self {(([], B.pack "Self"), snd $1)}
 
 ConstOrVar :: {(Bool, Span)}
   : var { (False, snd $1) }
