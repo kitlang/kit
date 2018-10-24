@@ -179,6 +179,7 @@ _processString ('n':t) True = '\n' : (_processString t False)
 _processString ('r':t) True = '\r' : (_processString t False)
 _processString ('t':t) True = '\t' : (_processString t False)
 _processString ('v':t) True = '\v' : (_processString t False)
+_processString ('x':c1:c2:t) True | isHexDigit c1 && isHexDigit c2 = (chr $ parseInt readHex (c1 : c2 : [])) : (_processString t False)
 _processString (h:t) True = h : (_processString t False)
 _processString [] _ = ""
 

@@ -10,7 +10,7 @@ implement TestTrait for Int {
 
     public function b(x: Int) {
         printf("Int's TestTrait method b\n");
-        return x;
+        return this + x;
     }
 }
 
@@ -34,4 +34,9 @@ function main() {
     var s: CString = "hello";
     s.TestTrait.a();
     printf("%i\n", s.TestTrait.b(3));
+
+    var x: Int = 777;
+    var p: Ptr[Int] = &x;
+    p.TestTrait.a();
+    printf("%i\n", p.TestTrait.b(5));
 }

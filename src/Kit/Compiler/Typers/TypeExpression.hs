@@ -881,31 +881,38 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                 return $ fn (functionName f) $ functionConcrete f
               Just (TraitBinding t) -> do
                 -- static trait dispatch: get a trait implementation for this type
-                -- FIXME: for generic traits
-                impl <- getTraitImpl ctx
-                                     tctx
-                                     (traitName t, [])
-                                     (inferredType r1)
-                case impl of
-                  Just x -> do
-                    return
-                      $ (makeExprTyped (StaticVtable x)
-                                       (TypeTraitConstraint (traitName t, []))
-                                       pos
-                        )
-                          { tImplicits = [ (addRef r1)
-                                             { inferredType = TypePtr voidType
-                                             }
-                                         ]
-                          , tIsLvalue  = True
-                          }
-                  Nothing -> throwk $ TypingError
-                    (  "Couldn't find an implementation of trait "
-                    ++ s_unpack (showTypePath $ traitName t)
-                    ++ " for type "
-                    ++ show (inferredType r1)
-                    )
-                    pos
+                -- FIXME: for generic
+                let
+                  checkForImpl ex = do
+                    impl <- getTraitImpl ctx
+                                         tctx
+                                         (traitName t, [])
+                                         (inferredType ex)
+                    case impl of
+                      Just x -> do
+                        return
+                          $ (makeExprTyped
+                              (StaticVtable x)
+                              (TypeTraitConstraint (traitName t, []))
+                              pos
+                            )
+                              { tImplicits = [ (addRef ex)
+                                                 { inferredType = TypePtr
+                                                   voidType
+                                                 }
+                                             ]
+                              , tIsLvalue  = True
+                              }
+                      Nothing -> case addDeref ex of
+                        Just ex -> checkForImpl ex
+                        Nothing -> throwk $ TypingError
+                          (  "Couldn't find an implementation of trait "
+                          ++ s_unpack (showTypePath $ traitName t)
+                          ++ " for type "
+                          ++ show (inferredType r1)
+                          )
+                          pos
+                checkForImpl r1
               _ -> fail
 
     (Field e1 _) -> do

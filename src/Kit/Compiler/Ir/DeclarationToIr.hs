@@ -52,7 +52,9 @@ generateDeclIr ctx mod t = do
       return
         $ [ foldr
               (\b acc -> mergeBundles acc b)
-              (IrBundle (typeName def') [DeclType $ converted { typeSubtype = subtype }])
+              (IrBundle (typeName def')
+                        [DeclType $ converted { typeSubtype = subtype }]
+              )
               (foldr (++) [] $ staticFields ++ staticMethods ++ instanceMethods)
           ]
 
@@ -176,7 +178,8 @@ generateDeclIr ctx mod t = do
             }
           }
 
-      return $ [IrBundle (traitName trait') [DeclType $ traitBox, DeclType $ vtable]]
+      return
+        $ [IrBundle (traitName trait') [DeclType $ traitBox, DeclType $ vtable]]
 
     DeclImpl (TraitImplementation { implMethods = [] }) -> return []
     DeclImpl i'@(TraitImplementation { implTrait = TypeTraitConstraint (traitName, traitParams), implFor = ct })
@@ -211,6 +214,7 @@ generateDeclIr ctx mod t = do
         let impl = newVarDefinition
               { varName    = implName i
               , varType    = BasicTypeStruct vtableName
+              , varMeta    = [meta metaConst]
               , varDefault = Just $ IrStructInit
                 (BasicTypeStruct vtableName)
                 [ (tpName $ functionName method, IrIdentifier $ methodName)
@@ -221,7 +225,6 @@ generateDeclIr ctx mod t = do
         methodBundles <- forM (implMethods i)
           $ \x -> generateDeclIr ctx mod $ DeclFunction x
 
-        return
-          $ [IrBundle traitName ((map snd methods) ++ [DeclVar $ impl])]
+        return $ [IrBundle traitName ((map snd methods) ++ [DeclVar $ impl])]
 
     _ -> return []
