@@ -18,7 +18,8 @@ metaExtern = "extern" :: Str
 metaBuiltin = "builtin" :: Str
 metaPromote = "promote" :: Str
 metaNoreturn = "noreturn" :: Str
+metaConst = "const" :: Str
 
 hasMeta :: Str -> [Metadata] -> Bool
-hasMeta s [] = False
-hasMeta s (h:t) = if metaName h == s then True else hasMeta s t
+hasMeta s []      = False
+hasMeta s (h : t) = if metaName h == s then True else hasMeta s t
