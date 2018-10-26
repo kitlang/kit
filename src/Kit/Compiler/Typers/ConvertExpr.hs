@@ -183,6 +183,9 @@ convertExpr ctx tctx mod params e = do
     Empty -> do
       t <- mtv
       return $ m Empty t
+    InlineCExpr s t -> do
+      t <- resolveMaybeType ctx tctx mod params pos' t
+      return $ m (InlineCExpr s t) t
     _ -> throwk $ InternalError
       ("Can't convert expression: " ++ show (expr e))
       (Just pos')

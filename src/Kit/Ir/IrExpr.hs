@@ -34,6 +34,7 @@ data IrExpr
   | IrSwitch IrExpr [(IrExpr, IrExpr)] (Maybe IrExpr)
   | IrNull
   | IrEmpty
+  | IrInlineC Str
   deriving (Eq, Show, Generic)
 
 instance Hashable IrExpr

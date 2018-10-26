@@ -459,6 +459,7 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
             ("`empty` isn't a valid value of type " ++ show t')
             pos
         return IrEmpty
+      InlineCExpr s t -> return $ IrInlineC s
       t -> do
         throwk $ InternalError
           ("Unexpected expression in typed AST:\n\n" ++ show t)

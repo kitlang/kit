@@ -290,6 +290,7 @@ transpileExpr (IrIf c e1 (Just e2)) =
   u $ CCond (transpileExpr c) (Just $ transpileExpr e1) (transpileExpr e2)
 transpileExpr (IrNull ) = transpileExpr $ IrIdentifier ([], "NULL")
 transpileExpr (IrEmpty) = transpileExpr $ IrIdentifier ([], "{0}") -- how did I get away with this!?
+transpileExpr (IrInlineC s) = transpileExpr $ IrIdentifier ([], s) -- what a hack
 transpileExpr x =
   throwk $ InternalError ("Couldn't transpile IR:\n\n  " ++ show x) Nothing
 
