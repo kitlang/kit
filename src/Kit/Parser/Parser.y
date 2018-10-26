@@ -83,6 +83,7 @@ import Kit.Str
   identifier {(LowerIdentifier _,_)}
   macro_identifier {(MacroIdentifier _,_)}
   upper_identifier {(UpperIdentifier _,_)}
+  inline_c {(InlineC _,_)}
   "++" {(Op Inc,_)}
   "--" {(Op Dec,_)}
   '+' {(Op Add,_)}
@@ -719,6 +720,7 @@ BaseExpr :: {Expr}
   | struct TypeSpec '{' StructInitFields '}' {pe (snd $1 <+> snd $5) $ StructInit (Just $ fst $2) $4}
   | struct TypeSpec {pe (snd $1 <+> snd $2) $ StructInit (Just $ fst $2) []}
   | implicit TypeSpec {pe (snd $1 <+> snd $2) $ Implicit $ Just $ fst $2}
+  | inline_c TypeAnnotation {pe (snd $1 <+> snd $2) $ InlineCExpr (extract_inline_c $1) (fst $2)}
 
 ParenthesizedExprs :: {[Expr]}
   : {[]}
@@ -886,6 +888,7 @@ extractVariants = foldr (\m acc -> case m of {VariantMember x -> x : acc; _ -> a
 extract_identifier (LowerIdentifier x,_) = x
 extract_macro_identifier (MacroIdentifier x,_) = x
 extract_upper_identifier (UpperIdentifier x,_) = x
+extract_inline_c (InlineC x,_) = x
 extract_bool (LiteralBool x) = x
 extract_lit (LiteralString x) = x
 extract_int_lit (LiteralInt x y) = (x, numSpec y)

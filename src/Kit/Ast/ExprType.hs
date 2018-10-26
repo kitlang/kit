@@ -89,6 +89,7 @@ data ExprType a b
   | Temp a
   | Null
   | Empty
+  | InlineCExpr Str b
   deriving (Eq, Generic, Show)
 
 exprDiscriminant :: ExprType a b -> Int
@@ -137,6 +138,7 @@ exprDiscriminant et = case et of
   Temp     _             -> 41
   Null                   -> 42
   Empty                  -> 43
+  InlineCExpr _ _        -> 44
   x -> throwk $ InternalError "Expression has no discriminant!" Nothing
 
 exprChildren :: ExprType a b -> [a]
@@ -192,7 +194,7 @@ isValidExpr getter x = case x of
   TypeAnnotation x _ -> isValidExpr getter $ getter x
   PreUnop        _ x -> isValidExpr getter $ getter x
   PostUnop       _ x -> isValidExpr getter $ getter x
-  Binop _ x y        -> isValidExpr getter (getter x) && isValidExpr getter (getter y)
+  Binop _ x y -> isValidExpr getter (getter x) && isValidExpr getter (getter y)
   If    a b (Just c) -> all (isValidExpr getter) $ map getter [a, b, c]
   Field      _ _     -> True
   StructInit _ _     -> True

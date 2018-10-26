@@ -80,6 +80,7 @@ data TokenClass
   | LowerIdentifier Str
   | MacroIdentifier Str
   | UpperIdentifier Str
+  | InlineC Str
   deriving (Eq)
 
 data NumSpec = CChar | CInt | CSize | Int8 | Int16 | Int32 | Int64 | Uint8 | Uint16 | Uint32 | Uint64 | Float32 | Float64 deriving (Eq)
@@ -172,3 +173,4 @@ instance Show TokenClass where
     LowerIdentifier s -> "identifier `" ++ s_unpack s ++ "`"
     MacroIdentifier s -> "macro identifier `" ++ s_unpack s ++ "`"
     UpperIdentifier s -> "type constructor `" ++ s_unpack s ++ "`"
+    InlineC s -> "inline c `" ++ s_unpack s ++ "`"
