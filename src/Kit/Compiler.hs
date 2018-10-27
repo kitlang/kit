@@ -175,25 +175,37 @@ compilerSanityChecks ctx = do
 
 
 decideModuleAndSourcePaths :: Str -> [FilePath] -> (Str, [FilePath])
-decideModuleAndSourcePaths mod paths = do
+decideModuleAndSourcePaths mod paths =
   let
-    normPaths = [dropTrailingPathSeparator $ normalise p | p <- paths]
-    modAsPath = normalise $ s_unpack mod
+    normPaths      = [ dropTrailingPathSeparator $ normalise p | p <- paths ]
+    modAsPath      = normalise $ s_unpack mod
     modAsPathNoExt = case stripExtension ".kit" modAsPath of
-                       Just p -> p
-                       Nothing -> modAsPath
+      Just p  -> p
+      Nothing -> modAsPath
     modDir = case init $ splitDirectories modAsPath of
-               [] -> "."
-               p -> joinPath p
-    normPathsWithExtra = (if s_isSuffixOf ".kit" mod && not modReachableAlready
-                            then [modDir]
-                            else []
-                         ) ++ normPaths
-    inputPathsThatCanLeadToMod = [p | p <- normPaths, isPrefixOf (splitDirectories p) (splitDirectories modAsPath)]
+      [] -> "."
+      p  -> joinPath p
+    normPathsWithExtra =
+      (if s_isSuffixOf ".kit" mod && not modReachableAlready
+          then [modDir]
+          else []
+        )
+        ++ normPaths
+    inputPathsThatCanLeadToMod =
+      [ p
+      | p <- normPaths
+      , isPrefixOf (splitDirectories p) (splitDirectories modAsPath)
+      ]
     modPathSplit = s_split '/' mod
-    actualMod = case inputPathsThatCanLeadToMod of
-                  [] -> s_pack $ takeFileName modAsPathNoExt
-                  -- What should be done if multiple source paths can lead to the file we specified?
-                  _ -> s_join "." $ map s_pack $ splitDirectories $ makeRelative (head inputPathsThatCanLeadToMod) $ modAsPathNoExt
+    actualMod    = case inputPathsThatCanLeadToMod of
+      [] -> s_pack $ takeFileName modAsPathNoExt
+      -- What should be done if multiple source paths can lead to the file we specified?
+      _ ->
+        s_join "."
+          $ map s_pack
+          $ splitDirectories
+          $ makeRelative (head inputPathsThatCanLeadToMod)
+          $ modAsPathNoExt
     modReachableAlready = not $ null inputPathsThatCanLeadToMod
-  (actualMod, if null normPathsWithExtra then ["src"] else normPathsWithExtra)
+  in
+    (actualMod, if null normPathsWithExtra then ["src"] else normPathsWithExtra)
