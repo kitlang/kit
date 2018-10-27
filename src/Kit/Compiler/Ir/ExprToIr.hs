@@ -197,6 +197,13 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
       (Binop Eq e1 (TypedExpr { tExpr = Literal (StringValue s) _ })) -> do
         r1 <- r e1
         return $ stringCompare r1 s
+      (Binop Assign (e1@(TypedExpr { tIsLvalue = True, inferredType = TypeArray t n })) (TypedExpr { tExpr = Empty }))
+        -> do
+          -- assignment of `empty` to arrays should use memset
+          r1 <- r e1
+          return $ IrCall
+            (IrIdentifier ([], "memset"))
+            [r1, IrIdentifier ([], "0"), IrSizeOf f]
       (Binop Assign e1 (TypedExpr { tExpr = ArrayLiteral values })) -> do
         r1     <- r e1
         values <- mapM r values
@@ -458,9 +465,9 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
           _                       -> throwk $ TypingError
             ("`empty` isn't a valid value of type " ++ show t')
             pos
-        return IrEmpty
+        return $ IrEmpty t'
       InlineCExpr s t -> return $ IrInlineC s
-      t -> do
+      t               -> do
         throwk $ InternalError
           ("Unexpected expression in typed AST:\n\n" ++ show t)
           (Just pos)
