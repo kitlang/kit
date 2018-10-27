@@ -82,7 +82,8 @@ bindingToCt binding params = case binding of
   Just (RuleSetBinding r  ) -> Just $ TypeRuleSet (ruleSetName r)
   _                         -> Nothing
 
-findBindingCt :: CompileContext -> TypePath -> [ConcreteType] -> IO (Maybe ConcreteType)
+findBindingCt
+  :: CompileContext -> TypePath -> [ConcreteType] -> IO (Maybe ConcreteType)
 findBindingCt ctx tp params = do
   full <- h_lookup (ctxBindings ctx) tp
   case full of
@@ -144,8 +145,9 @@ resolveType ctx tctx mod t = do
                           imports <- getModImports ctx mod
                           bound   <- foldM
                             (\acc v -> case acc of
-                              Just x  -> return acc
-                              Nothing -> findBindingCt ctx (v, s) resolvedParams
+                              Just x -> return acc
+                              Nothing ->
+                                findBindingCt ctx (v, s) resolvedParams
                             )
                             Nothing
                             imports
@@ -389,3 +391,22 @@ functionConcrete f = TypeFunction
   [ (argName arg, argType arg) | arg <- functionArgs f ]
   (functionVarargs f)
   []
+
+genericTctx
+  :: CompileContext
+  -> TypeContext
+  -> TypePath
+  -> [ConcreteType]
+  -> Span
+  -> IO TypeContext
+genericTctx ctx tctx tp params pos = do
+  params <- forMWithErrors params $ mapType $ follow ctx tctx
+  params <- makeGeneric ctx tp pos params
+  def    <- getTypeDefinition ctx tp
+  tctx   <- return $ addTypeParams tctx params
+  case typeSubtype def of
+    Abstract { abstractUnderlyingType = TypeInstance parentTp parentParams } ->
+      do
+        parentParams <- forM parentParams $ mapType $ follow ctx tctx
+        genericTctx ctx tctx parentTp parentParams pos
+    _ -> return tctx

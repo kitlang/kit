@@ -1,0 +1,23 @@
+/**
+ * A Slice is a length-prefixed pointer to contiguous values.
+ *
+ * Slice is used as the base for length-prefixed types such as Array and
+ * String.
+ */
+struct Slice[T] {
+    public var length: Size;
+    public var data: Ptr[T];
+
+    rules {
+        ($this[$i]) => $this.data[$i];
+
+        // optimize Slice iteration at compile time when the type is known
+        (for $ident in $this {$e}) => {
+            var __length = $this.length;
+            for __i in 0 ... __length {
+                var $ident = $this.data[__i];
+                {$e}
+            }
+        }
+    }
+}

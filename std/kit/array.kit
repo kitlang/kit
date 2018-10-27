@@ -1,29 +1,13 @@
 /**
  * Array is a heap-allocated, length-prefixed, fixed-length collection type.
  */
-struct Array[T] {
-    public var length: Size;
-    var data: Ptr[T];
-
+abstract Array[T]: Slice[T] {
     public static function new(allocator: Box[Allocator], length: Size): Array[T] {
         var data: Ptr[T] = allocator.alloc(sizeof T * length);
         return struct Array[T] {
             length,
             data,
         };
-    }
-
-    rules {
-        ($this[$i]) => $this.data[$i];
-
-        // optimize Array iteration at compile time when the type is known
-        (for $ident in $this {$e}) => {
-            var __length = $this.length;
-            for __i in 0 ... __length {
-                var $ident = $this.data[__i];
-                {$e}
-            }
-        }
     }
 
     public function blit(other: Ptr[Array[T]], start: Size, length: Size): Void {
