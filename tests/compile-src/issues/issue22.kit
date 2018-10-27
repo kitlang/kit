@@ -1,0 +1,7 @@
+rules MacroRules {
+    (MACRO_LIKE_FUNC(${i: Int})) => printf("macro-like func: %i\n", $i);
+}
+
+function main() using rules MacroRules {
+    MACRO_LIKE_FUNC(123_i);
+}

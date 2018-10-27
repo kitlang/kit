@@ -540,36 +540,37 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           throwk $ TypingError "Can't `return` outside of a function" pos
 
     (Call e1 args) -> do
-      r1     <- r e1
-      modImp <- modImplicits mod
-      let untypedImplicits = tImplicits r1 ++ tctxImplicits tctx ++ modImp
-      implicits <- forM untypedImplicits $ \i -> do
-        t <- mapType (follow ctx tctx) $ inferredType i
-        return $ i { inferredType = t }
-      typedArgs <- mapM r args
-      tryRewrite (unknownTyped $ Call r1 typedArgs) $ case inferredType r1 of
-        TypePtr t@(TypeFunction _ _ _ _) ->
-          -- function pointer call
-                                            typeFunctionCall
-          ctx
-          tctx
-          mod
-          (r1 { inferredType = t })
-          implicits
-          typedArgs
-        TypeFunction _ _ _ _ ->
-          typeFunctionCall ctx tctx mod r1 implicits typedArgs
-        TypeEnumConstructor tp discriminant argTypes params -> do
-          typeEnumConstructorCall ctx
-                                  tctx
-                                  mod
-                                  r1
-                                  typedArgs
-                                  tp
-                                  discriminant
-                                  argTypes
-                                  params
-        x -> throwk $ TypingError ("Type " ++ show x ++ " is not callable") pos
+      tryRewrite (unknownTyped $ Call e1 args) $ do
+        (r1 : typedArgs)     <- mapM r $ e1 : args
+        modImp <- modImplicits mod
+        let untypedImplicits = tImplicits r1 ++ tctxImplicits tctx ++ modImp
+        implicits <- forM untypedImplicits $ \i -> do
+          t <- mapType (follow ctx tctx) $ inferredType i
+          return $ i { inferredType = t }
+        tryRewrite (unknownTyped $ Call r1 typedArgs) $ case inferredType r1 of
+          TypePtr t@(TypeFunction _ _ _ _) ->
+            -- function pointer call
+                                              typeFunctionCall
+            ctx
+            tctx
+            mod
+            (r1 { inferredType = t })
+            implicits
+            typedArgs
+          TypeFunction _ _ _ _ ->
+            typeFunctionCall ctx tctx mod r1 implicits typedArgs
+          TypeEnumConstructor tp discriminant argTypes params -> do
+            typeEnumConstructorCall ctx
+                                    tctx
+                                    mod
+                                    r1
+                                    typedArgs
+                                    tp
+                                    discriminant
+                                    argTypes
+                                    params
+          x ->
+            throwk $ TypingError ("Type " ++ show x ++ " is not callable") pos
 
     (Throw e1) -> do
       throwk $ InternalError "Not yet implemented" (Just pos)
