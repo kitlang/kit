@@ -129,6 +129,10 @@ ruleMatch ctx tctx pattern te thisExpr = do
         results <- forM (zip x y) $ \(a, b) -> r a b
         combineResults results
       else return Nothing
+    (RangeLiteral a b, RangeLiteral c d) -> do
+      x <- r a c
+      y <- r b d
+      combineResults [x, y]
     (a, b) -> if exprDiscriminant a == exprDiscriminant b
       then
         let (c1, c2) = (exprChildren a, exprChildren b)

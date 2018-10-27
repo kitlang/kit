@@ -16,6 +16,10 @@ function main() {
     printf("length: %zu\n", s3.length);
     printf("value: %s\n", s3.chars);
 
+    for c in s3[1 ... 6] {
+        printf("%c\n", c);
+    }
+
     // var box1: Box[ToString] = *s;
     // var box2: Box[ToString] = "hello there!";
 

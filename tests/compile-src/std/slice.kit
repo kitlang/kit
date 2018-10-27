@@ -1,0 +1,16 @@
+function main() {
+    var arr: CArray[Int, 10] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    var slice = struct Slice[Int] {
+        length: arr.length,
+        data: arr,
+    };
+
+    for x in slice {
+        printf("%i\n", x);
+    }
+
+    var slice2 = slice[1 ... 5];
+    for x in slice2 {
+        printf("%i\n", x);
+    }
+}

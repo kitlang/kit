@@ -9,6 +9,7 @@ struct Slice[T] {
     public var data: Ptr[T];
 
     rules {
+        ($this[$i ... $j]) => struct Self {length: $j - $i, data: $this.data + $i};
         ($this[$i]) => $this.data[$i];
 
         // optimize Slice iteration at compile time when the type is known
