@@ -1,17 +1,16 @@
 /**
  * A String is a length-prefixed and zero-terminated collection of Chars.
  */
-struct String {
-    public var length: Size;
-    public var chars: CString;
+abstract String: Slice[Char] {
+    rule ($this.chars) => $this.data;
 
     public static function fromCString(allocator: Box[Allocator], source: CString): String {
         var length = strlen(source);
-        var chars: CString = allocator.alloc(length + 1);
-        strcpy(chars, source);
+        var data: CString = allocator.alloc(length + 1);
+        strcpy(data, source);
         return struct String {
             length,
-            chars,
+            data,
         };
     }
 
