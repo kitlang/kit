@@ -33,7 +33,7 @@ data IrExpr
   | IrSizeOf BasicType
   | IrSwitch IrExpr [(IrExpr, IrExpr)] (Maybe IrExpr)
   | IrNull
-  | IrEmpty
+  | IrEmpty BasicType
   | IrInlineC Str
   deriving (Eq, Show, Generic)
 

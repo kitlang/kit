@@ -67,8 +67,12 @@ cDecl t ident body = u
     []
 
 u x = x undefNode
-cpos p x =
-  x $ mkNodeInfoOnlyPos $ Language.C.Data.Position.position 0 (file p) (startLine p) (startCol p) Nothing
+cpos p x = x $ mkNodeInfoOnlyPos $ Language.C.Data.Position.position
+  0
+  (file p)
+  (startLine p)
+  (startCol p)
+  Nothing
 
 ctype :: BasicType -> ([CTypeSpec], [CDerivedDeclr])
 ctype BasicTypeVoid    = ([u CVoidType], [])
@@ -149,18 +153,18 @@ ctype (BasicTypeFunction rt args var) =
       : rtb
       )
 ctype (BasicTypeCFile) = ([u $ CTypeDef (internalIdent $ "FILE")], [])
-ctype (BasicTypeAnonEnum Nothing variants) =
-  ( [ u $ CEnumType $ u $ CEnum
-        Nothing
-        (Just
-          [ (internalIdent $ s_unpack variant, Nothing)
-          | variant <- variants
-          ]
-        )
-        []
-    ]
-  , []
-  )
+ctype (BasicTypeAnonEnum Nothing variants)
+  = ( [ u $ CEnumType $ u $ CEnum
+          Nothing
+          (Just
+            [ (internalIdent $ s_unpack variant, Nothing)
+            | variant <- variants
+            ]
+          )
+          []
+      ]
+    , []
+    )
 ctype (CArray x s) =
   ( fst t
   , (u $ CArrDeclr
@@ -175,9 +179,9 @@ ctype (CArray x s) =
   )
   where t = ctype x
 ctype (BasicTypeAnonStruct (Just x) _) = ([u $ CTypeDef $ cIdent x], [])
-ctype (BasicTypeAnonUnion (Just x) _) = ([u $ CTypeDef $ cIdent x], [])
-ctype (BasicTypeAnonEnum (Just x) _) = ([u $ CTypeDef $ cIdent x], [])
-ctype (BasicTypeUnknown) = undefined
+ctype (BasicTypeAnonUnion  (Just x) _) = ([u $ CTypeDef $ cIdent x], [])
+ctype (BasicTypeAnonEnum   (Just x) _) = ([u $ CTypeDef $ cIdent x], [])
+ctype (BasicTypeUnknown              ) = undefined
 
 intFlags f = foldr (\f acc -> setFlag f acc) noFlags f
 
@@ -288,8 +292,11 @@ transpileExpr (IrTupleInit t vals) = u $ CCompoundLit
 transpileExpr (IrSizeOf t) = u $ CSizeofType (cDecl t Nothing Nothing)
 transpileExpr (IrIf c e1 (Just e2)) =
   u $ CCond (transpileExpr c) (Just $ transpileExpr e1) (transpileExpr e2)
-transpileExpr (IrNull ) = transpileExpr $ IrIdentifier ([], "NULL")
-transpileExpr (IrEmpty) = transpileExpr $ IrIdentifier ([], "{0}") -- how did I get away with this!?
+transpileExpr (IrNull              ) = transpileExpr $ IrIdentifier ([], "NULL")
+transpileExpr (IrEmpty (CArray _ _)) = transpileExpr $ IrIdentifier ([], "{0}")
+transpileExpr (IrEmpty t           ) = u $ CCompoundLit
+  (cDecl t Nothing Nothing)
+  [([], u $ CInitExpr $ transpileExpr $ IrIdentifier ([], "0"))]
 transpileExpr (IrInlineC s) = transpileExpr $ IrIdentifier ([], s) -- what a hack
 transpileExpr x =
   throwk $ InternalError ("Couldn't transpile IR:\n\n  " ++ show x) Nothing
