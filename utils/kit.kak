@@ -17,8 +17,8 @@ add-highlighter shared/kit/string  region '"' (?<!\\)(\\\\)*"         fill strin
 add-highlighter shared/kit/comment region '//' '$'                     fill comment
 
 add-highlighter shared/kit/code/ regex %{\b(true|false|None|Some)\b} 0:value
-add-highlighter shared/kit/code/ regex \b(struct|enum|union|abstract|function|implement|specialize|trait|typedef|var|private|public|static|const|inline|using|return|throw|this|for|as|in|if|then|else|do|while|match|default|unsafe|rule|rules|implicit|sizeof|import|print|printf)\b 0:keyword
-add-highlighter shared/kit/code/ regex \b(CArray|CString|Char|Ptr|Size|Short|Long|Byte|Float|Double|UInt8|UInt16|UInt32|UInt64|Int|Int8|Int16|Int32|Int64|Float32|Float64|)\b 0:type
+add-highlighter shared/kit/code/ regex \b(struct|enum|union|abstract|function|implement|specialize|trait|typedef|var|private|public|static|const|inline|using|return|throw|this|for|as|in|if|then|else|do|while|match|default|unsafe|rule|rules|implicit|sizeof|import|include|print|printf)\b 0:keyword
+add-highlighter shared/kit/code/ regex \b(CArray|CString|Char|Ptr|Size|Short|Long|Byte|Float|Double|Uint8|Uint16|Uint32|Uint64|Int|Int8|Int16|Int32|Int64|Float32|Float64|)\b 0:type
 
 # Initialization
 # ‾‾‾‾‾‾‾‾‾‾‾‾‾‾
