@@ -93,8 +93,7 @@ Hello world
 
 After building/installing `kitc`:
 
-- Create a "src" directory, and within it, a new file, "helloworld.kit"
-- Copy the following into src/main.kit:
+- Create a a new file, "helloworld.kit", and copy the following into it:
 
 ```kit
 function main() {
@@ -102,7 +101,7 @@ function main() {
 }
 ```
 
-- Run `kitc helloworld --run` to compile and run your program
+- Run `kitc helloworld.kit --run` to compile and run your program
 
 Copyright
 ---------
