@@ -31,6 +31,6 @@ implement Writable for CString {
     }
 
     public function size(): Size {
-        return strlen(this) + 1;
+        return this.length + 1;
     }
 }

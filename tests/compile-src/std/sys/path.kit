@@ -1,0 +1,14 @@
+import kit.sys.path;
+
+function main() {
+    var path1: Path = "/path/to/something";
+    var path2: Path = "something_else";
+    printf("%s\n", path1.join(path2));
+
+    var path3: Path = "/path/to/something/";
+    printf("%s\n", path3.join(path2));
+
+    printf(if path1.isAbsolute() then "abs\n" else "not abs\n");
+    printf(if path2.isAbsolute() then "abs\n" else "not abs\n");
+    printf(if path3.isAbsolute() then "abs\n" else "not abs\n");
+}

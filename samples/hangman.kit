@@ -21,7 +21,7 @@ struct Game {
 
             if strchr(this.word, guess) != null {
                 var won: Bool = true;
-                for i in 0 ... strlen(this.word) {
+                for i in 0 ... this.word.length {
                     if this.word[i] == guess {
                         this.filled[i] = guess;
                     } else if this.filled[i] == 0 {
@@ -57,7 +57,7 @@ struct Game {
 
     public function drawGameState() {
         this.drawGallows();
-        for i in 0 ... strlen(this.word) {
+        for i in 0 ... this.word.length {
             if this.filled[i] == 0 {
                 printf("_ ");
             } else {
@@ -85,7 +85,7 @@ struct Game {
 
 function main() {
     var word = "kitchenette";
-    var game: Ptr[Game] = malloc(sizeof Game + strlen(word) + 1);
+    var game: Ptr[Game] = malloc(sizeof Game + word.length + 1);
     game.word = word;
     game.guesses = Empty;
     game.wrongGuesses = 0;

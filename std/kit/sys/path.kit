@@ -1,5 +1,31 @@
 #[promote] abstract Path: CString {
+    // FIXME
+    public static var PATH_SEP: Char = c'/';
+
     rules {
-        // (${p1: Path} / ${p2: Path}) =>
+        // (${p1: Path} / ${p2: Path}) => $p1.join($p2);
+    }
+
+    public function isAbsolute(): Bool {
+        return this.length > 0 && this[0] == Self.PATH_SEP;
+    }
+
+    public function join(allocator: Box[Allocator], other: Path): Path {
+        if other.isAbsolute() {
+            return other;
+        } else {
+            var l1 = this.length;
+            var l2 = other.length;
+            var addSep = this[l1 - 1] != Self.PATH_SEP;
+            var joined: CString = allocator.alloc(this.length + other.length + (if addSep then 2 else 1));
+            strncpy(joined, this, l1);
+            if addSep {
+                joined[l1] = Self.PATH_SEP;
+                strcpy(joined + l1 + 1, other);
+            } else {
+                strcpy(joined + l1, other);
+            }
+            return joined;
+        }
     }
 }

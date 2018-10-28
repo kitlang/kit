@@ -324,7 +324,6 @@ builtinToConcreteType
 builtinToConcreteType ctx tctx mod s pos = do
   case s of
     -- basics
-    "CString" -> return $ Just $ TypePtr $ TypeBasicType $ BasicTypeCChar
     "Char"    -> return $ Just $ TypeBasicType $ BasicTypeCChar
     "Int"     -> return $ Just $ TypeBasicType $ BasicTypeCInt
     "Size"    -> return $ Just $ TypeBasicType $ BasicTypeCSize

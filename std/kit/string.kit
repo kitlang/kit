@@ -5,7 +5,7 @@ abstract String: Slice[Char] {
     rule ($this.chars) => $this.data;
 
     public static function fromCString(allocator: Box[Allocator], source: CString): String {
-        var length = strlen(source);
+        var length = source.length;
         var data: CString = allocator.alloc(length + 1);
         strcpy(data, source);
         return struct String {
@@ -74,7 +74,7 @@ abstract StringBuffer: Vector[Char] {
     }
 
     public function add(s: CString) {
-        var l = strlen(s);
+        var l = s.length;
         for i in 0 ... l {
             this.push(s[i]);
         }
