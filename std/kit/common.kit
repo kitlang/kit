@@ -16,3 +16,9 @@
         ($this.$field = $e) => {1 / 0;}
     }
 }
+
+#[promote] abstract CString: Ptr[Char] {
+    rules {
+        ($this.length) => strlen($this);
+    }
+}
