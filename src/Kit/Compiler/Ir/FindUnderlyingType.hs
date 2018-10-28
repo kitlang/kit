@@ -21,6 +21,8 @@ findUnderlyingType
   :: CompileContext -> Module -> Maybe Span -> ConcreteType -> IO BasicType
 findUnderlyingType ctx mod pos t = _findUnderlyingType ctx mod pos [] t
 _findUnderlyingType ctx mod pos stack t = do
+  tctx <- newTypeContext []
+  t <- mapType (follow ctx tctx) t
   let r x = _findUnderlyingType ctx mod pos (x : stack) x
   when (length stack > 256) $ throwk $ InternalError
     ("Maximum recursion depth in findUnderlyingType exceeded; " ++ show stack)
