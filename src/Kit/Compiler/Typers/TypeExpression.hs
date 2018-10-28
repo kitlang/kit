@@ -541,8 +541,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
     (Call e1 args) -> do
       tryRewrite (unknownTyped $ Call e1 args) $ do
-        (r1 : typedArgs)     <- mapM r $ e1 : args
-        modImp <- modImplicits mod
+        (r1 : typedArgs) <- mapM r $ e1 : args
+        modImp           <- modImplicits mod
         let untypedImplicits = tImplicits r1 ++ tctxImplicits tctx ++ modImp
         implicits <- forM untypedImplicits $ \i -> do
           t <- mapType (follow ctx tctx) $ inferredType i
@@ -630,6 +630,14 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                   )
                   pos
             case t of
+              TypePtr x ->
+                -- try to auto-dereference
+                           r $ makeExprTyped
+                (Field (makeExprTyped (PreUnop Deref r1) x (tPos r1))
+                       (Var ([], fieldName))
+                )
+                (inferredType ex)
+                pos
               TypeTypeOf tp params -> do
                 -- look for a static method or field
                 findStatic <- lookupBinding ctx $ subPath tp fieldName
@@ -876,7 +884,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
             case binding of
               Just (VarBinding v@(VarDefinition { varType = ct@(TypeFunction _ _ _ _) }))
                 -> return $ (fn (varName v) ct) { tIsConst = varIsConst v }
-              Just (FunctionBinding f) ->
+              Just (FunctionBinding f) -> do
                 return $ fn (functionName f) $ functionConcrete f
               Just (TraitBinding t) -> do
                 -- static trait dispatch: get a trait implementation for this type
