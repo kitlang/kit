@@ -57,7 +57,7 @@ Design goals and philosophy
 
 - Expose the necessary low-level details to write high performance code, and make it easy to abstract them away without entirely giving up control.
 
-- Kit provides more compile-time safety than C, but never chooses safety at the expense of ergonomics. Kit gives you plenty of rope to hang yourself with. Use it to climb a mountain, not hang yourself! (If you do hang yourself, a detailed error message will let you know.)
+- Kit provides more compile-time safety than C, but never chooses safety at the expense of ergonomics.
 
 
 Building from source
