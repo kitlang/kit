@@ -43,9 +43,10 @@ resolveModuleTypes
 resolveModuleTypes ctx modContents = do
   results1 <- forM modContents $ resolveTypesForMod 1 ctx
   results2 <- forM modContents $ resolveTypesForMod 2 ctx
+  results3 <- forM modContents $ resolveTypesForMod 3 ctx
   unless (ctxIsLibrary ctx) $ validateMain ctx
   flattenSpecializations ctx
-  return $ results1 ++ results2
+  return $ results1 ++ results2 ++ results3
 
 flattenSpecializations :: CompileContext -> IO ()
 flattenSpecializations ctx = do
@@ -109,17 +110,16 @@ resolveTypesForMod
   -> IO (Module, [TypedDeclWithContext])
 resolveTypesForMod pass ctx (mod, contents) = do
   -- handle module using statements before creating final TypeContext
-  tctx <- modTypeContext ctx mod
+  tctx <- if pass > 1 then modTypeContext ctx mod else newTypeContext []
   forMWithErrors_ contents $ \(decl, pos) -> do
     case decl of
       DeclUsing u -> do
         addModUsing ctx tctx mod pos u
       _ -> return ()
 
-  when (pass == 2) $ do
+  when (pass == 3) $ do
     specs <- readIORef (modSpecializations mod)
     forMWithErrors_ specs (addSpecialization ctx mod)
-  tctx <- modTypeContext ctx mod
 
   let varConverter = converter (convertExpr ctx tctx mod [])
                                (resolveMaybeType ctx tctx mod [])
@@ -135,7 +135,7 @@ resolveTypesForMod pass ctx (mod, contents) = do
         $  "resolving types for "
         ++ (s_unpack $ showTypePath $ declName decl)
       case (pass, decl) of
-        (2, DeclImpl (i@TraitImplementation { implFor = Just iFor, implTrait = Just trait }))
+        (3, DeclImpl (i@TraitImplementation { implFor = Just iFor, implTrait = Just trait }))
           -> do
             traitCt <- resolveType ctx tctx mod trait
             case traitCt of
@@ -204,7 +204,7 @@ resolveTypesForMod pass ctx (mod, contents) = do
                 )
                 (Just $ implPos i)
 
-        (1, DeclVar v) -> do
+        (2, DeclVar v) -> do
           let extern = hasMeta "extern" (varMeta v)
           converted <- convertVarDefinition varConverter
             $ v { varName = addNamespace (modPath mod) (varName v) }
@@ -216,7 +216,7 @@ resolveTypesForMod pass ctx (mod, contents) = do
                          False
           return $ Just $ (DeclVar converted, tctx)
 
-        (1, DeclFunction f) -> do
+        (2, DeclFunction f) -> do
           let
             isMain =
               functionName f
@@ -235,7 +235,7 @@ resolveTypesForMod pass ctx (mod, contents) = do
                          False
           return $ Just $ (DeclFunction converted, tctx)
 
-        (1, DeclType t) -> do
+        (2, DeclType t) -> do
           let params' =
                 [ (tp, TypeTypeParam $ tp)
                 | p <- typeParams t
@@ -306,7 +306,7 @@ resolveTypesForMod pass ctx (mod, contents) = do
           addBinding ctx (typeName t) $ TypeBinding converted
           return $ Just $ (DeclType converted, tctx')
 
-        (1, DeclTrait t) -> do
+        (2, DeclTrait t) -> do
           let
             tctx' = tctx
               { tctxTypeParams = [ (tp, TypeTypeParam $ tp)
