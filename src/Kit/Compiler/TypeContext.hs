@@ -300,7 +300,7 @@ addUsing ctx tctx using = case using of
     case def of
       Just (RuleSetBinding r) -> do
         return $ tctx { tctxRules = r : tctxRules tctx }
-      _ -> return tctx
+      _ -> throwk $ InternalError ("Missing ruleset from using: " ++ s_unpack (showTypePath tp)) Nothing
   UsingImplicit x -> return $ tctx { tctxImplicits = x : tctxImplicits tctx }
   _               -> return tctx
 

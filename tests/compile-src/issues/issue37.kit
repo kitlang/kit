@@ -1,0 +1,15 @@
+using rules MyRules;
+using implicit ("a", "b", "c");
+
+rules MyRules {
+    (SOMETHING) => printf("it worked\n");
+}
+
+function testFunc(x: (CString, CString, CString)) {
+    printf("%s %s %s\n", x[0], x[1], x[2]);
+}
+
+function main() {
+    testFunc();
+    SOMETHING;
+}
