@@ -29,7 +29,7 @@ generateProjectHeader ctx ir = do
   handle   <- openFile headerFilePath WriteMode
   -- include native dependencies
   includes <- readIORef $ ctxIncludes ctx
-  forM_ (nub includes) $ \filepath -> do
+  forM_ (reverse $ nub includes) $ \filepath -> do
     hPutStrLn handle $ "#include \"" ++ filepath ++ "\""
   let flatDecls = foldr
         (++)
