@@ -17,6 +17,10 @@ struct Vector[T] {
         };
     }
 
+    public function free(): Void {
+        this.data.free(this.allocator);
+    }
+
     public function push(value: T): T {
         this.ensureSize(this.length + 1);
         return this[this.length++] = value;
