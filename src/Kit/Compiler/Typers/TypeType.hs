@@ -55,25 +55,27 @@ typeTypeDefinition ctx tctx mod selfType def@(TypeDefinition { typeName = name }
           (typePos def)
         fields <- forM
           f
-          (\field -> case varDefault field of
-            Just x -> do
-              def       <- typeExpr ctx tctx mod x
-              fieldType <- mapType (follow ctx tctx) $ varType field
-              resolveConstraint
-                ctx
-                tctx
-                (TypeEq
-                  fieldType
-                  (inferredType def)
-                  "Struct field default value must match the field's type"
-                  (tPos x)
-                )
-              return $ field { varDefault = Just def }
-            Nothing -> do
-              when (varIsConst field) $ throwk $ TypingError
-                ("const must have an initial value")
-                (varPos field)
-              return field
+          (\field -> do
+            tctx <- genericTctx ctx tctx (varPos field) (varType field)
+            fieldType <- mapType (follow ctx tctx) $ varType field
+            case varDefault field of
+              Just x -> do
+                def       <- typeExpr ctx tctx mod x
+                resolveConstraint
+                  ctx
+                  tctx
+                  (TypeEq
+                    fieldType
+                    (inferredType def)
+                    "Struct field default value must match the field's type"
+                    (tPos x)
+                  )
+                return $ field { varDefault = Just def }
+              Nothing -> do
+                when (varIsConst field) $ throwk $ TypingError
+                  ("const must have an initial value")
+                  (varPos field)
+                return field
           )
         return $ s { structFields = fields }
       Union { unionFields = f } -> do

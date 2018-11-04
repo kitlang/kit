@@ -244,11 +244,11 @@ TopLevelExpr :: {Expr}
   : StandaloneExpr {$1}
   | ConstOrVar Identifier TypeAnnotation OptionalStandaloneDefault {pe (snd $1 <+> snd $4) $ VarDeclaration (fst $2) (fst $3) (fst $1) (fst $4)}
   | return TopLevelExpr {pe (snd $1 <+> pos $2) $ Return $ Just $2}
-  | return ';' {pe (snd $1 <+> snd $2) $ Return $ Nothing}
+  | return ';' {pe (snd $1) $ Return $ Nothing}
   | defer TopLevelExpr {pe (snd $1 <+> pos $2) $ Defer $ $2}
   | throw TopLevelExpr {pe (snd $1 <+> pos $2) $ Throw $2}
-  | continue ';' {pe (snd $1 <+> snd $2) $ Continue}
-  | break ';' {pe (snd $1 <+> snd $2) $ Break}
+  | continue ';' {pe (snd $1) $ Continue}
+  | break ';' {pe (snd $1) $ Break}
   -- | tokens LexMacroTokenBlock {pe (snd $1 <+> snd $2) $ TokenExpr $ tc (fst $2)}
 
 StandaloneExpr :: {Expr}
@@ -258,9 +258,9 @@ StandaloneExpr :: {Expr}
   | if BinopTermOr ExprBlock {pe (snd $1 <+> pos $3) $ If $2 $3 (Nothing)}
   | for Identifier in Expr ExprBlock {pe (snd $1 <+> pos $5) $ For (pe (snd $2) (Identifier (fst $2))) $4 $5}
   | while Expr ExprBlock {pe (snd $1 <+> pos $3) $ While $2 $3 False}
-  | do ExprBlock while Expr ';' {pe (snd $1 <+> snd $5) $ While $4 $2 True}
+  | do ExprBlock while Expr ';' {pe (snd $1 <+> pos $4) $ While $4 $2 True}
   | match Expr '{' MatchCases DefaultMatchCase '}' {pe (snd $1 <+> snd $6) $ Match $2 (reverse $4) $5}
-  | Expr ';' {me (pos $1 <+> snd $2) $1}
+  | Expr ';' {me (pos $1) $1}
 
 UsingClauses :: {([UsingType Expr (Maybe TypeSpec)], Span)}
   : UsingClause {([fst $1], snd $1)}

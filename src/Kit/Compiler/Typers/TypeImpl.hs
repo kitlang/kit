@@ -24,15 +24,16 @@ typeImpl
   -> TraitImplementation TypedExpr ConcreteType
   -> IO TypedDecl
 typeImpl ctx tctx' mod def = do
-  (traitDef, params) <- case implTrait def of
+  (traitDef, params, tctx) <- case implTrait def of
     TypeTraitConstraint (tp, params) -> do
       traitDef <- getTraitDefinition ctx tp
       params   <- makeGeneric ctx tp (implPos def) params
-      return (traitDef, params)
+      tctx <- genericTctx ctx tctx' (implPos def) (TypeTraitConstraint (tp, map snd params))
+      params   <- forMWithErrors (map snd params) $ mapType $ follow ctx tctx
+      return (traitDef, params, tctx { tctxThis = Just $ implFor def })
     _ -> throwk $ TypingError
       ("Couldn't find trait " ++ show (implTrait def))
       (implPos def)
-  let tctx = (addTypeParams tctx' params) { tctxThis = Just $ implFor def }
 
   debugLog ctx
     $  "typing trait implemention of "

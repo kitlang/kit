@@ -72,12 +72,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           let thisType = case ruleThis rule of
                 Just x  -> inferredType x
                 Nothing -> TypeBasicType BasicTypeUnknown
-          tctx <- case thisType of
-            TypeBox tp params -> do
-              params <- makeGeneric ctx tp (tPos x) params
-              return $ addTypeParams tctx params
-            TypeInstance tp params -> genericTctx ctx tctx tp params (tPos x)
-            _                      -> return tctx
+          tctx <- genericTctx ctx tctx (tPos x) thisType
           case acc of
             Just x  -> return $ Just x
             Nothing -> do
@@ -638,19 +633,22 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                 )
                 (inferredType ex)
                 pos
+
               TypeTypeOf tp params -> do
                 -- look for a static method or field
                 findStatic <- lookupBinding ctx $ subPath tp fieldName
                 case findStatic of
                   Just binding -> do
                     params <- makeGeneric ctx tp pos params
-                    let
-                      tctx' = addTypeParams
-                        (tctx
-                          { tctxSelf = Just $ TypeInstance tp $ map snd params
-                          }
-                        )
-                        params
+                    tctx   <- genericTctx ctx
+                                          tctx
+                                          pos
+                                          (TypeTypeOf tp $ map snd params)
+                    params <- forMWithErrors (map snd params) $ mapType $ follow
+                      ctx
+                      tctx
+                    let tctx' =
+                          tctx { tctxSelf = Just $ TypeInstance tp params }
                     let accessible = case tctxSelf tctx' of
                           Just (TypeInstance tp2 params2) | tp2 == tp -> True
                           _ -> bindingIsPublic binding
@@ -658,10 +656,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                     x <- typeVarBinding ctx tctx' binding pos
                     f <- mapType (follow ctx tctx') $ inferredType x
                     case binding of
-                      FunctionBinding _ -> return $ makeExprTyped
-                        (Method tp (map snd params) fieldName)
-                        f
-                        pos
+                      FunctionBinding _ -> return
+                        $ makeExprTyped ((Method tp params) fieldName) f pos
                       _ -> return $ x { inferredType = f }
                   Nothing -> throwk $ TypingError
                     (  "Type "
@@ -733,10 +729,12 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                 methodBinding <- lookupBinding ctx (subPath tp fieldName)
                 case methodBinding of
                   Just binding -> do
-                    params <- makeGeneric ctx tp pos params
-                    let tctx' = addTypeParams tctx params
-                    result <- typeVarBinding ctx tctx' binding pos
-                    t      <- mapType (follow ctx tctx') $ inferredType result
+                    tctx <- genericTctx ctx
+                                        tctx
+                                        pos
+                                        (TypeTraitConstraint (tp, params))
+                    result <- typeVarBinding ctx tctx binding pos
+                    t      <- mapType (follow ctx tctx) $ inferredType result
                     return
                       $ (makeExprTyped (Field r1 $ Var ([], fieldName)) t pos)
                           { tImplicits = if null $ tImplicits r1
@@ -1005,8 +1003,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
               def <- getTypeDefinition ctx tp
               case typeSubtype def of
                 Abstract { abstractUnderlyingType = t } -> do
-                  params <- makeGeneric ctx tp pos params
-                  t      <- follow ctx (addTypeParams tctx params) t
+                  tctx <- genericTctx ctx tctx pos (TypeInstance tp params)
+                  t    <- follow ctx tctx t
                   resolveArrayAccess t
                 _ -> fail
 
@@ -1154,7 +1152,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
       let
         typeVarDec = do
-          varType <- follow ctx tctx $ inferredType ex
+          varType <- makeGenericConcrete ctx pos $ inferredType ex
+          varType <- follow ctx tctx varType
           init'   <- case init of
             Just e1 -> do
               r1        <- r e1
@@ -1216,15 +1215,15 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
     (StructInit structType@(TypeInstance tp p) fields) -> do
       let
         findStruct (TypeInstance tp p) tctx = do
-          p         <- forMWithErrors p $ follow ctx tctx
-          params    <- makeGeneric ctx tp pos p
-          tctx      <- return $ addTypeParams tctx params
+          params <- makeGeneric ctx tp pos p
+          tctx <- genericTctx ctx tctx pos (TypeInstance tp $ map snd params)
+          params <- forMWithErrors (map snd params) $ mapType $ follow ctx tctx
           structDef <- getTypeDefinition ctx tp
           case typeSubtype structDef of
             Abstract { abstractUnderlyingType = parent@(TypeInstance tp p) } ->
               do
                 parent <- mapType (follow ctx tctx) parent
-                findStruct parent (addTypeParams tctx params)
+                findStruct parent tctx
 
             Struct { structFields = structFields } -> do
               let providedNames = map fst fields
@@ -1282,9 +1281,9 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                     (tPos r1)
                   return (name, converted)
                 )
-              let structType' = TypeInstance tp $ map snd params
-              return $ (makeExprTyped (StructInit structType' typedFields)
-                                      structType'
+              structType <- mapType (follow ctx tctx) $ TypeInstance tp params
+              return $ (makeExprTyped (StructInit structType typedFields)
+                                      structType
                                       pos
                        )
                 { tIsLvalue = True
@@ -1629,4 +1628,5 @@ exprToType
 exprToType ctx tctx mod pos (Identifier (Var s)) = do
   t <- resolveType ctx tctx mod $ TypeSpec s [] pos
   return $ Just t
+-- exprToType ctx tctx mod pos (TupleInit x) =
 exprToType _ _ _ _ _ = return Nothing

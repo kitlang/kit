@@ -194,7 +194,6 @@ mapType f (TypeEnumConstructor tp s args p) = do
     return (n, t')
   p' <- mapM f p
   f $ TypeEnumConstructor tp s args' p'
--- TypeTraitConstraint
 mapType f (TypeTuple p) = do
   p' <- mapM f p
   f $ TypeTuple p'
@@ -202,6 +201,20 @@ mapType f (TypeTraitConstraint (tp, p)) = do
   p' <- mapM f p
   f $ TypeTraitConstraint (tp, p')
 mapType f t = f t
+
+foldType
+  :: (ConcreteType -> b -> b)
+  -> b
+  -> ConcreteType
+  -> b
+foldType f v t@(TypeInstance tp p) = foldr f v (t : p)
+foldType f v t@(TypeAnonStruct x fields) = foldr f v (t : (map snd fields))
+foldType f v t@(TypeAnonUnion x fields) = foldr f v (t : (map snd fields))
+foldType f v t@(TypeFunction rt args varargs p) = foldr f v (rt : (map snd args) ++ p)
+foldType f v t@(TypeEnumConstructor tp s args p) = foldr f v (t : (map snd args) ++ p)
+foldType f v t@(TypeTuple c) = foldr f v (t : c)
+foldType f v t@(TypeTraitConstraint (tp, p)) = foldr f v (t : p)
+foldType f v t = f t v
 
 -- FIXME: name...
 mapType_ :: (ConcreteType -> a) -> ConcreteType -> [a]
@@ -231,5 +244,8 @@ isPtr _           = False
 isTypeVar (TypeTypeVar _) = True
 isTypeVar _               = False
 
-typeUnresolved (TypeTypeVar _) = True
-typeUnresolved _ = False
+typeUnresolved :: ConcreteType -> Bool
+typeUnresolved t = foldType (\t b -> b || typeUnresolved_ t) False t
+typeUnresolved_ (TypeTypeVar _) = True
+typeUnresolved_ (TypeTypeParam _) = True
+typeUnresolved_ _ = False

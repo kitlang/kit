@@ -161,7 +161,9 @@ resolveType ctx tctx mod t = do
                                   (s_unpack $ showTypePath (m, s))
                                   pos
                       -- if this is a type instance, create a new generic
-                      makeGenericConcrete ctx (position t) ct
+                      ct   <- makeGenericConcrete ctx (position t) ct
+                      tctx <- genericTctx ctx tctx (position t) ct
+                      mapType (follow ctx tctx) ct
             m -> do
               -- search only a specific module for this type
               result <- h_lookup (ctxTypes ctx) (m, s)
@@ -300,7 +302,9 @@ addUsing ctx tctx using = case using of
     case def of
       Just (RuleSetBinding r) -> do
         return $ tctx { tctxRules = r : tctxRules tctx }
-      _ -> throwk $ InternalError ("Missing ruleset from using: " ++ s_unpack (showTypePath tp)) Nothing
+      _ -> throwk $ InternalError
+        ("Missing ruleset from using: " ++ s_unpack (showTypePath tp))
+        Nothing
   UsingImplicit x -> return $ tctx { tctxImplicits = x : tctxImplicits tctx }
   _               -> return tctx
 
@@ -367,7 +371,6 @@ getTraitImpl ctx tctx trait@(traitTp, params) ct = do
         Just y -> return $ Just y
         _      -> return Nothing
     Nothing -> return Nothing
-  t <- h_toList (ctxImpls ctx)
   case result of
     Just impl -> return $ Just impl
     Nothing   -> do
@@ -391,21 +394,46 @@ functionConcrete f = TypeFunction
   (functionVarargs f)
   []
 
+{-
+  Given a ConcreteType, returns a new TypeContext which has instantiated any
+  generics contained in the type, recursively, allowing type param values to
+  be looked up.
+-}
 genericTctx
-  :: CompileContext
-  -> TypeContext
-  -> TypePath
-  -> [ConcreteType]
-  -> Span
-  -> IO TypeContext
-genericTctx ctx tctx tp params pos = do
-  params <- forMWithErrors params $ mapType $ follow ctx tctx
-  params <- makeGeneric ctx tp pos params
-  def    <- getTypeDefinition ctx tp
-  tctx   <- return $ addTypeParams tctx params
-  case typeSubtype def of
-    Abstract { abstractUnderlyingType = TypeInstance parentTp parentParams } ->
-      do
-        parentParams <- forM parentParams $ mapType $ follow ctx tctx
-        genericTctx ctx tctx parentTp parentParams pos
-    _ -> return tctx
+  :: CompileContext -> TypeContext -> Span -> ConcreteType -> IO TypeContext
+genericTctx ctx tctx pos t = do
+  t <- mapType (follow ctx tctx) t
+  case t of
+    TypeTypeOf tp params   -> genericTctx ctx tctx pos (TypeInstance tp params)
+    TypePtr t              -> genericTctx ctx tctx pos t
+    TypeInstance tp params -> do
+      params  <- forMWithErrors params $ mapType $ follow ctx tctx
+      tctx    <- foldM (\tctx t -> genericTctx ctx tctx pos t) tctx params
+      params  <- makeGeneric ctx tp pos params
+      tctx    <- return $ addTypeParams tctx params
+      binding <- lookupBinding ctx tp
+      -- if this is an abstract, make a generic instance of its parent;
+      -- since we might call this before all type definitions are available,
+      -- fall back to checking ctxTypes
+      case (fst tp) of
+        [] -> do
+          (TypeBinding def) <- h_get (ctxBindings ctx) tp
+          case typeSubtype def of
+              Abstract { abstractUnderlyingType = parent } -> do
+                genericTctx ctx tctx pos parent
+              _ -> return tctx
+        _ -> do
+          (TypeBinding def) <- h_get (ctxTypes ctx) tp
+          case typeSubtype def of
+            Abstract { abstractUnderlyingType = Just parent } -> do
+              mod    <- getMod ctx (fst tp)
+              parent <- resolveType ctx tctx mod parent
+              genericTctx ctx tctx pos parent
+            _ -> return tctx
+    TypeTraitConstraint (tp, params) -> do
+      params <- forMWithErrors params $ mapType $ follow ctx tctx
+      tctx   <- foldM (\tctx t -> genericTctx ctx tctx pos t) tctx params
+      params <- makeGeneric ctx tp pos params
+      return $ addTypeParams tctx params
+    TypeTuple t -> foldM (\tctx -> genericTctx ctx tctx pos) tctx t
+    _           -> return tctx
