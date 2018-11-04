@@ -47,6 +47,10 @@ abstract ColorWithAlpha: Color {
     }
 }
 
+abstract AbstractNamespace: Void {
+    public static var constString = "hello from a namespaced static var";
+}
+
 function main() {
     var myColor: Color = 0x123456;
     printf("%u\n", myColor.r());
@@ -61,4 +65,6 @@ function main() {
     var c: ColorWithAlpha = 0xff000000 | Color.Gray50;
     printf("%.2f\n", c.getBlue());
     printf("%.2f\n", c.getAlpha());
+
+    printf("%s\n", AbstractNamespace.constString);
 }
