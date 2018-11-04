@@ -657,7 +657,9 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                     f <- mapType (follow ctx tctx') $ inferredType x
                     case binding of
                       FunctionBinding _ -> return
-                        $ makeExprTyped ((Method tp params) fieldName) f pos
+                        $ makeExprTyped ((StaticMember tp params) fieldName) f pos
+                      VarBinding _ -> return
+                        $ makeExprTyped ((StaticMember tp params) fieldName) f pos
                       _ -> return $ x { inferredType = f }
                   Nothing -> throwk $ TypingError
                     (  "Type "
@@ -790,7 +792,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                         _ -> throwk $ TypingError
                           "Static fields and methods can't be accessed from individual values"
                           pos
-                    return $ (makeExprTyped (Method tp params fieldName) f pos)
+                    return $ (makeExprTyped (StaticMember tp params fieldName) f pos)
                       { tImplicits = r1 : tImplicits typed
                       }
 
