@@ -1,3 +1,12 @@
 function main() {
     printf("\x0a\x61\x70\x70\x6c\x65\x0a");
+    for char in [
+        c'a',
+        c'1',
+        c'\\',
+        c'\'',
+        c'\t',
+    ] {
+        printf("%c.\n", char);
+    }
 }
