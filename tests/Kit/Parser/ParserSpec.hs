@@ -270,17 +270,17 @@ spec = parallel $ do
     it "parses blocks" $ do
       testParseTopLevel "{this; Self;\n break;}"
         `shouldBe` (pe (sp "" 1 1 2 8) $ Block
-                     [ pe (sp "" 1 2 1 6)  This
-                     , pe (sp "" 1 8 1 12) Self
-                     , pe (sp "" 2 2 2 7)  Break
+                     [ pe (sp "" 1 2 1 5)  This
+                     , pe (sp "" 1 8 1 11) Self
+                     , pe (sp "" 2 2 2 6)  Break
                      ]
                    )
 
     it "parses continue" $ do
-      testParseTopLevel "continue;" `shouldBe` (pe (sp "" 1 1 1 9) $ Continue)
+      testParseTopLevel "continue;" `shouldBe` (pe (sp "" 1 1 1 8) $ Continue)
 
     it "parses break" $ do
-      testParseTopLevel "break;" `shouldBe` (pe (sp "" 1 1 1 6) $ Break)
+      testParseTopLevel "break;" `shouldBe` (pe (sp "" 1 1 1 5) $ Break)
 
     -- it "parses token blocks" $ do
     --   testParseTopLevel "tokens { }" `shouldBe` (e $ TokenExpr [])

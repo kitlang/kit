@@ -153,7 +153,13 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
       (Method tp params name) -> do
         tctx   <- modTypeContext ctx mod
         params <- forMWithErrors params $ mapType $ follow ctx tctx
-        t      <- mapType (follow ctx tctx) t
+        when (or $ map typeUnresolved params) $ throwk $ TypingError
+          (  s_unpack (showTypePath tp)
+          ++ " parameter values for this method couldn't be resolved: "
+          ++ show params
+          )
+          pos
+        t <- mapType (follow ctx tctx) t
         case t of
           TypeFunction rt args varargs _ -> do
             return $ IrIdentifier $ subPath (monomorphName tp params) $ name
@@ -201,9 +207,8 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
         -> do
           -- assignment of `empty` to arrays should use memset
           r1 <- r e1
-          return $ IrCall
-            (IrIdentifier ([], "memset"))
-            [r1, IrIdentifier ([], "0"), IrSizeOf f]
+          return $ IrCall (IrIdentifier ([], "memset"))
+                          [r1, IrIdentifier ([], "0"), IrSizeOf f]
       (Binop Assign e1 (TypedExpr { tExpr = ArrayLiteral values })) -> do
         r1     <- r e1
         values <- mapM r values

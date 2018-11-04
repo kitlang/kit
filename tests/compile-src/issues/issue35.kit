@@ -1,0 +1,37 @@
+struct TupleContainer[A, B] {
+    public var data: Array[(A, B)];
+
+    public static function new() {
+        var data = Array.new(10);
+        return struct TupleContainer[A, B] {
+            data,
+        };
+    }
+}
+
+struct Pair[A, B] {
+    public var a: A;
+    public var b: B;
+}
+
+struct StructContainer[A, B] {
+    public var data: Array[Pair[A, B]];
+
+    public static function new(): StructContainer[A, B] {
+        var data: Array[Pair[A, B]] = Array.new(10);
+        return struct Self {
+            data,
+        };
+    }
+}
+
+function main() {
+    var x = TupleContainer[Int, Float].new();
+    x.data[0][0] = 1;
+    x.data[0][1] = 2.3;
+    var y = StructContainer[Float, Int].new();
+    y.data[0].a = 4.5;
+    y.data[0].b = 6;
+
+    printf("%i %.1f %.1f %i\n", x.data[0][0], x.data[0][1], y.data[0].a, y.data[0].b);
+}
