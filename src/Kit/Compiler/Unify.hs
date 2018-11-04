@@ -135,34 +135,38 @@ unifyBase ctx tctx strict a' b'         = do
       args <- forM (zip args1 args2) (\((_, a), (_, b)) -> r a b)
       return $ checkResults $ rt : args
     (TypeEnumConstructor tp1 d1 _ params1, TypeEnumConstructor tp2 d2 _ params2)
-      -> do
-        if (tp1 == tp2) && (d1 == d2) && (length params1 == length params2)
-          then do
-            paramMatch <- mapM (\(a, b) -> r a b) (zip params1 params2)
-            return $ checkResults paramMatch
-          else return Nothing
-    (TypeBox tp1 params1, TypeBox tp2 params2) -> do
+      -> if (tp1 == tp2) && (d1 == d2) && (length params1 == length params2)
+        then do
+          paramMatch <- mapM (\(a, b) -> r a b) (zip params1 params2)
+          return $ checkResults paramMatch
+        else return Nothing
+    (TypeBox tp1 params1, TypeBox tp2 params2) ->
       if (tp1 == tp2) && (length params1 == length params2)
         then do
           paramMatch <- mapM (\(a, b) -> rStrict a b) (zip params1 params2)
           return $ checkResults paramMatch
         else return Nothing
     (TypeArray t1 s1, TypeArray t2 s2) | (s1 > 0) && (s1 == s2) -> r t1 t2
-    (TypeArray t1 0, TypeArray t2 _) -> r t1 t2
-    (TypeArray t1 _, TypePtr t2) -> r t1 t2
-    (TypeInstance tp1 params1, TypeInstance tp2 params2) -> do
+    (TypeArray t1 0 , TypeArray t2 _ )                          -> r t1 t2
+    (TypeArray t1 _ , TypePtr t2     )                          -> r t1 t2
+    (TypeInstance tp1 params1, TypeInstance tp2 params2) ->
       if (tp1 == tp2) && (length params1 == length params2)
         then do
           paramMatch <- mapM (\(a, b) -> rStrict a b) (zip params1 params2)
           return $ checkResults paramMatch
         else if strict then return Nothing else fallBackToAbstractParent a b
-    (_, TypeInstance tp1 params1) -> do
-      if a == b
-        then return $ Just []
-        else if strict then return Nothing else fallBackToAbstractParent a b
+    (_, TypeInstance tp1 params1) -> if a == b
+      then return $ Just []
+      else if strict then return Nothing else fallBackToAbstractParent a b
     (TypeInstance tp1 params1, _) ->
       -- in case of #[promote]
       fallBackToAbstractParent a b
+    (TypeAnonStruct (Just a) _, TypeAnonStruct (Just b) _) ->
+      if a == b then return $ Just [] else return Nothing
+    (TypeAnonUnion (Just a) _, TypeAnonUnion (Just b) _) ->
+      if a == b then return $ Just [] else return Nothing
+    (TypeAnonEnum (Just a) _, TypeAnonEnum (Just b) _) ->
+      if a == b then return $ Just [] else return Nothing
     _ -> return Nothing
  where
   r       = unifyBase ctx tctx strict

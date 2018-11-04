@@ -305,8 +305,10 @@ addUsing ctx tctx using = case using of
       _ -> throwk $ InternalError
         ("Missing ruleset from using: " ++ s_unpack (showTypePath tp))
         Nothing
-  UsingImplicit x -> return $ tctx { tctxImplicits = x : tctxImplicits tctx }
-  _               -> return tctx
+  UsingImplicit x -> case tctxImplicits tctx of
+    y' : _ | x == y' -> return tctx
+    y                -> return $ tctx { tctxImplicits = x : y }
+  _ -> return tctx
 
 addTypeParams :: TypeContext -> [(TypePath, ConcreteType)] -> TypeContext
 addTypeParams tctx params =
@@ -419,9 +421,9 @@ genericTctx ctx tctx pos t = do
         [] -> do
           (TypeBinding def) <- h_get (ctxBindings ctx) tp
           case typeSubtype def of
-              Abstract { abstractUnderlyingType = parent } -> do
-                genericTctx ctx tctx pos parent
-              _ -> return tctx
+            Abstract { abstractUnderlyingType = parent } -> do
+              genericTctx ctx tctx pos parent
+            _ -> return tctx
         _ -> do
           (TypeBinding def) <- h_get (ctxTypes ctx) tp
           case typeSubtype def of
