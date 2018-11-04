@@ -1,0 +1,19 @@
+struct Vector3[T: Numeric] {
+    public var x: T;
+    public var y: T;
+    public var z: T;
+    public static const Zero = struct Self {x: 0, y: 0, z: 0};
+}
+
+function main() {
+    var vecf: Vector3[Float] = Vector3[Float].Zero;
+    var vecd: Vector3[Double] = Vector3[Double].Zero;
+    var veci: Vector3[Int] = Vector3[Int].Zero;
+    var v = Vector3[Int].Zero;
+    veci = v;
+
+    printf("%.1f %.1f %.1f\n", vecf.x, vecf.y, vecf.z);
+    printf("%.1f %.1f %.1f\n", vecd.x, vecd.y, vecd.z);
+    printf("%i %i %i\n", veci.x, veci.y, veci.z);
+    printf("%i %i %i\n", v.x, v.y, v.z);
+}

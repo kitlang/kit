@@ -84,7 +84,7 @@ data ExprType a b
   | BoxedVtable (TraitDefinition a b) a
   | StaticVtable (TraitImplementation a b)
   | SizeOf b
-  | Method TypePath [b] Str
+  | StaticMember TypePath [b] Str
   | Implicit b
   | Temp a
   | Null
@@ -133,7 +133,7 @@ exprDiscriminant et = case et of
   SizeOf    _            -> 36
   TupleInit _            -> 37
   TupleSlot _ _          -> 38
-  Method _ _ _           -> 39
+  StaticMember _ _ _     -> 39
   Implicit _             -> 40
   Temp     _             -> 41
   Null                   -> 42
@@ -210,7 +210,7 @@ isValidExpr getter x = case x of
   BoxedValue _       -> True
   BoxedVtable _ _    -> True
   SizeOf _           -> True
-  Method _ _ _       -> True
+  StaticMember _ _ _ -> True
   Implicit _         -> True
   Temp     _         -> True
   Null               -> True

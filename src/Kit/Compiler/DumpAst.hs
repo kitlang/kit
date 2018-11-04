@@ -190,11 +190,11 @@ dumpAst ctx indent e@(TypedExpr { tExpr = texpr, inferredType = t, tPos = pos })
       Match x cases def -> i
         "match"
         (x : (foldr (++) [] [ [matchPattern c, matchBody c] | c <- cases ]))
-      InlineCall a          -> i "inline" [a]
-      Method tp params name -> i
-        (  "method "
+      InlineCall a                -> i "inline" [a]
+      StaticMember tp params name -> i
+        (  "static member `"
         ++ s_unpack name
-        ++ " of "
+        ++ "` of "
         ++ s_unpack (showTypePath tp)
         ++ show params
         )

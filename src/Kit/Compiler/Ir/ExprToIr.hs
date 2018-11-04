@@ -150,21 +150,17 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
           params <- mapMWithErrors (mapType $ follow ctx tctx) params
           return $ IrIdentifier $ monomorphName v params
         _ -> return $ IrIdentifier v
-      (Method tp params name) -> do
+      (StaticMember tp params name) -> do
         tctx   <- modTypeContext ctx mod
         params <- forMWithErrors params $ mapType $ follow ctx tctx
         when (or $ map typeUnresolved params) $ throwk $ TypingError
           (  s_unpack (showTypePath tp)
-          ++ " parameter values for this method couldn't be resolved: "
+          ++ " parameter values for static member couldn't be resolved: "
           ++ show params
           )
           pos
         t <- mapType (follow ctx tctx) t
-        case t of
-          TypeFunction rt args varargs _ -> do
-            return $ IrIdentifier $ subPath (monomorphName tp params) $ name
-          x -> throwk
-            $ InternalError ("Unexpected method type: " ++ show x) (Just pos)
+        return $ IrIdentifier $ subPath (monomorphName tp params) $ name
       (Identifier (MacroVar v _)) -> return $ IrIdentifier ([], v)
       (TypeAnnotation e1 t      ) -> throw $ KitError $ BasicError
         ("unexpected type annotation in typed AST")

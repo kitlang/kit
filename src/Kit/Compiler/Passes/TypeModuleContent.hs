@@ -95,7 +95,12 @@ typeIterative ctx input output limit = do
                              , typeMethods       = []
                              }
                 )
-            , [ (DeclVar $ v { varBundle = Just $ typeRealName x }, staticTctx)
+            , [ ( DeclVar $ v
+                  { varName   = subPath (typeRealName t) $ tpName $ varName v
+                  , varBundle = Just $ typeName x
+                  }
+                , staticTctx
+                )
               | v <- typeStaticFields x
               ]
             ++ [ ( DeclFunction $ f
