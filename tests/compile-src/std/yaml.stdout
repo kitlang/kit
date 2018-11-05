@@ -1,0 +1,21 @@
+str_key: hello!
+bool_key: true
+int_key: 1
+null_key: null
+nested_key1:
+  nested_array:
+    - 1
+    - 2
+array_key:
+  - 2
+  - false
+  - null
+nested_key2:
+  child_key: 4
+array_of_objects:
+  -
+    name: first_object
+    value: 1
+  -
+    name: second_object
+    value: 2

@@ -181,10 +181,12 @@ parseDerivedType m (h' : t') ct =
   let p = parseDerivedType m t'
   in
     case h' of
-      (CPtrDeclr _ _) -> p (TypePtr ct)
-      (CArrDeclr _                         (CNoArrSize _) _) -> p (TypeArray ct 0)
-      (CArrDeclr _                         (CArrSize _ _) _) -> p (TypeArray ct 0) -- FIXME
-      (CFunDeclr (Right (params, varargs)) _              _) -> p
+      (CPtrDeclr _ _) -> p $ if ct == (TypeBasicType BasicTypeCChar)
+        then TypeInstance (["kit", "common"], "CString") []
+        else (TypePtr ct)
+      (CArrDeclr _ (CNoArrSize _) _) -> p (TypeArray ct 0)
+      (CArrDeclr _ (CArrSize _ _) _) -> p (TypeArray ct 0) -- FIXME
+      (CFunDeclr (Right (params, varargs)) _ _) -> p
         (TypeFunction
           ct
           (filter

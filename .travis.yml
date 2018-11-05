@@ -7,6 +7,9 @@ addons:
   apt:
     packages:
     - libgmp-dev
+  homebrew:
+    packages:
+    - libyaml
 
 env:
   matrix:

@@ -113,7 +113,7 @@ instance Show ConcreteType where
   show (TypePtr t) = "Ptr[" ++ show t ++ "]"
   show (TypeInstance tp params) = (s_unpack $ showTypePath tp) ++ showParams params
   show (TypeAnonStruct (Just x) f) = "struct typedef " ++ s_unpack x
-  show (TypeAnonStruct _ f) = "(anon struct)"
+  show (TypeAnonStruct _ f) = "(anon struct: " ++ intercalate ", " [s_unpack name | (name, _) <- f] ++ ")"
   show (TypeAnonEnum (Just x) variants) = "enum typedef " ++ s_unpack x
   show (TypeAnonEnum _ variants) = "(anon enum {" ++ (intercalate ", " (map s_unpack variants)) ++ "})"
   show (TypeAnonUnion (Just x) f) = "union typedef " ++ s_unpack x

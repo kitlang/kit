@@ -165,6 +165,8 @@ _loadModule ctx mod pos = do
   m       <- newMod mod fp
   imports <- findImports ctx mod stmts
   let includes   = findIncludes stmts
+  let linkedLibs = findLibs stmts
+  modifyIORef (ctxLinkedLibs ctx) (\x -> linkedLibs ++ x)
   let createdMod = m { modImports = imports }
   writeIORef     (modIncludes createdMod) includes
   addModuleTypes ctx                      (modulePathToTypePath mod)
@@ -345,7 +347,17 @@ findImports ctx mod stmts = do
 findIncludes :: [Statement] -> [(FilePath, Span)]
 findIncludes stmts = foldr
   (\e acc -> case e of
-    Statement { stmt = Include ip, stmtPos = p } -> (ip, p) : acc
+    Statement { stmt = Include ip _, stmtPos = p } -> (ip, p) : acc
+    _ -> acc
+  )
+  []
+  stmts
+
+
+findLibs :: [Statement] -> [Str]
+findLibs stmts = foldr
+  (\e acc -> case e of
+    Statement { stmt = Include _ (Just s), stmtPos = p } -> s : acc
     _ -> acc
   )
   []
