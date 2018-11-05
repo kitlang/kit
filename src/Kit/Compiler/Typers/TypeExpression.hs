@@ -656,10 +656,14 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                     x <- typeVarBinding ctx tctx' binding pos
                     f <- mapType (follow ctx tctx') $ inferredType x
                     case binding of
-                      FunctionBinding _ -> return
-                        $ makeExprTyped ((StaticMember tp params) fieldName) f pos
-                      VarBinding _ -> return
-                        $ makeExprTyped ((StaticMember tp params) fieldName) f pos
+                      FunctionBinding _ -> return $ makeExprTyped
+                        ((StaticMember tp params) fieldName)
+                        f
+                        pos
+                      VarBinding _ -> return $ makeExprTyped
+                        ((StaticMember tp params) fieldName)
+                        f
+                        pos
                       _ -> return $ x { inferredType = f }
                   Nothing -> throwk $ TypingError
                     (  "Type "
@@ -792,9 +796,10 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                         _ -> throwk $ TypingError
                           "Static fields and methods can't be accessed from individual values"
                           pos
-                    return $ (makeExprTyped (StaticMember tp params fieldName) f pos)
-                      { tImplicits = r1 : tImplicits typed
-                      }
+                    return
+                      $ (makeExprTyped (StaticMember tp params fieldName) f pos)
+                          { tImplicits = r1 : tImplicits typed
+                          }
 
                   _ -> case subtype of
                     Struct { structFields = fields } -> do
@@ -839,6 +844,49 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
                     x -> throwk $ TypingError
                       ("Field access is not allowed on " ++ show x)
+                      pos
+
+              TypeAnonStruct _ fields ->
+                case
+                    find
+                      (\(structFieldName, _) -> structFieldName == fieldName)
+                      fields
+                  of
+                    Just (fieldName, fieldType) -> do
+                      resolve $ TypeEq
+                        fieldType
+                        (inferredType ex)
+                        "Struct field access must match the field's type"
+                        (tPos r1)
+                      return $ makeExprTyped (Field r1 $ Var ([], fieldName))
+                                             fieldType
+                                             pos
+                    Nothing -> throwk $ TypingError
+                      (  show t
+                      ++ " doesn't have a field called "
+                      ++ s_unpack fieldName
+                      )
+                      pos
+
+              TypeAnonUnion _ fields ->
+                case
+                    find (\(unionFieldName, _) -> unionFieldName == fieldName)
+                         fields
+                  of
+                    Just (fieldName, fieldType) -> do
+                      resolve $ TypeEq
+                        fieldType
+                        (inferredType ex)
+                        "Union field access must match the field's type"
+                        (tPos r1)
+                      return $ makeExprTyped (Field r1 $ Var ([], fieldName))
+                                             fieldType
+                                             pos
+                    Nothing -> throwk $ TypingError
+                      (  show t
+                      ++ " doesn't have a field called "
+                      ++ s_unpack fieldName
+                      )
                       pos
 
               ModuleType tp -> do
