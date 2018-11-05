@@ -21,4 +21,10 @@
     rules {
         ($this.length) => strlen($this);
     }
+
+    public function copy(allocator: Box[Allocator]): CString {
+        var new = allocator.alloc(this.length + 1);
+        strcpy(new, this);
+        return new;
+    }
 }

@@ -18,12 +18,12 @@ enum Option[T] {
         }
     }
 
-    // public function unwrap(): T {
-    //     match this {
-    //         Some(value) => return value;
-    //         default => panic("unwrap: unexpected missing value");
-    //     }
-    // }
+    public function unwrap(): T {
+        match this {
+            Some(value) => return value;
+            default => panic("unwrap: unexpected missing value");
+        }
+    }
 
     rules {
         (this.isSome()) => !this.isNone();

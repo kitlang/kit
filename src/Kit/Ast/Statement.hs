@@ -24,7 +24,7 @@ data StatementType a b
   | Typedef Str TypeSpec
   -- if the bool parameter is True, this is a wildcard import from a package
   | Import ModulePath Bool
-  | Include FilePath
+  | Include FilePath (Maybe Str)
   | ModuleUsing (UsingType a b)
   deriving (Eq, Show)
 

@@ -167,6 +167,7 @@ unifyBase ctx tctx strict a' b'         = do
       if a == b then return $ Just [] else return Nothing
     (TypeAnonEnum (Just a) _, TypeAnonEnum (Just b) _) ->
       if a == b then return $ Just [] else return Nothing
+    (a, b) | a == b -> return $ Just []
     _ -> return Nothing
  where
   r       = unifyBase ctx tctx strict

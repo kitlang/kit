@@ -25,6 +25,7 @@ data CompileContext = CompileContext {
   ctxFailedModules :: HashTable ModulePath (),
   ctxPreludes :: HashTable ModulePath [Statement],
   ctxIncludes :: IORef [FilePath],
+  ctxLinkedLibs :: IORef [Str],
   ctxLastTypeVar :: IORef Int,
   ctxLastTemplateVar :: IORef Int,
   ctxTypeVariables :: HashTable Int TypeVarInfo,
@@ -67,6 +68,7 @@ newCompileContext = do
   failed             <- h_new
   preludes           <- h_new
   includes           <- newIORef []
+  linkedLibs         <- newIORef []
   lastTypeVar        <- newIORef 0
   lastTemplateVar    <- newIORef 0
   specs              <- h_new
@@ -96,6 +98,7 @@ newCompileContext = do
     , ctxPreludes               = preludes
     , ctxVerbose                = 0
     , ctxIncludes               = includes
+    , ctxLinkedLibs             = linkedLibs
     , ctxLastTypeVar            = lastTypeVar
     , ctxLastTemplateVar        = lastTemplateVar
     , ctxUnresolvedTypeVars     = unresolved
@@ -382,7 +385,7 @@ defaultIncludePaths = do
     Just x  -> return $ splitDirs x
     Nothing -> case os of
       "linux"  -> return ["/usr/include/x86_64-linux-gnu", "/usr/include"]
-      "darwin" -> return ["/usr/include"]
+      "darwin" -> return ["/usr/include", "/usr/local/include"]
       _        -> return []
 
 splitDirs f = case break (== ',') f of
@@ -404,7 +407,9 @@ getCompilerFlags ctx = do
 
 getLinkerFlags :: CompileContext -> IO [String]
 getLinkerFlags ctx = do
-  let ctxFlags = ctxLinkerFlags ctx
+  linkedLibs <- readIORef $ ctxLinkedLibs ctx
+  let ctxFlags =
+        [ "-l" ++ s_unpack lib | lib <- nub linkedLibs ] ++ ctxLinkerFlags ctx
   envFlags <- lookupEnv "LINKER_FLAGS"
   return $ case envFlags of
     -- FIXME

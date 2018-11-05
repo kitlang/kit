@@ -1,0 +1,88 @@
+include "yaml.h" => "yaml";
+
+enum Yaml {
+    YamlNull;
+    YamlScalar(s: CString);
+    YamlSequence(values: Array[Yaml]);
+    YamlMap(pairs: Array[(CString, Yaml)]);
+
+    public static function parse(allocator: Box[Allocator], s: CString): Option[Yaml] using implicit allocator {
+        // FIXME: do this more efficienty by counting nodes and using a LinearAllocator
+        var parser: yaml_parser_t;
+        yaml_parser_initialize(parser);
+
+        parser.yaml_parser_set_input_string(s as Ptr[Void], s.length);
+
+        var doc: yaml_document_t;
+        if yaml_parser_load(parser, doc) == 0 {
+            return None;
+        }
+
+        var result = Self.getNode(doc, yaml_document_get_root_node(doc));
+
+        yaml_document_delete(doc);
+        yaml_parser_delete(parser);
+
+        return Some(result);
+    }
+
+    static function getNode(allocator: Box[Allocator], doc: Ptr[yaml_document_t], node: Ptr[yaml_node_t]): Yaml {
+        match node.type {
+            YAML_SCALAR_NODE => {
+                // TODO
+                var val = (node.data.scalar.value as Ptr[Void] as CString).copy();
+                return YamlScalar(val);
+            }
+            YAML_SEQUENCE_NODE => {
+                var a: Array[Yaml] = Array.new(node.data.sequence.items.top - node.data.sequence.items.start);
+                var i = 0;
+                var p: Ptr[yaml_node_item_t] = node.data.sequence.items.start;
+                while p < node.data.sequence.items.top {
+                    var valueNode = yaml_document_get_node(doc, p);
+                    var value = Self.getNode(doc, valueNode);
+                    a[i] = value;
+                    ++p;
+                    ++i;
+                }
+                return YamlSequence(a);
+            }
+            YAML_MAPPING_NODE => {
+                var a: Array[(CString, Yaml)] = Array.new(node.data.mapping.pairs.top - node.data.mapping.pairs.start);
+                var i = 0;
+                var p: Ptr[yaml_node_pair_t] = node.data.mapping.pairs.start;
+                while p < node.data.mapping.pairs.top {
+                    var key = yaml_document_get_node(doc, p.key);
+                    var keyStr = (key.data.scalar.value as Ptr[Void] as CString).copy();
+                    var valueNode = yaml_document_get_node(doc, p.value);
+                    var value = Self.getNode(doc, valueNode);
+                    a[i] = (keyStr, value);
+                    ++p;
+                    ++i;
+                }
+                return YamlMap(a);
+            }
+            default => {
+                return YamlNull;
+            }
+        }
+    }
+
+    public function free(allocator: Box[Allocator]) {
+        match this {
+            YamlSequence(values) => {
+                for value in values {
+                    value.free();
+                }
+                values.free();
+            }
+            YamlMap(pairs) => {
+                for pair in pairs {
+                    // FIXME
+                    // allocator.free(pair[0]);
+                    pair[1].free();
+                }
+                pairs.free();
+            }
+        }
+    }
+}

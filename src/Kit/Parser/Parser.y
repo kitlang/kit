@@ -127,7 +127,8 @@ Statements_ :: {[Statement]}
 Statement :: {Statement}
   : import ModulePath ';' {ps (snd $1 <+> snd $3) $ Import (reverse $ fst $2) False}
   | import ModulePath ".*" ';' {ps (snd $1 <+> snd $3) $ Import (reverse $ fst $2) True}
-  | include str ';' {ps (snd $1 <+> snd $3) $ Include $ B.unpack $ extract_lit $ fst $2}
+  | include str "=>" str ';' {ps (snd $1 <+> snd $5) $ Include (B.unpack $ extract_lit $ fst $2) (Just $ extract_lit $ fst $4)}
+  | include str ';' {ps (snd $1 <+> snd $3) $ Include (B.unpack $ extract_lit $ fst $2) Nothing}
   | using UsingClause ';' {ps (snd $1 <+> snd $3) $ ModuleUsing $ fst $2}
   | MetaMods typedef upper_identifier '=' TypeSpec ';' {
     ps (fp [snd $1, snd $2, snd $6]) $ Typedef (extract_upper_identifier $3) (fst $5)

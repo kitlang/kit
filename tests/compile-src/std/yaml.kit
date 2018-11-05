@@ -1,0 +1,74 @@
+import kit.yaml;
+
+function print_yaml(value: Yaml, indent: Size) {
+    match value {
+        YamlScalar(s) => {
+            for i in 0 ... indent {
+                printf("  ");
+            }
+            printf("%s\n", s);
+        }
+        YamlSequence(values) => {
+            for value in values {
+                for i in 0 ... indent {
+                    printf("  ");
+                }
+                printf("-");
+                match value {
+                    YamlScalar(s) => {
+                        printf(" %s\n", s);
+                    }
+                    default => {
+                        printf("\n");
+                        print_yaml(value, indent + 1);
+                    }
+                }
+            }
+        }
+        YamlMap(pairs) => {
+            for pair in pairs {
+                for i in 0 ... indent {
+                    printf("  ");
+                }
+                printf("%s:", pair[0]);
+                match pair[1] {
+                    YamlScalar(s) => {
+                        printf(" %s\n", s);
+                    }
+                    default => {
+                        printf("\n");
+                        print_yaml(pair[1], indent + 1);
+                    }
+                }
+            }
+        }
+    }
+}
+
+function main() {
+    var result = Yaml.parse("""
+str_key: hello!
+bool_key: true
+int_key: 1
+null_key: null
+nested_key1:
+  nested_array:
+  - 1
+  - 2
+array_key:
+- 2
+- false
+- null
+nested_key2:
+  child_key: 4
+array_of_objects:
+- name: first_object
+  value: 1
+- name: second_object
+  value: 2
+""");
+
+    var yaml = result.unwrap();
+    print_yaml(yaml, 0);
+    yaml.free();
+}
