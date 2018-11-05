@@ -48,6 +48,9 @@ struct Vector[T] {
     function ensureSize(n: Int): Void {
         if this.data.length < n {
             var l = this.length;
+            if l == 0 {
+                l = 1;
+            }
             while l < n {
                 l <<= 1;
             }
