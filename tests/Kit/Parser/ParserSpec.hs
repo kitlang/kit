@@ -351,11 +351,11 @@ spec = parallel $ do
                          , functionType      = Just $ makeTypeSpec "Something"
                          , functionBody      = Just $ e $ Block
                            [ e $ Call (e $ Identifier (Var ([], "print")))
-                                      [e $ Identifier (Var ([], "a"))]
+                                      [] [e $ Identifier (Var ([], "a"))]
                            , e $ Call (e $ Identifier (Var ([], "print")))
-                                      [e $ Identifier (Var ([], "b"))]
+                                      [] [e $ Identifier (Var ([], "b"))]
                            , e $ Call (e $ Identifier (Var ([], "print")))
-                                      [e $ Identifier (Var ([], "c"))]
+                                      [] [e $ Identifier (Var ([], "c"))]
                            ]
                          , functionVarargs   = True
                          }
