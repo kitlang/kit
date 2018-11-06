@@ -204,15 +204,15 @@ dumpAst ctx indent e@(TypedExpr { tExpr = texpr, inferredType = t, tPos = pos })
         i ("struct " ++ s_unpack (showTypePath tp)) (map snd fields)
       EnumInit _ constructor fields ->
         i ("enum " ++ (s_unpack $ showTypePath constructor)) (map snd fields)
-      ArrayAccess a b    -> i "array access" [a, b]
-      Call        a args -> i "call" (a : args)
-      Cast        a _    -> i "cast" [a]
+      ArrayAccess a b  -> i "array access" [a, b]
+      Call a a1 a2     -> i "call" (a : a1 ++ a2)
+      Cast a _         -> i "cast" [a]
       -- TokenExpr [TokenClass]
-      Unsafe       a     -> i "unsafe" [a]
-      BlockComment _     -> return $ f "/** ... */"
+      Unsafe       a   -> i "unsafe" [a]
+      BlockComment _   -> return $ f "/** ... */"
       -- LexMacro Str [TokenClass]
-      RangeLiteral a b   -> i "_ ... _" [a, b]
-      ArrayLiteral x     -> i "[]" x
+      RangeLiteral a b -> i "_ ... _" [a, b]
+      ArrayLiteral x   -> i "[]" x
       VarDeclaration id _ const a ->
         i ((if const then "const " else "var ") ++ show id) (catMaybes [a])
       Using u x       -> i ("using " ++ show u) [x]

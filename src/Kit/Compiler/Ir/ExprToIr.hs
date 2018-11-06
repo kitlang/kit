@@ -328,7 +328,8 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
         r1 <- r e1
         r2 <- r e2
         return $ IrArrayAccess r1 r2
-      (Call e1 args) -> do
+      (Call e1 implicits explicitArgs) -> do
+        let args = implicits ++ explicitArgs
         r1    <- r e1
         args' <- mapMWithErrors r args
         return $ IrCall r1 args'

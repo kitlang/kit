@@ -700,7 +700,7 @@ ArrayElems :: {[Expr]}
 
 ArrayAccessCallFieldExpr :: {Expr}
   : ArrayAccessCallFieldExpr '[' ArrayElems ']' {foldr (\x acc -> pe (pos $1 <+> snd $4) $ ArrayAccess acc x) $1 $3}
-  | ArrayAccessCallFieldExpr '(' CallArgs ')' {pe (pos $1 <+> snd $4) $ Call $1 (reverse $3)}
+  | ArrayAccessCallFieldExpr '(' CallArgs ')' {pe (pos $1 <+> snd $4) $ Call $1 [] (reverse $3)}
   | ArrayAccessCallFieldExpr '.' Identifier {pe (pos $1 <+> snd $3) $ Field $1 $ fst $3}
   | TypeAnnotatedExpr {$1}
 

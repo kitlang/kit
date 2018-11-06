@@ -534,38 +534,39 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         (Nothing, _) ->
           throwk $ TypingError "Can't `return` outside of a function" pos
 
-    (Call e1 args) -> do
-      tryRewrite (unknownTyped $ Call e1 args) $ do
+    (Call e1 _ args) -> do
+      tryRewrite (unknownTyped $ Call e1 [] args) $ do
         (r1 : typedArgs) <- mapM r $ e1 : args
         modImp           <- modImplicits mod
         let untypedImplicits = tImplicits r1 ++ tctxImplicits tctx ++ modImp
         implicits <- forM untypedImplicits $ \i -> do
           t <- mapType (follow ctx tctx) $ inferredType i
           return $ i { inferredType = t }
-        tryRewrite (unknownTyped $ Call r1 typedArgs) $ case inferredType r1 of
-          TypePtr t@(TypeFunction _ _ _ _) ->
-            -- function pointer call
-                                              typeFunctionCall
-            ctx
-            tctx
-            mod
-            (r1 { inferredType = t })
-            implicits
-            typedArgs
-          TypeFunction _ _ _ _ ->
-            typeFunctionCall ctx tctx mod r1 implicits typedArgs
-          TypeEnumConstructor tp discriminant argTypes params -> do
-            typeEnumConstructorCall ctx
-                                    tctx
-                                    mod
-                                    r1
-                                    typedArgs
-                                    tp
-                                    discriminant
-                                    argTypes
-                                    params
-          x ->
-            throwk $ TypingError ("Type " ++ show x ++ " is not callable") pos
+        tryRewrite (unknownTyped $ Call r1 [] typedArgs)
+          $ case inferredType r1 of
+              TypePtr t@(TypeFunction _ _ _ _) ->
+                -- function pointer call
+                                                  typeFunctionCall
+                ctx
+                tctx
+                mod
+                (r1 { inferredType = t })
+                implicits
+                typedArgs
+              TypeFunction _ _ _ _ ->
+                typeFunctionCall ctx tctx mod r1 implicits typedArgs
+              TypeEnumConstructor tp discriminant argTypes params -> do
+                typeEnumConstructorCall ctx
+                                        tctx
+                                        mod
+                                        r1
+                                        typedArgs
+                                        tp
+                                        discriminant
+                                        argTypes
+                                        params
+              x -> throwk
+                $ TypingError ("Type " ++ show x ++ " is not callable") pos
 
     (Throw e1) -> do
       throwk $ InternalError "Not yet implemented" (Just pos)
@@ -1413,21 +1414,20 @@ alignCallArgs
   -> [TypedExpr]
   -> [TypedExpr]
   -> IO [TypedExpr]
-alignCallArgs ctx tctx argTypes isVariadic implicits args = if null argTypes
-  then return []
-  else do
-    nextArg <- follow ctx tctx (head argTypes)
-    found   <- findImplicit ctx tctx nextArg implicits
-    case found of
-      Just (x, y) -> do
-        rest <- alignCallArgs ctx
-                              tctx
-                              (tail argTypes)
-                              isVariadic
-                              (delete x implicits)
-                              args
-        return $ y : rest
-      Nothing -> return $ args
+alignCallArgs ctx tctx []       isVariadic implicits args = return []
+alignCallArgs ctx tctx argTypes isVariadic implicits args = do
+  nextArg <- follow ctx tctx (head argTypes)
+  found   <- findImplicit ctx tctx nextArg implicits
+  case found of
+    Just (x, y) -> do
+      rest <- alignCallArgs ctx
+                            tctx
+                            (tail argTypes)
+                            isVariadic
+                            (delete x implicits)
+                            args
+      return $ y : rest
+    Nothing -> return $ args
 
 findImplicit
   :: CompileContext
@@ -1467,6 +1467,7 @@ typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = ft@(TypeFunction rt 
                              isVariadic
                              implicits
                              args
+    let usedImplicits = length aligned - length args
     when
         (if isVariadic
           then length aligned < length argTypes
@@ -1482,24 +1483,34 @@ typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = ft@(TypeFunction rt 
           ++ ":\n\n  "
           ++ show ft
           ++ "\n\nCalled with "
+          ++ (if usedImplicits > 0
+               then
+                 show usedImplicits
+                 ++ " implicit argument"
+                 ++ (plural $ usedImplicits)
+                 ++ ":\n\n"
+                 ++ (intercalate
+                      "\n"
+                      [ "  - " ++ show (inferredType arg)
+                      | arg <- take usedImplicits aligned
+                      ]
+                    )
+                 ++ "\n\nand "
+               else ""
+             )
           ++ (show $ length args)
           ++ " argument"
           ++ (plural $ length args)
-          ++ (if null implicits
-              then
-                "."
-              else
-                (  ", and "
-                ++ (show $ length implicits)
-                ++ " implicit"
-                ++ (plural $ length implicits)
-                ++ ":\n\n"
-                ++ intercalate
-                     "\n"
-                     [ "  - implicit " ++ (show $ inferredType i)
-                     | i <- implicits
-                     ]
-                )
+          ++ (if length args > 0
+               then
+                 ":\n\n"
+                   ++ (intercalate
+                        "\n"
+                        [ "  - " ++ show (inferredType arg)
+                        | arg <- drop usedImplicits aligned
+                        ]
+                      )
+               else ""
              )
           )
           pos
@@ -1523,7 +1534,10 @@ typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = ft@(TypeFunction rt 
                   (tPos argValue)
           )
       )
-    return $ makeExprTyped (Call e converted) rt pos
+    return $ makeExprTyped
+      (Call e (take usedImplicits converted) (drop usedImplicits converted))
+      rt
+      pos
 
 typeEnumConstructorCall
   :: CompileContext

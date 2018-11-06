@@ -69,7 +69,7 @@ data ExprType a b
   | TupleInit [a]
   | TupleSlot a Int
   | ArrayAccess a a
-  | Call a [a]
+  | Call a [a] [a]
   | Cast a b
   | Unsafe a
   | BlockComment Str
@@ -119,8 +119,8 @@ exprDiscriminant et = case et of
   EnumInit  _ _ _        -> 23
   EnumField _ _ _        -> 40
   ArrayAccess _ _        -> 24
-  Call        _ _        -> 25
-  Cast        _ _        -> 26
+  Call _ _ _             -> 25
+  Cast _ _               -> 26
   Unsafe       _         -> 27
   BlockComment _         -> 28
   RangeLiteral _ _       -> 29
@@ -162,8 +162,8 @@ exprChildren et = case et of
   EnumInit  _ _ x               -> map snd x
   EnumField x _ _               -> [x]
   ArrayAccess x y               -> [x, y]
-  Call        x args            -> x : args
-  Cast        x _               -> [x]
+  Call x implicits args         -> x : implicits ++ args
+  Cast x _                      -> [x]
   Unsafe x                      -> [x]
   RangeLiteral x y              -> [x, y]
   ArrayLiteral x                -> x
@@ -203,8 +203,8 @@ isValidExpr getter x = case x of
   TupleInit _        -> True
   TupleSlot   _ _    -> True
   ArrayAccess _ _    -> True
-  Call        _ _    -> True
-  Cast        _ _    -> True
+  Call _ _ _         -> True
+  Cast _ _           -> True
   Unsafe x           -> isValidExpr getter $ getter x
   Box _ _            -> True
   BoxedValue _       -> True

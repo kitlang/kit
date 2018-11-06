@@ -1,3 +1,5 @@
+import kit.sys.file;
+
 include "yaml.h" => "yaml";
 
 enum Yaml {
@@ -12,6 +14,26 @@ enum Yaml {
         yaml_parser_initialize(parser);
 
         parser.yaml_parser_set_input_string(s as Ptr[Void], s.length);
+
+        var doc: yaml_document_t;
+        if yaml_parser_load(parser, doc) == 0 {
+            return None;
+        }
+
+        var result = Self.getNode(doc, yaml_document_get_root_node(doc));
+
+        yaml_document_delete(doc);
+        yaml_parser_delete(parser);
+
+        return Some(result);
+    }
+
+    public static function parseFile(allocator: Box[Allocator], fp: File): Option[Yaml] using implicit allocator {
+        // FIXME: do this more efficienty by counting nodes and using a LinearAllocator
+        var parser: yaml_parser_t;
+        yaml_parser_initialize(parser);
+
+        parser.yaml_parser_set_input_file(fp);
 
         var doc: yaml_document_t;
         if yaml_parser_load(parser, doc) == 0 {
@@ -77,8 +99,7 @@ enum Yaml {
             }
             YamlMap(pairs) => {
                 for pair in pairs {
-                    // FIXME
-                    // allocator.free(pair[0]);
+                    allocator.free(pair[0]);
                     pair[1].free();
                 }
                 pairs.free();

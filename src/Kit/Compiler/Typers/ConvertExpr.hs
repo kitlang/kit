@@ -14,7 +14,13 @@ import Kit.Error
   subexpression that needs typing will be typed with either its resolved
   annotation or a new type variable.
 -}
-convertExpr :: CompileContext -> TypeContext -> Module -> [TypePath] -> Expr -> IO TypedExpr
+convertExpr
+  :: CompileContext
+  -> TypeContext
+  -> Module
+  -> [TypePath]
+  -> Expr
+  -> IO TypedExpr
 convertExpr ctx tctx mod params e = do
   let pos'          = pos e
   -- "make type variable"
@@ -67,8 +73,8 @@ convertExpr ctx tctx mod params e = do
         (convertUsingType (converter r (\_ -> typeOrTypeVar)) pos')
         using
       singleWrapper e1 (Using using')
-    Meta meta e1           -> singleWrapper e1 (Meta meta)
-    Literal v t -> do
+    Meta    meta e1 -> singleWrapper e1 (Meta meta)
+    Literal v    t  -> do
       t' <- resolveMaybeType ctx tctx mod params pos' t
       return $ m (Literal v t') t'
     This                       -> container0 This
@@ -133,12 +139,13 @@ convertExpr ctx tctx mod params e = do
         )
       return $ m (StructInit t fields) t
     -- EnumInit b Str [a]
-    ArrayAccess e1 e2   -> container2 e1 e2 ArrayAccess
-    Call        e1 args -> do
+    ArrayAccess e1 e2 -> container2 e1 e2 ArrayAccess
+    Call e1 imp args    -> do
       t    <- mtv
       r1   <- r e1
+      imp <- mapM r imp
       args <- mapM r args
-      return $ m (Call r1 args) t
+      return $ m (Call r1 imp args) t
     Cast e1 t -> do
       t  <- typeOrTypeVar t
       r1 <- r e1
