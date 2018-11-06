@@ -20,6 +20,7 @@
 #[promote] abstract CString: Ptr[Char] {
     rules {
         ($this.length) => strlen($this);
+        ($this == ${other: CString}) => strcmp($this, $other) == 0;
     }
 
     public function copy(allocator: Box[Allocator]): CString {
