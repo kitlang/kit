@@ -1,23 +1,145 @@
-trait Map[K, V] {
-    function exists(key: K): Bool;
-    function get(key: K): V;
-    function set(key: K, value: V): V;
-
-    rules {
-        (this[${key: K}]) => this.get($key);
-        (this[${key: K}] = (value: V)) => this.set($key, value);
-    }
+/**
+ * Hashable trait must be implemented for any key in the hashmap,
+ * as the hashcode function is used to determine it's place in the map
+ */
+trait Hashable{
+    function hashcode() : Int;
 }
 
-// default implementations for supported key types
-specialize Map[Bool, V] as BoolMap[V];
-specialize Map[Integral, V] as IntMap[V];
-specialize Map[String, V] as StringMap[V];
-// for small numbers, trade space use for faster inserts/lookups
-specialize Map[Uint8, V] as SmallIntMap[Uint8, V];
-specialize Map[Int8, V] as SmallIntMap[Int8, V];
+/**
+ * Generic HashMap implementation, requring the key to implement the Hashable trait.
+ * Relies on == operator for comparisons, so you may need to overwrite it in custom types
+ */
+struct Map[K: Hashable, V]
+{
+    private var size: Int;
+    private var allocator: Box[Allocator];
+    private var internalArray : Array[KeyValuePair[K, V]];
+    private var internalArrayCapacity : Int = 10;
+    const internalArrayThreshold : Float = 0.7;
 
-struct BoolMap[V] {}
-struct IntMap[V] {}
-struct SmallIntMap[K, V] {}
-struct StringMap[V] {}
+    public static function new(allocator: Box[Allocator], capacity: Int): Map[K, V] using implicit allocator
+    {
+        
+        var internalArray: Array[KeyValuePair[K, V]] = Array.new(capacity);
+        return struct Self
+        {
+            size: 0,
+            allocator,
+            internalArray,
+            internalArrayCapacity: capacity
+        };
+
+    }
+
+    public function put(key: K, value: V) : V
+    {
+        
+        //check to see if we need to resize
+        if((this.size / this.internalArrayCapacity) >= this.internalArrayThreshold)
+        {
+            this.resize();
+        }
+        
+        //increment size
+        this.internalArray[this.findLocation(key)] = struct KeyValuePair[K, V] {
+            key,
+            value,
+            isActive: true,
+        };
+        this.size = this.size + 1;
+        return value;
+    }
+
+    public function get(key: K) : Option[V]
+    {
+        if(this.internalArray[this.findLocation(key)].isActive)
+        {
+            return Some(this.internalArray[this.findLocation(key)].value);
+        }
+        return None;
+    }
+
+    public function contains(value : V) : Bool
+    {
+        for i in 0 ... this.size - 1
+        {
+            if(this.internalArray[i].value == value)
+            {
+                return true;
+            }
+            return false;
+        }
+    }
+
+    public function exists(key: K) : Bool
+    {
+        if(this.internalArray[this.findLocation(key)].key == key && this.internalArray[this.findLocation(key)].isActive == true)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    public function count() : Int
+    {
+        return this.size;
+    }
+
+    private function hashcode(key : K) : Int
+    {
+        return key.Hashable.hashcode();
+    }
+
+    private function findLocation(key : K) : Int
+    {
+        var keyHashCode = this.hashcode(key);
+
+        while(this.internalArray[keyHashCode].isActive == true && this.internalArray[keyHashCode].key != key)
+        {
+            //if collision then linear probe
+            keyHashCode = (keyHashCode + 1) % this.internalArrayCapacity;
+        }
+
+        return keyHashCode;
+    }
+
+    private function resize() : Void
+    {
+        var tempArray = this.internalArray.copy();
+        var tempSize = this.count();
+        this.size = 0;
+
+        this.internalArrayCapacity = this.internalArrayCapacity * 2;
+        this.internalArray = Array.new(this.internalArrayCapacity);
+
+        for i in 0 ... (tempSize - 1)
+        {
+            if(tempArray[i].isActive)
+            {
+                this.put(tempArray[i].key, tempArray[i].value);
+            }
+        }
+
+        tempArray.free();
+    }
+
+    public function delete() : Void
+    {
+        this.internalArray.free();
+    }
+
+    rules{
+        ($this[$k] = $v) => $this.put($k, $v);
+        ($this[$k]) => $this.get($k);
+    }
+
+}
+
+struct KeyValuePair[K: Hashable, V]
+{
+    public var key: K;
+    public var value: V;
+    public var isActive: Bool = false;
+}
