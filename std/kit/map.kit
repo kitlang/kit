@@ -43,8 +43,8 @@ struct Map[K: Hashable, V]
         
         //increment size
         this.internalArray[this.findLocation(key)] = struct KeyValuePair[K, V] {
-            key,
-            value,
+            key: key,
+            value: value,
             isActive: true,
         };
         this.size = this.size + 1;
@@ -58,6 +58,14 @@ struct Map[K: Hashable, V]
             return Some(this.internalArray[this.findLocation(key)].value);
         }
         return None;
+    }
+
+    public function remove(key: K) : Void
+    {
+        if(this.exists(key))
+        {
+            this.internalArray[this.findLocation(key)].isActive = false;
+        }
     }
 
     public function contains(value : V) : Bool
@@ -82,9 +90,31 @@ struct Map[K: Hashable, V]
         return false;
     }
 
+    public function keyset() : Array[K]
+    {
+        var returnArray : Array[K] = Array.new(this.count());
+
+        var j = 0;
+        for i in 0 ... this.internalArrayCapacity
+        {
+            if(this.internalArray[i].isActive == true)
+            {
+                returnArray[j] = this.internalArray[i].key;
+                j++;
+            }
+        }
+
+        return returnArray;
+    }
+
     public function count() : Int
     {
         return this.size;
+    }
+
+    public function delete() : Void
+    {
+        this.internalArray.free();
     }
 
     private function hashcode(key : K) : Int
@@ -123,11 +153,6 @@ struct Map[K: Hashable, V]
         }
 
         tempArray.free();
-    }
-
-    public function delete() : Void
-    {
-        this.internalArray.free();
     }
 
     rules{
