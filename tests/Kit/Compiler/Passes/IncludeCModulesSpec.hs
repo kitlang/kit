@@ -147,6 +147,10 @@ spec = do
           ]
           False
           []
+        ),
+        ( "Parses 'unsigned' by itself"
+        , "just_unsigned"
+        , (TypeBasicType $ BasicTypeCUint)
         )
       ]
       (\(label, name, ct) -> it label $ do

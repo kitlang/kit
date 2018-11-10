@@ -1,0 +1,34 @@
+# Why are you building yourself? Why are you building yourself?
+name: kit
+version: 0.1.0
+author: Ben Morris <ben@bendmorris.com>
+url: https://www.kitlang.org
+description: Build tool for the Kit programming language.
+
+source:
+- src
+
+targets:
+  release:
+    executables:
+    - mod: kit
+      path: kit
+    compiler_flags:
+    - "-flto"
+    - "-O3"
+    - "-Os"
+    linker_flags:
+    - "-flto"
+
+  debug:
+    executables:
+    - mod: kit
+    compiler_flags:
+    - "-g"
+
+  test:
+    executables:
+    - mod: test
+
+    source:
+    - tests

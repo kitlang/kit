@@ -181,6 +181,7 @@ _processString ('r':t) True = '\r' : (_processString t False)
 _processString ('t':t) True = '\t' : (_processString t False)
 _processString ('v':t) True = '\v' : (_processString t False)
 _processString ('x':c1:c2:t) True | isHexDigit c1 && isHexDigit c2 = (chr $ parseInt readHex (c1 : c2 : [])) : (_processString t False)
+_processString (c1:c2:c3:t) True | isOctDigit c3 && isOctDigit c2 && isOctDigit c3 = (chr $ parseInt readOct (c1 : c2 : c3 : [])) : (_processString t False)
 _processString (h:t) True = h : (_processString t False)
 _processString [] _ = ""
 

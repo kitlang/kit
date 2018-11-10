@@ -1,0 +1,46 @@
+include "argp.h";
+
+abstract ArgOption: argp_option {
+    public static function new(key: Int): Self {
+        var option = empty;
+        option.key = key;
+        return option;
+    }
+
+    public function long(name: CString): Self {
+        this.name = name;
+        return this;
+    }
+
+    public function help(doc: CString): Self {
+        this.doc = doc;
+        return this;
+    }
+
+    public function meta(meta: CString): Self {
+        this.arg = meta;
+        return this;
+    }
+}
+
+abstract ArgParser[T]: argp {
+    public static function new(options: Ptr[argp_option], parser: argp_parser_t, doc: CString): Self {
+        var argParser = empty;
+        argParser.options = options;
+        argParser.parser = parser;
+        argParser.doc = doc;
+        return argParser;
+    }
+
+    public function parse(args: Slice[CString], state: T): T {
+        var argIndex: Int = 0;
+        argp_parse(this, args.length, args.data, ${ARGP_IN_ORDER: Int}, argIndex, &state);
+        return state;
+    }
+}
+
+abstract ArgState[T]: argp_state {
+    public function state() {
+        return this.input as Ptr[T];
+    }
+}

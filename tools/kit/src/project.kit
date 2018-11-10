@@ -1,0 +1,202 @@
+import kit.yaml;
+
+import artifact;
+import dependency;
+import semver;
+import termcolor;
+
+struct KitProject {
+    public {
+        var name: CString = null;
+        var version: SemVer = null as SemVer;
+
+        var sourcePaths: Vector[CString];
+        var compilerFlags: Vector[CString];
+        var linkerFlags: Vector[CString];
+
+        var dependencies: Vector[Dependency];
+
+        var executables: Vector[Executable];
+        var libraries: Vector[Library];
+    }
+
+    public static function fromYaml(yaml: Yaml, target: Option[CString]): KitProject {
+        var sourcePaths = Vector.new(8);
+        var compilerFlags = Vector.new(8);
+        var linkerFlags = Vector.new(8);
+        var dependencies = Vector.new(8);
+        var executables = Vector.new(8);
+        var libraries = Vector.new(8);
+        var proj: KitProject = struct KitProject {
+            sourcePaths,
+            compilerFlags,
+            linkerFlags,
+            dependencies,
+            executables,
+            libraries,
+        };
+        Self.parseYaml(proj, yaml, target);
+        return proj;
+    }
+
+    static function getScalar(yaml: Yaml, err: CString): CString {
+        match yaml {
+            YamlScalar(s) => return s;
+            default => panic(err);
+        }
+    }
+
+    static function getSequence(yaml: Yaml, err: CString): Array[Yaml] {
+        match yaml {
+            YamlSequence(s) => return s;
+            default => panic(err);
+        }
+    }
+
+    static function getMap(yaml: Yaml, err: CString): Array[(CString, Yaml)] {
+        match yaml {
+            YamlMap(s) => return s;
+            default => panic(err);
+        }
+    }
+
+    static function parseYaml(proj: Ptr[KitProject], yaml: Yaml, target: Option[CString]) {
+        var pairs = Self.getMap(yaml, "mapping expected");
+        for pair in pairs {
+            var key = pair[0];
+            var val = pair[1];
+            match key {
+                "name" => proj.name = Self.getScalar(val, "name should be a string");
+                "version" => proj.version = SemVer.parse(Self.getScalar(val, "version should be a string"));
+                "source" => {
+                    var seq = Self.getSequence(val, "source should be a sequence of strings");
+                    for item in seq {
+                        var val = Self.getScalar(item, "source paths should be strings");
+                        proj.sourcePaths.push(val);
+                    }
+                }
+                "compiler_flags" => {
+                    var seq = Self.getSequence(val, "compile_flags should be a sequence of strings");
+                    for item in seq {
+                        var val = Self.getScalar(item, "each compile flag should be a string");
+                        proj.compilerFlags.push(val);
+                    }
+                }
+                "linker_flags" => {
+                    var seq = Self.getSequence(val, "linker_flags should be a sequence of strings");
+                    for item in seq {
+                        var val = Self.getScalar(item, "each linker flag should be a string");
+                        proj.linkerFlags.push(val);
+                    }
+                }
+                "executables" => {
+                    var seq = Self.getSequence(val, "executables should be a sequence of maps");
+                    for item in seq {
+                        var val = Self.getMap(item, "each executable should be a map");
+                        var executable = struct Executable;
+                        for pair in val {
+                            match pair[0] {
+                                "mod" => {
+                                    executable.mod = Self.getScalar(pair[1], "executable module should be a scalar");
+                                    if executable.path == null {
+                                        executable.path = executable.mod;
+                                    }
+                                }
+                                "path" => executable.path = Self.getScalar(pair[1], "executable path should be a scalar");
+                            }
+                        }
+                        proj.executables.push(executable);
+                    }
+                }
+                "libraries" => {
+                    var seq = Self.getSequence(val, "libraries should be a sequence of maps");
+                    for item in seq {
+                        var val = Self.getMap(item, "each library should be a map");
+                        var library = struct Library;
+                        for pair in val {
+                            match pair[0] {
+                                "mod" => {
+                                    library.mod = Self.getScalar(pair[1], "library module should be a scalar");
+                                    if library.path == null {
+                                        library.path = library.mod;
+                                    }
+                                }
+                                "path" => library.path = Self.getScalar(pair[1], "library path should be a scalar");
+                            }
+                        }
+                        proj.libraries.push(library);
+                    }
+                }
+                "targets" => {
+                    var seq = Self.getMap(val, "targets should be a map");
+                    if target.isNone() {
+                        target = Some(seq[0][0]);
+                    }
+                    var found = false;
+                    match target {
+                        Some(t) => {
+                            Blue.print("target: ");
+                            Green.println(t);
+                            for pair in seq {
+                                if pair[0] == t {
+                                    found = true;
+                                    Self.parseYaml(proj, pair[1], None);
+                                }
+                            }
+                        }
+                    }
+                    if !found {
+                        panic("invalid target");
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Returns a Vector of Vectors of args to kitc; one Vector per artifact,
+     * each of which represents a separate invocation of kitc.
+     */
+    public function getKitcArgs(): Vector[Vector[CString]] {
+        var runs = Vector.new(4);
+
+        for exe in this.executables {
+            var exeArgs = this.commonArgs();
+            exeArgs.push("-o");
+            exeArgs.push(exe.path);
+            exeArgs.push(exe.mod);
+            runs.push(exeArgs);
+        }
+        for lib in this.libraries {
+            var libArgs = this.commonArgs();
+            libArgs.push("--lib");
+            libArgs.push("-o");
+            libArgs.push(lib.path);
+            libArgs.push(lib.mod);
+            runs.push(libArgs);
+        }
+
+        return runs;
+    }
+
+    function commonArgs(): Vector[CString] {
+        var args = Vector.new(16);
+        args.push("kitc");
+        for flag in this.compilerFlags {
+            args.push("-c");
+            args.push(flag);
+        }
+        for flag in this.linkerFlags {
+            args.push("-l");
+            args.push(flag);
+        }
+        for path in this.sourcePaths {
+            args.push("-s");
+            args.push(path);
+        }
+        for dep in this.dependencies {
+            // TODO
+        }
+        return args;
+    }
+}

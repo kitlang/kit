@@ -148,7 +148,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           case binding of
             Just binding@(EnumConstructor _) -> do
               x <- typeVarBinding ctx tctx binding pos
-              return $ x { tIsLvalue = True }
+              return $ x
             _ -> return ex
         (TypingExprOrType, Var vname) -> do
           x <-
@@ -172,7 +172,9 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
               case binding of
                 Just binding -> do
                   x <- typeVarBinding ctx tctx binding pos
-                  return $ x { tIsLvalue = True }
+                  return $ case inferredType x of
+                    TypeFunction _ _ _ _ -> x { tIsLvalue = True }
+                    _                    -> x
                 Nothing ->
                   case
                       foldr
@@ -508,7 +510,11 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                            (tPos r1)
           -- make sure we aren't returning any pointers to the stack
           let
-            localPointers = exprMapReduce
+            localPointers = exprFilterMapReduce
+              (\x -> case tExpr x of
+                PreUnop Deref _ -> False
+                _               -> True
+              )
               (\x -> if (isPtr $ inferredType x) && (tIsLocalPtr x)
                 then [x]
                 else []

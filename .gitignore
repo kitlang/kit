@@ -11,5 +11,5 @@ src/Kit/Parser/Parser.info
 tests/Kit/Parser/Custom
 kitlang.cabal
 assets/*.png
-build
+**/build
 main

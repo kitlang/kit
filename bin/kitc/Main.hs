@@ -27,6 +27,8 @@ data Options = Options {
   optOutputPath :: FilePath,
   optSourcePaths :: [FilePath],
   optIncludePaths :: [FilePath],
+  optCompilerFlags :: [String],
+  optLinkerFlags :: [String],
   optCompilerPath :: Maybe FilePath,
   optDefines :: [String],
   optIsLibrary :: Bool,
@@ -84,6 +86,8 @@ options =
           )
     <*> many sourceDirParser
     <*> many includeDirParser
+    <*> many compilerFlagParser
+    <*> many linkerFlagParser
     <*> (optional $ strOption
           (long "cc" <> metavar "PATH" <> help "path to the C compiler")
         )
@@ -112,6 +116,14 @@ options =
           (long "run" <> help "run the program after successful compilation")
     <*> switch (long "no-mangle" <> help "disables name mangling")
 
+compilerFlagParser = strOption
+  (long "compile-flag" <> short 'c' <> metavar "FLAG" <> help
+    "add a compiler flag; can be repeated"
+  )
+linkerFlagParser = strOption
+  (long "linker-flag" <> short 'l' <> metavar "FLAG" <> help
+    "add a linker flag; can be repeated"
+  )
 sourceDirParser = strOption
   (long "src" <> short 's' <> metavar "DIR" <> help
     "add a source directory; can be repeated"
@@ -160,24 +172,26 @@ main = do
             (s_pack $ optMainModule opts)
             (optSourcePaths opts)
           ctx = baseContext
-            { ctxMainModule   = parseModulePath $ mainModule
-            , ctxIsLibrary    = optIsLibrary opts
-            , ctxBuildDir     = optBuildDir opts
-            , ctxOutputPath   = optOutputPath opts
-            , ctxCompilerPath = optCompilerPath opts
-            , ctxIncludePaths = optIncludePaths opts ++ defaultIncludes
-            , ctxSourcePaths  = sourcePaths ++ stdPath
-            , ctxDefines      = map
+            { ctxMainModule    = parseModulePath $ mainModule
+            , ctxIsLibrary     = optIsLibrary opts
+            , ctxBuildDir      = optBuildDir opts
+            , ctxOutputPath    = optOutputPath opts
+            , ctxCompilerPath  = optCompilerPath opts
+            , ctxIncludePaths  = optIncludePaths opts ++ defaultIncludes
+            , ctxSourcePaths   = sourcePaths ++ stdPath
+            , ctxDefines       = map
               (\s -> (takeWhile (/= '=') s, drop 1 $ dropWhile (/= '=') s))
               (optDefines opts)
-            , ctxModules      = modules
+            , ctxModules       = modules
             , ctxVerbose      = if optQuiet opts then -1 else optVerbose opts
-            , ctxNoCompile    = optNoCompile opts
-            , ctxNoLink       = optNoLink opts
-            , ctxDumpAst      = optDumpAst opts
-            , ctxNoCcache     = optNoCcache opts
-            , ctxRun          = optRun opts
-            , ctxNameMangling = not $ optNoMangle opts
+            , ctxNoCompile     = optNoCompile opts
+            , ctxNoLink        = optNoLink opts
+            , ctxDumpAst       = optDumpAst opts
+            , ctxNoCcache      = optNoCcache opts
+            , ctxRun           = optRun opts
+            , ctxNameMangling  = not $ optNoMangle opts
+            , ctxCompilerFlags = optCompilerFlags opts
+            , ctxLinkerFlags   = optLinkerFlags opts
             }
 
       result  <- tryCompile ctx

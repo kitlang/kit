@@ -255,6 +255,7 @@ _parseDeclSpec modPath (h : t) width signed float = case h of
      ]
     )
   _ -> _parseDeclSpec modPath t width signed float
+_parseDeclSpec modPath [] 0     False  _     = (TypeBasicType BasicTypeCUint)
 _parseDeclSpec modPath [] 0     _      _     = (TypeBasicType BasicTypeUnknown)
 _parseDeclSpec modPath [] width signed float = if float
   then TypeBasicType $ BasicTypeFloat width

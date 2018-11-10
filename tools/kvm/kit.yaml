@@ -1,0 +1,30 @@
+name: kvm
+version: 0.1.0
+author: Ben Morris <ben@bendmorris.com>
+url: https://www.kitlang.org
+description: Kit compiler (kitc) version manager.
+
+source:
+- src
+
+targets:
+  release:
+    executables:
+    - mod: kvm
+    compiler_flags:
+    - "-flto"
+    - "-O3"
+    - "-Os"
+
+  debug:
+    executables:
+    - mod: kvm
+    compiler_flags:
+    - "-g"
+
+  test:
+    executables:
+    - mod: test
+
+    source:
+    - tests

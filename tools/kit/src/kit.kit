@@ -1,0 +1,62 @@
+import kit.sys.file;
+import kit.yaml;
+
+import options;
+import project;
+import termcolor;
+
+function main(argc: Int, argv: CArray[CString]) {
+    printFox();
+
+    var args = Slice.new(argv, argc);
+    var options = KitOptions.parse(args);
+    if options.subcommand.isNone() {
+        // `kit` by itself will build & run the default target
+        options.subcommand = Some(Run);
+    }
+
+    var target = options.target;
+    var fp = File.read("kit.yaml");
+    var yaml = Yaml.parseFile(fp).unwrap();
+    var p = KitProject.fromYaml(yaml, target);
+    var artifacts = p.getKitcArgs();
+    for args in artifacts {
+        options.addArgs(args);
+        printf("$");
+        for arg in args {
+            printf(" %s", arg);
+        }
+        printf("\n");
+        args.push(null);
+        var status = execvp("kitc", args.data.data as Ptr[CString]);
+        if status == -1 {
+            Red.print("compilation has failed\n");
+            panic("compilation has failed");
+        } else {
+            Green.print("success!\n");
+        }
+        args.free();
+    }
+}
+
+function printFox() {
+    Green.print("""
+                       ,  ,
+  _,-=._              /|_/|
+  `-.}   `=._,.-=-._.,  """);
+    Blue.print("@ @");
+    Green.print("""._,
+     `._ _,-.   )      _,.-'
+        `    G.Q-^^u`u'
+""");
+
+    Blue.println("""
+  oooo    oooo   o8o      ,
+  `888   .8P'    `V'    ,o8
+   888  d8'     oooo  .o888oo
+   88888[       `888    888
+   888`88b.      888    888
+   888  `88b.    888    888 ,
+  o888o  o888o  o888o   '888'
+""");
+}

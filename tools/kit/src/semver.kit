@@ -1,0 +1,5 @@
+abstract SemVer: CString {
+    public static function parse(s: CString): Self {
+        return s as Self;
+    }
+}

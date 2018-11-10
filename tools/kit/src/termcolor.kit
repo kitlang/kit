@@ -1,0 +1,26 @@
+enum TermColor {
+    Default;
+    Red;
+    Yellow;
+    Green;
+    Blue;
+
+    public function print(s: CString) {
+        if isatty(1) != 0 {
+            match this {
+                Red => printf("\x1b[91m%s\x1b[0m", s);
+                Yellow => printf("\x1b[93m%s\x1b[0m", s);
+                Green => printf("\x1b[92m%s\x1b[0m", s);
+                Blue => printf("\x1b[94m%s\x1b[0m", s);
+                default => printf("%s", s);
+            }
+        } else {
+            printf("%s", s);
+        }
+    }
+
+    public function println(s: CString) {
+        this.print(s);
+        printf("\n");
+    }
+}

@@ -46,7 +46,7 @@ function print_yaml(value: Yaml, indent: Size) {
 }
 
 function main() {
-    var result = Yaml.parse("""
+    var y = """
 str_key: hello!
 bool_key: true
 int_key: 1
@@ -66,9 +66,15 @@ array_of_objects:
   value: 1
 - name: second_object
   value: 2
-""");
+""";
+    var result = Yaml.parse(y);
 
     var yaml = result.unwrap();
     print_yaml(yaml, 0);
     yaml.free();
+
+    for i in 0 ... 10000 {
+        var yaml = Yaml.parse(y).unwrap();
+        yaml.free();
+    }
 }

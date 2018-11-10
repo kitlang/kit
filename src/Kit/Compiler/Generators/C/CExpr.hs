@@ -79,6 +79,7 @@ ctype BasicTypeVoid    = ([u CVoidType], [])
 ctype BasicTypeBool    = ([u CBoolType], [])
 ctype (BasicTypeCChar) = ([u CCharType], [])
 ctype (BasicTypeCInt ) = ([u CIntType], [])
+ctype (BasicTypeCUint) = ([u CIntType], [])
 ctype (BasicTypeCSize) = ([u $ CTypeDef (internalIdent "size_t")], [])
 ctype (BasicTypeInt n) =
   ([u $ CTypeDef (internalIdent $ "int" ++ show n ++ "_t")], [])
@@ -182,6 +183,7 @@ ctype (BasicTypeAnonStruct (Just x) _) = ([u $ CTypeDef $ cIdent x], [])
 ctype (BasicTypeAnonUnion  (Just x) _) = ([u $ CTypeDef $ cIdent x], [])
 ctype (BasicTypeAnonEnum   (Just x) _) = ([u $ CTypeDef $ cIdent x], [])
 ctype (BasicTypeUnknown              ) = undefined
+ctype (t) = throwk $ InternalError ("Unhandled ctype: " ++ show t) Nothing
 
 intFlags f = foldr (\f acc -> setFlag f acc) noFlags f
 
@@ -196,8 +198,9 @@ transpileExpr (IrLiteral (IntValue i) t) = CConst $ u $ CIntConst $ CInteger
   DecRepr
   (intFlags
     (case t of
-      BasicTypeInt  32 -> [FlagLong]
-      BasicTypeInt  64 -> [FlagLongLong]
+      BasicTypeInt 32  -> [FlagLong]
+      BasicTypeInt 64  -> [FlagLongLong]
+      BasicTypeCUint   -> [FlagUnsigned]
       BasicTypeUint 32 -> [FlagUnsigned, FlagLong]
       BasicTypeUint 64 -> [FlagUnsigned, FlagLongLong]
       _                -> []

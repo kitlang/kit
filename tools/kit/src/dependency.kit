@@ -1,0 +1,15 @@
+struct Dependency {
+    public var type: DependencyType;
+    public var source: DependencySource;
+}
+
+enum DependencyType {
+    KitDependency;
+    NativeDependency;
+}
+
+enum DependencySource {
+    PathDependency(path: CString);
+    UrlDependency(url: CString);
+    GitDependency(repo: CString, branch: CString, commit: CString);
+}

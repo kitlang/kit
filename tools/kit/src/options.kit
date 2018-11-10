@@ -1,0 +1,80 @@
+import kit.argparse;
+
+struct KitOptions {
+    static const ARG_CC = 1;
+
+    public static function parse(args: Slice[CString]): Self {
+        var argOptions = [
+            ArgOption.new(c'v').long("verbose").help("display extra debug information"),
+            ArgOption.new(Self.ARG_CC).long("cc").meta("COMPILER").help("name of compiler to use"),
+            empty
+        ];
+        var parser = ArgParser[KitOptions].new(argOptions, &Self.parseArg, "The Kit build tool");
+        parser.args_doc = "(build|run|TARGET)";
+        var options = parser.parse(args, struct Self);
+        return options;
+    }
+
+    public static function parseArg(key: Int, arg: CString, state: Ptr[ArgState[KitOptions]]) {
+        var options = state.state();
+        match key {
+            0 => {
+                // positional argument
+                match options.subcommand {
+                    None => {
+                        match arg {
+                            "build" => options.subcommand = Some(Build);
+                            "run" => options.subcommand = Some(Run);
+                            default => {
+                                options.subcommand = Some(Run);
+                                options.target = Some(arg);
+                            }
+                        }
+                    }
+                    Some(_) => {
+                        match options.target {
+                            Some(_) => {
+                                argp_error(state, "extra argument: %s", arg);
+                            }
+                            None => {
+                                options.target = Some(arg);
+                            }
+                        }
+                    }
+                }
+            }
+            c'v' => {
+                options.verbose = true;
+            }
+            Self.ARG_CC => {
+                options.compiler = Some(arg);
+            }
+            default => {}
+        }
+        // FIXME: return type
+        return unsafe 0;
+    }
+
+    public function addArgs(args: Ptr[Vector[CString]]) {
+        match this.subcommand {
+            Some(Run) => args.push("--run");
+        }
+        match this.compiler {
+            Some(cc) => {
+                args.push("--cc");
+                args.push(cc);
+            }
+        }
+        return args;
+    }
+
+    public var target: Option[CString] = None;
+    public var verbose: Bool = false;
+    public var subcommand: Option[KitSubcommand] = None;
+    public var compiler: Option[CString] = None;
+}
+
+enum KitSubcommand {
+    Build;
+    Run;
+}

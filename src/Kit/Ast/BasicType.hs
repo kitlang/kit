@@ -17,6 +17,7 @@ data BasicType
   = CArray BasicType (Maybe Int)
   | CPtr BasicType
   | BasicTypeCInt
+  | BasicTypeCUint
   | BasicTypeCChar
   | BasicTypeCSize
   | BasicTypeVoid
@@ -92,6 +93,7 @@ instance Show BasicType where
   show (BasicTypeBool) = "Bool"
   show (BasicTypeCChar) = "Char"
   show (BasicTypeCInt) = "Int"
+  show (BasicTypeCUint) = "Uint"
   show (BasicTypeCSize) = "Size"
   show (BasicTypeInt 16) = "Short"
   show (BasicTypeInt 32) = "Int"
@@ -124,5 +126,6 @@ typeIsIntegral (BasicTypeInt  _) = True
 typeIsIntegral (BasicTypeUint _) = True
 typeIsIntegral BasicTypeCChar    = True
 typeIsIntegral BasicTypeCInt     = True
+typeIsIntegral BasicTypeCUint    = True
 typeIsIntegral BasicTypeCSize    = True
 typeIsIntegral _                 = False

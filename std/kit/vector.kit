@@ -55,7 +55,7 @@ struct Vector[T] {
                 l <<= 1;
             }
             // resize and swap the underlying data of the vector
-            var newData: Ptr[T] = this.allocator.alloc(l);
+            var newData: Ptr[T] = this.allocator.alloc(l * sizeof T);
             var oldData = this.data.data;
             memcpy(newData, oldData, this.length * sizeof T);
             this.data.length = l;

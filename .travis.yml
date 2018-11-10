@@ -10,6 +10,7 @@ addons:
   homebrew:
     packages:
     - libyaml
+    - argp-standalone
 
 env:
   matrix:
@@ -35,9 +36,12 @@ install:
 script:
 - "gcc --version"
 - "clang --version"
-- stack build kitlang:kitc
-- stack exec kitc -- -h
+- stack build kitlang:kitc && stack install kitlang:kitc
+- export KIT_STD_PATH=`pwd`/std
+- kitc -h
 - TEST_RUNS=3 stack test
+- cd tools/kit
+- kitc kit -o ./kit && ./kit build debug
 
 notifications:
   webhooks:
