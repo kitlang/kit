@@ -65,28 +65,28 @@ struct Map[K: Hashable, V]
         if(this.exists(key))
         {
             this.internalArray[this.findLocation(key)].isActive = false;
+            this.size = this.size - 1;
         }
     }
 
     public function contains(value : V) : Bool
     {
-        for i in 0 ... this.size - 1
+        for i in 0 ... (this.internalArrayCapacity - 1)
         {
             if(this.internalArray[i].value == value)
             {
                 return true;
             }
-            return false;
         }
+        return false;
     }
 
     public function exists(key: K) : Bool
     {
-        if(this.internalArray[this.findLocation(key)].key == key && this.internalArray[this.findLocation(key)].isActive == true)
+        if(this.internalArray[this.findLocation(key)].isActive == true && this.internalArray[this.findLocation(key)].key == key)
         {
             return true;
         }
-
         return false;
     }
 
