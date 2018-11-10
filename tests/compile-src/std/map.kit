@@ -1,3 +1,17 @@
+import kit.map;
+
+public function randomRange(min, max) : Int
+{
+    return min + (1 + max - min) * random();
+}
+
+implement Hashable for CString{
+    function hashcode() : Int
+    {
+        return randomRange(1, 100); 
+    }
+}
+
 function main(){
     var myMap : Map[CString, Int] = Map.new(10);
     printf("Capacity: %d\n", myMap.internalArrayCapacity);
@@ -28,7 +42,7 @@ function main(){
     printf("Quick Get 3: %d\n", myMap["test2"].unwrap());
 
     var arrayKeys : Array[CString] = myMap.keyset();
-    printf("Array size of map keys: %d\n", arrayKeys.length);
+    printf("Array size of map keys: %zu\n", arrayKeys.length);
     printf("Array contains 'test2': %s", if(arrayKeys[0] == "test2") then "true" else "false");
 
     myMap.put("1", 1);
