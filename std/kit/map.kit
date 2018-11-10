@@ -10,20 +10,17 @@ trait Hashable{
  * Generic HashMap implementation, requring the key to implement the Hashable trait.
  * Relies on == operator for comparisons, so you may need to overwrite it in custom types
  */
-struct Map[K: Hashable, V]
-{
+struct Map[K: Hashable, V]{
     private var size: Int;
     private var allocator: Box[Allocator];
-    private var internalArray : Array[KeyValuePair[K, V]];
-    private var internalArrayCapacity : Int = 10;
-    const internalArrayThreshold : Float = 0.7;
+    private var internalArray: Array[KeyValuePair[K, V]];
+    private var internalArrayCapacity: Int = 10;
+    const internalArrayThreshold: Float = 0.7;
 
-    public static function new(allocator: Box[Allocator], capacity: Int): Map[K, V] using implicit allocator
-    {
+    public static function new(allocator: Box[Allocator], capacity: Int): Map[K, V] using implicit allocator {
         
         var internalArray: Array[KeyValuePair[K, V]] = Array.new(capacity);
-        return struct Self
-        {
+        return struct Self{
             size: 0,
             allocator,
             internalArray,
@@ -32,16 +29,12 @@ struct Map[K: Hashable, V]
 
     }
 
-    public function put(key: K, value: V) : V
-    {
+    public function put(key: K, value: V): V{
         
-        //check to see if we need to resize
-        if((this.size / this.internalArrayCapacity) >= this.internalArrayThreshold)
-        {
+        if (this.size / this.internalArrayCapacity) >= this.internalArrayThreshold{
             this.resize();
         }
         
-        //increment size
         this.internalArray[this.findLocation(key)] = struct KeyValuePair[K, V] {
             key: key,
             value: value,
@@ -51,54 +44,42 @@ struct Map[K: Hashable, V]
         return value;
     }
 
-    public function get(key: K) : Option[V]
-    {
-        if(this.internalArray[this.findLocation(key)].isActive)
-        {
+    public function get(key: K): Option[V]{
+        if(this.internalArray[this.findLocation(key)].isActive){
             return Some(this.internalArray[this.findLocation(key)].value);
         }
         return None;
     }
 
-    public function remove(key: K) : Void
-    {
-        if(this.exists(key))
-        {
+    public function remove(key: K): Void{
+        if this.exists(key){
             this.internalArray[this.findLocation(key)].isActive = false;
             this.size = this.size - 1;
         }
     }
 
-    public function contains(value : V) : Bool
-    {
-        for i in 0 ... (this.internalArrayCapacity - 1)
-        {
-            if(this.internalArray[i].value == value)
-            {
+    public function contains(value: V): Bool{
+        for i in 0 ... (this.internalArrayCapacity - 1){
+            if this.internalArray[i].value == value{
                 return true;
             }
         }
         return false;
     }
 
-    public function exists(key: K) : Bool
-    {
-        if(this.internalArray[this.findLocation(key)].isActive == true && this.internalArray[this.findLocation(key)].key == key)
-        {
+    public function exists(key: K): Bool{
+        if this.internalArray[this.findLocation(key)].isActive && this.internalArray[this.findLocation(key)].key == key {
             return true;
         }
         return false;
     }
 
-    public function keyset() : Array[K]
-    {
+    public function keyset(): Array[K]{
         var returnArray : Array[K] = Array.new(this.count());
 
         var j = 0;
-        for i in 0 ... this.internalArrayCapacity
-        {
-            if(this.internalArray[i].isActive == true)
-            {
+        for i in 0 ... this.internalArrayCapacity {
+            if this.internalArray[i].isActive {
                 returnArray[j] = this.internalArray[i].key;
                 j++;
             }
@@ -107,36 +88,28 @@ struct Map[K: Hashable, V]
         return returnArray;
     }
 
-    public function count() : Int
-    {
+    public function count(): Int{
         return this.size;
     }
 
-    public function delete() : Void
-    {
+    public function delete(): Void{
         this.internalArray.free();
     }
 
-    private function hashcode(key : K) : Int
-    {
+    private function hashcode(key: K): Int{
         return key.Hashable.hashcode();
     }
 
-    private function findLocation(key : K) : Int
-    {
+    private function findLocation(key: K): Int{
         var keyHashCode = this.hashcode(key);
 
-        while(this.internalArray[keyHashCode].isActive == true && this.internalArray[keyHashCode].key != key)
-        {
-            //if collision then linear probe
+        while(this.internalArray[keyHashCode].isActive && this.internalArray[keyHashCode].key != key){
             keyHashCode = (keyHashCode + 1) % this.internalArrayCapacity;
         }
-
         return keyHashCode;
     }
 
-    private function resize() : Void
-    {
+    private function resize(): Void using implicit this.allocator{
         var tempArray = this.internalArray.copy();
         var tempSize = this.count();
         this.size = 0;
@@ -144,10 +117,8 @@ struct Map[K: Hashable, V]
         this.internalArrayCapacity = this.internalArrayCapacity * 2;
         this.internalArray = Array.new(this.internalArrayCapacity);
 
-        for i in 0 ... (tempSize - 1)
-        {
-            if(tempArray[i].isActive)
-            {
+        for i in 0 ... tempSize - 1 {
+            if tempArray[i].isActive{
                 this.put(tempArray[i].key, tempArray[i].value);
             }
         }
@@ -162,8 +133,7 @@ struct Map[K: Hashable, V]
 
 }
 
-struct KeyValuePair[K: Hashable, V]
-{
+struct KeyValuePair[K: Hashable, V]{
     public var key: K;
     public var value: V;
     public var isActive: Bool = false;
