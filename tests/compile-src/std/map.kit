@@ -1,14 +1,9 @@
 import kit.map;
 
-public function randomRange(min, max) : Int
-{
-    return min + (1 + max - min) * random();
-}
-
 implement Hashable for CString{
     function hashcode() : Int
     {
-        return randomRange(1, 100); 
+        return 5;
     }
 }
 
@@ -16,7 +11,8 @@ function main(){
     var myMap : Map[CString, Int] = Map.new(10);
     printf("Capacity: %d\n", myMap.internalArrayCapacity);
     printf("Size: %d\n", myMap.count());
-
+    
+    
     printf("First value added: %d\n", myMap.put("test1", 1));
     printf("Size: %d\n", myMap.count());
 
@@ -43,7 +39,7 @@ function main(){
 
     var arrayKeys : Array[CString] = myMap.keyset();
     printf("Array size of map keys: %zu\n", arrayKeys.length);
-    printf("Array contains 'test2': %s", if(arrayKeys[0] == "test2") then "true" else "false");
+    printf("Array contains 'test2': %s\n", if(arrayKeys[0] == "test2") then "true" else "false");
 
     myMap.put("1", 1);
     myMap.put("2", 1);
@@ -55,6 +51,5 @@ function main(){
     myMap.put("8", 1);
     myMap.put("9", 1);
 
-    printf("Map resizes if more than threshold is added, capacity is double: %d\n", myMap.internalArrayCapacity);
-
+    printf("Map resizes if more than threshold is added, capacity is double: %d", myMap.internalArrayCapacity);
 }
