@@ -8,6 +8,15 @@ struct Slice[T] {
     public var length: Size;
     public var data: Ptr[T];
 
+    // public function contains(value: T): Bool {
+    //     for i in 0 ... this.length {
+    //         if *(this.data + i) == value {
+    //             return true;
+    //         }
+    //     }
+    //     return false;
+    // }
+
     rules {
         ($this[$i ... $j]) => struct Self {length: $j - $i, data: $this.data + $i};
         ($this[$i]) => $this.data[$i];
