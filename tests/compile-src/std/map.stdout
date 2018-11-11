@@ -1,22 +1,27 @@
 Capacity: 10
 Size: 0
+Key Exists 'test1': false
 First value added: 1
 Size: 1
+Key Exists 'test1': true
 Size after removing single element: 0
+Key Exists 'test1': false
 Value added: 3
 Value added: 4
 Value added: 5
+Size after adding three elements: 3
+Value added: 6
+Size after adding duplicate element: 3
 Key Exists 'test2': true
 Key Exists 'test3': true
 Key Exists 'test5': false
-Contains 3: true
-Contains 4: true
-Contains 5: true
-Contains 6: false
 Get 3: 3
 Get 4: 4
-Get 5: 5
+Get 5: 6
 Quick Get 3: 3
 Array size of map keys: 3
 Array contains 'test2': true
 Map resizes if more than threshold is added, capacity is double: 20
+Key Exists 'test2': true
+Key Exists 'test3': true
+Key Exists 'test5': false
