@@ -49,11 +49,12 @@ compileBundle ctx ccache cc' args name = do
              ]
           ++ (defaultCompileArgs ctx $ takeFileName cc')
           ++ (compilerSpecificArgs $ takeFileName cc')
-  printLog $ "compiling " ++ s_unpack (showTypePath name)
+  when (ctxVerbose ctx >= 0) $ printLog $ "compiling " ++ s_unpack
+    (showTypePath name)
   let (cc, args) = case ccache of
         Just x  -> (x, cc' : args')
         Nothing -> (cc', args')
-  traceLog $ showCommandForUser cc args
+  when (ctxVerbose ctx >= 0) $ traceLog $ showCommandForUser cc args
   callProcess cc args
 
 link :: CompileContext -> FilePath -> [String] -> [TypePath] -> IO FilePath
@@ -67,8 +68,8 @@ link ctx cc args names = do
                else ["-o" ++ outName]
              )
           ++ args
-  printLog $ "linking"
-  traceLog $ showCommandForUser cc args'
+  when (ctxVerbose ctx >= 0) $ printLog $ "linking"
+  when (ctxVerbose ctx >= 0) $ traceLog $ showCommandForUser cc args'
   callProcess cc args'
   binPath <- canonicalizePath outName
   return $ binPath

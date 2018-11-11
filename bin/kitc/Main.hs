@@ -21,6 +21,7 @@ data Options = Options {
   optMainModule :: String,
   optShowVersion :: Bool,
   optVerbose :: Int,
+  optQuiet :: Bool,
   optTarget :: String,
   optBuildDir :: FilePath,
   optOutputPath :: FilePath,
@@ -57,6 +58,7 @@ options =
             )
           )
         )
+    <*> switch (long "quiet" <> short 'q' <> help "show less output")
     <*> strOption
           (  long "target"
           <> short 't'
@@ -154,28 +156,29 @@ main = do
       stdPath         <- findStd
       baseContext     <- newCompileContext
       defaultIncludes <- defaultIncludePaths
-      let
-        (mainModule, sourcePaths) = decideModuleAndSourcePaths (s_pack $ optMainModule opts) (optSourcePaths opts)
-        ctx = baseContext
-          { ctxMainModule   = parseModulePath $ mainModule
-          , ctxIsLibrary    = optIsLibrary opts
-          , ctxBuildDir     = optBuildDir opts
-          , ctxOutputPath   = optOutputPath opts
-          , ctxCompilerPath = optCompilerPath opts
-          , ctxIncludePaths = optIncludePaths opts ++ defaultIncludes
-          , ctxSourcePaths  = sourcePaths ++ stdPath
-          , ctxDefines      = map
-            (\s -> (takeWhile (/= '=') s, drop 1 $ dropWhile (/= '=') s))
-            (optDefines opts)
-          , ctxModules      = modules
-          , ctxVerbose      = optVerbose opts
-          , ctxNoCompile    = optNoCompile opts
-          , ctxNoLink       = optNoLink opts
-          , ctxDumpAst      = optDumpAst opts
-          , ctxNoCcache     = optNoCcache opts
-          , ctxRun          = optRun opts
-          , ctxNameMangling = not $ optNoMangle opts
-          }
+      let (mainModule, sourcePaths) = decideModuleAndSourcePaths
+            (s_pack $ optMainModule opts)
+            (optSourcePaths opts)
+          ctx = baseContext
+            { ctxMainModule   = parseModulePath $ mainModule
+            , ctxIsLibrary    = optIsLibrary opts
+            , ctxBuildDir     = optBuildDir opts
+            , ctxOutputPath   = optOutputPath opts
+            , ctxCompilerPath = optCompilerPath opts
+            , ctxIncludePaths = optIncludePaths opts ++ defaultIncludes
+            , ctxSourcePaths  = sourcePaths ++ stdPath
+            , ctxDefines      = map
+              (\s -> (takeWhile (/= '=') s, drop 1 $ dropWhile (/= '=') s))
+              (optDefines opts)
+            , ctxModules      = modules
+            , ctxVerbose      = if optQuiet opts then -1 else optVerbose opts
+            , ctxNoCompile    = optNoCompile opts
+            , ctxNoLink       = optNoLink opts
+            , ctxDumpAst      = optDumpAst opts
+            , ctxNoCcache     = optNoCcache opts
+            , ctxRun          = optRun opts
+            , ctxNameMangling = not $ optNoMangle opts
+            }
 
       result  <- tryCompile ctx
       endTime <- getCurrentTime
@@ -185,7 +188,8 @@ main = do
           mapM_ logError $ errs
           return $ length errs
         Right () -> return 0
-      printLog
+      when (ctxVerbose ctx >= 0)
+        $  printLog
         $  "total time: "
         ++ (show $ diffUTCTime endTime startTime)
       if errors == 0

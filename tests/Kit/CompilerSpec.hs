@@ -47,6 +47,7 @@ spec = parallel $ do
                  , ctxCompilerFlags = ["-Werror"]
                  , ctxLinkerFlags   = ["-lm", "-Werror"]
                  , ctxOutputPath    = ("build" </> "test")
+                 , ctxVerbose       = -1
                  }
             )
           (case result of
@@ -73,6 +74,7 @@ spec = parallel $ do
                , ctxCompilerFlags = ["-Werror"]
                , ctxLinkerFlags   = ["-lm", "-Werror"]
                , ctxOutputPath    = ("build" </> "test")
+               , ctxVerbose       = -1
                }
           )
         (case result of
@@ -82,20 +84,22 @@ spec = parallel $ do
           `shouldBe` Nothing
 
   describe "Test decideModuleAndSourcePaths" $ do
-    let testData = [ -- We default to src if we have no source paths and a file wasn't specified directly
-                     ("main", [], ("main", ["src"]))
-
-                   , ("main.kit", [], ("main", ["."]))
-                   , ("src/main.kit", [], ("main", ["src"]))
+    let testData =
+          [ -- We default to src if we have no source paths and a file wasn't specified directly
+            ("main"    , [], ("main", ["src"]))
+          , ("main.kit", [], ("main", ["."]))
+          , ( "src/main.kit"
+            , []
+            , ("main", ["src"])
+            )
 
                      -- To make sure we don't generate redundant entries in case of paths that need normalization.
                      -- Also that we normalize paths.
-                   , ("./src/main.kit", [], ("main", ["src"]))
-                   , ("src/main.kit", ["./src/"], ("main", ["src"]))
-
-                   , ("src/pkg/main.kit", [], ("main", ["src/pkg"]))
-                   , ("src/pkg/main.kit", ["src"], ("pkg.main", ["src"]))
-                   ]
+          , ("./src/main.kit"  , []        , ("main", ["src"]))
+          , ("src/main.kit"    , ["./src/"], ("main", ["src"]))
+          , ("src/pkg/main.kit", []        , ("main", ["src/pkg"]))
+          , ("src/pkg/main.kit", ["src"]   , ("pkg.main", ["src"]))
+          ]
     forM_ (testData) $ \d -> do
       let (mod, paths, result) = d
       it (show (mod, paths)) $ do
