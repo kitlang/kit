@@ -1,0 +1,45 @@
+struct RingBuffer[T] {
+    public var length: Size;
+    var start: Size;
+    public var data: Array[T];
+
+    public static function new(allocator: Box[Allocator], length: Size): RingBuffer[T] {
+        var data = Array.new(length);
+        return struct Self {
+            start: 0,
+            length: 0,
+            data,
+        };
+    }
+
+    public function push(value: T): T {
+        if this.length >= this.data.length {
+            this.start = (this.start + 1) % this.data.length;
+        } else {
+            ++this.length;
+        }
+        this[this.length - 1] = value;
+        return value;
+    }
+
+    public function pop(): Option[T] {
+        if this.length > 0 {
+            --this.length;
+            return Some(this[this.length]);
+        } else {
+            return None;
+        }
+    }
+
+    rules {
+        ($this[$index]) => $this.data[($this.start + $index) % ($this.data.length)];
+
+        (for $ident in $this {$e}) => {
+            var __length = $this.length;
+            for __i in 0 ... __length {
+                var $ident = $this[__i];
+                {$e}
+            }
+        }
+    }
+}

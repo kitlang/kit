@@ -1,0 +1,34 @@
+import kit.ring_buffer;
+
+function main() {
+    var x = RingBuffer.new(4);
+    printf("ring buffer size: %zu\n", x.length);
+    x.push(1);
+    printf("ring buffer size: %zu\n", x.length);
+    x.push(2);
+    printf("ring buffer size: %zu\n", x.length);
+
+    printf("items:\n");
+    for item in x {
+        printf("%i\n", item);
+    }
+
+    for i in 0 ... 3 {
+        var popped = x.pop();
+        match popped {
+            Some(x) => printf("popped a value: %i\n", x);
+            None => printf("no more values\n");
+        }
+        printf("ring buffer size: %zu\n", x.length);
+    }
+
+    for i in 1 ... 6 {
+        x.push(i);
+        printf("ring buffer size: %zu\n", x.length);
+    }
+
+    printf("items:\n");
+    for item in x {
+        printf("%i\n", item);
+    }
+}
