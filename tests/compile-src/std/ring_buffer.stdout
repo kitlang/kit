@@ -1,0 +1,22 @@
+ring buffer size: 0
+ring buffer size: 1
+ring buffer size: 2
+items:
+1
+2
+popped a value: 2
+ring buffer size: 1
+popped a value: 1
+ring buffer size: 0
+no more values
+ring buffer size: 0
+ring buffer size: 1
+ring buffer size: 2
+ring buffer size: 3
+ring buffer size: 4
+ring buffer size: 4
+items:
+2
+3
+4
+5
