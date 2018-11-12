@@ -1,0 +1,15 @@
+hello, world!
+rc: 1
+incrementing ref
+rc: 2
+incrementing ref
+rc: 3
+released: no
+active: yes
+rc: 2
+released: no
+active: yes
+rc: 1
+released: yes
+active: no
+rc: 0
