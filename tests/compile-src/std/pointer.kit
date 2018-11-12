@@ -1,0 +1,19 @@
+function main() {
+    var shared: Shared[CArray[Char, 14]] = Shared.new();
+    var sharedString = shared as Ptr[Void] as Shared[CString];
+
+    (*sharedString) = "hello, world!";
+    printf("%s\n", *sharedString);
+    printf("rc: %zu\n", shared.rc());
+    for i in 0 ... 2 {
+        printf("incrementing ref\n");
+        shared.ref();
+        printf("rc: %zu\n", shared.rc());
+    }
+    for i in 0 ... 3 {
+        var released = shared.release();
+        printf("released: %s\n", if released then "yes" else "no");
+        printf("active: %s\n", if shared.active() then "yes" else "no");
+        printf("rc: %zu\n", shared.rc());
+    }
+}
