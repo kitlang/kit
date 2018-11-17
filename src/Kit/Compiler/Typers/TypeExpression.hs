@@ -1121,7 +1121,6 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         case (inferredType r1, t) of
           (TypeBox _ _, TypePtr (TypeBasicType BasicTypeVoid)) ->
             return $ makeExprTyped (BoxedValue r1) (TypePtr voidType) pos
-          (TypeBox _ _  , TypePtr (TypeBasicType BasicTypeVoid)) -> cast
           (TypePtr _    , TypePtr (TypeBasicType BasicTypeVoid)) -> cast
           (TypeArray _ _, TypePtr (TypeBasicType BasicTypeVoid)) -> cast
           (TypeArray t _, TypePtr t2                           ) -> do
