@@ -4,6 +4,7 @@ import Control.Exception
 import Control.Monad
 import Data.IORef
 import Data.List
+import Data.Maybe
 import System.Directory
 import System.Environment
 import System.FilePath
@@ -45,7 +46,7 @@ data CompileContext = CompileContext {
   ctxVerbose :: Int,
   ctxMainModule :: ModulePath,
   ctxIsLibrary :: Bool,
-  ctxSourcePaths :: [FilePath],
+  ctxSourcePaths :: [(FilePath, ModulePath)],
   ctxCompilerPath :: Maybe FilePath,
   ctxIncludePaths :: [FilePath],
   ctxBuildDir :: FilePath,
@@ -87,7 +88,7 @@ newCompileContext = do
   return $ CompileContext
     { ctxMainModule             = ["main"]
     , ctxIsLibrary              = False
-    , ctxSourcePaths            = ["src"]
+    , ctxSourcePaths            = [("src", [])]
     , ctxCompilerPath           = Nothing
     , ctxIncludePaths           = defaultIncludes
     , ctxBuildDir               = "build"
@@ -473,3 +474,29 @@ osSpecificDefaultCompileArgs _ = []
 
 ccSpecificDefaultCompileArgs "gcc" = ["-Wno-missing-braces"]
 ccSpecificDefaultCompileArgs _     = []
+
+findPackageContents :: CompileContext -> ModulePath -> IO [ModulePath]
+findPackageContents ctx modPath = do
+  x <- forM (ctxSourcePaths ctx) $ findPackageContents_ modPath
+  return $ foldr (++) [] x
+
+findPackageContents_ :: ModulePath -> (FilePath, ModulePath) -> IO [ModulePath]
+findPackageContents_ m (dir, []) = do
+  let dirPath = dir </> (moduleFilePath m -<.> "")
+  exists <- doesDirectoryExist dirPath
+  if not exists
+    then return []
+    else do
+      files <- listDirectory dirPath
+      return
+        $ [ m ++ [s_pack $ file -<.> ""]
+          | file <- files
+          , takeExtension file == ".kit"
+          , file /= "prelude.kit"
+          ]
+findPackageContents_ (m : n) (dir, (h : t)) = if m == h
+  then do
+    contents <- findPackageContents_ n (dir, t)
+    return $ [ (h : c) | c <- contents ]
+  else return []
+findPackageContents_ _ _ = return []

@@ -58,13 +58,6 @@ executables:
     - optparse-applicative ==0.14.2.0
     - time
 
-  kit:
-    main: Main.hs
-    source-dirs: bin/kit
-    dependencies:
-    - ansi-terminal
-    - optparse-applicative ==0.14.2.0
-
 tests:
   unit-tests:
     main: Test.hs

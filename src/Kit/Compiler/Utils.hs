@@ -3,6 +3,7 @@ module Kit.Compiler.Utils where
 import Control.Exception
 import Control.Monad
 import Data.List
+import Data.Maybe
 import System.Directory
 import System.FilePath
 import Kit.Ast
@@ -44,10 +45,27 @@ veryNoisyDebugLog :: CompileContext -> String -> IO ()
 veryNoisyDebugLog ctx msg = do
   when (ctxVerbose ctx > 2) $ logMsg (Just Debug) msg
 
+findSourceModule
+  :: ModulePath -> [(FilePath, ModulePath)] -> IO (Maybe FilePath)
+findSourceModule m []      = return Nothing
+findSourceModule m (h : t) = do
+  next <- findSourceModule m t
+  case prefixedModPath m h of
+    Just x -> do
+      exists <- doesFileExist x
+      return $ if exists then Just x else next
+    Nothing -> return next
+
+prefixedModPath :: ModulePath -> (FilePath, ModulePath) -> Maybe FilePath
+prefixedModPath [] _       = Nothing
+prefixedModPath m  (d, []) = Just $ d </> moduleFilePath m
+prefixedModPath (m : n) (d, (a : b)) =
+  if m == a then prefixedModPath n (d, b) else Nothing
+prefixedModPath _ _ = Nothing
+
 findModule :: CompileContext -> ModulePath -> Maybe Span -> IO FilePath
 findModule ctx mod pos = do
-  let modPath = moduleFilePath mod
-  match <- findSourceFile modPath (ctxSourcePaths ctx)
+  match <- findSourceModule mod (ctxSourcePaths ctx)
   case match of
     Just f -> do
       debugLog ctx
@@ -59,7 +77,11 @@ findModule ctx mod pos = do
     Nothing -> do
       throw $ KitError $ ImportError
         mod
-        [ (dir </> modPath) | dir <- ctxSourcePaths ctx ]
+        (catMaybes
+          [ prefixedModPath mod (dir, prefix)
+          | (dir, prefix) <- ctxSourcePaths ctx
+          ]
+        )
         pos
 
 plural 1 = ""
