@@ -3,6 +3,7 @@
 module Main where
 
 import Control.Monad
+import Data.List
 import Data.Time
 import System.Environment
 import System.Exit
@@ -166,7 +167,7 @@ main = do
             , ctxOutputPath   = optOutputPath opts
             , ctxCompilerPath = optCompilerPath opts
             , ctxIncludePaths = optIncludePaths opts ++ defaultIncludes
-            , ctxSourcePaths  = sourcePaths ++ stdPath
+            , ctxSourcePaths  = map parseSourcePath $ sourcePaths ++ stdPath
             , ctxDefines      = map
               (\s -> (takeWhile (/= '=') s, drop 1 $ dropWhile (/= '=') s))
               (optDefines opts)
@@ -197,3 +198,9 @@ main = do
         else do
           errorLog $ "compilation failed (" ++ show errors ++ " errors)"
           exitWith $ ExitFailure 1
+
+parseSourcePath x =
+  let (path, modPathString) = case elemIndex ':' x of
+        Just i  -> let (a, b) = splitAt i x in (a, tail b)
+        Nothing -> (x, "")
+  in  (path, parseModulePath $ s_pack modPathString)

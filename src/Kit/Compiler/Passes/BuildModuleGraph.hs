@@ -324,20 +324,8 @@ findImports ctx mod stmts = do
   -- eliminate self imports (e.g. from prelude)
         return $ if mod == mp then acc else (mp, p) : acc
       Statement { stmt = Import mp True, stmtPos = p } -> do
-        results <- forM (ctxSourcePaths ctx) $ \dir -> do
-          let dirPath = dir </> (moduleFilePath mp -<.> "")
-          exists <- doesDirectoryExist dirPath
-          if not exists
-            then return []
-            else do
-              files <- listDirectory dirPath
-              return
-                $ [ mp ++ [s_pack $ file -<.> ""]
-                  | file <- files
-                  , takeExtension file == ".kit"
-                  , file /= "prelude.kit"
-                  ]
-        return $ [ (i, p) | i <- foldr (++) [] results ] ++ acc
+        results <- findPackageContents ctx mp
+        return $ [ (i, p) | i <- results ] ++ acc
       _ -> return acc
     )
     []

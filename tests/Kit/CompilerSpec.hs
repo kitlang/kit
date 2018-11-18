@@ -42,13 +42,14 @@ spec = parallel $ do
         forM_ [1 .. testRuns] $ \_ -> do
           ctx    <- newCompileContext
           result <- tryCompile
-            (ctx { ctxSourcePaths   = [takeDirectory path, "std"]
-                 , ctxMainModule    = [s_pack $ takeFileName path -<.> ""]
-                 , ctxCompilerFlags = ["-Werror"]
-                 , ctxLinkerFlags   = ["-lm", "-Werror"]
-                 , ctxOutputPath    = ("build" </> "test")
-                 , ctxVerbose       = -1
-                 }
+            (ctx
+              { ctxSourcePaths = [ (f, []) | f <- [takeDirectory path, "std"] ]
+              , ctxMainModule    = [s_pack $ takeFileName path -<.> ""]
+              , ctxCompilerFlags = ["-Werror"]
+              , ctxLinkerFlags   = ["-lm", "-Werror"]
+              , ctxOutputPath    = ("build" </> "test")
+              , ctxVerbose       = -1
+              }
             )
           (case result of
               Left  err -> Just err
@@ -69,7 +70,7 @@ spec = parallel $ do
       it path $ do
         ctx    <- newCompileContext
         result <- tryCompile
-          (ctx { ctxSourcePaths   = [takeDirectory path, "std"]
+          (ctx { ctxSourcePaths = [ (f, []) | f <- [takeDirectory path, "std"] ]
                , ctxMainModule    = [s_pack $ takeFileName path -<.> ""]
                , ctxCompilerFlags = ["-Werror"]
                , ctxLinkerFlags   = ["-lm", "-Werror"]
