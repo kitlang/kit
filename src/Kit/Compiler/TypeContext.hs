@@ -332,6 +332,7 @@ builtinToConcreteType ctx tctx mod s pos = do
     -- basics
     "Char"    -> return $ Just $ TypeBasicType $ BasicTypeCChar
     "Int"     -> return $ Just $ TypeBasicType $ BasicTypeCInt
+    "Uint"     -> return $ Just $ TypeBasicType $ BasicTypeCUint
     "Size"    -> return $ Just $ TypeBasicType $ BasicTypeCSize
     "Bool"    -> return $ Just $ TypeBasicType $ BasicTypeBool
     "Int8"    -> return $ Just $ TypeBasicType $ BasicTypeInt 8

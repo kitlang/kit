@@ -122,11 +122,15 @@ unifyBase ctx tctx strict a' b'         = do
     (TypeTraitConstraint t, x) -> do
       impl <- resolveTraitConstraint ctx tctx t x
       if impl then return $ Just [] else fallBackToAbstractParent a b
-    (_, TypeTraitConstraint v) -> r b a
-    (TypeBasicType a, TypeBasicType b) -> return $ unifyBasic a b
-    (TypePtr (TypeBasicType BasicTypeVoid), TypePtr _) -> return $ Just []
-    (TypePtr _, TypePtr (TypeBasicType BasicTypeVoid)) -> return $ Just []
-    (TypePtr a, TypePtr b) -> r a b
+    (_, TypeTraitConstraint v                ) -> r b a
+    (TypeBasicType a, TypeBasicType b        ) -> return $ unifyBasic a b
+    (TypePtr       (TypeBasicType BasicTypeVoid), TypePtr _) -> return $ Just []
+    (TypePtr       _, TypePtr (TypeBasicType BasicTypeVoid)) -> return $ Just []
+    (TypePtr (TypeBasicType BasicTypeVoid), TypeFunction _ _ _ _) ->
+      return $ Just []
+    (TypeFunction _ _ _ _, TypePtr (TypeBasicType BasicTypeVoid)) ->
+      return $ Just []
+    (TypePtr   a, TypePtr b  )                        -> r a b
     (TypeTuple a, TypeTuple b) | length a == length b -> do
       vals <- forM (zip a b) (\(a, b) -> r a b)
       return $ checkResults vals
@@ -168,7 +172,7 @@ unifyBase ctx tctx strict a' b'         = do
     (TypeAnonEnum (Just a) _, TypeAnonEnum (Just b) _) ->
       if a == b then return $ Just [] else return Nothing
     (a, b) | a == b -> return $ Just []
-    _ -> return Nothing
+    _               -> return Nothing
  where
   r       = unifyBase ctx tctx strict
   rStrict = unifyStrict ctx tctx
