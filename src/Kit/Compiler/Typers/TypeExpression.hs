@@ -542,8 +542,12 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         implicits <- forM untypedImplicits $ \i -> do
           t <- mapType (follow ctx tctx) $ inferredType i
           return $ i { inferredType = t }
-        tryRewrite (unknownTyped $ Call r1 [] typedArgs)
-          $ case inferredType r1 of
+        tryRewrite (unknownTyped $ Call r1 [] typedArgs) $ do
+          let
+            fail t =
+              throwk $ TypingError ("Type " ++ show t ++ " is not callable") pos
+          let
+            typeCall t = case t of
               TypePtr t@(TypeFunction _ _ _ _) ->
                 -- function pointer call
                                                   typeFunctionCall
@@ -553,20 +557,45 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                 (r1 { inferredType = t })
                 implicits
                 typedArgs
-              TypeFunction _ _ _ _ ->
-                typeFunctionCall ctx tctx mod r1 implicits typedArgs
+              TypeFunction _ _ _ _ -> typeFunctionCall
+                ctx
+                tctx
+                mod
+                (r1 { inferredType = t })
+                implicits
+                typedArgs
               TypeEnumConstructor tp discriminant argTypes params -> do
                 typeEnumConstructorCall ctx
                                         tctx
                                         mod
-                                        r1
+                                        (r1 { inferredType = t })
                                         typedArgs
                                         tp
                                         discriminant
                                         argTypes
                                         params
-              x -> throwk
-                $ TypingError ("Type " ++ show x ++ " is not callable") pos
+              TypeInstance tp params -> do
+                templateDef <- getTypeDefinition ctx tp
+                let
+                  tctx' =
+                    (addTypeParams
+                        tctx
+                        [ (typeSubPath templateDef $ paramName param, val)
+                        | (param, val) <- zip (typeParams templateDef) params
+                        ]
+                      )
+                      { tctxSelf = Just t
+                      }
+                def <- followType ctx tctx' templateDef
+                let subtype = typeSubtype def
+                case subtype of
+                  Abstract { abstractUnderlyingType = u } ->
+                    -- forward to parent
+                    typeCall u
+                  _ -> fail t
+              _ -> fail t
+
+          typeCall $ inferredType r1
 
     (Throw e1) -> do
       throwk $ InternalError "Not yet implemented" (Just pos)
@@ -1118,36 +1147,61 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         let invalidCast = throwk $ TypingError
               ("Invalid cast: " ++ show (inferredType r1) ++ " as " ++ show t)
               pos
-        case (inferredType r1, t) of
-          (TypeBox _ _, TypePtr (TypeBasicType BasicTypeVoid)) ->
-            return $ makeExprTyped (BoxedValue r1) (TypePtr voidType) pos
-          (TypePtr _    , TypePtr (TypeBasicType BasicTypeVoid)) -> cast
-          (TypeArray _ _, TypePtr (TypeBasicType BasicTypeVoid)) -> cast
-          (TypeArray t _, TypePtr t2                           ) -> do
-            t' <- unifyStrict ctx tctx t2 t
-            case t' of
-              Just _ -> cast
-              _      -> invalidCast
-          (TypePtr _, TypeBasicType BasicTypeCSize) -> cast
-          (x        , y@(TypeBox tp params)       ) -> do
-            box <- autoRefDeref ctx tctx y r1
-            case box of
-              Just box -> return box
-              _        -> throwk $ TypingError
-                (  show x
-                ++ " can't be converted to a "
-                ++ show y
-                ++ "; no matching trait implementation found"
-                )
-                pos
-          (x, y) -> do
-            t' <- unify ctx tctx x y
-            x' <- unify ctx tctx x (typeClassNumeric)
-            y' <- unify ctx tctx y (typeClassNumeric)
-            case (t', x', y') of
-              (Just _, _     , _     ) -> cast -- FIXME
-              (_     , Just _, Just _) -> cast
-              _                        -> invalidCast
+        let
+          typeCast rt = case (rt, t) of
+            (TypeBox _ _, TypePtr (TypeBasicType BasicTypeVoid)) ->
+              return $ makeExprTyped (BoxedValue r1) (TypePtr voidType) pos
+            (TypePtr _    , TypePtr (TypeBasicType BasicTypeVoid)) -> cast
+            (TypeArray _ _, TypePtr (TypeBasicType BasicTypeVoid)) -> cast
+            (TypeArray t _, TypePtr t2                           ) -> do
+              t' <- unifyStrict ctx tctx t2 t
+              case t' of
+                Just _ -> cast
+                _      -> invalidCast
+            (TypePtr _, TypeBasicType BasicTypeCSize) -> cast
+            (x        , y@(TypeBox tp params)       ) -> do
+              box <- autoRefDeref ctx tctx y r1
+              case box of
+                Just box -> return box
+                _        -> throwk $ TypingError
+                  (  show x
+                  ++ " can't be converted to a "
+                  ++ show y
+                  ++ "; no matching trait implementation found"
+                  )
+                  pos
+            (x@(TypeInstance tp params), y) -> do
+              t' <- unify ctx tctx x y
+              case t' of
+                Just x -> cast
+                _      -> do
+                  templateDef <- getTypeDefinition ctx tp
+                  let
+                    tctx' =
+                      (addTypeParams
+                          tctx
+                          [ (typeSubPath templateDef $ paramName param, val)
+                          | (param, val) <- zip (typeParams templateDef) params
+                          ]
+                        )
+                        { tctxSelf = Just t
+                        }
+                  def <- followType ctx tctx' templateDef
+                  let subtype = typeSubtype def
+                  case subtype of
+                    Abstract { abstractUnderlyingType = u } ->
+                      -- forward to parent
+                      typeCast u
+                    _ -> invalidCast
+            (x, y) -> do
+              t' <- unify ctx tctx x y
+              x' <- unify ctx tctx x (typeClassNumeric)
+              y' <- unify ctx tctx y (typeClassNumeric)
+              case (t', x', y') of
+                (Just _, _     , _     ) -> cast -- FIXME
+                (_     , Just _, Just _) -> cast
+                _                        -> invalidCast
+        typeCast $ inferredType r1
 
     (RangeLiteral e1 e2) -> do
       r1 <- r e1
