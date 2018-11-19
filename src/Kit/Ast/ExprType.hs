@@ -183,6 +183,19 @@ exprMapReduce mapper reducer getter initialValue ex = foldr
   (reducer (mapper ex) (initialValue))
   (exprChildren $ getter ex)
 
+exprFilterMapReduce
+  :: (a -> Bool)
+  -> (a -> c)
+  -> (c -> d -> d)
+  -> (a -> ExprType a b)
+  -> d
+  -> a
+  -> d
+exprFilterMapReduce f mapper reducer getter initialValue ex = foldr
+  (\a d -> exprFilterMapReduce f mapper reducer getter d a)
+  (reducer (mapper ex) (initialValue))
+  (if f ex then exprChildren $ getter ex else [])
+
 isValidExpr :: (a -> ExprType a b) -> ExprType a b -> Bool
 isValidExpr getter x = case x of
   Using   _ x        -> isValidExpr getter $ getter x
