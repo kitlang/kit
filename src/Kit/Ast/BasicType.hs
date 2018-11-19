@@ -16,6 +16,7 @@ import Kit.Str
 data BasicType
   = CArray BasicType (Maybe Int)
   | CPtr BasicType
+  | BasicTypeConst BasicType
   | BasicTypeCInt
   | BasicTypeCChar
   | BasicTypeCSize
@@ -88,6 +89,7 @@ instance Show BasicType where
   show (CArray t Nothing) = show t ++ "[]"
   show (CPtr BasicTypeCChar) = "CString"
   show (CPtr t) = "Ptr[" ++ show t ++ "]"
+  show (BasicTypeConst t) = "Const[" ++ show t ++ "]"
   show (BasicTypeVoid) = "Void"
   show (BasicTypeBool) = "Bool"
   show (BasicTypeCChar) = "Char"
@@ -120,9 +122,11 @@ instance Show BasicType where
 type BasicArgs = [(Str, BasicType)]
 
 typeIsIntegral :: BasicType -> Bool
-typeIsIntegral (BasicTypeInt  _) = True
-typeIsIntegral (BasicTypeUint _) = True
-typeIsIntegral BasicTypeCChar    = True
-typeIsIntegral BasicTypeCInt     = True
-typeIsIntegral BasicTypeCSize    = True
-typeIsIntegral _                 = False
+typeIsIntegral (BasicTypeInt  _)  = True
+typeIsIntegral (BasicTypeUint _)  = True
+typeIsIntegral BasicTypeCChar     = True
+typeIsIntegral BasicTypeCInt      = True
+typeIsIntegral BasicTypeCUint     = True
+typeIsIntegral BasicTypeCSize     = True
+typeIsIntegral (BasicTypeConst t) = typeIsIntegral t
+typeIsIntegral _                  = False

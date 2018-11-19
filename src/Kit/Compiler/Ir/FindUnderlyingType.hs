@@ -22,7 +22,7 @@ findUnderlyingType
 findUnderlyingType ctx mod pos t = _findUnderlyingType ctx mod pos [] t
 _findUnderlyingType ctx mod pos stack t = do
   tctx <- newTypeContext []
-  t <- mapType (follow ctx tctx) t
+  t    <- mapType (follow ctx tctx) t
   let r x = _findUnderlyingType ctx mod pos (x : stack) x
   when (length stack > 256) $ throwk $ InternalError
     ("Maximum recursion depth in findUnderlyingType exceeded; " ++ show stack)
@@ -55,7 +55,10 @@ _findUnderlyingType ctx mod pos stack t = do
     -- TypeEnumConstructor TypePath ConcreteArgs
     -- TypeRange
     -- TypeTraitPointer TypePath
-    TypeArray    t s        -> do
+    TypeConst t             -> do
+      t <- r t
+      return $ BasicTypeConst t
+    TypeArray t s -> do
       t <- r t
       return $ CArray t (if s == 0 then Nothing else Just s)
     TypeInstance (["kit", "common"], "CArray") [t, s] -> do

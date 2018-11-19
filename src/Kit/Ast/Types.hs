@@ -108,6 +108,8 @@ pattern TypeBox :: TypePath -> [ConcreteType] -> ConcreteType
 pattern TypeBox tp params = TypeInstance (["kit", "common"], "Box") [TypeTraitConstraint (tp, params)]
 pattern TypeArray :: ConcreteType -> Int -> ConcreteType
 pattern TypeArray t n = TypeInstance (["kit", "common"], "CArray") [t, ConstantType (IntValue n)]
+pattern TypeConst :: ConcreteType -> ConcreteType
+pattern TypeConst t = TypeInstance (["kit", "common"], "Const") [t]
 
 instance Show ConcreteType where
   show (TypePtr t) = "Ptr[" ++ show t ++ "]"
