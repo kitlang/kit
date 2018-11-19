@@ -11,6 +11,8 @@
 }
 #[builtin] abstract Box[T];
 
+#[builtin] #[promote] abstract Const[T]: T;
+
 #[promote] abstract ReadOnly[T]: T {
     rules {
         ($this.$field = $e) => {1 / 0;}

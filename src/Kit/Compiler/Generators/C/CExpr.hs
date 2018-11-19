@@ -54,7 +54,7 @@ cIdent x =
 
 cDecl :: BasicType -> Maybe TypePath -> Maybe (CInitializer NodeInfo) -> CDecl
 cDecl t ident body = u
-  $ CDecl (map CTypeSpec typeSpec) [(Just cdeclr, body, Nothing)]
+  $ CDecl typeSpec [(Just cdeclr, body, Nothing)]
  where
   (typeSpec, derivedDeclr) = ctype t
   cdeclr                   = u $ CDeclr
@@ -74,29 +74,33 @@ cpos p x = x $ mkNodeInfoOnlyPos $ Language.C.Data.Position.position
   (startCol p)
   Nothing
 
-ctype :: BasicType -> ([CTypeSpec], [CDerivedDeclr])
-ctype BasicTypeVoid    = ([u CVoidType], [])
-ctype BasicTypeBool    = ([u CBoolType], [])
-ctype (BasicTypeCChar) = ([u CCharType], [])
-ctype (BasicTypeCInt ) = ([u CIntType], [])
-ctype (BasicTypeCSize) = ([u $ CTypeDef (internalIdent "size_t")], [])
+ctype :: BasicType -> ([CDeclSpec], [CDerivedDeclr])
+ctype (BasicTypeConst t) =
+  let (a, b) = ctype t in ((CTypeQual $ u CConstQual) : a, b)
+ctype BasicTypeVoid    = ([CTypeSpec $ u CVoidType], [])
+ctype BasicTypeBool    = ([CTypeSpec $ u CBoolType], [])
+ctype (BasicTypeCChar) = ([CTypeSpec $ u CCharType], [])
+ctype (BasicTypeCInt ) = ([CTypeSpec $ u CIntType], [])
+ctype (BasicTypeCUint) = ([CTypeSpec $ u CIntType], [])
+ctype (BasicTypeCSize) =
+  ([CTypeSpec $ u $ CTypeDef (internalIdent "size_t")], [])
 ctype (BasicTypeInt n) =
-  ([u $ CTypeDef (internalIdent $ "int" ++ show n ++ "_t")], [])
+  ([CTypeSpec $ u $ CTypeDef (internalIdent $ "int" ++ show n ++ "_t")], [])
 ctype (BasicTypeUint n) =
-  ([u $ CTypeDef (internalIdent $ "uint" ++ show n ++ "_t")], [])
-ctype (BasicTypeFloat 32) = ([u CFloatType], [])
-ctype (BasicTypeFloat 64) = ([u CDoubleType], [])
+  ([CTypeSpec $ u $ CTypeDef (internalIdent $ "uint" ++ show n ++ "_t")], [])
+ctype (BasicTypeFloat 32) = ([CTypeSpec $ u CFloatType], [])
+ctype (BasicTypeFloat 64) = ([CTypeSpec $ u CDoubleType], [])
 ctype (BasicTypeFloat _ ) = undefined
 ctype (BasicTypeStruct name) =
-  ( [ u $ CSUType $ u $ CStruct CStructTag
-                                (Just $ cIdent $ mangleName name)
-                                Nothing
-                                []
+  ( [ CTypeSpec $ u $ CSUType $ u $ CStruct CStructTag
+                                            (Just $ cIdent $ mangleName name)
+                                            Nothing
+                                            []
     ]
   , []
   )
 ctype (BasicTypeAnonStruct Nothing args) =
-  ( [ u $ CSUType $ u $ CStruct
+  ( [ CTypeSpec $ u $ CSUType $ u $ CStruct
         CStructTag
         Nothing
         (Just
@@ -109,15 +113,15 @@ ctype (BasicTypeAnonStruct Nothing args) =
   , []
   )
 ctype (BasicTypeUnion name) =
-  ( [ u $ CSUType $ u $ CStruct CUnionTag
-                                (Just $ cIdent $ mangleName name)
-                                Nothing
-                                []
+  ( [ CTypeSpec $ u $ CSUType $ u $ CStruct CUnionTag
+                                            (Just $ cIdent $ mangleName name)
+                                            Nothing
+                                            []
     ]
   , []
   )
 ctype (BasicTypeAnonUnion Nothing args) =
-  ( [ u $ CSUType $ u $ CStruct
+  ( [ CTypeSpec $ u $ CSUType $ u $ CStruct
         CUnionTag
         Nothing
         (Just
@@ -130,7 +134,12 @@ ctype (BasicTypeAnonUnion Nothing args) =
   , []
   )
 ctype (BasicTypeSimpleEnum name) =
-  ([u $ CEnumType $ u $ CEnum (Just (cIdent $ mangleName name)) Nothing []], [])
+  ( [ CTypeSpec $ u $ CEnumType $ u $ CEnum (Just (cIdent $ mangleName name))
+                                            Nothing
+                                            []
+    ]
+  , []
+  )
 -- ctype (BasicTypeAnonEnum variants) =
 --   ( [ u $ CEnumType $ u $ CEnum Nothing
 --                                 (Just )
@@ -140,7 +149,13 @@ ctype (BasicTypeSimpleEnum name) =
 --   )
 ctype (BasicTypeComplexEnum name) = ctype (BasicTypeStruct name)
 ctype (BasicTypeTuple name t) =
-  ([u $ CSUType $ u $ CStruct CStructTag (Just (cIdent name)) Nothing []], [])
+  ( [ CTypeSpec $ u $ CSUType $ u $ CStruct CStructTag
+                                            (Just (cIdent name))
+                                            Nothing
+                                            []
+    ]
+  , []
+  )
 ctype (CPtr x) = (fst t, (u $ CPtrDeclr []) : snd t) where t = ctype x
 ctype (BasicTypeFunction rt args var) =
   let (rta, rtb) = ctype rt
@@ -152,9 +167,10 @@ ctype (BasicTypeFunction rt args var) =
         )
       : rtb
       )
-ctype (BasicTypeCFile) = ([u $ CTypeDef (internalIdent $ "FILE")], [])
+ctype (BasicTypeCFile) =
+  ([CTypeSpec $ u $ CTypeDef (internalIdent $ "FILE")], [])
 ctype (BasicTypeAnonEnum Nothing variants)
-  = ( [ u $ CEnumType $ u $ CEnum
+  = ( [ CTypeSpec $ u $ CEnumType $ u $ CEnum
           Nothing
           (Just
             [ (internalIdent $ s_unpack variant, Nothing)
@@ -178,10 +194,14 @@ ctype (CArray x s) =
     : snd t
   )
   where t = ctype x
-ctype (BasicTypeAnonStruct (Just x) _) = ([u $ CTypeDef $ cIdent x], [])
-ctype (BasicTypeAnonUnion  (Just x) _) = ([u $ CTypeDef $ cIdent x], [])
-ctype (BasicTypeAnonEnum   (Just x) _) = ([u $ CTypeDef $ cIdent x], [])
-ctype (BasicTypeUnknown              ) = undefined
+ctype (BasicTypeAnonStruct (Just x) _) =
+  ([CTypeSpec $ u $ CTypeDef $ cIdent x], [])
+ctype (BasicTypeAnonUnion (Just x) _) =
+  ([CTypeSpec $ u $ CTypeDef $ cIdent x], [])
+ctype (BasicTypeAnonEnum (Just x) _) =
+  ([CTypeSpec $ u $ CTypeDef $ cIdent x], [])
+ctype (BasicTypeUnknown) = undefined
+-- ctype (t) = throwk $ InternalError ("Unhandled ctype: " ++ show t) Nothing
 
 intFlags f = foldr (\f acc -> setFlag f acc) noFlags f
 
@@ -246,8 +266,8 @@ transpileExpr (IrCArrLiteral values x) = u $ CCompoundLit
       )
       : snd t
     )
-  arrDecl = u $ CDecl (map CTypeSpec typeSpec)
-                      [(Just cdeclr, Nothing, Nothing)]
+  arrDecl = u
+    $ CDecl typeSpec [(Just cdeclr, Nothing, Nothing)]
    where
     (typeSpec, derivedDeclr) = arrT
     cdeclr                   = u $ CDeclr Nothing derivedDeclr Nothing []

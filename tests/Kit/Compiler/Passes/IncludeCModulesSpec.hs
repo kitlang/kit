@@ -1,6 +1,8 @@
 module Kit.Compiler.Passes.IncludeCModulesSpec where
 
 import Control.Monad
+import Data.Maybe
+import Language.C
 import Test.Hspec
 import Test.QuickCheck
 import Kit.Ast
@@ -46,7 +48,21 @@ spec = do
       ]
       (\t ->
         it ("Parses C specifiers into " ++ show t)
-          $          parseType [] (fst $ ctype t) []
+          $          parseType
+                       []
+                       (fst
+                         (let (a, b) = ctype t
+                          in  ( catMaybes $ map
+                                (\x -> case x of
+                                  CTypeSpec x -> Just x
+                                  _           -> Nothing
+                                )
+                                a
+                              , b
+                              )
+                         )
+                       )
+                       []
           `shouldBe` TypeBasicType t
       )
 
@@ -147,6 +163,10 @@ spec = do
           ]
           False
           []
+        )
+      , ( "Parses 'unsigned' by itself"
+        , "just_unsigned"
+        , (TypeBasicType $ BasicTypeCUint)
         )
       ]
       (\(label, name, ct) -> it label $ do

@@ -10,7 +10,7 @@ import Kit.Str
 cfunDecl :: FunctionDefinition IrExpr BasicType -> CDecl
 cfunDecl f@(FunctionDefinition { functionName = name, functionType = rt, functionArgs = args, functionVarargs = varargs })
   = u $ CDecl
-    (map CTypeSpec typeSpec)
+    typeSpec
     [ ( Just $ u $ CDeclr
         (Just $ cIdent $ mangleName name)
         ((u $ CFunDeclr (Right (map cfunArg args, varargs)) []) : derivedDeclr)
@@ -25,7 +25,7 @@ cfunDecl f@(FunctionDefinition { functionName = name, functionType = rt, functio
 cfunDef :: FunctionDefinition IrExpr BasicType -> CFunDef
 cfunDef f@(FunctionDefinition { functionName = name, functionType = rt, functionArgs = args, functionVarargs = varargs, functionBody = Just body })
   = u $ CFunDef
-    (map CTypeSpec typeSpec)
+    typeSpec
     (u $ CDeclr
       (Just $ cIdent $ mangleName name)
       ((u $ CFunDeclr (Right (map cfunArg args, varargs)) []) : derivedDeclr)
@@ -41,7 +41,9 @@ cfunArg arg = cDecl (argType arg) (Just ([], argName arg)) Nothing
 
 attributesFromMeta :: [Metadata] -> [CAttr]
 attributesFromMeta (h : t) = case metaName h of
-  "inline"   -> (u $ CAttr (internalIdent "always_inline") []) : attributesFromMeta t
-  "noreturn" -> (u $ CAttr (internalIdent "noreturn") []) : attributesFromMeta t
-  _          -> attributesFromMeta t
+  "inline" ->
+    (u $ CAttr (internalIdent "always_inline") []) : attributesFromMeta t
+  "noreturn" ->
+    (u $ CAttr (internalIdent "noreturn") []) : attributesFromMeta t
+  _ -> attributesFromMeta t
 attributesFromMeta [] = []
