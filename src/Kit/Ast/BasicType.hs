@@ -18,6 +18,7 @@ data BasicType
   | CPtr BasicType
   | BasicTypeConst BasicType
   | BasicTypeCInt
+  | BasicTypeCUint
   | BasicTypeCChar
   | BasicTypeCSize
   | BasicTypeVoid
