@@ -246,7 +246,7 @@ transpileExpr (IrCArrLiteral values x) = u $ CCompoundLit
       )
       : snd t
     )
-  arrDecl = u $ CDecl ((CTypeQual $ u CConstQual) : (map CTypeSpec typeSpec))
+  arrDecl = u $ CDecl (map CTypeSpec typeSpec)
                       [(Just cdeclr, Nothing, Nothing)]
    where
     (typeSpec, derivedDeclr) = arrT
