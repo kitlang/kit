@@ -396,7 +396,7 @@ TypeParams_ :: {[TypeParam (Maybe TypeSpec)]}
 TypeParam :: {TypeParam (Maybe TypeSpec)}
   : TypeParam '=' TypeSpec {$1 {typeParamDefault = Just $ Just $ fst $3}}
   | upper_identifier TypeConstraints {(makeTypeParam (extract_upper_identifier $1)) {constraints = map Just $2, typeParamIsConstant = False, typeParamPos = snd $1}}
-  | macro_identifier {(makeTypeParam (s_drop 1 $ extract_macro_identifier $1)) {constraints = [], typeParamIsConstant = True, typeParamPos = snd $1}}
+  | macro_identifier {(makeTypeParam (extract_macro_identifier $1)) {constraints = [], typeParamIsConstant = True, typeParamPos = snd $1}}
 
 TypeSpecParams :: {([TypeSpec], Span)}
   : {([], NoPos)}
