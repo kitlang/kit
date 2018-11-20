@@ -154,7 +154,7 @@ tokens :-
   "``" ([^`]|\`[^`])+ "``" { tok' (\s -> UpperIdentifier $ s_take (s_length s - 4) $ s_drop 2 s) }
   "$" [A-Za-z_][a-zA-Z0-9_]* { tok' (\s -> MacroIdentifier $ s_drop 1 s) }
   "${" [A-Za-z_][a-zA-Z0-9_]* "}" { tok' (\s -> MacroIdentifier $ s_take (s_length s - 3) $ s_drop 2 s) }
-  "```" ([^`]|\`[^`]|\`\`[^`])* "```" { tok' (\s -> InlineC $ s_take (s_length s - 6) $ s_drop 3 s) }
+  "```" ([^`]|\`[^`]|\`\`[^`]|\n)* "```" { tok' (\s -> InlineC $ s_take (s_length s - 6) $ s_drop 3 s) }
 
   "_" _+ { tokString LowerIdentifier }
   "_" { tok Underscore }
