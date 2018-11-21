@@ -30,6 +30,17 @@ instance Errable DuplicateSpecializationError where
   errPos (DuplicateSpecializationError _ _ pos _) = Just pos
 
 {-
+  Resolving types is done in ordered passes; later passes may depend on the
+  results of the previous ones.
+-}
+data ResolveTypesPass
+  = ResolveRules
+  | ResolveTypedefs
+  | ResolveIdentifiers
+  | ResolveImpls
+  deriving (Eq, Show, Enum, Ord)
+
+{-
   This step is responsible for actions that depend on the interfaces created
   during BuildModuleGraph, including:
 
@@ -41,12 +52,16 @@ resolveModuleTypes
   -> [(Module, [(Declaration Expr (Maybe TypeSpec), Span)])]
   -> IO [(Module, [TypedDeclWithContext])]
 resolveModuleTypes ctx modContents = do
-  results1 <- forM modContents $ resolveTypesForMod 1 ctx
-  results2 <- forM modContents $ resolveTypesForMod 2 ctx
-  results3 <- forM modContents $ resolveTypesForMod 3 ctx
+  results <- foldM
+    (\acc step -> do
+      stepResults <- forM modContents $ resolveTypesForMod step ctx
+      return $ acc ++ stepResults
+    )
+    []
+    [ResolveRules ..]
   unless (ctxIsLibrary ctx) $ validateMain ctx
   flattenSpecializations ctx
-  return $ results1 ++ results2 ++ results3
+  return results
 
 flattenSpecializations :: CompileContext -> IO ()
 flattenSpecializations ctx = do
@@ -104,20 +119,25 @@ validateMain ctx = do
       (Nothing)
 
 resolveTypesForMod
-  :: Int
+  :: ResolveTypesPass
   -> CompileContext
   -> (Module, [(Declaration Expr (Maybe TypeSpec), Span)])
   -> IO (Module, [TypedDeclWithContext])
 resolveTypesForMod pass ctx (mod, contents) = do
+  debugLog ctx $ show pass
+
   -- handle module using statements before creating final TypeContext
-  tctx <- if pass > 1 then modTypeContext ctx mod else newTypeContext []
+  tctx <- if pass > ResolveRules
+    then modTypeContext ctx mod
+    else newTypeContext []
   forMWithErrors_ contents $ \(decl, pos) -> do
     case decl of
       DeclUsing u -> do
         addModUsing ctx tctx mod pos u
       _ -> return ()
 
-  when (pass == 3) $ do
+  when (pass == ResolveImpls) $ do
+    -- resolve specializations here
     specs <- readIORef (modSpecializations mod)
     forMWithErrors_ specs (addSpecialization ctx mod)
 
@@ -135,7 +155,7 @@ resolveTypesForMod pass ctx (mod, contents) = do
         $  "resolving types for "
         ++ (s_unpack $ showTypePath $ declName decl)
       case (pass, decl) of
-        (3, DeclImpl (i@TraitImplementation { implFor = Just iFor, implTrait = Just trait }))
+        (ResolveImpls, DeclImpl (i@TraitImplementation { implFor = Just iFor, implTrait = Just trait }))
           -> do
             traitCt <- resolveType ctx tctx mod trait
             case traitCt of
@@ -204,7 +224,7 @@ resolveTypesForMod pass ctx (mod, contents) = do
                 )
                 (Just $ implPos i)
 
-        (2, DeclVar v) -> do
+        (ResolveIdentifiers, DeclVar v) -> do
           let extern = hasMeta "extern" (varMeta v)
           converted <- convertVarDefinition varConverter
             $ v { varName = addNamespace (modPath mod) (varName v) }
@@ -216,7 +236,7 @@ resolveTypesForMod pass ctx (mod, contents) = do
                          False
           return $ Just $ (DeclVar converted, tctx)
 
-        (2, DeclFunction f) -> do
+        (ResolveIdentifiers, DeclFunction f) -> do
           let
             isMain =
               functionName f
@@ -235,7 +255,7 @@ resolveTypesForMod pass ctx (mod, contents) = do
                          False
           return $ Just $ (DeclFunction converted, tctx)
 
-        (2, DeclType t) -> do
+        (ResolveIdentifiers, DeclType t) -> do
           let params' =
                 [ (tp, TypeTypeParam $ tp)
                 | p <- typeParams t
@@ -306,7 +326,7 @@ resolveTypesForMod pass ctx (mod, contents) = do
           addBinding ctx (typeName t) $ TypeBinding converted
           return $ Just $ (DeclType converted, tctx')
 
-        (2, DeclTrait t) -> do
+        (ResolveIdentifiers, DeclTrait t) -> do
           let
             tctx' = tctx
               { tctxTypeParams = [ (tp, TypeTypeParam $ tp)
@@ -338,7 +358,11 @@ resolveTypesForMod pass ctx (mod, contents) = do
           addBinding ctx (traitName converted) $ TraitBinding converted
           return $ Just $ (DeclTrait converted, tctx')
 
-        (1, DeclRuleSet r) -> do
+        (ResolveTypedefs, DeclTypedef a b pos) -> do
+          addBinding ctx a $ TypedefBinding b (modPath mod) pos
+          return Nothing
+
+        (ResolveRules, DeclRuleSet r) -> do
           converted <- convertRuleSet varConverter r
           addBinding ctx (ruleSetName r) $ RuleSetBinding converted
           return Nothing

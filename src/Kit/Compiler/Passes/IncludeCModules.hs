@@ -324,7 +324,6 @@ defineNamedStructsEnumsUnions ctx mod pos (h : t) = do
               }
             )
       addBinding ctx ([], s_pack name) (TypeBinding typeDef)
-      veryNoisyDebugLog ctx $ "define struct " ++ name
     (CEnumType (CEnum (Just (Ident name _ _)) variants _ _) _) -> do
       let variants' = case variants of
             Just v  -> v

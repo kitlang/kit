@@ -20,13 +20,16 @@ function main() {
 
     var fUpdate: File = File.update("test_file");
     fUpdate.writeBytes("hey", 3);
+    printf("size after update: %zu\n", fUpdate.getSize());
     fUpdate.close();
 
     var fRead: File = File.read("test_file");
     var reader: Box[Reader] = fRead;
-    var s: Ptr[Void] = malloc(8);
+    var s: Ptr[Void] = malloc(9);
     reader.readBytes(s, 8);
+    (s as CString)[8] = 0;
     printf("%s\n", s as CString);
+    printf("final size: %zu\n", fRead.getSize());
     fRead.close();
 
     var removed = File.remove("test_file");

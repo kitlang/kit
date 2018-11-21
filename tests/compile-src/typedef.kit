@@ -1,0 +1,22 @@
+struct MyStruct {
+    public static function staticMethod() {
+        puts("MyStruct.staticMethod()");
+    }
+
+    public var a: Int;
+    public var b: Int;
+
+    public function instanceMethod() {
+        puts("MyStruct.instanceMethod()");
+    }
+}
+
+typedef MyTypedef = MyStruct;
+
+function main() {
+    MyTypedef.staticMethod();
+    var x: MyTypedef = struct MyTypedef {a: 1, b: 2};
+    x.instanceMethod();
+    var y: MyStruct = struct MyStruct{a: 3, b: 4};
+    var z = y as MyTypedef;
+}

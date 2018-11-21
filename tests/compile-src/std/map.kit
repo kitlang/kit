@@ -51,4 +51,21 @@ function main() {
     printf("Key Exists 'test5': %s\n", if myMap.exists("test5") then "true" else "false");
 
     myMap.free();
+
+    // var weakMap = WeakMap[Bool, Int].new(8);
+    // var shared = Shared[Int].new();
+    // *shared = 5;
+    // weakMap.put(true, shared);
+    // printf("WeakMap contains 'true': %s\n", if weakMap.exists(true) then "true" else "false");
+    // printf("reference count: %i\n", shared.rc());
+    // weakMap.retain(true);
+    // printf("WeakMap contains 'true': %s\n", if weakMap.exists(true) then "true" else "false");
+    // printf("reference count: %i\n", shared.rc());
+    // weakMap.release(true);
+    // printf("WeakMap contains 'true': %s\n", if weakMap.exists(true) then "true" else "false");
+    // printf("reference count: %i\n", shared.rc());
+    // weakMap.release(true);
+    // printf("WeakMap contains 'true': %s\n", if weakMap.exists(true) then "true" else "false");
+    // printf("reference count: %i\n", shared.rc());
+    // weakMap.free();
 }
