@@ -76,21 +76,61 @@ resolveTypeParam s [] = Nothing
 
 bindingToCt :: Maybe (Binding a b) -> [ConcreteType] -> Maybe ConcreteType
 bindingToCt binding params = case binding of
-  Just (TypeBinding  t    ) -> Just $ TypeInstance (typeName t) params
-  Just (TraitBinding t    ) -> Just $ TypeTraitConstraint (traitName t, params)
-  Just (TypedefBinding t _) -> Just t
-  Just (RuleSetBinding r  ) -> Just $ TypeRuleSet (ruleSetName r)
-  _                         -> Nothing
+  Just (TypeBinding    t) -> Just $ TypeInstance (typeName t) params
+  Just (TraitBinding   t) -> Just $ TypeTraitConstraint (traitName t, params)
+  Just (RuleSetBinding r) -> Just $ TypeRuleSet (ruleSetName r)
+  _                       -> Nothing
 
 findBindingCt
-  :: CompileContext -> TypePath -> [ConcreteType] -> IO (Maybe ConcreteType)
-findBindingCt ctx tp params = do
+  :: CompileContext
+  -> TypeContext
+  -> Module
+  -> TypePath
+  -> [ConcreteType]
+  -> IO (Maybe ConcreteType)
+findBindingCt ctx tctx mod tp params = do
   full <- h_lookup (ctxBindings ctx) tp
   case full of
+    Just (TypedefBinding tp modPath _) -> do
+      mod <- getMod ctx modPath
+      tctx <- modTypeContext ctx mod
+      t <- resolveType ctx tctx mod tp
+      return $ Just t
     Just x -> return $ bindingToCt (Just x) params
     _      -> do
       header <- h_lookup (ctxTypes ctx) tp
       return $ bindingToCt header params
+
+findLocalOrImportedCt
+  :: CompileContext
+  -> TypeContext
+  -> Module
+  -> Str
+  -> [ConcreteType]
+  -> IO (Maybe ConcreteType)
+findLocalOrImportedCt ctx tctx mod s resolvedParams = do
+  local <- findBindingCt ctx tctx mod (modPath mod, s) resolvedParams
+  case local of
+    Just x  -> return $ Just x
+    Nothing -> do
+      -- search other modules
+      imports <- getModImports ctx mod
+      bound   <- foldM
+        (\acc v -> case acc of
+          Just x  -> return acc
+          Nothing -> findBindingCt ctx tctx mod (v, s) resolvedParams
+        )
+        Nothing
+        imports
+      case bound of
+        Just t -> return $ Just t
+        _      -> do
+          t <- h_lookup (ctxTypedefs ctx) s
+          case t of
+            Just x -> do
+              x <- follow ctx tctx x
+              return $ Just x
+            Nothing -> return Nothing
 
 {-
   Attempt to resolve a TypeSpec into a ConcreteType; fail if it isn't a known
@@ -120,7 +160,7 @@ resolveType ctx tctx mod t = do
           resolvedParams <- forM params (resolveType ctx tctx mod)
           case m of
             ["extern"] -> do
-              binding <- findBindingCt ctx ([], s) resolvedParams
+              binding <- findBindingCt ctx tctx mod ([], s) resolvedParams
               case binding of
                 Just x  -> return x
                 Nothing -> do
@@ -137,33 +177,15 @@ resolveType ctx tctx mod t = do
                   case resolveTypeParam ([], s) (tctxTypeParams tctx) of
                     Just x -> return x
                     _      -> do
-                      local <- findBindingCt ctx (modPath mod, s) resolvedParams
-                      ct    <- case local of
-                        Just x  -> return x
-                        Nothing -> do
-                          -- search other modules
-                          imports <- getModImports ctx mod
-                          bound   <- foldM
-                            (\acc v -> case acc of
-                              Just x -> return acc
-                              Nothing ->
-                                findBindingCt ctx (v, s) resolvedParams
-                            )
-                            Nothing
-                            imports
-                          case bound of
-                            Just t -> return t
-                            _      -> do
-                              t <- h_lookup (ctxTypedefs ctx) s
-                              case t of
-                                Just x  -> follow ctx tctx x
-                                Nothing -> unknownType
-                                  (s_unpack $ showTypePath (m, s))
-                                  pos
-                      -- if this is a type instance, create a new generic
-                      ct   <- makeGenericConcrete ctx (position t) ct
-                      tctx <- genericTctx ctx tctx (position t) ct
-                      mapType (follow ctx tctx) ct
+                      ct <- findLocalOrImportedCt ctx tctx mod s resolvedParams
+                      case ct of
+                        Just ct -> do
+                          -- if this is a type instance, create a new generic
+                          ct   <- makeGenericConcrete ctx (position t) ct
+                          tctx <- genericTctx ctx tctx (position t) ct
+                          mapType (follow ctx tctx) ct
+                        Nothing ->
+                          unknownType (s_unpack $ showTypePath (m, s)) pos
             m -> do
               -- search only a specific module for this type
               result <- h_lookup (ctxTypes ctx) (m, s)
@@ -332,7 +354,7 @@ builtinToConcreteType ctx tctx mod s pos = do
     -- basics
     "Char"    -> return $ Just $ TypeBasicType $ BasicTypeCChar
     "Int"     -> return $ Just $ TypeBasicType $ BasicTypeCInt
-    "Uint"     -> return $ Just $ TypeBasicType $ BasicTypeCUint
+    "Uint"    -> return $ Just $ TypeBasicType $ BasicTypeCUint
     "Size"    -> return $ Just $ TypeBasicType $ BasicTypeCSize
     "Bool"    -> return $ Just $ TypeBasicType $ BasicTypeBool
     "Int8"    -> return $ Just $ TypeBasicType $ BasicTypeInt 8
@@ -350,7 +372,6 @@ builtinToConcreteType ctx tctx mod s pos = do
     "Byte"    -> builtinToConcreteType ctx tctx mod "Uint8" pos
     "Short"   -> builtinToConcreteType ctx tctx mod "Int16" pos
     "Long"    -> builtinToConcreteType ctx tctx mod "Int64" pos
-    "Uint"    -> builtinToConcreteType ctx tctx mod "Uint32" pos
     "Float"   -> builtinToConcreteType ctx tctx mod "Float32" pos
     "Double"  -> builtinToConcreteType ctx tctx mod "Float64" pos
     "Void"    -> return $ Just $ TypeBasicType BasicTypeVoid

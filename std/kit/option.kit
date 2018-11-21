@@ -25,20 +25,17 @@ enum Option[T] {
         }
     }
 
+    public function or(other: T): T {
+        match this {
+            Some(v) => return v;
+            default => return other;
+        }
+    }
+
     rules {
-        (this.isSome()) => !this.isNone();
+        ($this ?? $other) => $this.or($other);
 
-        (this.unwrap()) => match this {
-            Some(v) => v;
-            default => throw NoValueError;
-        }
-
-        (this ?? (other: T)) => match this {
-            Some(v) => v;
-            default => other;
-        }
-
-        (this ?. $id) => match this {
+        ($this ?. $id) => match $this {
             Some(v) => Some(v.$id);
             default => None;
         }

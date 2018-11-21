@@ -1,5 +1,5 @@
 struct RefCount {
-    var count: Size = 1;
+    var count: Int = 1;
     var allocator: Box[Allocator];
 }
 
@@ -11,7 +11,11 @@ struct RefCount {
  */
 abstract Shared[T]: Ptr[T] {
     public static function new(allocator: Box[Allocator]): Shared[T] {
-        var ptr: Ptr[RefCount] = allocator.alloc(sizeof RefCount + sizeof T);
+        return Self.alloc(sizeof T) as Shared[T];
+    }
+
+    public static function alloc(allocator: Box[Allocator], bytes: Size): Shared[T] {
+        var ptr: Ptr[RefCount] = allocator.alloc(sizeof RefCount + bytes);
         ptr.count = 1;
         ptr.allocator = allocator;
         return (ptr + 1) as Shared[T];

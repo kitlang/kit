@@ -1,4 +1,5 @@
 include "stdio.h";
+include "sys/stat.h";
 include "unistd.h";
 
 // enum SeekFrom {
@@ -7,21 +8,27 @@ include "unistd.h";
 //     End = SEEK_END;
 // }
 
+enum SeekFrom {
+    Beginning;
+    Current;
+    End;
+}
+
 abstract File: Ptr[FILE] {
     public static function read(path: Path): File {
-        return fopen(path, "r") as File;
+        return fopen(path, "rb") as File;
     }
 
     public static function write(path: Path): File {
-        return fopen(path, "w") as File;
+        return fopen(path, "wb") as File;
     }
 
     public static function append(path: Path): File {
-        return fopen(path, "a") as File;
+        return fopen(path, "ab") as File;
     }
 
     public static function update(path: Path): File {
-        return fopen(path, "r+") as File;
+        return fopen(path, "rb+") as File;
     }
 
     public static function exists(path: Path): Bool {
@@ -32,9 +39,13 @@ abstract File: Ptr[FILE] {
         return remove(path) == 0;
     }
 
-    // public function seek(offset: Int, from: SeekFrom) {
-    //     fseek(this, offset, from);
-    // }
+    public function seek(offset: Int, from: SeekFrom) {
+        match from {
+            Beginning => fseek(this, offset, ${SEEK_SET: Int});
+            Current => fseek(this, offset, ${SEEK_CUR: Int});
+            End => fseek(this, offset, ${SEEK_END: Int});
+        }
+    }
 
     public function readBytes(buf: Ptr[Void], bytes: Size): Size {
         return fread(buf, 1, bytes, this);
@@ -46,6 +57,24 @@ abstract File: Ptr[FILE] {
 
     public function close() {
         fclose(this);
+    }
+
+    // public function getSize(): Size {
+    //     var buf: stat;
+    //     fstat(this as Int, buf);
+    //     return buf.st_size;
+    // }
+
+    /**
+     * Returns the size of this file by seeking to the end of the file. Should
+     * only be used on a file opened in Read or Update modes.
+     */
+    public function getSize(): Size {
+        var cur = ftell(this);
+        this.seek(0, End);
+        var last = ftell(this);
+        this.seek(cur, Beginning);
+        return last;
     }
 }
 

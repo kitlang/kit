@@ -2,9 +2,9 @@
  * Array is a heap-allocated, length-prefixed, fixed-length collection type.
  */
 abstract Array[T]: Slice[T] {
-    public static function new(allocator: Box[Allocator], length: Size): Array[T] {
+    public static function new(allocator: Box[Allocator], length: Size): Self {
         var data: Ptr[T] = allocator.alloc(sizeof T * length);
-        return struct Array[T] {
+        return struct Self {
             length,
             data,
         };

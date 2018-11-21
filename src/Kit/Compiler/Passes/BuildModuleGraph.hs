@@ -242,6 +242,9 @@ addStmtToModuleInterface ctx mod s = do
         (\pos t -> interfaceTypeConverter ctx mod pos params t)
   let interfaceConverter = interfaceParamConverter ([], "") []
   decls <- case stmt s of
+    Typedef name t -> do
+      return [DeclTypedef (modPath mod, name) t (stmtPos s)]
+
     TypeDeclaration d -> do
       let extern = hasMeta "extern" (typeMeta d)
       let name   = tpName $ typeName d

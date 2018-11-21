@@ -61,7 +61,7 @@ prefixedModPath [] _       = Nothing
 prefixedModPath m  (d, []) = Just $ d </> moduleFilePath m
 prefixedModPath (m : n) (d, (a : b)) =
   if m == a then prefixedModPath n (d, b) else Nothing
-prefixedModPath _ _ = Nothing
+-- prefixedModPath _ _ = Nothing
 
 findModule :: CompileContext -> ModulePath -> Maybe Span -> IO FilePath
 findModule ctx mod pos = do

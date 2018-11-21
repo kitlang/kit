@@ -18,20 +18,20 @@ data Binding a b
   | TraitBinding (TraitDefinition a b)
   | EnumConstructor (EnumVariant a b)
   | RuleSetBinding (RuleSet a b)
-  | TypedefBinding ConcreteType Span
   | ExprBinding a
   | ModuleBinding TypePath
+  | TypedefBinding TypeSpec ModulePath Span
   deriving (Show, Eq)
 
-bindingPos (VarBinding      x   ) = varPos x
-bindingPos (FunctionBinding x   ) = functionPos x
-bindingPos (TypeBinding     x   ) = typePos x
-bindingPos (TraitBinding    x   ) = traitPos x
-bindingPos (EnumConstructor x   ) = variantPos x
-bindingPos (RuleSetBinding  x   ) = ruleSetPos x
-bindingPos (TypedefBinding _ pos) = pos
-bindingPos (ExprBinding   x     ) = position x
-bindingPos (ModuleBinding _     ) = NoPos
+bindingPos (VarBinding      x     ) = varPos x
+bindingPos (FunctionBinding x     ) = functionPos x
+bindingPos (TypeBinding     x     ) = typePos x
+bindingPos (TraitBinding    x     ) = traitPos x
+bindingPos (EnumConstructor x     ) = variantPos x
+bindingPos (RuleSetBinding  x     ) = ruleSetPos x
+bindingPos (ExprBinding     x     ) = position x
+bindingPos (ModuleBinding   _     ) = NoPos
+bindingPos (TypedefBinding _ _ pos) = pos
 
 bindingIsPublic binding = case binding of
   VarBinding      v -> isPublic (varModifiers v)

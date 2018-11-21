@@ -1107,7 +1107,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                     )
                     pos
                 else do
-                  t <- exprToType ctx tctx mod (tPos r2) $ tExpr r2
+                  t <- exprToType ctx tctx mod (tPos r2) r2
                   case t of
                     Just t -> return
                       $ r1 { inferredType = TypeTypeOf tp (params ++ [t]) }
@@ -1130,7 +1130,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                     )
                     pos
                 else do
-                  t <- exprToType ctx tctx mod (tPos r2) $ tExpr r2
+                  t <- exprToType ctx tctx mod (tPos r2) r2
                   case t of
                     Just t -> return $ r1
                       { inferredType = TypeTraitConstraint (tp, params ++ [t])
@@ -1691,6 +1691,7 @@ findStructUnionField [] _ = Nothing
 typeVarBinding
   :: CompileContext -> TypeContext -> TypedBinding -> Span -> IO TypedExpr
 typeVarBinding ctx tctx binding pos = do
+  let invalidBinding = throwk $ InternalError "Invalid binding" (Just pos)
   case binding of
     ExprBinding     x   -> return x
     EnumConstructor def -> do
@@ -1740,17 +1741,60 @@ typeVarBinding ctx tctx binding pos = do
       pos
     ModuleBinding tp ->
       return $ makeExprTyped (Identifier (Var tp)) (ModuleType tp) pos
-    _ -> throwk $ InternalError "Invalid binding" (Just pos)
+    TypedefBinding t modPath _ -> do
+      mod  <- getMod ctx modPath
+      tctx <- modTypeContext ctx mod
+      t    <- resolveType ctx tctx mod t
+      let tp = case t of
+            TypeInstance tp _           -> Just tp
+            TypeTraitConstraint (tp, _) -> Just tp
+            _                           -> Nothing
+      case tp of
+        Just tp -> do
+          binding <- lookupBinding ctx tp
+          case binding of
+            Just binding -> typeVarBinding ctx tctx binding pos
+            _ -> invalidBinding
+        _ -> invalidBinding
+    _ -> invalidBinding
 
 exprToType
   :: CompileContext
   -> TypeContext
   -> Module
   -> Span
-  -> ExprType TypedExpr ConcreteType
+  -> TypedExpr
   -> IO (Maybe ConcreteType)
-exprToType ctx tctx mod pos (Identifier (Var s)) = do
-  t <- resolveType ctx tctx mod $ TypeSpec s [] pos
-  return $ Just t
--- exprToType ctx tctx mod pos (TupleInit x) =
-exprToType _ _ _ _ _ = return Nothing
+exprToType ctx tctx mod pos ex = do
+  let r x = exprToType ctx tctx mod pos x
+  x <- case (tExpr ex, inferredType ex) of
+    (_, TypeTypeOf tp params) -> return $ Just $ TypeInstance tp params
+    (Identifier (Var s), _) -> do
+      t <- resolveType ctx tctx mod $ TypeSpec s [] pos
+      return $ Just t
+    (TupleInit x, _) -> do
+      x <- forM x $ r
+      let result = sequence x
+      case result of
+        Just x -> return $ Just $ TypeTuple $ reverse x
+        _      -> return Nothing
+    (ArrayAccess a b, _) -> do
+      b <- r b
+      case b of
+        Just b -> do
+          a <- r a
+          case a of
+            Just (TypeInstance tp params) ->
+              return $ Just $ TypeInstance tp $ params ++ [b]
+            _ -> return Nothing
+        _ -> return Nothing
+    (PreUnop Deref x, _) -> do
+      x <- r x
+      case x of
+        Just x -> return $ Just $ TypePtr x
+        _      -> return Nothing
+    _ -> return Nothing
+  case x of
+    Just t -> genericTctx ctx tctx pos t >> return ()
+    _      -> return ()
+  return x
