@@ -1,7 +1,8 @@
 function main() {
-    var a = 127;
+    var a = 127_i8;
+    var a2 = 127;
     var b = 255_u8;
-    var c = 32767;
+    var c = 32767_i16;
     var d = 100000;
     var e = 127_u64;
     var f = 127_f32;
@@ -9,6 +10,9 @@ function main() {
 
     if ++a == -128 {
         printf("a overflow\n");
+    }
+    if ++a2 == 128 {
+        printf("no a2 overflow\n");
     }
     if ++b == 0 {
         printf("b overflow\n");
