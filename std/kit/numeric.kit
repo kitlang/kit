@@ -21,32 +21,32 @@
 
 // The following traits classify whether specific numbers are representable by
 // each of the builtin numeric types. They generally don't need to be directly
-// used, but will be inferred as literal constraints to let us default to the
-// smallest acceptable type for a given literal.
+// used, but will be inferred as literal constraints to let us default to an
+// appropriate numeric type.
 trait NumericNE63;
 specialize NumericNE63 as Int64;
 trait NumericNE53;
 specialize NumericNE53 as Int64;
 trait NumericNE31;
-specialize NumericNE31 as Int32;
+specialize NumericNE31 as Int;
 trait NumericNE24;
-specialize NumericNE24 as Int32;
+specialize NumericNE24 as Int;
 trait NumericNE15;
-specialize NumericNE15 as Int16;
+specialize NumericNE15 as Int;
 trait NumericNE7;
-specialize NumericNE7 as Int8;
+specialize NumericNE7 as Int;
 trait NumericE7;
-specialize NumericE7 as Int8;
+specialize NumericE7 as Int;
 trait NumericE8;
-specialize NumericE8 as Int16;
+specialize NumericE8 as Int;
 trait NumericE15;
-specialize NumericE15 as Int16;
+specialize NumericE15 as Int;
 trait NumericE16;
-specialize NumericE16 as Int32;
+specialize NumericE16 as Int;
 trait NumericE24;
-specialize NumericE24 as Int32;
+specialize NumericE24 as Int;
 trait NumericE31;
-specialize NumericE31 as Int32;
+specialize NumericE31 as Int;
 trait NumericE32;
 specialize NumericE32 as Int64;
 trait NumericE53;
@@ -103,8 +103,8 @@ implement NumericE53 for Float64;
 implement NumericE8 for Char;
 implement NumericNE7 for Char;
 implement Integral for Char;
-implement NumericE15 for Int;
-implement NumericNE15 for Int;
+implement NumericE31 for Int;
+implement NumericNE31 for Int;
 implement Integral for Int;
 implement NumericE16 for Size;
 implement Integral for Size;
