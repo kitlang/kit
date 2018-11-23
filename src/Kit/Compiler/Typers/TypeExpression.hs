@@ -1524,12 +1524,12 @@ typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = ft@(TypeFunction rt 
     aligned <- alignCallArgs ctx
                              tctx
                              (map snd argTypes)
-                             isVariadic
+                             (isJust isVariadic)
                              implicits
                              args
     let usedImplicits = length aligned - length args
     when
-        (if isVariadic
+        (if isJust isVariadic
           then length aligned < length argTypes
           else length aligned /= length argTypes
         )
@@ -1537,7 +1537,7 @@ typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = ft@(TypeFunction rt 
       $ TypingError
           (  "Function expected "
           ++ (show $ length argTypes)
-          ++ (if isVariadic then " or more" else "")
+          ++ (if isJust isVariadic then " or more" else "")
           ++ " argument"
           ++ (plural $ length argTypes)
           ++ ":\n\n  "
@@ -1754,7 +1754,7 @@ typeVarBinding ctx tctx binding pos = do
           binding <- lookupBinding ctx tp
           case binding of
             Just binding -> typeVarBinding ctx tctx binding pos
-            _ -> invalidBinding
+            _            -> invalidBinding
         _ -> invalidBinding
     _ -> invalidBinding
 

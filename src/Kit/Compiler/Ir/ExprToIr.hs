@@ -468,14 +468,10 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
             ("`empty` isn't a valid value of type " ++ show t')
             pos
         return $ IrEmpty t'
+      (VarArg x) -> do
+        return $ IrCall (IrIdentifier ([], "va_arg")) [IrIdentifier ([], x), IrType f]
       InlineCExpr s t -> return $ IrInlineC s
       t               -> do
         throwk $ InternalError
           ("Unexpected expression in typed AST:\n\n" ++ show t)
           (Just pos)
-
-{-addHeader :: Module -> FilePath -> Span -> IO ()
-addHeader mod fp pos = do
-  includes <- readIORef (modIncludes mod)
-  unless (elem fp (map fst includes))
-    $ modifyIORef (modIncludes mod) (\x -> (fp, pos) : x)-}

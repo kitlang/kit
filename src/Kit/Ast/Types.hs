@@ -23,7 +23,7 @@ data TypeSpec
   | ConstantTypeSpec ValueLiteral Span
   | TupleTypeSpec [TypeSpec] Span
   | PointerTypeSpec TypeSpec Span
-  | FunctionTypeSpec TypeSpec [TypeSpec] Bool Span
+  | FunctionTypeSpec TypeSpec [TypeSpec] (Maybe Str) Span
   {-
     This constructor can be used to force the TypeSpec to resolve to a specific
     ConcreteType without going through normal namespace resolution. This is
@@ -53,7 +53,7 @@ instance Show TypeSpec where
   show (ConstantTypeSpec v _) = show v
   show (PointerTypeSpec t _) = "&" ++ show t
   show (TupleTypeSpec t _) = "(" ++ intercalate ", " (map show t) ++ ")"
-  show (FunctionTypeSpec t args var _) = "(" ++ intercalate ", " (map show args) ++ (if var then (if null args then "..." else ", ...") else "") ++ ") -> " ++ show t
+  show (FunctionTypeSpec t args var _) = "(" ++ intercalate ", " (map show args) ++ (case var of {Just x -> ", " ++ s_unpack x ++ "..."; Nothing -> ""}) ++ ") -> " ++ show t
   show (ConcreteType ct) = show ct
 
 instance Eq TypeSpec where
@@ -84,7 +84,7 @@ data ConcreteType
   | TypeAnonUnion (Maybe Str) [(Str, ConcreteType)]
   | TypeAnonEnum (Maybe Str) [Str]
   | TypeTypedef Str
-  | TypeFunction ConcreteType ConcreteArgs Bool [ConcreteType]
+  | TypeFunction ConcreteType ConcreteArgs (Maybe Str) [ConcreteType]
   | TypeBasicType BasicType
   | TypePtr ConcreteType
   | TypeEnumConstructor TypePath TypePath ConcreteArgs [ConcreteType]
@@ -99,6 +99,8 @@ data ConcreteType
   | TypeSelf
   | ConstantType ValueLiteral
   | ModuleType TypePath
+  | VarArgs
+  | TypeAny Span
   | UnresolvedType TypeSpec ModulePath
   deriving (Eq, Generic)
 
@@ -121,7 +123,7 @@ instance Show ConcreteType where
   show (TypeAnonUnion (Just x) f) = "union typedef " ++ s_unpack x
   show (TypeAnonUnion _ f) = "(anon union)"
   show (TypeTypedef name) = "typedef " ++ s_unpack name
-  show (TypeFunction rt args var params) = "function (" ++ (intercalate ", " [show t | (_, t) <- args]) ++ (if var then ", ..." else "") ++ ") -> " ++ show rt
+  show (TypeFunction rt args var params) = "function (" ++ (intercalate ", " [show t | (_, t) <- args]) ++ (case var of {Just x -> ", " ++ s_unpack x ++ "..."; Nothing -> ""}) ++ ") -> " ++ show rt
   show (TypeBasicType t) = show t
   show (TypeEnumConstructor tp d _ params) = "enum " ++ (s_unpack $ showTypePath tp) ++ " constructor " ++ (s_unpack $ showTypePath d) ++ "[" ++ (intercalate ", " (map show params)) ++ "]"
   show (TypeRange) = "range"
@@ -135,6 +137,8 @@ instance Show ConcreteType where
   show (TypeSelf) = "Self"
   show (ConstantType v) = "$" ++ show v
   show (ModuleType tp) = "module " ++ s_unpack (showTypePath tp)
+  show VarArgs = "..."
+  show (TypeAny _) = "Any"
   show (UnresolvedType t _) = show t
 
 -- concreteTypeAbbreviation t = case t of

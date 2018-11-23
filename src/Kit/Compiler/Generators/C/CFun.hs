@@ -1,5 +1,6 @@
 module Kit.Compiler.Generators.C.CFun where
 
+import Data.Maybe
 import Language.C
 import Kit.Ast
 import Kit.Compiler.Generators.C.CExpr
@@ -8,12 +9,12 @@ import Kit.Ir
 import Kit.Str
 
 cfunDecl :: FunctionDefinition IrExpr BasicType -> CDecl
-cfunDecl f@(FunctionDefinition { functionName = name, functionType = rt, functionArgs = args, functionVarargs = varargs })
+cfunDecl f@(FunctionDefinition { functionName = name, functionType = rt, functionArgs = args, functionVararg = vararg })
   = u $ CDecl
     typeSpec
     [ ( Just $ u $ CDeclr
         (Just $ cIdent $ mangleName name)
-        ((u $ CFunDeclr (Right (map cfunArg args, varargs)) []) : derivedDeclr)
+        ((u $ CFunDeclr (Right (map cfunArg args, isJust vararg)) []) : derivedDeclr)
         Nothing
         (attributesFromMeta $ functionMeta f)
       , Nothing
@@ -23,12 +24,12 @@ cfunDecl f@(FunctionDefinition { functionName = name, functionType = rt, functio
   where (typeSpec, derivedDeclr) = ctype rt
 
 cfunDef :: FunctionDefinition IrExpr BasicType -> CFunDef
-cfunDef f@(FunctionDefinition { functionName = name, functionType = rt, functionArgs = args, functionVarargs = varargs, functionBody = Just body })
+cfunDef f@(FunctionDefinition { functionName = name, functionType = rt, functionArgs = args, functionVararg = vararg, functionBody = Just body })
   = u $ CFunDef
     typeSpec
     (u $ CDeclr
       (Just $ cIdent $ mangleName name)
-      ((u $ CFunDeclr (Right (map cfunArg args, varargs)) []) : derivedDeclr)
+      ((u $ CFunDeclr (Right (map cfunArg args, isJust vararg)) []) : derivedDeclr)
       Nothing
       []
     )

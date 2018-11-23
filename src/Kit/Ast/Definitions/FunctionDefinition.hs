@@ -25,7 +25,7 @@ data FunctionDefinition a b = FunctionDefinition {
   functionArgs :: [ArgSpec a b],
   functionType :: b,
   functionBody :: Maybe a,
-  functionVarargs :: Bool
+  functionVararg :: Maybe Str
 } deriving (Eq, Generic, Show)
 
 instance Positioned (FunctionDefinition a b) where
@@ -52,7 +52,7 @@ newFunctionDefinition = FunctionDefinition
   , functionArgs      = []
   , functionType      = undefined
   , functionBody      = Nothing
-  , functionVarargs   = False
+  , functionVararg    = Nothing
   , functionPos       = NoPos
   }
 
@@ -80,7 +80,7 @@ convertFunctionDefinition paramConverter f = do
                                    , functionArgs      = args
                                    , functionType      = rt
                                    , functionBody      = body
-                                   , functionVarargs   = functionVarargs f
+                                   , functionVararg    = functionVararg f
                                    , functionPos       = functionPos f
                                    }
 

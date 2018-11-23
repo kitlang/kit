@@ -144,8 +144,8 @@ generateHeaderDef decl = case decl of
   _ -> Nothing
 
 functionBasicType :: FunctionDefinition a BasicType -> BasicType
-functionBasicType (FunctionDefinition { functionType = t, functionArgs = args, functionVarargs = varargs })
-  = (BasicTypeFunction t (map (\arg -> (argName arg, argType arg)) args) varargs
+functionBasicType (FunctionDefinition { functionType = t, functionArgs = args, functionVararg = vararg })
+  = (BasicTypeFunction t (map (\arg -> (argName arg, argType arg)) args) (isJust vararg)
     )
 
 typeBasicType :: TypeDefinition a BasicType -> Maybe BasicType

@@ -281,7 +281,7 @@ FunctionDecl :: {Statement}
       functionType = fst $8,
       functionArgs = reverse (fst $6),
       functionBody = fst $9,
-      functionVarargs = snd $6,
+      functionVararg = snd $6,
       functionPos = snd $2 <+> snd $3
     }
   }
@@ -296,7 +296,7 @@ StaticFunctionDecl :: {FunctionDefinition Expr (Maybe TypeSpec)}
       functionType = fst $8,
       functionArgs = reverse (fst $6),
       functionBody = fst $9,
-      functionVarargs = snd $6,
+      functionVararg = snd $6,
       functionPos = snd $2 <+> snd $3
     }
   }
@@ -368,9 +368,9 @@ TypeSpec :: {(TypeSpec, Span)}
   | Self {(TypeSpec ([], B.pack "Self") [] (snd $1), snd $1)}
 
 FunctionTypeSpec :: {(TypeSpec, Span)}
-  : '(' ')' "->" TypeSpec {let p = snd $1 <+> snd $4 in (FunctionTypeSpec (fst $4) [] False p, p)}
-  | '(' CommaDelimitedTypes ',' "..." ')' "->" TypeSpec {let p = snd $1 <+> snd $6 in (FunctionTypeSpec (fst $7) (reverse $2) True p, p)}
-  | '(' CommaDelimitedTypes ')' "->" TypeSpec {let p = snd $1 <+> snd $5 in (FunctionTypeSpec (fst $5) (reverse $2) False p, p)}
+  : '(' ')' "->" TypeSpec {let p = snd $1 <+> snd $4 in (FunctionTypeSpec (fst $4) [] Nothing p, p)}
+  | '(' CommaDelimitedTypes ',' identifier "..." ')' "->" TypeSpec {let p = snd $1 <+> snd $7 in (FunctionTypeSpec (fst $8) (reverse $2) (Just $ extract_identifier $4) p, p)}
+  | '(' CommaDelimitedTypes ')' "->" TypeSpec {let p = snd $1 <+> snd $5 in (FunctionTypeSpec (fst $5) (reverse $2) Nothing p, p)}
 
 CommaDelimitedTypes :: {[TypeSpec]}
   : TypeSpec {[fst $1]}
@@ -511,9 +511,9 @@ EnumVariant :: {EnumVariant Expr (Maybe TypeSpec)}
       }
     }
 
-VarArgs :: {([ArgSpec Expr (Maybe TypeSpec)], Bool)}
-  : Args ',' "..." {($1, True)}
-  | Args {($1, False)}
+VarArgs :: {([ArgSpec Expr (Maybe TypeSpec)], Maybe Str)}
+  : Args ',' identifier "..." {($1, Just $ extract_identifier $3)}
+  | Args {($1, Nothing)}
 
 Args :: {[ArgSpec Expr (Maybe TypeSpec)]}
   : {[]}

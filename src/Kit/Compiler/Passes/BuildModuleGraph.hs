@@ -269,7 +269,7 @@ addStmtToModuleInterface ctx mod s = do
       d <- return $ d { varName = tp }
       return [DeclVar d]
 
-    FunctionDeclaration d@(FunctionDefinition { functionVarargs = varargs }) ->
+    FunctionDeclaration d@(FunctionDefinition { functionVararg = vararg }) ->
       do
         let
           isMain =
