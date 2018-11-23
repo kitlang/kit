@@ -7,6 +7,7 @@ import Data.Maybe
 import System.Directory
 import System.FilePath
 import Kit.Ast
+import Kit.Compiler.CCompiler
 import Kit.Compiler.Context
 import Kit.Error
 import Kit.Log
@@ -86,3 +87,8 @@ findModule ctx mod pos = do
 
 plural 1 = ""
 plural _ = "s"
+
+getIncludePaths ctx cc = ctxIncludePaths ctx ++ ccIncludePaths cc
+getCompileFlags ctx cc = do
+  flags <- getCtxCompilerFlags ctx
+  return $ ccFlags cc ++ flags

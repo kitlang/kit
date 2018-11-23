@@ -41,6 +41,7 @@ spec = parallel $ do
       it path $ do
         forM_ [1 .. testRuns] $ \_ -> do
           ctx    <- newCompileContext
+          cc     <- getCompiler Nothing
           result <- tryCompile
             (ctx
               { ctxSourcePaths = [ (f, []) | f <- [takeDirectory path, "std"] ]
@@ -51,6 +52,7 @@ spec = parallel $ do
               , ctxVerbose       = -1
               }
             )
+            cc
           (case result of
               Left  err -> Just err
               Right ()  -> Nothing
@@ -69,6 +71,7 @@ spec = parallel $ do
     forM_ (paths) $ \path -> do
       it path $ do
         ctx    <- newCompileContext
+        cc     <- getCompiler Nothing
         result <- tryCompile
           (ctx { ctxSourcePaths = [ (f, []) | f <- [takeDirectory path, "std"] ]
                , ctxMainModule    = [s_pack $ takeFileName path -<.> ""]
@@ -78,6 +81,7 @@ spec = parallel $ do
                , ctxVerbose       = -1
                }
           )
+          cc
         (case result of
             Left  err -> Just err
             Right ()  -> Nothing

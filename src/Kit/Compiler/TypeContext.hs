@@ -29,6 +29,7 @@ data TypeContext = TypeContext {
   tctxRules :: [RuleSet TypedExpr ConcreteType],
   tctxActiveRules :: [(RewriteRule TypedExpr ConcreteType, Span)],
   tctxReturnType :: Maybe ConcreteType,
+  tctxVarargsParameter :: Maybe Str,
   tctxThis :: Maybe ConcreteType,
   tctxSelf :: Maybe ConcreteType,
   tctxImplicits :: [TypedExpr],
@@ -58,6 +59,7 @@ newTypeContext scopes = do
     , tctxLoopCount             = 0
     , tctxRewriteRecursionDepth = 0
     , tctxState                 = TypingExpression
+    , tctxVarargsParameter      = Nothing
     }
 
 unknownType t pos = do
@@ -92,9 +94,9 @@ findBindingCt ctx tctx mod tp params = do
   full <- h_lookup (ctxBindings ctx) tp
   case full of
     Just (TypedefBinding tp modPath _) -> do
-      mod <- getMod ctx modPath
+      mod  <- getMod ctx modPath
       tctx <- modTypeContext ctx mod
-      t <- resolveType ctx tctx mod tp
+      t    <- resolveType ctx tctx mod tp
       return $ Just t
     Just x -> return $ bindingToCt (Just x) params
     _      -> do
@@ -302,6 +304,7 @@ _follow ctx tctx stack t = do
     TypeTraitConstraint (tp, params) -> do
       resolvedParams <- forM params (r)
       return $ TypeTraitConstraint (tp, resolvedParams)
+    TypeAny pos -> makeTypeVar ctx pos
     _ -> return t
 
 followType ctx tctx = convertTypeDefinition
@@ -415,7 +418,7 @@ getTraitImpl ctx tctx trait@(traitTp, params) ct = do
 functionConcrete f = TypeFunction
   (functionType f)
   [ (argName arg, argType arg) | arg <- functionArgs f ]
-  (functionVarargs f)
+  (functionVararg f)
   []
 
 {-

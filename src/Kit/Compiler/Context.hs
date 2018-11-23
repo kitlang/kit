@@ -11,6 +11,7 @@ import System.FilePath
 import System.Info
 import Kit.Ast
 import Kit.Compiler.Binding
+import Kit.Compiler.CCompiler
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TypedExpr
@@ -84,13 +85,12 @@ newCompileContext = do
   completeGenerics   <- h_new
   unresolved         <- newIORef []
   unresolvedTemplate <- newIORef []
-  defaultIncludes    <- defaultIncludePaths
   return $ CompileContext
     { ctxMainModule             = ["main"]
     , ctxIsLibrary              = False
     , ctxSourcePaths            = [("src", [])]
     , ctxCompilerPath           = Nothing
-    , ctxIncludePaths           = defaultIncludes
+    , ctxIncludePaths           = []
     , ctxBuildDir               = "build"
     , ctxOutputPath             = "main"
     , ctxDefines                = []
@@ -139,7 +139,7 @@ lookupBinding :: CompileContext -> TypePath -> IO (Maybe TypedBinding)
 lookupBinding ctx tp = do
   result <- h_lookup (ctxBindings ctx) tp
   case result of
-    _                          -> return result
+    _ -> return result
 
 getBinding :: CompileContext -> TypePath -> IO TypedBinding
 getBinding ctx tp = do
@@ -382,101 +382,12 @@ findStd = do
           "darwin" -> ["/usr/local/lib/kit"]
           _        -> []
 
-defaultIncludePaths :: IO [FilePath]
-defaultIncludePaths = do
-  inc <- lookupEnv "INCLUDE_PATH"
-  case inc of
-    Just x  -> return $ splitDirs x
-    Nothing -> case os of
-      "linux"  -> return ["/usr/include/x86_64-linux-gnu", "/usr/include"]
-      "darwin" -> return ["/usr/include", "/usr/local/include"]
-      _        -> return []
-
 splitDirs f = case break (== ',') f of
   (a, ',' : b) -> a : splitDirs b
   (a, ""     ) -> [a]
 
-
 buildDir :: CompileContext -> FilePath
 buildDir ctx = ctxBuildDir ctx
-
-getCompilerFlags :: CompileContext -> IO [String]
-getCompilerFlags ctx = do
-  let ctxFlags = ctxCompilerFlags ctx
-  envFlags <- lookupEnv "COMPILER_FLAGS"
-  return $ case envFlags of
-    -- FIXME
-    Just s  -> ctxFlags ++ words s
-    Nothing -> ctxFlags
-
-getLinkerFlags :: CompileContext -> IO [String]
-getLinkerFlags ctx = do
-  linkedLibs <- readIORef $ ctxLinkedLibs ctx
-  let ctxFlags =
-        [ "-l" ++ s_unpack lib | lib <- nub linkedLibs ] ++ ctxLinkerFlags ctx
-  envFlags <- lookupEnv "LINKER_FLAGS"
-  return $ case envFlags of
-    -- FIXME
-    Just s  -> ctxFlags ++ words s
-    Nothing -> ctxFlags
-
-findCompiler :: CompileContext -> IO FilePath
-findCompiler ctx = do
-  -- use the --cc flag if provided
-  case ctxCompilerPath ctx of
-    Just cc -> return cc
-    _       -> do
-      -- use a CC environment variable if it exists
-      ccEnv <- lookupEnv "CC"
-      case ccEnv of
-        Just cc -> return cc
-        Nothing -> do
-          -- look for a compiler next to kitc
-          let exes = ["cc", "gcc", "clang"]
-          exePath <- getExecutablePath
-          let exeDir = takeDirectory exePath
-          exePaths <- mapM (findFile [exeDir]) exes
-          case msum exePaths of
-            Just cc -> return cc
-            Nothing -> do
-              -- search the user's executable paths
-              exePaths <- mapM findExecutable exes
-              case msum exePaths of
-                Just cc -> return cc
-                Nothing -> throwk $ BasicError
-                  ("Couldn't find a C compiler from your executable paths; tried looking for:\n\n"
-                  ++ intercalate "\n" ([ "  - " ++ exe | exe <- exes ])
-                  ++ "\n\nYou can set the compiler path explicitly using the CC environment variable"
-                  )
-                  Nothing
-
-findCcache :: CompileContext -> IO (Maybe FilePath)
-findCcache ctx =
-  if ctxNoCcache ctx then return Nothing else findExecutable "ccache"
-
-defaultCompileArgs :: CompileContext -> FilePath -> [String]
-defaultCompileArgs ctx cc =
-  [ "-D_GNU_SOURCE"
-    , "-D_BSD_SOURCE"
-    , "-D_DEFAULT_SOURCE"
-    , "-std=c99"
-    , "-pedantic"
-    , "-O3"
-    , "-Os"
-    ]
-    ++ (if ctxIsLibrary ctx then ["-fPIC"] else [])
-    ++ osSpecificDefaultCompileArgs os
-    ++ ccSpecificDefaultCompileArgs cc
-
-osSpecificDefaultCompileArgs "darwin" =
-  [ "-U__BLOCKS__"
-  , "-Wno-expansion-to-defined"
-  , "-Wno-gnu-zero-variadic-macro-arguments"
-  ]
-osSpecificDefaultCompileArgs _ = []
-
-ccSpecificDefaultCompileArgs "gcc" = ["-Wno-missing-braces"]
-ccSpecificDefaultCompileArgs _     = []
 
 findPackageContents :: CompileContext -> ModulePath -> IO [ModulePath]
 findPackageContents ctx modPath = do
@@ -503,3 +414,28 @@ findPackageContents_ (m : n) (dir, (h : t)) = if m == h
     return $ [ (h : c) | c <- contents ]
   else return []
 findPackageContents_ _ _ = return []
+
+findCcache :: CompileContext -> IO (Maybe FilePath)
+findCcache ctx =
+  if ctxNoCcache ctx then return Nothing else findExecutable "ccache"
+
+getCtxCompilerFlags :: CompileContext -> IO [String]
+getCtxCompilerFlags ctx = do
+  let ctxFlags =
+        ctxCompilerFlags ctx ++ (if ctxIsLibrary ctx then ["-fPIC"] else [])
+  envFlags <- lookupEnv "COMPILER_FLAGS"
+  return $ case envFlags of
+    -- FIXME
+    Just s  -> ctxFlags ++ words s
+    Nothing -> ctxFlags
+
+getCtxLinkerFlags :: CompileContext -> IO [String]
+getCtxLinkerFlags ctx = do
+  linkedLibs <- readIORef $ ctxLinkedLibs ctx
+  let ctxFlags =
+        [ "-l" ++ s_unpack lib | lib <- nub linkedLibs ] ++ ctxLinkerFlags ctx
+  envFlags <- lookupEnv "LINKER_FLAGS"
+  return $ case envFlags of
+    -- FIXME
+    Just s  -> ctxFlags ++ words s
+    Nothing -> ctxFlags

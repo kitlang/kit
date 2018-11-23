@@ -15,12 +15,13 @@ import Kit.Ir
 testHeader :: IO (CompileContext, Module)
 testHeader = do
   ctx <- newCompileContext
+  cc <- getCompiler Nothing
   -- let ctx = ctx' {
   --   ctxIncludePaths = ["tests/Kit/Compiler/Passes"]
   -- }
   let testHeader = "tests/Kit/Compiler/Passes/test_header.h"
   mod <- newCMod
-  parseCHeader ctx mod testHeader
+  parseCHeader ctx cc mod testHeader
   return (ctx, mod)
 
 externVarDef s = newVarDefinition { varName = s, varMeta = [meta metaExtern] }
@@ -101,22 +102,22 @@ spec = do
         , (TypePtr
             (TypeFunction (TypeBasicType $ BasicTypeInt 16)
                           [("arg1", TypeBasicType $ BasicTypeInt 16)]
-                          False
+                          Nothing
                           []
             )
           )
         )
       , ( "Parses void function pointers"
         , "func_pointer"
-        , (TypePtr $ TypeFunction (TypeBasicType $ BasicTypeVoid) [] False [])
+        , (TypePtr $ TypeFunction (TypeBasicType $ BasicTypeVoid) [] Nothing [])
         )
       , ( "Parses void functions"
         , "void_func1"
-        , TypeFunction (TypeBasicType $ BasicTypeVoid) [] False []
+        , TypeFunction (TypeBasicType $ BasicTypeVoid) [] Nothing []
         )
       , ( "Parses functions with non-void types"
         , "int_func1"
-        , TypeFunction (TypeBasicType $ BasicTypeInt 16) [] False []
+        , TypeFunction (TypeBasicType $ BasicTypeInt 16) [] Nothing []
         )
       , ( "Parses functions with arguments"
         , "func_with_args"
@@ -125,43 +126,44 @@ spec = do
           [ ("arg1", TypeBasicType $ BasicTypeInt 16)
           , ("arg2", TypeBasicType $ BasicTypeUint 64)
           ]
-          False
+          Nothing
           []
         )
       , ( "Parses functions with struct return value/arguments"
         , "struct_func"
         , TypeFunction (TypeInstance ([], "Struct1") [])
                        [("a", TypeInstance ([], "Struct2") [])]
-                       False
+                       Nothing
                        []
         )
       , ( "Parses functions with pointer return value/arguments"
         , "pointer_func"
         , TypeFunction (TypePtr $ TypeBasicType $ BasicTypeFloat 32)
                        [("arg1", TypePtr $ TypeBasicType $ BasicTypeCInt)]
-                       False
+                       Nothing
                        []
         )
       , ( "Parses variadic functions"
         , "varargs_func"
         , TypeFunction (TypeBasicType $ BasicTypeVoid)
                        [("a", TypeBasicType $ BasicTypeInt 16)]
-                       True
+                       (Just "")
                        []
         )
       , ( "Parses void arg functions"
         , "void_func"
-        , TypeFunction (TypeBasicType $ BasicTypeInt 32) [] False []
+        , TypeFunction (TypeBasicType $ BasicTypeInt 32) [] Nothing []
         )
       , ( "Parses atexit"
         , "fake_atexit"
         , TypeFunction
           (TypeBasicType $ BasicTypeCInt)
           [ ( "__func"
-            , TypePtr $ TypeFunction (TypeBasicType $ BasicTypeVoid) [] False []
+            , TypePtr
+              $ TypeFunction (TypeBasicType $ BasicTypeVoid) [] Nothing []
             )
           ]
-          False
+          Nothing
           []
         )
       , ( "Parses 'unsigned' by itself"

@@ -96,7 +96,7 @@ _findUnderlyingType ctx mod pos stack t = do
           t' <- r t
           return (name, t')
         )
-      return $ BasicTypeFunction rt' args' var
+      return $ BasicTypeFunction rt' args' $ isJust var
     TypeBox tp params -> do
       params <- forM params $ mapType $ follow ctx modTctx
       return $ BasicTypeStruct $ subPath (monomorphName tp params) "box"

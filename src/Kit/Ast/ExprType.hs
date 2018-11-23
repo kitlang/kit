@@ -90,6 +90,7 @@ data ExprType a b
   | Null
   | Empty
   | InlineCExpr Str b
+  | VarArg Str
   deriving (Eq, Generic, Show)
 
 exprDiscriminant :: ExprType a b -> Int
@@ -139,6 +140,7 @@ exprDiscriminant et = case et of
   Null                   -> 42
   Empty                  -> 43
   InlineCExpr _ _        -> 44
+  VarArg _               -> 45
   x -> throwk $ InternalError "Expression has no discriminant!" Nothing
 
 exprChildren :: ExprType a b -> [a]

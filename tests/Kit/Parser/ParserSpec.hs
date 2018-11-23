@@ -57,7 +57,7 @@ spec = parallel $ do
                      [ (TypeSpec ([], "A") [] NoPos)
                      , (TypeSpec ([], "B") [] NoPos)
                      ]
-                     False
+                     Nothing
                      NoPos
 
   describe "Parse expressions" $ do
@@ -195,7 +195,7 @@ spec = parallel $ do
                      (Just
                        (FunctionTypeSpec (TypeSpec ([], "A") [] NoPos)
                                          []
-                                         False
+                                         Nothing
                                          NoPos
                        )
                      )
@@ -208,7 +208,7 @@ spec = parallel $ do
                      (Just
                        (FunctionTypeSpec (TypeSpec ([], "A") [] NoPos)
                                          [(TypeSpec ([], "Int") [] NoPos)]
-                                         False
+                                         Nothing
                                          NoPos
                        )
                      )
@@ -224,7 +224,7 @@ spec = parallel $ do
                          [ (TypeSpec ([], "Int") [] NoPos)
                          , (TypeSpec ([], "Float") [] NoPos)
                          ]
-                         False
+                         Nothing
                          NoPos
                        )
                      )
@@ -242,25 +242,25 @@ spec = parallel $ do
                              [ (TypeSpec ([], "A") [] NoPos)
                              , (TypeSpec ([], "B") [] NoPos)
                              ]
-                             False
+                             Nothing
                              NoPos
                            )
                          , (TypeSpec ([], "Float") [] NoPos)
                          ]
-                         False
+                         Nothing
                          NoPos
                        )
                      )
                    )
 
     it "parses variadic function type specs" $ do
-      testParseExpr "__: function (Int, ...) -> A"
+      testParseExpr "__: function (Int, x...) -> A"
         `shouldBe` (e $ TypeAnnotation
                      (e $ Identifier $ Var ([], "__"))
                      (Just
                        (FunctionTypeSpec (TypeSpec ([], "A") [] NoPos)
                                          [(TypeSpec ([], "Int") [] NoPos)]
-                                         True
+                                         (Just "x")
                                          NoPos
                        )
                      )
@@ -298,7 +298,7 @@ spec = parallel $ do
 
     it "parses functions" $ do
       testParse
-          "/**test*/ #[meta] inline function abc[A, B: Int, C :: ToString | ToInt](a: A, b: B = 2, c: C, ...): Something { print(a); print(b); print(c); }"
+          "/**test*/ #[meta] inline function abc[A, B: Int, C :: ToString | ToInt](a: A, b: B = 2, c: C, x...): Something { print(a); print(b); print(c); }"
         `shouldBe` [ ( ps (sp "" 1 26 1 37)
                      $ FunctionDeclaration
                      $ (newFunctionDefinition :: FunctionDefinition
@@ -351,13 +351,16 @@ spec = parallel $ do
                          , functionType      = Just $ makeTypeSpec "Something"
                          , functionBody      = Just $ e $ Block
                            [ e $ Call (e $ Identifier (Var ([], "print")))
-                                      [] [e $ Identifier (Var ([], "a"))]
+                                      []
+                                      [e $ Identifier (Var ([], "a"))]
                            , e $ Call (e $ Identifier (Var ([], "print")))
-                                      [] [e $ Identifier (Var ([], "b"))]
+                                      []
+                                      [e $ Identifier (Var ([], "b"))]
                            , e $ Call (e $ Identifier (Var ([], "print")))
-                                      [] [e $ Identifier (Var ([], "c"))]
+                                      []
+                                      [e $ Identifier (Var ([], "c"))]
                            ]
-                         , functionVarargs   = True
+                         , functionVararg    = Just "x"
                          }
                      )
                    ]
@@ -470,7 +473,7 @@ spec = parallel $ do
                                                  , functionType      = Nothing
                                                  , functionBody      = Just
                                                    (e $ Block [])
-                                                 , functionVarargs   = False
+                                                 , functionVararg    = Nothing
                                                  }
                                              ]
                        , typeSubtype       = Struct

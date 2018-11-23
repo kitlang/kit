@@ -2,6 +2,7 @@ module Kit.Compiler (
   decideModuleAndSourcePaths,
   tryCompile,
   module Kit.Compiler.Binding,
+  module Kit.Compiler.CCompiler,
   module Kit.Compiler.Context,
   module Kit.Compiler.Module,
   module Kit.Compiler.Passes,
@@ -18,6 +19,7 @@ import System.Process
 import Kit.Ast
 import Kit.Ir
 import Kit.Compiler.Binding
+import Kit.Compiler.CCompiler
 import Kit.Compiler.Context
 import Kit.Compiler.DumpAst
 import Kit.Compiler.Module
@@ -30,8 +32,8 @@ import Kit.Error
 import Kit.Log
 import Kit.Str
 
-tryCompile :: CompileContext -> IO (Either KitError ())
-tryCompile context = try $ compile context
+tryCompile :: CompileContext -> CCompiler -> IO (Either KitError ())
+tryCompile context cc = try $ compile context cc
 
 printLogIf ctx s = when (ctxVerbose ctx >= 0) $ printLog s
 
@@ -39,8 +41,8 @@ printLogIf ctx s = when (ctxVerbose ctx >= 0) $ printLog s
   Run compilation to completion from the given CompileContext. Throws an
   Error on failure.
 -}
-compile :: CompileContext -> IO ()
-compile ctx = do
+compile :: CompileContext -> CCompiler -> IO ()
+compile ctx cc = do
   {-
     Load the main module and all of its dependencies recursively. Also builds
     module interfaces, which declare the set of types that exist in a module
@@ -53,7 +55,7 @@ compile ctx = do
     Generate C modules for all includes found during buildModuleGraph.
   -}
   printLogIf ctx "processing C includes"
-  includeCModules ctx
+  includeCModules ctx cc
 
   {-
     This step utilizes the module interfaces from buildModuleGraph to convert
@@ -127,7 +129,7 @@ compile ctx = do
       return Nothing
     else do
       printLogIf  ctx "compiling"
-      compileCode ctx generated
+      compileCode ctx cc generated
 
   printLogIf ctx "finished"
 

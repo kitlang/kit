@@ -10,6 +10,7 @@ import Language.C.Data.Position
 import Language.C.System.GCC
 import Kit.Ast
 import Kit.Compiler.Binding
+import Kit.Compiler.CCompiler
 import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.TypedExpr
@@ -36,8 +37,8 @@ instance Errable IncludeError where
   For each C header discovered during the BuildModuleGraph pass, parse the
   header to discover all declarations, and make these available from Kit.
 -}
-includeCModules :: CompileContext -> IO ()
-includeCModules ctx = do
+includeCModules :: CompileContext -> CCompiler -> IO ()
+includeCModules ctx cc = do
   includes <- readIORef (ctxIncludes ctx)
   existing <- h_lookup (ctxModules ctx) externModPath
   mod      <- case existing of
@@ -46,31 +47,25 @@ includeCModules ctx = do
       mod <- newCMod
       h_insert (ctxModules ctx) externModPath mod
       return mod
-  forM_ (nub includes) $ includeCHeader ctx mod
+  forM_ (nub includes) $ includeCHeader ctx cc mod
   return ()
 
-includeCHeader :: CompileContext -> Module -> FilePath -> IO ()
-includeCHeader ctx mod path = do
-  found <- findSourceFile path (ctxIncludePaths ctx)
+includeCHeader :: CompileContext -> CCompiler -> Module -> FilePath -> IO ()
+includeCHeader ctx cc mod path = do
+  found <- findSourceFile path (getIncludePaths ctx cc)
   case found of
     Just f -> do
       debugLog ctx $ "found header " ++ show path ++ " at " ++ show f
-      parseCHeader ctx mod f
+      parseCHeader ctx cc mod f
     Nothing -> throwk
-      $ IncludeError path [ (dir </> path) | dir <- ctxIncludePaths ctx ]
+      $ IncludeError path [ (dir </> path) | dir <- getIncludePaths ctx cc ]
 
-parseCHeader :: CompileContext -> Module -> FilePath -> IO ()
-parseCHeader ctx mod path = do
-  compiler <- findCompiler ctx
-  debugLog ctx ("invoking C preprocessor at " ++ compiler)
-  parseResult <- parseCFile
-    (newGCC compiler)
-    Nothing
+parseCHeader :: CompileContext -> CCompiler -> Module -> FilePath -> IO ()
+parseCHeader ctx cc mod path = do
+  flags       <- getCompileFlags ctx cc
+  parseResult <- parseCFile (newGCC $ ccPath cc) Nothing
     -- TODO: defines
-    (  [ "-I" ++ dir | dir <- ctxIncludePaths ctx ]
-    ++ (defaultCompileArgs ctx $ takeFileName compiler)
-    )
-    path
+                                                         flags path
   case parseResult of
     Left e -> throwk $ BasicError
       ("Parsing C header " ++ show path ++ " failed: " ++ show e)
@@ -198,7 +193,7 @@ parseDerivedType m (h' : t') ct =
             | p <- params
             ]
           )
-          varargs
+          (if varargs then Just "" else Nothing)
           []
         )
       _ -> p ct
@@ -268,17 +263,17 @@ addCDecl ctx mod name t pos = do
   let bindingData = case t of
         TypeFunction t argTypes isVariadic _ -> FunctionBinding
           (newFunctionDefinition
-            { functionName    = ([], name)
-            , functionMeta    = [meta metaExtern]
-            , functionPos     = pos
-            , functionType    = t
-            , functionArgs    = [ newArgSpec { argName    = argName
-                                             , argType    = argType
-                                             , argDefault = Nothing
-                                             }
-                                | (argName, argType) <- argTypes
-                                ]
-            , functionVarargs = isVariadic
+            { functionName   = ([], name)
+            , functionMeta   = [meta metaExtern]
+            , functionPos    = pos
+            , functionType   = t
+            , functionArgs   = [ newArgSpec { argName    = argName
+                                            , argType    = argType
+                                            , argDefault = Nothing
+                                            }
+                               | (argName, argType) <- argTypes
+                               ]
+            , functionVararg = isVariadic
             }
           )
         _ -> VarBinding

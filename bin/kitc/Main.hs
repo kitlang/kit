@@ -153,10 +153,10 @@ main = do
   if optShowVersion opts
     then putStrLn $ "kitc v" ++ version
     else do
-      modules         <- h_new
-      stdPath         <- findStd
-      baseContext     <- newCompileContext
-      defaultIncludes <- defaultIncludePaths
+      modules     <- h_new
+      stdPath     <- findStd
+      cc          <- getCompiler $ optCompilerPath opts
+      baseContext <- newCompileContext
       let (mainModule, sourcePaths) = decideModuleAndSourcePaths
             (s_pack $ optMainModule opts)
             (optSourcePaths opts)
@@ -165,8 +165,7 @@ main = do
             , ctxIsLibrary    = optIsLibrary opts
             , ctxBuildDir     = optBuildDir opts
             , ctxOutputPath   = optOutputPath opts
-            , ctxCompilerPath = optCompilerPath opts
-            , ctxIncludePaths = optIncludePaths opts ++ defaultIncludes
+            , ctxIncludePaths = optIncludePaths opts
             , ctxSourcePaths  = map parseSourcePath $ sourcePaths ++ stdPath
             , ctxDefines      = map
               (\s -> (takeWhile (/= '=') s, drop 1 $ dropWhile (/= '=') s))
@@ -181,7 +180,7 @@ main = do
             , ctxNameMangling = not $ optNoMangle opts
             }
 
-      result  <- tryCompile ctx
+      result  <- tryCompile ctx cc
       endTime <- getCurrentTime
       errors  <- case result of
         Left e -> do

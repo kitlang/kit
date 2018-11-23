@@ -16,11 +16,11 @@ function g(func: function (Int) -> Float, i: Int): Float {
 /**
  * Varargs test.
  */
-function k(func: function (CString, ...) -> Void, s: CString) {
+function k(func: function (CString, args...) -> Void, s: CString) {
     func(s, 1, 2, 3);
 }
 
-function l(s: CString, ...) {
+function l(s: CString, args...) {
     printf("hello, %s\n", s);
 }
 

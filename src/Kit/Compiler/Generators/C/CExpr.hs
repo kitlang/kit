@@ -53,8 +53,7 @@ cIdent x =
     $ let s = s_unpack x in if reservedWord s then "__kit__" ++ s else s
 
 cDecl :: BasicType -> Maybe TypePath -> Maybe (CInitializer NodeInfo) -> CDecl
-cDecl t ident body = u
-  $ CDecl typeSpec [(Just cdeclr, body, Nothing)]
+cDecl t ident body = u $ CDecl typeSpec [(Just cdeclr, body, Nothing)]
  where
   (typeSpec, derivedDeclr) = ctype t
   cdeclr                   = u $ CDeclr
@@ -200,7 +199,8 @@ ctype (BasicTypeAnonUnion (Just x) _) =
   ([CTypeSpec $ u $ CTypeDef $ cIdent x], [])
 ctype (BasicTypeAnonEnum (Just x) _) =
   ([CTypeSpec $ u $ CTypeDef $ cIdent x], [])
-ctype (BasicTypeUnknown) = undefined
+ctype (BasicTypeTypedef x) = ([CTypeSpec $ u $ CTypeDef $ cIdent x], [])
+ctype (BasicTypeUnknown  ) = undefined
 -- ctype (t) = throwk $ InternalError ("Unhandled ctype: " ++ show t) Nothing
 
 intFlags f = foldr (\f acc -> setFlag f acc) noFlags f
@@ -266,8 +266,7 @@ transpileExpr (IrCArrLiteral values x) = u $ CCompoundLit
       )
       : snd t
     )
-  arrDecl = u
-    $ CDecl typeSpec [(Just cdeclr, Nothing, Nothing)]
+  arrDecl = u $ CDecl typeSpec [(Just cdeclr, Nothing, Nothing)]
    where
     (typeSpec, derivedDeclr) = arrT
     cdeclr                   = u $ CDeclr Nothing derivedDeclr Nothing []
@@ -318,6 +317,8 @@ transpileExpr (IrEmpty t           ) = u $ CCompoundLit
   (cDecl t Nothing Nothing)
   [([], u $ CInitExpr $ transpileExpr $ IrIdentifier ([], "0"))]
 transpileExpr (IrInlineC s) = transpileExpr $ IrIdentifier ([], s) -- what a hack
+transpileExpr (IrType t) =
+  u $ CVar $ internalIdent $ show $ pretty $ cDecl t Nothing Nothing
 transpileExpr x =
   throwk $ InternalError ("Couldn't transpile IR:\n\n  " ++ show x) Nothing
 

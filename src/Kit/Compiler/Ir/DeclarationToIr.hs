@@ -74,6 +74,17 @@ generateDeclIr ctx mod t = do
               && not (ctxIsLibrary ctx)
 
       converted <- convertFunctionDefinition paramConverter f
+      let body = case (functionBody converted, functionVararg f) of
+            (Just body, Just vararg) -> Just $ IrBlock
+              [ IrVarDeclaration vararg (BasicTypeTypedef "va_list") Nothing
+              , IrCall
+                (IrIdentifier ([], "va_start"))
+                [ IrIdentifier ([], vararg)
+                , IrIdentifier $ ([], argName $ last $ functionArgs f)
+                ]
+              , body
+              ]
+            _ -> functionBody converted
 
       if (isMain && functionType converted == BasicTypeVoid)
       then
@@ -83,7 +94,7 @@ generateDeclIr ctx mod t = do
                 ([ DeclFunction $ converted
                      { functionName = name
                      , functionType = BasicTypeCInt
-                     , functionBody = case functionBody converted of
+                     , functionBody = case body of
                        Just x ->
                          Just
                            $ IrBlock
@@ -111,6 +122,7 @@ generateDeclIr ctx mod t = do
                     { functionType = if isMain
                       then BasicTypeCInt
                       else functionType converted
+                    , functionBody = body
                     }
                 ]
             ]
@@ -171,7 +183,7 @@ generateDeclIr ctx mod t = do
                                      | arg <- functionArgs f
                                      ]
                                    )
-                                   (functionVarargs f)
+                                   (isJust $ functionVararg f)
                                  }
                              | f <- traitMethods converted
                              ]

@@ -31,6 +31,7 @@ data IrExpr
   | IrEnumInit BasicType TypePath [(Str, IrExpr)]
   | IrTupleInit BasicType [IrExpr]
   | IrSizeOf BasicType
+  | IrType BasicType
   | IrSwitch IrExpr [(IrExpr, IrExpr)] (Maybe IrExpr)
   | IrNull
   | IrEmpty BasicType
