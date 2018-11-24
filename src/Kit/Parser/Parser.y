@@ -566,6 +566,8 @@ RulesMethodsVariants :: {[Member Expr (Maybe TypeSpec)]}
 Methods :: {[Member Expr (Maybe TypeSpec)]}
   : {[]}
   | Methods Method {$2 : $1}
+  | Methods StaticVarDefinition {StaticFieldMember $2 : $1}
+  | Methods StaticVarBlock {(map FieldMember $2 ++ $1)}
 
 Method :: {Member Expr (Maybe TypeSpec)}
   : FunctionDecl {
