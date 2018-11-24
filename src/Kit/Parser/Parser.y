@@ -160,7 +160,7 @@ Statement :: {Statement}
   | FunctionDecl {$1}
 
 TypeDefinition :: {Statement}
-  : MetaMods enum upper_identifier TypeParams TypeAnnotation '{' RulesMethodsVariants '}' {
+  : MetaMods enum upper_identifier TypeParams NotYetSupported '{' RulesMethodsVariants '}' {
     ps (fp [snd $1, snd $2, snd $8]) $ TypeDeclaration $ (newTypeDefinition) {
       typeName = ns $ extract_upper_identifier $3,
       typeMeta = reverse $ metas $1,
@@ -173,7 +173,7 @@ TypeDefinition :: {Statement}
       typePos = snd $2 <+> snd $3,
       typeSubtype = Enum {
         enumVariants = [v { variantParent = ns $ extract_upper_identifier $3} | v <- reverse $ extractVariants $7],
-        enumUnderlyingType = case fst $5 of {Just x -> Just x; Nothing -> Just (TypeSpec ([], "Int") [] NoPos)}
+        enumUnderlyingType = Just (TypeSpec ([], "Int") [] NoPos) --case fst $5 of {Just x -> Just x; Nothing -> Just (TypeSpec ([], "Int") [] NoPos)}
       }
     }
   }
@@ -239,6 +239,10 @@ TypeDefinition :: {Statement}
       traitStaticMethods = reverse $ extractStaticMethods $ fst $6
     }
   }
+
+-- dummy rule to avoid larger rewrites for "commented out" functionality
+NotYetSupported :: {Bool}
+  : {True}
 
 AssocTypes :: {[TypeSpec]}
   : {[]}
@@ -497,16 +501,16 @@ EnumVariant :: {EnumVariant Expr (Maybe TypeSpec)}
         variantPos = snd $2
       }
     }
-  | MetaMods upper_identifier '=' Expr ';' {
-      newEnumVariant {
-        variantName = ([], extract_upper_identifier $2),
-        variantMeta = reverse $ metas $1,
-        variantModifiers = reverse $ mods $1,
-        variantArgs = [],
-        variantValue = Just $4,
-        variantPos = snd $2
-      }
-    }
+  -- | MetaMods upper_identifier '=' Expr ';' {
+  --     newEnumVariant {
+  --       variantName = ([], extract_upper_identifier $2),
+  --       variantMeta = reverse $ metas $1,
+  --       variantModifiers = reverse $ mods $1,
+  --       variantArgs = [],
+  --       variantValue = Just $4,
+  --       variantPos = snd $2
+  --     }
+  --   }
   | MetaMods upper_identifier '(' Args ')' ';' {
       newEnumVariant {
         variantName = ([], extract_upper_identifier $2),

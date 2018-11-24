@@ -390,10 +390,10 @@ spec = parallel $ do
 
     it "parses enums" $ do
       testParse
-          "enum MyEnum: Float {\n\
+          "enum MyEnum {//}: Float {\n\
             \    Apple;\n\
             \    Banana(i: Int);\n\
-            \    /**Abc*/ Strawberry = 1;\n\
+            \    /**Abc*/ Strawberry;// = 1;\n\
             \}"
         `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition)
                        { typeName      = ([], "MyEnum")
@@ -402,7 +402,7 @@ spec = parallel $ do
                        , typeRules     = []
                        , typeParams    = []
                        , typeSubtype   = Enum
-                         { enumUnderlyingType = Just (makeTypeSpec "Float")
+                         { enumUnderlyingType = Just (makeTypeSpec "Int") --Just (makeTypeSpec "Float")
                          , enumVariants       = [ newEnumVariant
                                                   { variantName = ([], "Apple")
                                                   , variantParent = ([], "MyEnum")
@@ -432,8 +432,8 @@ spec = parallel $ do
                                                   , variantArgs = []
                                                   , variantMeta = []
                                                   , variantModifiers = []
-                                                  , variantValue = Just
-                                                    (e $ Literal (IntValue 1) Nothing)
+                                                  , variantValue = Nothing --Just
+                                                    --(e $ Literal (IntValue 1) Nothing)
                                                   }
                                                 ]
                          }
