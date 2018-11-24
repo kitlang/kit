@@ -1,12 +1,15 @@
 trait TestTrait {
+    static var staticVar: CString;
     static function staticMethod(): Void;
     function a(): Void;
     function b(a: Int): Int;
 }
 
 implement TestTrait for Int {
+    static var staticVar: CString;
+
     public static function staticMethod() {
-        puts("Int.TestTrait.staticMethod()");
+        printf("Int.TestTrait.staticMethod()");
     }
 
     public function a() {
@@ -21,8 +24,10 @@ implement TestTrait for Int {
 
 
 implement TestTrait for CString {
+    public static var staticVar: CString;
+
     public static function staticMethod() {
-        puts("CString.TestTrait.staticMethod()");
+        printf("CString.TestTrait.staticMethod(): %s\n", Self.TestTrait.staticVar);
     }
 
     public function a() {
@@ -50,6 +55,7 @@ function main() {
     printf("%i\n", p.TestTrait.b(5));
 
     // call trait static method
+    CString.TestTrait.staticVar = "hello";
     CString.TestTrait.staticMethod();
     // CString.TestTrait.a("hi");
 }

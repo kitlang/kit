@@ -138,6 +138,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       case tctxSelf tctx of
         Just (TypeInstance tp params) ->
           return $ makeExprTyped Self (TypeTypeOf tp params) pos
+        Just x ->
+          throwk $ TypingError ("`Self` value of " ++ show x ++ " not yet supported") pos
         Nothing ->
           throwk $ TypingError ("`Self` can only be used in methods") pos
 

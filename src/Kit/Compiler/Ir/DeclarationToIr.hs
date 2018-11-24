@@ -247,11 +247,6 @@ generateDeclIr ctx mod t = do
               $  [ (tpName $ functionName method, IrIdentifier $ methodName)
                  | ((methodName, _), method) <- zip methods (implMethods i)
                  ]
-              ++ [ ( tpName $ varName f
-                   , IrIdentifier $ subPath (implName i) $ tpName $ varName f
-                   )
-                 | f <- implStaticFields i
-                 ]
               ++ [ ( tpName $ functionName f
                    , IrIdentifier $ subPath (implName i) $ tpName $ functionName
                      f
@@ -259,12 +254,6 @@ generateDeclIr ctx mod t = do
                  | f <- implStaticMethods i
                  ]
             }
-        staticFields <- forM
-          (implStaticFields i)
-          (\field -> generateDeclIr ctx mod $ DeclVar field
-            { varName = subPath (implName i) $ tpName $ varName field
-            }
-          )
         staticMethods <- forM
           (implStaticMethods i)
           (\method -> generateDeclIr ctx mod $ DeclFunction method
@@ -278,9 +267,7 @@ generateDeclIr ctx mod t = do
         return
           [ foldr (\b acc -> mergeBundles acc b)
                   (IrBundle traitName ((map snd methods) ++ [DeclVar $ impl]))
-            $  foldr (++) []
-            $  staticFields
-            ++ staticMethods
+              $ foldr (++) [] staticMethods
           ]
 
     _ -> return []
