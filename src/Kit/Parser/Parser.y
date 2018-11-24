@@ -220,8 +220,8 @@ Statement :: {Statement}
       implPos = snd $1 <+> snd $3
     }
   }
-  | MetaMods specialize TypeSpec as TypeSpec ';' {
-    ps (fp [snd $1, snd $2, snd $6]) $ Specialize (fst $3) (fst $5)
+  | MetaMods default TypeSpec as TypeSpec ';' {
+    ps (fp [snd $1, snd $2, snd $6]) $ TraitDefault (fst $3) (fst $5)
   }
   | rules upper_identifier '{' ShortRules '}' {
     ps (snd $1 <+> snd $2) $ RuleSetDeclaration $ newRuleSet {

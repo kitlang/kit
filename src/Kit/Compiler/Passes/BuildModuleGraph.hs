@@ -288,8 +288,8 @@ addStmtToModuleInterface ctx mod s = do
       h_insert (ctxTypes ctx) tp $ RuleSetBinding r
       return [DeclRuleSet r]
 
-    Specialize a b -> do
-      modifyIORef (modSpecializations mod) (\l -> ((a, b), stmtPos s) : l)
+    TraitDefault a b -> do
+      modifyIORef (modDefaults mod) (\l -> ((a, b), stmtPos s) : l)
       return []
 
     Implement i -> do

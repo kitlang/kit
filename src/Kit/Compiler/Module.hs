@@ -25,7 +25,7 @@ data Module = Module {
   modSourcePath :: FilePath,
   modImports :: [(ModulePath, Span)],
   modIncludes :: IORef [(FilePath, Span)],
-  modSpecializations :: IORef [((TypeSpec, TypeSpec), Span)],
+  modDefaults :: IORef [((TypeSpec, TypeSpec), Span)],
   modUsing :: IORef [UsingType TypedExpr ConcreteType],
   modTuples :: HashTable String BasicType,
   modIsCModule :: Bool
@@ -36,19 +36,19 @@ instance Show Module where
 
 newMod :: ModulePath -> FilePath -> IO Module
 newMod path fp = do
-  specs    <- newIORef []
+  defaults <- newIORef []
   includes <- newIORef []
   using    <- newIORef []
   tuples   <- h_new
   return $ Module
-    { modPath            = path
-    , modSourcePath      = fp
-    , modImports         = []
-    , modIncludes        = includes
-    , modSpecializations = specs
-    , modUsing           = using
-    , modTuples          = tuples
-    , modIsCModule       = False
+    { modPath       = path
+    , modSourcePath = fp
+    , modImports    = []
+    , modIncludes   = includes
+    , modDefaults   = defaults
+    , modUsing      = using
+    , modTuples     = tuples
+    , modIsCModule  = False
     }
 
 emptyMod = newMod [] undefined

@@ -24,37 +24,37 @@
 // used, but will be inferred as literal constraints to let us default to an
 // appropriate numeric type.
 trait NumericNE63;
-specialize NumericNE63 as Int64;
+default NumericNE63 as Int64;
 trait NumericNE53;
-specialize NumericNE53 as Int64;
+default NumericNE53 as Int64;
 trait NumericNE31;
-specialize NumericNE31 as Int;
+default NumericNE31 as Int;
 trait NumericNE24;
-specialize NumericNE24 as Int;
+default NumericNE24 as Int;
 trait NumericNE15;
-specialize NumericNE15 as Int;
+default NumericNE15 as Int;
 trait NumericNE7;
-specialize NumericNE7 as Int;
+default NumericNE7 as Int;
 trait NumericE7;
-specialize NumericE7 as Int;
+default NumericE7 as Int;
 trait NumericE8;
-specialize NumericE8 as Int;
+default NumericE8 as Int;
 trait NumericE15;
-specialize NumericE15 as Int;
+default NumericE15 as Int;
 trait NumericE16;
-specialize NumericE16 as Int;
+default NumericE16 as Int;
 trait NumericE24;
-specialize NumericE24 as Int;
+default NumericE24 as Int;
 trait NumericE31;
-specialize NumericE31 as Int;
+default NumericE31 as Int;
 trait NumericE32;
-specialize NumericE32 as Int64;
+default NumericE32 as Int64;
 trait NumericE53;
-specialize NumericE53 as Int64;
+default NumericE53 as Int64;
 trait NumericE63;
-specialize NumericE63 as Int64;
+default NumericE63 as Int64;
 trait NumericE64;
-specialize NumericE64 as Uint64;
+default NumericE64 as Uint64;
 
 // By-definition implementations; E8 must be able to represent [0,2e8), etc.
 implement NumericNE7 for NumericNE15;
@@ -116,6 +116,6 @@ implement Numeric for NumericMixed;
 // would only be used when we know nothing else about the value, and this are
 // pretty arbitrary. Erring toward smaller size at the cost of possible more
 // frequent overflow issues.
-specialize Integral as Int8;
-specialize NumericMixed as Float;
-specialize Numeric as Int8;
+default Integral as Int8;
+default NumericMixed as Float;
+default Numeric as Int8;

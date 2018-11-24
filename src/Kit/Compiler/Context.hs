@@ -32,7 +32,7 @@ data CompileContext = CompileContext {
   ctxLastTemplateVar :: IORef Int,
   ctxTypeVariables :: HashTable Int TypeVarInfo,
   ctxTemplateVariables :: HashTable Int (HashTable Str Int),
-  ctxTraitSpecializations :: HashTable TypePath (ConcreteType, Span),
+  ctxTraitDefaults :: HashTable TypePath (ConcreteType, Span),
   ctxImpls :: HashTable TraitConstraint (HashTable ConcreteType (TraitImplementation TypedExpr ConcreteType)),
   -- ctxGenericImpls :: HashTable
   ctxTypes :: HashTable TypePath SyntacticBinding,
@@ -73,7 +73,7 @@ newCompileContext = do
   linkedLibs         <- newIORef []
   lastTypeVar        <- newIORef 0
   lastTemplateVar    <- newIORef 0
-  specs              <- h_new
+  defaults           <- h_new
   impls              <- h_new
   typedefs           <- h_new
   -- make these big so we're less likely to have to resize later
@@ -106,7 +106,7 @@ newCompileContext = do
     , ctxUnresolvedTemplateVars = unresolvedTemplate
     , ctxTypeVariables          = typeVars
     , ctxTemplateVariables      = templateVars
-    , ctxTraitSpecializations   = specs
+    , ctxTraitDefaults          = defaults
     , ctxImpls                  = impls
     , ctxTypedefs               = typedefs
     , ctxTypes                  = types
