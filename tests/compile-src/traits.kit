@@ -1,9 +1,14 @@
 trait TestTrait {
+    static function staticMethod(): Void;
     function a(): Void;
     function b(a: Int): Int;
 }
 
 implement TestTrait for Int {
+    public static function staticMethod() {
+        puts("Int.TestTrait.staticMethod()");
+    }
+
     public function a() {
         printf("Int's TestTrait method a\n");
     }
@@ -16,6 +21,10 @@ implement TestTrait for Int {
 
 
 implement TestTrait for CString {
+    public static function staticMethod() {
+        puts("CString.TestTrait.staticMethod()");
+    }
+
     public function a() {
         printf("CString %s's TestTrait method a\n", this);
     }
@@ -39,4 +48,8 @@ function main() {
     var p: Ptr[Int] = &x;
     p.TestTrait.a();
     printf("%i\n", p.TestTrait.b(5));
+
+    // call trait static method
+    CString.TestTrait.staticMethod();
+    // CString.TestTrait.a("hi");
 }

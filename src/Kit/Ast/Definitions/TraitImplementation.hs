@@ -7,6 +7,7 @@ import GHC.Generics
 import Kit.Ast.Definitions.Base
 import Kit.Ast.Definitions.FunctionDefinition
 import Kit.Ast.Definitions.TraitDefinition
+import Kit.Ast.Definitions.VarDefinition
 import Kit.Ast.TypeParam
 import Kit.Ast.TypePath
 import Kit.Ast.Types
@@ -20,6 +21,8 @@ data TraitImplementation a b = TraitImplementation {
   implParams :: [TypeParam b],
   implAssocTypes :: [b],
   implMethods :: [FunctionDefinition a b],
+  implStaticFields :: [VarDefinition a b],
+  implStaticMethods :: [FunctionDefinition a b],
   implPos :: Span
 } deriving (Eq, Generic, Show)
 
@@ -32,13 +35,15 @@ associatedTypes traitDef impl =
   ]
 
 newTraitImplementation = TraitImplementation
-  { implName       = undefined
-  , implTrait      = undefined
-  , implFor        = undefined
-  , implParams     = []
-  , implAssocTypes = []
-  , implMethods    = []
-  , implPos        = NoPos
+  { implName          = undefined
+  , implTrait         = undefined
+  , implFor           = undefined
+  , implParams        = []
+  , implAssocTypes    = []
+  , implMethods       = []
+  , implStaticFields  = []
+  , implStaticMethods = []
+  , implPos           = NoPos
   }
 
 convertTraitImplementation
@@ -53,14 +58,21 @@ convertTraitImplementation converter@(Converter { exprConverter = exprConverter,
     assocTypes <- forM (implAssocTypes i) $ typeConverter (implPos i)
     methods    <- forM (implMethods i)
                        (\f -> convertFunctionDefinition (\p -> converter) f)
+    staticFields <- forM (implStaticFields i)
+                         (\f -> convertVarDefinition converter f)
+    staticMethods <- forM
+      (implStaticMethods i)
+      (\f -> convertFunctionDefinition (\p -> converter) f)
     params <- forM (implParams i) $ convertTypeParam converter
-    return $ (newTraitImplementation) { implName       = implName i
-                                      , implTrait      = trait
-                                      , implFor        = for
-                                      , implParams     = params
-                                      , implAssocTypes = assocTypes
-                                      , implMethods    = methods
-                                      , implPos        = implPos i
+    return $ (newTraitImplementation) { implName          = implName i
+                                      , implTrait         = trait
+                                      , implFor           = for
+                                      , implParams        = params
+                                      , implAssocTypes    = assocTypes
+                                      , implMethods       = methods
+                                      , implStaticFields  = staticFields
+                                      , implStaticMethods = staticMethods
+                                      , implPos           = implPos i
                                       }
 
 vThisArgName :: Str

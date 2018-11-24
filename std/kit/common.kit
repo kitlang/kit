@@ -38,3 +38,18 @@
         return new;
     }
 }
+
+trait Enum {
+    public static function name(): CString;
+    public static function members(): Slice[CString];
+}
+
+trait Struct {
+    public static function name(): CString;
+    public static function fields(): Slice[CString];
+}
+
+trait Union {
+    public static function name(): CString;
+    public static function fields(): Slice[CString];
+}

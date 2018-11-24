@@ -139,7 +139,8 @@ generateDeclIr ctx mod t = do
               [DeclVar $ converted]
           ]
 
-    DeclTrait (TraitDefinition { traitMethods = [] }) -> return []
+    DeclTrait (TraitDefinition { traitMethods = [], traitStaticFields = [], traitStaticMethods = [] })
+      -> return []
     DeclTrait trait' -> do
       let trait = trait'
             { traitName  = monomorphName (traitName trait')
@@ -187,13 +188,26 @@ generateDeclIr ctx mod t = do
                                  }
                              | f <- traitMethods converted
                              ]
+              ++ [ f { varName = ([], tpName $ varName f) }
+                 | f <- traitStaticFields converted
+                 ]
+              ++ [ newVarDefinition
+                     { varName = ([], tpName $ functionName f)
+                     , varType = BasicTypeFunction
+                       (functionType f)
+                       [ (argName arg, argType arg) | arg <- functionArgs f ]
+                       (isJust $ functionVararg f)
+                     }
+                 | f <- traitStaticMethods converted
+                 ]
             }
           }
 
       return
         $ [IrBundle (traitName trait') [DeclType $ traitBox, DeclType $ vtable]]
 
-    DeclImpl (TraitImplementation { implMethods = [] }) -> return []
+    DeclImpl (TraitImplementation { implMethods = [], implStaticFields = [], implStaticMethods = [] })
+      -> return []
     DeclImpl i'@(TraitImplementation { implTrait = TypeTraitConstraint (traitName, traitParams), implFor = ct })
       -> do
         tctx        <- modTypeContext ctx mod
@@ -223,20 +237,50 @@ generateDeclIr ctx mod t = do
               f'
           let name' = subPath (implName i) $ tpName $ functionName f
           return (name', DeclFunction $ f { functionName = name' })
-        let impl = newVarDefinition
-              { varName    = implName i
-              , varType    = BasicTypeStruct vtableName
-              , varMeta    = [meta metaConst]
-              , varDefault = Just $ IrStructInit
-                (BasicTypeStruct vtableName)
-                [ (tpName $ functionName method, IrIdentifier $ methodName)
-                | ((methodName, _), method) <- zip methods (implMethods i)
-                ]
-              }
+        let
+          impl = newVarDefinition
+            { varName    = implName i
+            , varType    = BasicTypeStruct vtableName
+            , varMeta    = [meta metaConst]
+            , varDefault = Just
+              $  IrStructInit (BasicTypeStruct vtableName)
+              $  [ (tpName $ functionName method, IrIdentifier $ methodName)
+                 | ((methodName, _), method) <- zip methods (implMethods i)
+                 ]
+              ++ [ ( tpName $ varName f
+                   , IrIdentifier $ subPath (implName i) $ tpName $ varName f
+                   )
+                 | f <- implStaticFields i
+                 ]
+              ++ [ ( tpName $ functionName f
+                   , IrIdentifier $ subPath (implName i) $ tpName $ functionName
+                     f
+                   )
+                 | f <- implStaticMethods i
+                 ]
+            }
+        staticFields <- forM
+          (implStaticFields i)
+          (\field -> generateDeclIr ctx mod $ DeclVar field
+            { varName = subPath (implName i) $ tpName $ varName field
+            }
+          )
+        staticMethods <- forM
+          (implStaticMethods i)
+          (\method -> generateDeclIr ctx mod $ DeclFunction method
+            { functionName = subPath (implName i) $ tpName $ functionName method
+            }
+          )
 
         methodBundles <- forM (implMethods i)
           $ \x -> generateDeclIr ctx mod $ DeclFunction x
 
-        return $ [IrBundle traitName ((map snd methods) ++ [DeclVar $ impl])]
+        return
+          [ foldr (\b acc -> mergeBundles acc b)
+                  (IrBundle traitName ((map snd methods) ++ [DeclVar $ impl]))
+            $  foldr (++) []
+            $  staticFields
+            ++ staticMethods
+          ]
 
     _ -> return []

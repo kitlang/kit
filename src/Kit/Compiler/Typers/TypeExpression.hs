@@ -973,13 +973,14 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                 return $ fn (functionName f) $ functionConcrete f
               Just (TraitBinding t) -> do
                 -- static trait dispatch: get a trait implementation for this type
-                -- FIXME: for generic
+                -- FIXME: this doesn't work for generic traits
                 let
                   checkForImpl ex = do
-                    impl <- getTraitImpl ctx
-                                         tctx
-                                         (traitName t, [])
-                                         (inferredType ex)
+                    let (forType, isStatic) = case inferredType ex of
+                          TypeTypeOf tp params ->
+                            (TypeInstance tp params, True)
+                          t -> (t, False)
+                    impl <- getTraitImpl ctx tctx (traitName t, []) forType
                     case impl of
                       Just x -> do
                         return
@@ -988,11 +989,15 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                               (TypeTraitConstraint (traitName t, []))
                               pos
                             )
-                              { tImplicits = [ (addRef ex)
-                                                 { inferredType = TypePtr
-                                                   voidType
-                                                 }
-                                             ]
+                              { tImplicits = if isStatic
+                                             then
+                                               []
+                                             else
+                                               [ (addRef ex)
+                                                   { inferredType = TypePtr
+                                                     voidType
+                                                   }
+                                               ]
                               , tIsLvalue  = True
                               }
                       Nothing -> case addDeref ex of
