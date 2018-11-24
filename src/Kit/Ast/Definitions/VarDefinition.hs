@@ -1,6 +1,9 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Kit.Ast.Definitions.VarDefinition where
 
 import Control.Monad
+import GHC.Generics
 import Kit.Ast.Definitions.Base
 import Kit.Ast.Metadata
 import Kit.Ast.Modifier
@@ -18,7 +21,7 @@ data VarDefinition a b = VarDefinition {
   varDefault :: Maybe a,
   varIsLocal :: Bool,
   varIsConst :: Bool
-} deriving (Eq, Show)
+} deriving (Eq, Generic, Show)
 
 instance Positioned (VarDefinition a b) where
   position = varPos

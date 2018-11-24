@@ -40,6 +40,7 @@ instance Hashable (FunctionDefinition TypedExpr ConcreteType)
 instance Hashable (ArgSpec TypedExpr ConcreteType)
 instance Hashable (TraitDefinition TypedExpr ConcreteType)
 instance Hashable (TraitImplementation TypedExpr ConcreteType)
+instance Hashable (VarDefinition TypedExpr ConcreteType)
 instance Hashable (MatchCase TypedExpr)
 
 makeExprTyped :: TypedExprType -> ConcreteType -> Span -> TypedExpr

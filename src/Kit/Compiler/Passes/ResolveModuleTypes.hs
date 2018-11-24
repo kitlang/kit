@@ -344,6 +344,23 @@ resolveTypesForMod pass ctx (mod, contents) = do
                 (resolveMaybeType ctx tctx' mod params)
           converted <- convertTraitDefinition paramConverter
             $ t { traitName = (modPath mod, tpName $ traitName t) }
+
+          forMWithErrors_ (traitStaticFields converted)
+            $ \field -> addToInterface
+                ctx
+                mod
+                (subPath (traitName converted) $ tpName $ varName field)
+                (VarBinding field)
+                True
+                False
+          forMWithErrors_ (traitStaticMethods converted)
+            $ \method -> addToInterface
+                ctx
+                mod
+                (subPath (traitName converted) $ tpName $ functionName method)
+                (FunctionBinding method)
+                True
+                False
           forMWithErrors_ (traitMethods converted) $ \method' ->
             let method = implicitifyMethod
                   vThisArgName

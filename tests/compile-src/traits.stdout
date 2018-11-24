@@ -7,3 +7,4 @@ CString hello's TestTrait method b
 Int's TestTrait method a
 Int's TestTrait method b
 782
+CString.TestTrait.staticMethod()

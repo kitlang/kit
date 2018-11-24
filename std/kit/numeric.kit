@@ -1,7 +1,7 @@
 /**
  * A type which represents only integer values.
  */
-#[protected] trait Integral;
+#[closed] trait Integral;
 
 /**
  * A type which represents numbers with integral and fractional components.
@@ -9,7 +9,7 @@
  * Numeric literals with decimal points and no type annotation are constrained
  * to types implementing this trait; if none is specified, Float will be used.
  */
-#[protected] trait NumericMixed;
+#[closed] trait NumericMixed;
 
 /**
  * Any numeric type.
@@ -17,43 +17,43 @@
  * Numeric literals without a decimal point or type annotation are constrained
  * to types implementing this trait; if none is specified, Int will be used.
  */
-#[protected] trait Numeric;
+#[closed] trait Numeric;
 
 // The following traits classify whether specific numbers are representable by
 // each of the builtin numeric types. They generally don't need to be directly
 // used, but will be inferred as literal constraints to let us default to an
 // appropriate numeric type.
-trait NumericNE63;
+#[closed] trait NumericNE63;
 default NumericNE63 as Int64;
-trait NumericNE53;
+#[closed] trait NumericNE53;
 default NumericNE53 as Int64;
-trait NumericNE31;
+#[closed] trait NumericNE31;
 default NumericNE31 as Int;
-trait NumericNE24;
+#[closed] trait NumericNE24;
 default NumericNE24 as Int;
-trait NumericNE15;
+#[closed] trait NumericNE15;
 default NumericNE15 as Int;
-trait NumericNE7;
+#[closed] trait NumericNE7;
 default NumericNE7 as Int;
-trait NumericE7;
+#[closed] trait NumericE7;
 default NumericE7 as Int;
-trait NumericE8;
+#[closed] trait NumericE8;
 default NumericE8 as Int;
-trait NumericE15;
+#[closed] trait NumericE15;
 default NumericE15 as Int;
-trait NumericE16;
+#[closed] trait NumericE16;
 default NumericE16 as Int;
-trait NumericE24;
+#[closed] trait NumericE24;
 default NumericE24 as Int;
-trait NumericE31;
+#[closed] trait NumericE31;
 default NumericE31 as Int;
-trait NumericE32;
+#[closed] trait NumericE32;
 default NumericE32 as Int64;
-trait NumericE53;
+#[closed] trait NumericE53;
 default NumericE53 as Int64;
-trait NumericE63;
+#[closed] trait NumericE63;
 default NumericE63 as Int64;
-trait NumericE64;
+#[closed] trait NumericE64;
 default NumericE64 as Uint64;
 
 // By-definition implementations; E8 must be able to represent [0,2e8), etc.

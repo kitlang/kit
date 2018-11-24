@@ -133,7 +133,34 @@ Statement :: {Statement}
   | MetaMods typedef upper_identifier '=' TypeSpec ';' {
     ps (fp [snd $1, snd $2, snd $6]) $ Typedef (extract_upper_identifier $3) (fst $5)
   }
-  | MetaMods enum upper_identifier TypeParams TypeAnnotation '{' RulesMethodsVariants '}' {
+  | TypeDefinition {$1}
+  | implement TypeParams TypeSpec AssocTypes for TypeSpec MethodsBody {
+    ps (fp [snd $1, snd $6, snd $7]) $ Implement $ newTraitImplementation {
+      implTrait = Just $ fst $3,
+      implFor = Just $ fst $6,
+      implParams = fst $2,
+      implAssocTypes = map Just $ reverse $4,
+      implMethods = reverse $ extractMethods $ fst $7,
+      implStaticFields = reverse $ extractStaticFields $ fst $7,
+      implStaticMethods = reverse $ extractStaticMethods $ fst $7,
+      implPos = snd $1 <+> snd $3
+    }
+  }
+  | MetaMods default TypeSpec as TypeSpec ';' {
+    ps (fp [snd $1, snd $2, snd $6]) $ TraitDefault (fst $3) (fst $5)
+  }
+  | rules upper_identifier '{' ShortRules '}' {
+    ps (snd $1 <+> snd $2) $ RuleSetDeclaration $ newRuleSet {
+      ruleSetName = ns $ extract_upper_identifier $2,
+      ruleSetPos = snd $1 <+> snd $2,
+      ruleSetRules = $4
+    }
+  }
+  | VarDefinition {ps (varPos $1) $ ModuleVarDeclaration $ $1}
+  | FunctionDecl {$1}
+
+TypeDefinition :: {Statement}
+  : MetaMods enum upper_identifier TypeParams TypeAnnotation '{' RulesMethodsVariants '}' {
     ps (fp [snd $1, snd $2, snd $8]) $ TypeDeclaration $ (newTypeDefinition) {
       typeName = ns $ extract_upper_identifier $3,
       typeMeta = reverse $ metas $1,
@@ -207,31 +234,11 @@ Statement :: {Statement}
       traitAssocParams = reverse $5,
       traitPos = snd $2 <+> snd $3,
       traitRules = reverse $ extractRules $ fst $6,
-      traitMethods = reverse $ extractMethods $ fst $6
+      traitMethods = reverse $ extractMethods $ fst $6,
+      traitStaticFields = reverse $ extractStaticFields $ fst $6,
+      traitStaticMethods = reverse $ extractStaticMethods $ fst $6
     }
   }
-  | implement TypeParams TypeSpec AssocTypes for TypeSpec MethodsBody {
-    ps (fp [snd $1, snd $6, snd $7]) $ Implement $ newTraitImplementation {
-      implTrait = Just $ fst $3,
-      implFor = Just $ fst $6,
-      implParams = fst $2,
-      implAssocTypes = map Just $ reverse $4,
-      implMethods = reverse $ extractMethods $ fst $7,
-      implPos = snd $1 <+> snd $3
-    }
-  }
-  | MetaMods default TypeSpec as TypeSpec ';' {
-    ps (fp [snd $1, snd $2, snd $6]) $ TraitDefault (fst $3) (fst $5)
-  }
-  | rules upper_identifier '{' ShortRules '}' {
-    ps (snd $1 <+> snd $2) $ RuleSetDeclaration $ newRuleSet {
-      ruleSetName = ns $ extract_upper_identifier $2,
-      ruleSetPos = snd $1 <+> snd $2,
-      ruleSetRules = $4
-    }
-  }
-  | VarDefinition {ps (varPos $1) $ ModuleVarDeclaration $ $1}
-  | FunctionDecl {$1}
 
 AssocTypes :: {[TypeSpec]}
   : {[]}
