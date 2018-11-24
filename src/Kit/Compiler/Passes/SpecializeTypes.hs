@@ -23,9 +23,9 @@ specializeTypes ctx = do
 {-
   When we have unresolved type variables and typing isn't making progress,
   we try to specialize type variables by looping over them and finding any
-  trait specializations that satisfy the type variable's constraints. If we
-  are able to specialize any, we should try typing again - the selection of a
-  default type might remove the blocker and allow full typing.
+  trait defaults that satisfy the type variable's constraints. If we are able
+  to specialize any, we should try typing again - the selection of a default
+  type might remove the blocker and allow full typing.
 
   This is an attempt to unblock typing; we don't *need* to specialize all
   unresolved type variables, and we might not be able to do so, so this step
@@ -65,11 +65,11 @@ findDefaultType ctx id = do
         else do
           tctx <- newTypeContext []
           let constraints = typeVarConstraints info
-          defaults <- mapM (h_lookup (ctxTraitSpecializations ctx))
+          defaults <- mapM (h_lookup (ctxTraitDefaults ctx))
                            (map (fst . fst) constraints)
-          let specializations = catMaybes defaults
-          specialization <- foldM
-            -- FIXME: we should be storing specializations as ConcreteTypes, not TypeSpecs
+          defaults <- return $ catMaybes defaults
+          def <- foldM
+            -- FIXME: we should be storing defaults as ConcreteTypes, not TypeSpecs
             (\acc (ct, _) -> do
               case acc of
                 Just _  -> return acc
@@ -95,8 +95,8 @@ findDefaultType ctx id = do
                     Nothing -> return Nothing
             )
             Nothing
-            specializations
-          case specialization of
+            defaults
+          case def of
             Just t -> do
               return $ Just t
             _ -> throwk $ BasicError
@@ -111,7 +111,7 @@ findDefaultType ctx id = do
                    | ((c, _), (reason, _)) <- constraints
                    ]
                  )
-              ++ "\n\nbut no specialization for one of these traits satisfies all of them, so no concrete type can be determined.\n\nTry adding a type annotation: `(myExpression: Type)`"
+              ++ "\n\nbut no default type for one of these traits satisfies all of them, so no concrete type can be determined.\n\nTry adding a type annotation: `(myExpression: Type)`"
               )
               (Just $ head $ typeVarPositions info)
 

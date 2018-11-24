@@ -19,7 +19,7 @@ data StatementType a b
   | TypeDeclaration (TypeDefinition a b)
   | TraitDeclaration (TraitDefinition a b)
   | Implement (TraitImplementation a b)
-  | Specialize TypeSpec TypeSpec
+  | TraitDefault TypeSpec TypeSpec
   | RuleSetDeclaration (RuleSet a b)
   | Typedef Str TypeSpec
   -- if the bool parameter is True, this is a wildcard import from a package

@@ -20,14 +20,14 @@ import Kit.Log
 import Kit.Parser
 import Kit.Str
 
-data DuplicateSpecializationError = DuplicateSpecializationError ModulePath TypePath Span Span deriving (Eq, Show)
-instance Errable DuplicateSpecializationError where
-  logError e@(DuplicateSpecializationError mod tp pos1 pos2) = do
-    logErrorBasic e $ "Duplicate specialization for `" ++ s_unpack (showTypePath tp) ++ "` in " ++ s_unpack (showModulePath mod) ++ "; \n\nFirst specialization:"
-    ePutStrLn "\nSecond specialization:"
+data DuplicateDefaultError = DuplicateDefaultError ModulePath TypePath Span Span deriving (Eq, Show)
+instance Errable DuplicateDefaultError where
+  logError e@(DuplicateDefaultError mod tp pos1 pos2) = do
+    logErrorBasic e $ "Duplicate default for `" ++ s_unpack (showTypePath tp) ++ "` in " ++ s_unpack (showModulePath mod) ++ "; \n\nFirst default:"
+    ePutStrLn "\nSecond default:"
     displayFileSnippet pos2
-    ePutStrLn "\nTraits cannot have overlapping specializations."
-  errPos (DuplicateSpecializationError _ _ pos _) = Just pos
+    ePutStrLn "\nTraits cannot have more than one default."
+  errPos (DuplicateDefaultError _ _ pos _) = Just pos
 
 {-
   Resolving types is done in ordered passes; later passes may depend on the
@@ -44,7 +44,7 @@ data ResolveTypesPass
   This step is responsible for actions that depend on the interfaces created
   during BuildModuleGraph, including:
 
-  - Discovering trait implementations and specializations
+  - Discovering trait implementations and defaults
   - Unifying module interface type vars with actual type annotations
 -}
 resolveModuleTypes
@@ -60,11 +60,11 @@ resolveModuleTypes ctx modContents = do
     []
     [ResolveRules ..]
   unless (ctxIsLibrary ctx) $ validateMain ctx
-  flattenSpecializations ctx
+  flattenDefaults ctx
   return results
 
-flattenSpecializations :: CompileContext -> IO ()
-flattenSpecializations ctx = do
+flattenDefaults :: CompileContext -> IO ()
+flattenDefaults ctx = do
   impls <- h_toList $ ctxImpls ctx
   memos <- h_new
   forMWithErrors_ impls $ \(tp, _) -> do
@@ -137,9 +137,9 @@ resolveTypesForMod pass ctx (mod, contents) = do
       _ -> return ()
 
   when (pass == ResolveImpls) $ do
-    -- resolve specializations here
-    specs <- readIORef (modSpecializations mod)
-    forMWithErrors_ specs (addSpecialization ctx mod)
+    -- resolve defaults here
+    specs <- readIORef (modDefaults mod)
+    forMWithErrors_ specs (addDefault ctx mod)
 
   let varConverter = converter (convertExpr ctx tctx mod [])
                                (resolveMaybeType ctx tctx mod [])
@@ -372,9 +372,8 @@ resolveTypesForMod pass ctx (mod, contents) = do
 
   return (mod, catMaybes converted)
 
-addSpecialization
-  :: CompileContext -> Module -> ((TypeSpec, TypeSpec), Span) -> IO ()
-addSpecialization ctx mod ((ts@(TypeSpec tp params _), b), pos) = do
+addDefault :: CompileContext -> Module -> ((TypeSpec, TypeSpec), Span) -> IO ()
+addDefault ctx mod ((ts@(TypeSpec tp params _), b), pos) = do
   tctx       <- modTypeContext ctx mod
   traitType  <- resolveType ctx tctx mod ts
   foundTrait <- case traitType of
@@ -383,19 +382,19 @@ addSpecialization ctx mod ((ts@(TypeSpec tp params _), b), pos) = do
   case foundTrait of
     Just (TraitBinding def) -> do
       let tp = traitName def
-      existing <- h_lookup (ctxTraitSpecializations ctx) tp
+      existing <- h_lookup (ctxTraitDefaults ctx) tp
       case existing of
         Just (_, pos') ->
-          -- if this specialization comes from a prelude, it could show up
+          -- if this default comes from a prelude, it could show up
           -- multiple times, so just ignore it
                           if pos' == pos
           then return ()
-          else throwk $ DuplicateSpecializationError (modPath mod) tp pos' pos
+          else throwk $ DuplicateDefaultError (modPath mod) tp pos' pos
         _ -> do
           ct <- resolveType ctx tctx mod b
-          h_insert (ctxTraitSpecializations ctx) tp (ct, pos)
+          h_insert (ctxTraitDefaults ctx) tp (ct, pos)
     _ -> throwk $ BasicError
-      ("Couldn't resolve trait for specialization: " ++ show tp)
+      ("Couldn't resolve trait for default: " ++ show tp)
       (Just pos)
 
 addModUsing
