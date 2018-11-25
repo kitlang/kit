@@ -275,15 +275,13 @@ resolveTypesForMod pass ctx (mod, contents) = do
             c' <- convertTypeDefinition paramConverter
               $ t { typeName = addNamespace (modPath mod) (typeName t) }
             let c = c' { typeName = addNamespace (modPath mod) (typeName c') }
-            if null (typeMethods c)
-              then return c
-              else do
-                let thisType = TypeSelf
-                let m f x t = makeExprTyped x t (functionPos f)
-                return $ implicitifyInstanceMethods thisPtrName
-                                                    (TypePtr thisType)
-                                                    (\f x -> x)
-                                                    c
+            let thisType = TypeSelf
+            let m f x t = makeExprTyped x t (functionPos f)
+            return $ implicitifyInstanceMethods
+              thisPtrName
+              (MethodTarget $ TypePtr thisType)
+              (\f x -> x)
+              c
 
           forMWithErrors_ (typeStaticFields converted)
             $ \field -> addToInterface
@@ -362,11 +360,10 @@ resolveTypesForMod pass ctx (mod, contents) = do
                 True
                 False
           forMWithErrors_ (traitMethods converted) $ \method' ->
-            let method = implicitifyMethod
-                  vThisArgName
-                  (TypePtr $ TypeBasicType BasicTypeVoid)
-                  (\_ -> id)
-                  method'
+            let method = implicitifyMethod vThisArgName
+                                           (MethodTarget $ TypePtr voidType)
+                                           (\_ -> id)
+                                           method'
             in  addBinding
                   ctx
                   (subPath (traitName converted) $ tpName $ functionName method)

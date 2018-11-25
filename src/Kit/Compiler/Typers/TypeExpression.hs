@@ -138,8 +138,9 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       case tctxSelf tctx of
         Just (TypeInstance tp params) ->
           return $ makeExprTyped Self (TypeTypeOf tp params) pos
-        Just x ->
-          throwk $ TypingError ("`Self` value of " ++ show x ++ " not yet supported") pos
+        Just x -> throwk $ TypingError
+          ("`Self` value of " ++ show x ++ " not yet supported")
+          pos
         Nothing ->
           throwk $ TypingError ("`Self` can only be used in methods") pos
 
@@ -694,6 +695,11 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                     when (not accessible) failNotPublic
                     x <- typeVarBinding ctx tctx' binding pos
                     f <- mapType (follow ctx tctx') $ inferredType x
+                    -- when calling an instance method statically, remove MethodTarget
+                    f <- return $ case f of
+                      TypeFunction rt ((name, MethodTarget t) : args) varargs params
+                        -> TypeFunction rt ((name, t) : args) varargs params
+                      _ -> f
                     case binding of
                       FunctionBinding _ -> return $ makeExprTyped
                         ((StaticMember tp params) fieldName)
@@ -752,9 +758,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                         return $ typed
                           { tImplicits   = [ makeExprTyped
                                                (BoxedValue r1)
-                                               ( TypePtr
-                                               $ TypeBasicType BasicTypeVoid
-                                               )
+                                               (MethodTarget $ TypePtr voidType)
                                                pos
                                            ]
                           , inferredType = t
@@ -783,8 +787,16 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                     return
                       $ (makeExprTyped (Field r1 $ Var ([], fieldName)) t pos)
                           { tImplicits = if null $ tImplicits r1
-                            then [ref { inferredType = TypePtr $ voidType }]
-                            else tImplicits r1
+                                         then
+                                           [ ref
+                                               { inferredType = ( MethodTarget
+                                                                $ TypePtr
+                                                                $ voidType
+                                                                )
+                                               }
+                                           ]
+                                         else
+                                           tImplicits r1
                           }
                   _ -> throwk $ TypingError
                     (  "Trait "
@@ -825,9 +837,9 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                       f = case inferredType typed of
                         TypeFunction rt args varargs _ -> TypeFunction
                           rt
-                          ( (let (name, _) = (head args)
-                             in  (name, TypePtr $ inferredType r1)
-                            )
+                          ((let (name, _) = (head args)
+                            in  (name, MethodTarget $ TypePtr $ inferredType r1)
+                           )
                           : (tail args)
                           )
                           varargs
@@ -837,7 +849,12 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                           pos
                     return
                       $ (makeExprTyped (StaticMember tp params fieldName) f pos)
-                          { tImplicits = r1 : tImplicits typed
+                          { tImplicits = (r1
+                                           { inferredType = MethodTarget
+                                             (inferredType r1)
+                                           }
+                                         )
+                            : tImplicits typed
                           }
 
                   _ -> case subtype of
@@ -964,15 +981,26 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
             binding <- resolveVar ctx (tctxScopes tctx) mod (tpName fieldName)
             let
               fn tp ct =
-                ((makeExprTyped (Identifier (Var tp)) ct pos) { tImplicits = [ r1
-                                                                             ]
-                                                              }
+                ((makeExprTyped (Identifier (Var tp)) ct pos)
+                  { tImplicits = [ r1
+                                     { inferredType = ( MethodTarget
+                                                      $ inferredType r1
+                                                      )
+                                     }
+                                 ]
+                  }
                 )
             case binding of
               Just (VarBinding v@(VarDefinition { varType = ct@(TypeFunction _ _ _ _) }))
                 -> return $ (fn (varName v) ct) { tIsConst = varIsConst v }
               Just (FunctionBinding f) -> do
-                return $ fn (functionName f) $ functionConcrete f
+                return $ fn (functionName f) $ case functionConcrete f of
+                  TypeFunction rt ((name, t) : args) varargs params ->
+                    TypeFunction rt
+                                 ((name, MethodTarget t) : args)
+                                 varargs
+                                 params
+                  t -> t
               Just (TraitBinding t) -> do
                 -- static trait dispatch: get a trait implementation for this type
                 -- FIXME: this doesn't work for generic traits
@@ -996,8 +1024,10 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                                                []
                                              else
                                                [ (addRef ex)
-                                                   { inferredType = TypePtr
-                                                     voidType
+                                                   { inferredType = (MethodTarget
+                                                                    $ TypePtr
+                                                                        voidType
+                                                                    )
                                                    }
                                                ]
                               , tIsLvalue  = True
@@ -1518,6 +1548,26 @@ findImplicit ctx tctx ct (h : t) = do
         else return $ Just (h, converted)
     Nothing -> findImplicit ctx tctx ct t
 
+argDescriptions :: [ConcreteType] -> [ConcreteType] -> [String]
+argDescriptions [] [] = []
+argDescriptions [] explicits =
+  [ (show $ length explicits)
+      ++ " explicit argument"
+      ++ plural (length explicits)
+      ++ ":\n\n"
+      ++ (intercalate "\n" [ "  - " ++ show t | t <- explicits ])
+  ]
+argDescriptions (MethodTarget t : implicits) explicits =
+  ("`this value:\n\n  - " ++ show t) : (argDescriptions implicits explicits)
+argDescriptions implicits explicits =
+  (  (show $ length implicits)
+    ++ " implicit argument"
+    ++ plural (length implicits)
+    ++ ":\n\n"
+    ++ (intercalate "\n" [ "  - " ++ show t | t <- implicits ])
+    )
+    : (argDescriptions [] explicits)
+
 typeFunctionCall
   :: CompileContext
   -> TypeContext
@@ -1550,35 +1600,18 @@ typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = ft@(TypeFunction rt 
           ++ ":\n\n  "
           ++ show ft
           ++ "\n\nCalled with "
-          ++ (if usedImplicits > 0
-               then
-                 show usedImplicits
-                 ++ " implicit argument"
-                 ++ (plural $ usedImplicits)
-                 ++ ":\n\n"
-                 ++ (intercalate
-                      "\n"
-                      [ "  - " ++ show (inferredType arg)
-                      | arg <- take usedImplicits aligned
-                      ]
-                    )
-                 ++ "\n\nand "
-               else ""
-             )
-          ++ (show $ length args)
-          ++ " argument"
-          ++ (plural $ length args)
-          ++ (if length args > 0
-               then
-                 ":\n\n"
-                   ++ (intercalate
-                        "\n"
-                        [ "  - " ++ show (inferredType arg)
-                        | arg <- drop usedImplicits aligned
-                        ]
-                      )
-               else ""
-             )
+          ++ let descriptions = argDescriptions
+                   (map inferredType $ take usedImplicits aligned)
+                   (map inferredType $ drop usedImplicits aligned)
+             in  if null descriptions
+                   then "no arguments"
+                   else
+                     (intercalate
+                       "\n\n"
+                       [ (if n > 0 then "and " else "") ++ d
+                       | (n, d) <- zip [0 ..] descriptions
+                       ]
+                     )
           )
           pos
     converted <- forMWithErrors

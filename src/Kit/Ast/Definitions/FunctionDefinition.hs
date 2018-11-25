@@ -133,16 +133,3 @@ implicitifyMethod thisName thisType body method = method
     Just x  -> Just $ body method x
     Nothing -> Nothing
   }
-
-reimplicitify :: b -> FunctionDefinition a b -> FunctionDefinition a b
-reimplicitify selfType def = def
-  { functionArgs = ((head $ functionArgs def) { argType = selfType })
-    : (tail $ functionArgs def)
-  }
-
--- functionConcrete :: FunctionDefinition TypedExpr ConcreteType -> ConcreteType
--- functionConcrete f = TypeFunction
---   (functionType f)
---   [ (argName arg, argType arg) | arg <- functionArgs f ]
---   Bool
---   []

@@ -1,5 +1,5 @@
 function main() {
-    var shared: Shared[CArray[Char, 14]] = Shared.new();
+    var shared: Shared[CArray[Char, 14]] = Shared.alloc(sizeof CArray[Char, 14]);//Shared.new();
     var sharedString = shared as Ptr[Void] as Shared[CString];
 
     (*sharedString) = "hello, world!";
@@ -16,7 +16,4 @@ function main() {
         printf("active: %s\n", if shared.active() then "yes" else "no");
         printf("rc: %zu\n", shared.rc());
     }
-
-    // var s: Shared[Void] = Shared.new();
-    // s.release();
 }
