@@ -305,6 +305,9 @@ _follow ctx tctx stack t = do
       resolvedParams <- forM params (r)
       return $ TypeTraitConstraint (tp, resolvedParams)
     TypeAny pos -> makeTypeVar ctx pos
+    MethodTarget t -> do
+      t <- r t
+      return $ MethodTarget t
     _ -> return t
 
 followType ctx tctx = convertTypeDefinition

@@ -134,8 +134,10 @@ _findUnderlyingType ctx mod pos stack t = do
     TypeTraitConstraint (tp, p) -> do
       return $ BasicTypeStruct $ subPath (monomorphName tp p) "vtable"
 
-    _ -> -- TODO: REMOVE
-         throwk
+    MethodTarget t -> r t
+
+    _              -> -- TODO: REMOVE
+                      throwk
       $ InternalError ("Couldn't find underlying type for " ++ show t) pos
 
   case x of

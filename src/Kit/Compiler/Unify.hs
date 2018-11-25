@@ -83,7 +83,10 @@ unifyBase ctx tctx strict a' b'         = do
   a <- mapType (follow ctx tctx) a'
   b <- mapType (follow ctx tctx) b'
   case (a, b) of
-    (TypeSelf, x) -> case tctxSelf tctx of
+    (MethodTarget a, MethodTarget b) -> r a b
+    -- FIXME: this shouldn't be necessary, but MethodTarget sometimes bleeds through type inference
+    (a             , MethodTarget b) -> if strict then return Nothing else r a b
+    (TypeSelf      , x             ) -> case tctxSelf tctx of
       Just y  -> r y x
       Nothing -> return Nothing
     (TypeTypeVar i, TypeTraitConstraint t) -> do

@@ -101,6 +101,7 @@ data ConcreteType
   | ModuleType TypePath
   | VarArgs
   | TypeAny Span
+  | MethodTarget ConcreteType
   | UnresolvedType TypeSpec ModulePath
   deriving (Eq, Generic)
 
@@ -139,6 +140,7 @@ instance Show ConcreteType where
   show (ModuleType tp) = "module " ++ s_unpack (showTypePath tp)
   show VarArgs = "..."
   show (TypeAny _) = "Any"
+  show (MethodTarget t) = "this " ++ show t
   show (UnresolvedType t _) = show t
 
 -- concreteTypeAbbreviation t = case t of
@@ -206,6 +208,9 @@ mapType f (TypeTuple p) = do
 mapType f (TypeTraitConstraint (tp, p)) = do
   p' <- mapM f p
   f $ TypeTraitConstraint (tp, p')
+mapType f (MethodTarget t) = do
+  t <- mapType f t
+  return $ MethodTarget t
 mapType f t = f t
 
 foldType
@@ -220,6 +225,7 @@ foldType f v t@(TypeFunction rt args varargs p) = foldr f v (rt : (map snd args)
 foldType f v t@(TypeEnumConstructor tp s args p) = foldr f v (t : (map snd args) ++ p)
 foldType f v t@(TypeTuple c) = foldr f v (t : c)
 foldType f v t@(TypeTraitConstraint (tp, p)) = foldr f v (t : p)
+foldType f v t@(MethodTarget t2) = foldr f v [t, t2]
 foldType f v t = f t v
 
 -- FIXME: name...
