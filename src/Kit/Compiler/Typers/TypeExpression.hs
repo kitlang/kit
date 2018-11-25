@@ -1732,6 +1732,12 @@ typeVarBinding
   :: CompileContext -> TypeContext -> TypedBinding -> Span -> IO TypedExpr
 typeVarBinding ctx tctx binding pos = do
   let invalidBinding = throwk $ InternalError "Invalid binding" (Just pos)
+  let returnTypeBinding tp params = return
+        $ makeExprTyped (Identifier (Var $ tp)) (TypeTypeOf tp params) pos
+  let returnTraitBinding tp params = return $ makeExprTyped
+        (Identifier (Var tp))
+        (TypeTraitConstraint (tp, params))
+        pos
   case binding of
     ExprBinding     x   -> return x
     EnumConstructor def -> do
@@ -1772,31 +1778,18 @@ typeVarBinding ctx tctx binding pos = do
                   TypeFunction rt args varargs (map snd params)
           return $ makeExprTyped (Identifier $ Var tp) ft pos
     -- TODO: these are invalid runtime values; don't abuse Identifier for them
-    TypeBinding t -> return $ makeExprTyped (Identifier (Var $ typeName t))
-                                            (TypeTypeOf (typeName t) [])
-                                            pos
-    TraitBinding t -> return $ makeExprTyped
-      (Identifier (Var $ traitName t))
-      (TypeTraitConstraint (traitName t, []))
-      pos
+    TypeBinding  t -> returnTypeBinding (typeName t) []
+    TraitBinding t -> returnTraitBinding (traitName t) []
     ModuleBinding tp ->
       return $ makeExprTyped (Identifier (Var tp)) (ModuleType tp) pos
     TypedefBinding t modPath _ -> do
       mod  <- getMod ctx modPath
       tctx <- modTypeContext ctx mod
       t    <- resolveType ctx tctx mod t
-      let tp = case t of
-            TypeInstance tp _           -> Just tp
-            TypeTraitConstraint (tp, _) -> Just tp
-            _                           -> Nothing
-      case tp of
-        Just tp -> do
-          binding <- lookupBinding ctx tp
-          case binding of
-            Just binding -> typeVarBinding ctx tctx binding pos
-            _            -> invalidBinding
-        _ -> invalidBinding
-    _ -> invalidBinding
+      case t of
+        TypeInstance tp params -> returnTypeBinding tp params
+        TypeTraitConstraint (tp, params) -> returnTraitBinding tp params
+        _                      -> invalidBinding
 
 exprToType
   :: CompileContext
