@@ -1558,7 +1558,7 @@ argDescriptions [] explicits =
       ++ (intercalate "\n" [ "  - " ++ show t | t <- explicits ])
   ]
 argDescriptions (MethodTarget t : implicits) explicits =
-  ("`this value:\n\n  - " ++ show t) : (argDescriptions implicits explicits)
+  ("`this` value:\n\n  - " ++ show t) : (argDescriptions implicits explicits)
 argDescriptions implicits explicits =
   (  (show $ length implicits)
     ++ " implicit argument"
