@@ -61,7 +61,8 @@ _autoRefDeref ctx tctx toType fromType ex = do
           Just x  -> return $ Just x
           Nothing -> return Nothing
       (TypePtr a, TypePtr b) -> r a b ex
-      (TypePtr a, b        ) -> r a b (addRef ex)
+      (TypePtr a, b        ) -> do
+        r a b (addRef ex)
       (a, TypePtr (TypeBasicType BasicTypeVoid)) ->
         -- don't try to deref a void pointer
         return Nothing
@@ -71,8 +72,8 @@ _autoRefDeref ctx tctx toType fromType ex = do
       (TypeTuple a, TypeTuple b) | (length a == length b) && (isTupleInit ex) ->
         case tExpr ex of
           TupleInit t -> do
-            parts <- forM (zip t (zip a b)) $ \(val, (toType, fromType)) ->
-              r toType fromType val
+            parts <- forM (zip t (zip a b))
+              $ \(val, (toType, fromType)) -> r toType fromType val
             if all isJust parts
               then do
                 forMWithErrors_ (zip parts a) $ \(Just part, t) -> do
@@ -89,6 +90,11 @@ _autoRefDeref ctx tctx toType fromType ex = do
                                               (tPos ex)
               else return Nothing
           _ -> return Nothing
+      (TypeInstance _ _, TypeInstance _ _) -> do
+        result <- unify ctx tctx toType fromType
+        case result of
+          Just _ -> return $ Just ex
+          _      -> return Nothing
       _ -> return Nothing
 
 isTupleInit (TypedExpr { tExpr = TupleInit _ }) = True

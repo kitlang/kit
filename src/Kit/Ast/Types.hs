@@ -256,6 +256,9 @@ isPtr _           = False
 isTypeVar (TypeTypeVar _) = True
 isTypeVar _               = False
 
+isTypeInstance (TypeInstance _ _) = True
+isTypeInstance _ = False
+
 typeUnresolved :: ConcreteType -> Bool
 typeUnresolved t = foldType (\t b -> b || typeUnresolved_ t) False t
 typeUnresolved_ (TypeTypeVar _) = True
