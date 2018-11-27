@@ -1,3 +1,7 @@
+struct MyStruct {
+    public var a: CString;
+}
+
 function main() {
     var a: Option = Some(1);
     match a {
@@ -19,4 +23,13 @@ function main() {
             printf("success\n");
         }
     }
+
+    var c: Int = Some(1) ?? 2;
+    printf("%i\n", c);
+
+    var d: Int = None ?? 2;
+    printf("%i\n", d);
+
+    // var s = struct MyStruct {a: "hello"};
+    // printf("%s\n", (a ?. hello).unwrap())
 }

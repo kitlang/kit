@@ -35,9 +35,6 @@ enum Option[T] {
     rules {
         ($this ?? $other) => $this.or($other);
 
-        ($this ?. $id) => match $this {
-            Some(v) => Some(v.$id);
-            default => None;
-        }
+        // ($this ?. $id) => if $this.isSome() then Some($this.unwrap().$id) else None;
     }
 }
