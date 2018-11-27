@@ -357,29 +357,7 @@ builtinToConcreteType
   -> IO (Maybe ConcreteType)
 builtinToConcreteType ctx tctx mod s pos = do
   case s of
-    -- basics
-    "Char"    -> return $ Just $ TypeBasicType $ BasicTypeCChar
-    "Int"     -> return $ Just $ TypeBasicType $ BasicTypeCInt
-    "Uint"    -> return $ Just $ TypeBasicType $ BasicTypeCUint
-    "Size"    -> return $ Just $ TypeBasicType $ BasicTypeCSize
-    "Bool"    -> return $ Just $ TypeBasicType $ BasicTypeBool
-    "Int8"    -> return $ Just $ TypeBasicType $ BasicTypeInt 8
-    "Int16"   -> return $ Just $ TypeBasicType $ BasicTypeInt 16
-    "Int32"   -> return $ Just $ TypeBasicType $ BasicTypeInt 32
-    "Int64"   -> return $ Just $ TypeBasicType $ BasicTypeInt 64
-    "Uint8"   -> return $ Just $ TypeBasicType $ BasicTypeUint 8
-    "Uint16"  -> return $ Just $ TypeBasicType $ BasicTypeUint 16
-    "Uint32"  -> return $ Just $ TypeBasicType $ BasicTypeUint 32
-    "Uint64"  -> return $ Just $ TypeBasicType $ BasicTypeUint 64
-    "Float32" -> return $ Just $ TypeBasicType $ BasicTypeFloat 32
-    "Float64" -> return $ Just $ TypeBasicType $ BasicTypeFloat 64
     "FILE"    -> return $ Just $ TypeBasicType $ BasicTypeCFile
-    -- aliases
-    "Byte"    -> builtinToConcreteType ctx tctx mod "Uint8" pos
-    "Short"   -> builtinToConcreteType ctx tctx mod "Int16" pos
-    "Long"    -> builtinToConcreteType ctx tctx mod "Int64" pos
-    "Float"   -> builtinToConcreteType ctx tctx mod "Float32" pos
-    "Double"  -> builtinToConcreteType ctx tctx mod "Float64" pos
     "Void"    -> return $ Just $ TypeBasicType BasicTypeVoid
     _         -> return Nothing
 

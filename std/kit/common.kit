@@ -1,6 +1,8 @@
+#[builtin] abstract Bool: Void;
+
 #[builtin] abstract CArray[T, $N = 0]: Ptr[T] {
     rules {
-        ($this.length) => N as Size;
+        ($this.length) => N;
         (for $ident in $this {$e}) => {
             for __i in 0 ... N {
                 var $ident: T = $this[__i];

@@ -740,11 +740,11 @@ ParenthesizedExprs :: {[Expr]}
   | ParenthesizedExprs ',' Expr {$3 : $1}
 
 Term :: {((ValueLiteral, Maybe TypeSpec), Span)}
-  : bool {((BoolValue $ extract_bool $ fst $1, Just $ ConcreteType $ TypeBasicType $ BasicTypeBool), snd $1)}
+  : bool {((BoolValue $ extract_bool $ fst $1, Just $ ConcreteType $ TypeBool), snd $1)}
   | str {((StringValue $ extract_lit $ fst $1, Just $ makeTypeSpec "CString"), snd $1)}
   | int {let x = extract_int_lit $ fst $1 in ((IntValue $ fst x, snd x), snd $1)}
   | float {let x = extract_float_lit $ fst $1 in ((FloatValue $ fst x, snd x), snd $1)}
-  | char {((IntValue $ extract_char_lit $ fst $1, Just $ ConcreteType $ TypeBasicType $ BasicTypeCChar), snd $1)}
+  | char {((IntValue $ extract_char_lit $ fst $1, Just $ ConcreteType $ TypeChar), snd $1)}
 
 StructInitFields :: {[(Str, Expr)]}
   : {[]}

@@ -80,7 +80,7 @@ ctype BasicTypeVoid    = ([CTypeSpec $ u CVoidType], [])
 ctype BasicTypeBool    = ([CTypeSpec $ u CBoolType], [])
 ctype (BasicTypeCChar) = ([CTypeSpec $ u CCharType], [])
 ctype (BasicTypeCInt ) = ([CTypeSpec $ u CIntType], [])
-ctype (BasicTypeCUint) = ([CTypeSpec $ u CIntType], [])
+ctype (BasicTypeCUint) = ([CTypeSpec $ u $ CTypeDef (internalIdent "unsigned int")], [])
 ctype (BasicTypeCSize) =
   ([CTypeSpec $ u $ CTypeDef (internalIdent "size_t")], [])
 ctype (BasicTypeInt n) =

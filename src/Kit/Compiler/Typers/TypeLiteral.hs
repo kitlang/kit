@@ -9,7 +9,7 @@ import Kit.Parser
 -}
 literalConstraints :: ValueLiteral -> ConcreteType -> Span -> [TypeConstraint]
 literalConstraints (BoolValue _) s pos =
-  [TypeEq (basicType $ BasicTypeBool) s "Bool literal must be a Bool type" pos]
+  [TypeEq TypeBool s "Bool literal must be a Bool type" pos]
 literalConstraints (IntValue v) s pos =
   let exps = if v < 0
         then [-63, -53, -31, -24, -15, -7, 0] :: [Int]

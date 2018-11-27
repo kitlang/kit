@@ -361,7 +361,7 @@ resolveTypesForMod pass ctx (mod, contents) = do
                 False
           forMWithErrors_ (traitMethods converted) $ \method' ->
             let method = implicitifyMethod vThisArgName
-                                           (MethodTarget $ TypePtr voidType)
+                                           (MethodTarget $ TypePtr TypeVoid)
                                            (\_ -> id)
                                            method'
             in  addBinding

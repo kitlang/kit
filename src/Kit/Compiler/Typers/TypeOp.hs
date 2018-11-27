@@ -23,9 +23,11 @@ unopTypes op l x pos = case op of
           pos
       ]
     else Just
-      [ TypeEq typeClassNumeric l ("Unary operator `"
-      ++ show op
-      ++ "` can only be used on Numeric types") pos
+      [ TypeEq
+        typeClassNumeric
+        l
+        ("Unary operator `" ++ show op ++ "` can only be used on Numeric types")
+        pos
       , TypeEq l x "An increment operation's type must match its operand" pos
       ]
   Dec -> Just
@@ -36,11 +38,11 @@ unopTypes op l x pos = case op of
     , TypeEq l x "A decrement operation's type must match its operand" pos
     ]
   Invert -> Just
-    [ TypeEq (TypeBasicType BasicTypeBool)
+    [ TypeEq TypeBool
              l
              "Logical invert can only be used on Bool expressions"
              pos
-    , TypeEq (basicType BasicTypeBool)
+    , TypeEq TypeBool
              x
              "A logical invert must yield a Bool"
              pos
@@ -157,14 +159,11 @@ binopTypes op l r x lMixed rMixed pos = case op of
       ++ "` requires operands of similar type"
       )
       pos
-    , TypeEq (TypeBasicType BasicTypeBool)
-             x
-             "Comparison operators must yield Bool values"
-             pos
+    , TypeEq TypeBool x "Comparison operators must yield Bool values" pos
     ]
   booleanOp = Just
     [ TypeEq
-        (TypeBasicType BasicTypeBool)
+        TypeBool
         i
         ("Binary operator `" ++ show op ++ "` requires Bool operands and result"
         )

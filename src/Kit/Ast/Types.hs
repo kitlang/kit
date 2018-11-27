@@ -113,6 +113,20 @@ pattern TypeArray :: ConcreteType -> Int -> ConcreteType
 pattern TypeArray t n = TypeInstance (["kit", "common"], "CArray") [t, ConstantType (IntValue n)]
 pattern TypeConst :: ConcreteType -> ConcreteType
 pattern TypeConst t = TypeInstance (["kit", "common"], "Const") [t]
+pattern TypeBool :: ConcreteType
+pattern TypeBool = TypeInstance (["kit", "common"], "Bool") []
+pattern TypeChar :: ConcreteType
+pattern TypeChar = TypeInstance (["kit", "numeric"], "Char") []
+pattern TypeSize :: ConcreteType
+pattern TypeSize = TypeInstance (["kit", "numeric"], "Size") []
+pattern TypeInt :: Int -> ConcreteType
+pattern TypeInt w = TypeInstance (["kit", "numeric"], "Int") [ConstantType (IntValue w)]
+pattern TypeUint :: Int -> ConcreteType
+pattern TypeUint w = TypeInstance (["kit", "numeric"], "Uint") [ConstantType (IntValue w)]
+pattern TypeFloat :: Int -> ConcreteType
+pattern TypeFloat w = TypeInstance (["kit", "numeric"], "Float") [ConstantType (IntValue w)]
+pattern TypeVoid :: ConcreteType
+pattern TypeVoid = TypeBasicType BasicTypeVoid
 
 instance Show ConcreteType where
   show (TypePtr t) = "Ptr[" ++ show t ++ "]"
@@ -169,7 +183,6 @@ showParams params = "[" ++ (intercalate ", " (map show params)) ++ "]"
 type TypeVar = Int
 
 basicType = TypeBasicType
-voidType = TypeBasicType BasicTypeVoid
 
 mapType
   :: (Monad m)

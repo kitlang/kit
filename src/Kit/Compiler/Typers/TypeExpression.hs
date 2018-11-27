@@ -100,8 +100,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       tctx <- return $ tctx { tctxScopes = blockScope : tctxScopes tctx }
       typedChildren <- forMWithErrors children $ typeExpr ctx tctx mod
       return $ makeExprTyped (Block typedChildren)
-        --(if children == [] then voidType else inferredType $ last typedChildren)
-                                                   (voidType) pos
+        --(if children == [] then TypeVoid else inferredType $ last typedChildren)
+                                                   (TypeVoid) pos
 
     (Using using e1) -> do
       tctx' <- foldM
@@ -183,7 +183,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                       foldr
                         (\(paramName, paramType) acc ->
                           acc <|> case paramType of
-                            ConstantType v -> Just v
+                            ConstantType v | tpName paramName == tpName vname -> Just v
                             _              -> Nothing
                         )
                         Nothing
@@ -402,11 +402,11 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
             e3
 
           return $ makeExprTyped (For (e1 { inferredType = tv }) r2 r3)
-                                 voidType
+                                 TypeVoid
                                  pos
 
         _ -> do
-          tryRewrite (makeExprTyped (For e1 r2 e3) voidType pos) $ do
+          tryRewrite (makeExprTyped (For e1 r2 e3) TypeVoid pos) $ do
             let
               tryIterable = do
                 -- try to convert to an Iterable
@@ -421,7 +421,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                 case box of
                   Just box -> do
                     box <- r box
-                    tryRewrite (makeExprTyped (For e1 box e3) voidType pos)
+                    tryRewrite (makeExprTyped (For e1 box e3) TypeVoid pos)
                       $ fail
                   Nothing -> fail
             -- try to convert to an Iterator
@@ -429,14 +429,14 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
             case box of
               Just box -> do
                 box <- r box
-                tryRewrite (makeExprTyped (For e1 box e3) voidType pos)
+                tryRewrite (makeExprTyped (For e1 box e3) TypeVoid pos)
                   $ tryIterable
               Nothing -> tryIterable
 
     (For e1 e2 e3) -> do
       r1 <- typeExpr ctx (tctx { tctxState = TypingPattern }) mod e1
       case tExpr r1 of
-        Identifier (Var _) -> r $ makeExprTyped (For r1 e2 e3) voidType pos
+        Identifier (Var _) -> r $ makeExprTyped (For r1 e2 e3) TypeVoid pos
         _ -> throwk $ TypingError ("Invalid for loop iterable") (tPos r1)
 
     (While e1 e2 d) -> do
@@ -451,10 +451,10 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         mod
         e2
       resolve $ TypeEq (inferredType r1)
-                       (basicType BasicTypeBool)
+                       (TypeBool)
                        "A while condition must be a Bool"
                        (tPos r1)
-      return $ makeExprTyped (While r1 r2 d) voidType pos
+      return $ makeExprTyped (While r1 r2 d) TypeVoid pos
 
     (If e1 e2 (Just e3)) -> do
       r1       <- r e1
@@ -464,7 +464,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         typeExpr ctx (tctx { tctxScopes = scope : (tctxScopes tctx) }) mod e
       tv <- makeTypeVar ctx pos
       resolve $ TypeEq (inferredType r1)
-                       (basicType BasicTypeBool)
+                       (TypeBool)
                        "An if condition must be a Bool"
                        (tPos r1)
       resolve $ TypeEq
@@ -486,19 +486,19 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                         mod
                         e2
       resolve $ TypeEq (inferredType r1)
-                       (basicType BasicTypeBool)
+                       (TypeBool)
                        "An if condition must be a Bool"
                        (tPos r1)
-      return $ makeExprTyped (If r1 r2 Nothing) voidType pos
+      return $ makeExprTyped (If r1 r2 Nothing) TypeVoid pos
 
     (Continue) -> do
       if (tctxLoopCount tctx > 0)
-        then return $ makeExprTyped (Continue) voidType pos
+        then return $ makeExprTyped (Continue) TypeVoid pos
         else throwk $ TypingError "Can't `continue` outside of a loop" pos
 
     (Break) -> do
       if (tctxLoopCount tctx > 0)
-        then return $ makeExprTyped (Break) voidType pos
+        then return $ makeExprTyped (Break) TypeVoid pos
         else throwk $ TypingError "Can't `break` outside of a loop" pos
 
     (Return e1) -> do
@@ -534,13 +534,13 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
             | ptr <- localPointers
             ]
 
-          return $ makeExprTyped (Return $ Just r1) voidType pos
+          return $ makeExprTyped (Return $ Just r1) TypeVoid pos
         (Just rt, Nothing) -> do
-          resolve $ TypeEq voidType
+          resolve $ TypeEq TypeVoid
                            (rt)
                            "Empty return is only allowed in Void functions"
                            pos
-          return $ makeExprTyped (Return Nothing) voidType pos
+          return $ makeExprTyped (Return Nothing) TypeVoid pos
         (Nothing, _) ->
           throwk $ TypingError "Can't `return` outside of a function" pos
 
@@ -644,7 +644,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         let tctx' = tctx { tctxScopes = patternScope : (tctxScopes tctx) }
         body <- typeExpr ctx tctx' mod $ matchBody c
         return $ MatchCase {matchPattern = pattern, matchBody = body}
-      return $ makeExprTyped (Match r1 cases' r2) (voidType) pos
+      return $ makeExprTyped (Match r1 cases' r2) (TypeVoid) pos
 
     (InlineCall e1) -> throwk $ InternalError "Not yet implemented" (Just pos)
 
@@ -755,7 +755,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                         return $ typed
                           { tImplicits   = [ makeExprTyped
                                                (BoxedValue r1)
-                                               (MethodTarget $ TypePtr voidType)
+                                               (MethodTarget $ TypePtr TypeVoid)
                                                pos
                                            ]
                           , inferredType = t
@@ -788,7 +788,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                                            [ ref
                                                { inferredType = ( MethodTarget
                                                                 $ TypePtr
-                                                                $ voidType
+                                                                $ TypeVoid
                                                                 )
                                                }
                                            ]
@@ -1023,7 +1023,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                                                [ (addRef ex)
                                                    { inferredType = (MethodTarget
                                                                     $ TypePtr
-                                                                        voidType
+                                                                        TypeVoid
                                                                     )
                                                    }
                                                ]
@@ -1191,7 +1191,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         let
           typeCast rt = case (rt, t) of
             (TypeBox _ _, TypePtr (TypeBasicType BasicTypeVoid)) ->
-              return $ makeExprTyped (BoxedValue r1) (TypePtr voidType) pos
+              return $ makeExprTyped (BoxedValue r1) (TypePtr TypeVoid) pos
             (TypePtr _    , TypePtr (TypeBasicType BasicTypeVoid)) -> cast
             (TypeArray _ _, TypePtr (TypeBasicType BasicTypeVoid)) -> cast
             (TypeArray t _, TypePtr t2                           ) -> do

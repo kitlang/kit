@@ -61,6 +61,14 @@ _findUnderlyingType ctx mod pos stack t = do
     TypeArray t s -> do
       t <- r t
       return $ CArray t (if s == 0 then Nothing else Just s)
+    TypeBool    -> return BasicTypeBool
+    TypeChar    -> return BasicTypeCChar
+    TypeSize    -> return BasicTypeCSize
+    TypeInt   0 -> return BasicTypeCInt
+    TypeInt   w -> return $ BasicTypeInt w
+    TypeUint  0 -> return BasicTypeCUint
+    TypeUint  w -> return $ BasicTypeUint w
+    TypeFloat w -> return $ BasicTypeFloat w
     TypeInstance (["kit", "common"], "CArray") [t, s] -> do
       tctx <- newTypeContext []
       size <- follow ctx tctx s

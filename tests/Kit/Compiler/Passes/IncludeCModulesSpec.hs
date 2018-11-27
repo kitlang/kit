@@ -6,8 +6,9 @@ import Language.C
 import Test.Hspec
 import Test.QuickCheck
 import Kit.Ast
-import Kit.Compiler.Generators.C
 import Kit.Compiler
+import Kit.Compiler.Generators.C
+import Kit.Compiler.Ir
 import Kit.Compiler.Passes
 import Kit.HashTable
 import Kit.Ir
@@ -15,7 +16,7 @@ import Kit.Ir
 testHeader :: IO (CompileContext, Module)
 testHeader = do
   ctx <- newCompileContext
-  cc <- getCompiler Nothing
+  cc  <- getCompiler Nothing
   -- let ctx = ctx' {
   --   ctxIncludePaths = ["tests/Kit/Compiler/Passes"]
   -- }
@@ -47,24 +48,25 @@ spec = do
       , BasicTypeCInt
       , BasicTypeCSize
       ]
-      (\t ->
-        it ("Parses C specifiers into " ++ show t)
-          $          parseType
-                       []
-                       (fst
-                         (let (a, b) = ctype t
-                          in  ( catMaybes $ map
-                                (\x -> case x of
-                                  CTypeSpec x -> Just x
-                                  _           -> Nothing
-                                )
-                                a
-                              , b
-                              )
-                         )
-                       )
-                       []
-          `shouldBe` TypeBasicType t
+      (\t -> it ("Parses C specifiers into " ++ show t) $ do
+        ctx <- newCompileContext
+        mod <- newMod [] ""
+        t'  <- findUnderlyingType ctx mod Nothing $ parseType
+          []
+          (fst
+            (let (a, b) = ctype t
+             in  ( catMaybes $ map
+                   (\x -> case x of
+                     CTypeSpec x -> Just x
+                     _           -> Nothing
+                   )
+                   a
+                 , b
+                 )
+            )
+          )
+          []
+        t' `shouldBe` t
       )
 
     {-it "Resolves specifiers for structs into struct types" $ do
@@ -80,28 +82,28 @@ spec = do
       True `shouldBe` True
 
     forM_
-      [ let (n, t) = ("var1", (TypeBasicType $ BasicTypeInt 16))
+      [ let (n, t) = ("var1", (TypeInt 16))
         in  ("Parses var declarations", "var1", t)
-      , ("Parses var definitions", "var2", (TypeBasicType $ BasicTypeCChar))
+      , ("Parses var definitions", "var2", (TypeChar))
       , ( "Parses var definitions with multiple type specifiers"
         , "var3"
-        , (TypeBasicType $ BasicTypeUint 32)
+        , (TypeUint 32)
         )
       , ("Parses struct vars", "struct_var1", (TypeInstance ([], "Struct1") []))
       , ("Parses enum vars"  , "enum_var1"  , (TypeInstance ([], "Enum1") []))
       , ( "Parses pointer vars"
         , "pointer_var1"
-        , (TypePtr (TypeBasicType $ BasicTypeInt 16))
+        , (TypePtr (TypeInt 16))
         )
       , ( "Parses pointers to pointer vars"
         , "pointer_var2"
-        , (TypePtr (TypePtr (TypeBasicType $ BasicTypeInt 16)))
+        , (TypePtr (TypePtr (TypeInt 16)))
         )
       , ( "Parses function pointer vars"
         , "pointer_var3"
         , (TypePtr
-            (TypeFunction (TypeBasicType $ BasicTypeInt 16)
-                          [("arg1", TypeBasicType $ BasicTypeInt 16)]
+            (TypeFunction (TypeInt 16)
+                          [("arg1", TypeInt 16)]
                           Nothing
                           []
             )
@@ -109,22 +111,22 @@ spec = do
         )
       , ( "Parses void function pointers"
         , "func_pointer"
-        , (TypePtr $ TypeFunction (TypeBasicType $ BasicTypeVoid) [] Nothing [])
+        , (TypePtr $ TypeFunction TypeVoid [] Nothing [])
         )
       , ( "Parses void functions"
         , "void_func1"
-        , TypeFunction (TypeBasicType $ BasicTypeVoid) [] Nothing []
+        , TypeFunction TypeVoid [] Nothing []
         )
       , ( "Parses functions with non-void types"
         , "int_func1"
-        , TypeFunction (TypeBasicType $ BasicTypeInt 16) [] Nothing []
+        , TypeFunction (TypeInt 16) [] Nothing []
         )
       , ( "Parses functions with arguments"
         , "func_with_args"
         , TypeFunction
-          (TypeBasicType $ BasicTypeFloat 32)
-          [ ("arg1", TypeBasicType $ BasicTypeInt 16)
-          , ("arg2", TypeBasicType $ BasicTypeUint 64)
+          (TypeFloat 32)
+          [ ("arg1", TypeInt 16)
+          , ("arg2", TypeUint 64)
           ]
           Nothing
           []
@@ -138,29 +140,29 @@ spec = do
         )
       , ( "Parses functions with pointer return value/arguments"
         , "pointer_func"
-        , TypeFunction (TypePtr $ TypeBasicType $ BasicTypeFloat 32)
-                       [("arg1", TypePtr $ TypeBasicType $ BasicTypeCInt)]
+        , TypeFunction (TypePtr $ TypeFloat 32)
+                       [("arg1", TypePtr $ TypeInt 0)]
                        Nothing
                        []
         )
       , ( "Parses variadic functions"
         , "varargs_func"
-        , TypeFunction (TypeBasicType $ BasicTypeVoid)
-                       [("a", TypeBasicType $ BasicTypeInt 16)]
+        , TypeFunction TypeVoid
+                       [("a", TypeInt 16)]
                        (Just "")
                        []
         )
       , ( "Parses void arg functions"
         , "void_func"
-        , TypeFunction (TypeBasicType $ BasicTypeInt 32) [] Nothing []
+        , TypeFunction (TypeInt 32) [] Nothing []
         )
       , ( "Parses atexit"
         , "fake_atexit"
         , TypeFunction
-          (TypeBasicType $ BasicTypeCInt)
+          (TypeInt 0)
           [ ( "__func"
             , TypePtr
-              $ TypeFunction (TypeBasicType $ BasicTypeVoid) [] Nothing []
+              $ TypeFunction TypeVoid [] Nothing []
             )
           ]
           Nothing
@@ -168,7 +170,7 @@ spec = do
         )
       , ( "Parses 'unsigned' by itself"
         , "just_unsigned"
-        , (TypeBasicType $ BasicTypeCUint)
+        , (TypeUint 0)
         )
       ]
       (\(label, name, ct) -> it label $ do
@@ -192,15 +194,13 @@ spec = do
                                { varName = ([], "field1")
                                , varType = Just
                                  $ ConcreteType
-                                 $ TypeBasicType
-                                 $ BasicTypeCChar
+                                 $ TypeChar
                                }
                              , newVarDefinition
                                { varName = ([], "field2")
                                , varType = Just
                                  $ ConcreteType
-                                 $ TypeBasicType
-                                 $ BasicTypeUint 16
+                                 $ TypeUint 16
                                }
                              ]
             }
@@ -210,8 +210,8 @@ spec = do
         , "Struct2"
         , TypeAnonStruct
           (Just "Struct2")
-          [ ("field1", TypeBasicType $ BasicTypeInt 16)
-          , ("field2", TypeBasicType $ BasicTypeFloat 64)
+          [ ("field1", TypeInt 16)
+          , ("field2", TypeFloat 64)
           ]
         , Nothing
         )
