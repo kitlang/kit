@@ -121,7 +121,7 @@ spec = parallel $ do
                      $ Literal (BoolValue True)
                      $ Just
                      $ ConcreteType
-                     $ TypeBasicType BasicTypeBool
+                     $ TypeBool
                      )
                      (e $ Literal (IntValue 1) Nothing)
                      (Just $ e $ Literal (IntValue 2) Nothing)
@@ -136,12 +136,12 @@ spec = parallel $ do
                      $ Literal (BoolValue True)
                      $ Just
                      $ ConcreteType
-                     $ TypeBasicType BasicTypeBool
+                     $ TypeBool
                      , e
                      $ Literal (BoolValue False)
                      $ Just
                      $ ConcreteType
-                     $ TypeBasicType BasicTypeBool
+                     $ TypeBool
                      ]
                    )
 
@@ -168,7 +168,7 @@ spec = parallel $ do
                        $ Literal (BoolValue True)
                        $ Just
                        $ ConcreteType
-                       $ TypeBasicType BasicTypeBool
+                       $ TypeBool
                        )
                      ]
                    )

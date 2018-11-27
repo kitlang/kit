@@ -27,7 +27,7 @@ data CCompiler = CCompiler {
                             ccType :: CompilerType,
                             ccIncludePaths :: [FilePath],
                             ccFlags :: [String]
-                          }
+                          } deriving (Show)
 
 findIncludePaths :: CompilerType -> FilePath -> IO [FilePath]
 findIncludePaths ccType fp | ccType == Gcc || ccType == Clang = do

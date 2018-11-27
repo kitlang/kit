@@ -63,9 +63,8 @@ includeCHeader ctx cc mod path = do
 parseCHeader :: CompileContext -> CCompiler -> Module -> FilePath -> IO ()
 parseCHeader ctx cc mod path = do
   flags       <- getCompileFlags ctx cc
-  parseResult <- parseCFile (newGCC $ ccPath cc) Nothing
-    -- TODO: defines
-                                                         flags path
+  flags       <- return $ (filter (\flag -> flag /= "-pedantic") $ flags) ++ ["-w"]
+  parseResult <- parseCFile (newGCC $ ccPath cc) Nothing flags path
   case parseResult of
     Left e -> throwk $ BasicError
       ("Parsing C header " ++ show path ++ " failed: " ++ show e)
@@ -205,25 +204,25 @@ parseDeclSpec modPath x = _parseDeclSpec modPath x 0 True False
 _parseDeclSpec modPath (h : t) width signed float = case h of
   -- simple types; narrow the definition with each specifier
   (CVoidType   _           ) -> TypeBasicType BasicTypeVoid
-  (CBoolType   _           ) -> TypeBasicType BasicTypeBool
+  (CBoolType   _           ) -> TypeBool
   (CSignedType _           ) -> _parseDeclSpec modPath t width True float
   (CUnsigType  _           ) -> _parseDeclSpec modPath t width False float
   (CFloatType  _           ) -> _parseDeclSpec modPath t 32 signed True
   (CDoubleType _           ) -> _parseDeclSpec modPath t 64 signed True
-  (CCharType   _           ) -> TypeBasicType $ BasicTypeCChar
-  (CIntType    _           ) -> TypeBasicType $ BasicTypeCInt
+  (CCharType   _           ) -> TypeChar
+  (CIntType    _           ) -> TypeInt 0
   (CShortType  _           ) -> _parseDeclSpec modPath t 16 signed False
   (CLongType _) -> _parseDeclSpec modPath t (width + 32) signed False
   (CTypeDef (Ident x _ _) _) -> case x of
-    "size_t"   -> TypeBasicType $ BasicTypeCSize
-    "int8_t"   -> TypeBasicType $ BasicTypeInt 8
-    "int16_t"  -> TypeBasicType $ BasicTypeInt 16
-    "int32_t"  -> TypeBasicType $ BasicTypeInt 32
-    "int64_t"  -> TypeBasicType $ BasicTypeInt 64
-    "uint8_t"  -> TypeBasicType $ BasicTypeUint 8
-    "uint16_t" -> TypeBasicType $ BasicTypeUint 16
-    "uint32_t" -> TypeBasicType $ BasicTypeUint 32
-    "uint64_t" -> TypeBasicType $ BasicTypeUint 64
+    "size_t"   -> TypeSize
+    "int8_t"   -> TypeInt 8
+    "int16_t"  -> TypeInt 16
+    "int32_t"  -> TypeInt 32
+    "int64_t"  -> TypeInt 64
+    "uint8_t"  -> TypeUint 8
+    "uint16_t" -> TypeUint 16
+    "uint32_t" -> TypeUint 32
+    "uint64_t" -> TypeUint 64
     "FILE"     -> TypeBasicType $ BasicTypeCFile
     _          -> TypeTypedef (s_pack x)
   -- anonymous structs/enums; TODO: need to generate a stub declaration for these
@@ -250,13 +249,11 @@ _parseDeclSpec modPath (h : t) width signed float = case h of
      ]
     )
   _ -> _parseDeclSpec modPath t width signed float
-_parseDeclSpec modPath [] 0     False  _     = (TypeBasicType BasicTypeCUint)
+_parseDeclSpec modPath [] 0     False  _     = (TypeUint 0)
 _parseDeclSpec modPath [] 0     _      _     = (TypeBasicType BasicTypeUnknown)
 _parseDeclSpec modPath [] width signed float = if float
-  then TypeBasicType $ BasicTypeFloat width
-  else if signed
-    then TypeBasicType $ BasicTypeInt width
-    else TypeBasicType $ BasicTypeUint width
+  then TypeFloat width
+  else if signed then TypeInt width else TypeUint width
 
 addCDecl :: CompileContext -> Module -> Str -> ConcreteType -> Span -> IO ()
 addCDecl ctx mod name t pos = do

@@ -24,6 +24,7 @@ library:
   - Kit.Compiler
   - Kit.Compiler.Generators
   - Kit.Compiler.Generators.C
+  - Kit.Compiler.Ir
   - Kit.Compiler.Passes
   - Kit.Error
   - Kit.HashTable

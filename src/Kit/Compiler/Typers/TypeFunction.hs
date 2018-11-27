@@ -112,13 +112,13 @@ typeFunctionDefinition ctx tctx' mod f = do
           body
       let unifyVoid fPos = do
             -- either no return statement, or an empty one
-            unification <- unify ctx ftctx returnType voidType
+            unification <- unify ctx ftctx returnType TypeVoid
             case unification of
               Just _ -> do
                 resolveConstraint
                   ctx
                   tctx
-                  (TypeEq voidType
+                  (TypeEq TypeVoid
                           returnType
                           "Functions that don't return values must be Void"
                           fPos

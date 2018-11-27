@@ -5,6 +5,6 @@ function main() {
     x.release();
 
     // the fix for #60 could break this:
-    var a: Const[Int] = 1;
-    var b: Ptr[Int] = a;
+    var a: Int = 1;
+    var b: Ptr[Const[Int]] = a;
 }

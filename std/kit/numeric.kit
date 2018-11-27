@@ -1,3 +1,44 @@
+abstract Char: Void;
+abstract Size: Void;
+
+abstract Int[$W = 0]: Void {
+    public static function minValue(): Self {
+        // this needs static if or it will generate warnings for 8/16 bit
+        return if W == 0 then ${INT_MIN: Int} as Self else (1 as Self << (W - 1));
+    }
+    public static function maxValue(): Self {
+        // this needs static if or it will generate warnings for 8/16 bit
+        return if W == 0 then ${INT_MAX: Int} as Self else ~(0 as Self) & ~((1 as Self << (W - 1)) as Self);
+    }
+}
+
+abstract Uint[$W = 0]: Void {
+    public static function minValue(): Self {
+        return 0;
+    }
+    public static function maxValue(): Self {
+        return if W == 0 then ${UINT_MAX: Uint} as Self else (1 as Self << (W - 1) as Self) | ~(1 as Self << (W - 1) as Self);
+    }
+}
+
+abstract Float[$W = 32]: Void;
+
+typedef Int8 = Int[8];
+typedef Int16 = Int[16];
+typedef Int32 = Int[32];
+typedef Int64 = Int[64];
+typedef Uint8 = Uint[8];
+typedef Uint16 = Uint[16];
+typedef Uint32 = Uint[32];
+typedef Uint64 = Uint[64];
+typedef Float32 = Float[32];
+typedef Float64 = Float[64];
+
+typedef Byte = Int8;
+typedef Short = Int16;
+typedef Long = Int64;
+typedef Double = Float64;
+
 /**
  * A type which represents only integer values.
  */
@@ -106,6 +147,8 @@ implement Integral for Char;
 implement NumericE31 for Int;
 implement NumericNE31 for Int;
 implement Integral for Int;
+implement NumericE32 for Uint;
+implement Integral for Uint;
 implement NumericE16 for Size;
 implement Integral for Size;
 
@@ -116,6 +159,6 @@ implement Numeric for NumericMixed;
 // would only be used when we know nothing else about the value, and this are
 // pretty arbitrary. Erring toward smaller size at the cost of possible more
 // frequent overflow issues.
-default Integral as Int8;
+default Integral as Int;
 default NumericMixed as Float;
-default Numeric as Int8;
+default Numeric as Int;

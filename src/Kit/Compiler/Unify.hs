@@ -156,6 +156,8 @@ unifyBase ctx tctx strict a' b'         = do
     (TypeArray t1 s1, TypeArray t2 s2) | (s1 > 0) && (s1 == s2) -> r t1 t2
     (TypeArray t1 0 , TypeArray t2 _ )                          -> r t1 t2
     (TypeArray t1 _ , TypePtr t2     )                          -> r t1 t2
+    (a, b) | (typeIsIntegral a) && (typeIsIntegral b)           -> return $ Just []
+    (TypeFloat _    , b              ) | typeIsIntegral b       -> return $ Just []
     (TypeInstance tp1 params1, TypeInstance tp2 params2) ->
       if (tp1 == tp2) && (length params1 == length params2)
         then do
@@ -199,10 +201,8 @@ unifyBasic :: BasicType -> BasicType -> Maybe [TypeInformation]
 unifyBasic (BasicTypeVoid)    (BasicTypeVoid) = Just []
 unifyBasic (BasicTypeVoid)    _               = Nothing
 unifyBasic _                  (BasicTypeVoid) = Nothing
-unifyBasic a                  b | (typeIsIntegral a) && (typeIsIntegral b) = Just []
-unifyBasic (BasicTypeFloat _) b | (typeIsIntegral b) = Just []
-unifyBasic (BasicTypeUnknown) (_     )        = Nothing
-unifyBasic (CPtr a          ) (CPtr b)        = unifyBasic a b
+unifyBasic (BasicTypeUnknown) (_            ) = Nothing
+unifyBasic (CPtr a          ) (CPtr b       ) = unifyBasic a b
 unifyBasic a b = if a == b then Just [] else Nothing
 
 resolveConstraint :: CompileContext -> TypeContext -> TypeConstraint -> IO ()
@@ -319,3 +319,12 @@ mergeFunctionInfo ctx tctx f1 f2 rtMsg argMsg = do
     (TypeEq (functionType f1) (functionType f2) rtMsg (functionPos f1))
   forM_ (zip (functionArgs f1) (functionArgs f2))
         (\(arg1, arg2) -> mergeArgInfo ctx tctx arg1 arg2 argMsg)
+
+typeIsIntegral :: ConcreteType -> Bool
+typeIsIntegral (TypeInt  _)  = True
+typeIsIntegral (TypeUint _)  = True
+typeIsIntegral TypeChar      = True
+typeIsIntegral TypeSize      = True
+typeIsIntegral TypeSize      = True
+typeIsIntegral (TypeConst t) = typeIsIntegral t
+typeIsIntegral _             = False

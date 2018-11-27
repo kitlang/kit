@@ -124,13 +124,3 @@ instance Show BasicType where
   show (BasicTypeUnknown) = "???"
 
 type BasicArgs = [(Str, BasicType)]
-
-typeIsIntegral :: BasicType -> Bool
-typeIsIntegral (BasicTypeInt  _)  = True
-typeIsIntegral (BasicTypeUint _)  = True
-typeIsIntegral BasicTypeCChar     = True
-typeIsIntegral BasicTypeCInt      = True
-typeIsIntegral BasicTypeCUint     = True
-typeIsIntegral BasicTypeCSize     = True
-typeIsIntegral (BasicTypeConst t) = typeIsIntegral t
-typeIsIntegral _                  = False
