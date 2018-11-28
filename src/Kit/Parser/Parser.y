@@ -257,8 +257,7 @@ TopLevelExpr :: {Expr}
   | ConstOrVar Identifier TypeAnnotation OptionalStandaloneDefault {pe (snd $1 <+> snd $4) $ VarDeclaration (fst $2) (fst $3) (fst $1) (fst $4)}
   | return TopLevelExpr {pe (snd $1 <+> pos $2) $ Return $ Just $2}
   | return ';' {pe (snd $1) $ Return $ Nothing}
-  | defer TopLevelExpr {pe (snd $1 <+> pos $2) $ Defer $ $2}
-  | throw TopLevelExpr {pe (snd $1 <+> pos $2) $ Throw $2}
+  -- | defer TopLevelExpr {pe (snd $1 <+> pos $2) $ Defer $ $2}
   | continue ';' {pe (snd $1) $ Continue}
   | break ';' {pe (snd $1) $ Break}
   -- | tokens LexMacroTokenBlock {pe (snd $1 <+> snd $2) $ TokenExpr $ tc (fst $2)}

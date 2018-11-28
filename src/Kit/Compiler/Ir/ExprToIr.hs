@@ -239,7 +239,6 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
       (Return e1) -> do
         r1 <- maybeR e1
         return $ IrReturn r1
-      (Throw e1         ) -> return $ undefined -- TODO
       (Match e1 cases e2) -> do
         r1        <- r e1
         r2        <- maybeR e2
@@ -376,8 +375,8 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
         throwk $ BasicError
           ("unexpected macro var (" ++ (s_unpack v) ++ ") in typed AST")
           (Just pos)
-      (Defer x) -> do
-        throwk $ InternalError "Not yet implemented" (Just pos)
+      -- (Defer x) -> do
+      --   throwk $ InternalError "Not yet implemented" (Just pos)
       (StructInit t fields) -> do
         resolvedFields <- forMWithErrors
           fields

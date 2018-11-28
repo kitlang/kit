@@ -607,9 +607,6 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
           typeCall $ inferredType r1
 
-    (Throw e1) -> do
-      throwk $ InternalError "Not yet implemented" (Just pos)
-
     (Match e1 cases (e2)) -> do
       r1 <- r e1
       r1 <- return $ if tIsLvalue r1 then r1 else makeLvalue r1
@@ -1357,8 +1354,8 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           throwk err
         Right x -> return x
 
-    (Defer e1) -> do
-      throwk $ InternalError "Not yet implemented" (Just pos)
+    -- (Defer e1) -> do
+    --   throwk $ InternalError "Not yet implemented" (Just pos)
 
     (StructInit structType@(TypeInstance tp p) fields) -> do
       let
