@@ -59,7 +59,6 @@ data ExprType a b
   | Continue
   | Break
   | Return (Maybe a)
-  | Throw a
   | Match a [MatchCase a] (Maybe a)
   | InlineCall a
   | Field a (Identifier b)
@@ -78,7 +77,7 @@ data ExprType a b
   | ArrayLiteral [a]
   -- var id[: type] [= default];
   | VarDeclaration (Identifier b) b Bool (Maybe a)
-  | Defer a
+  -- | Defer a
   | Box (TraitImplementation a b) a
   | BoxedValue a
   | BoxedVtable (TraitDefinition a b) a
@@ -112,7 +111,6 @@ exprDiscriminant et = case et of
   Continue               -> 15
   Break                  -> 16
   Return _               -> 17
-  Throw  _               -> 18
   Match _ _ _            -> 19
   InlineCall _           -> 20
   Field      _ _         -> 21
@@ -127,7 +125,7 @@ exprDiscriminant et = case et of
   RangeLiteral _ _       -> 29
   ArrayLiteral _         -> 30
   VarDeclaration _ _ _ _ -> 31
-  Defer _                -> 32
+  -- Defer _                -> 32
   Box _ _                -> 33
   BoxedValue _           -> 34
   BoxedVtable _ _        -> 35
@@ -156,7 +154,6 @@ exprChildren et = case et of
   While x y _                   -> [x, y]
   If    x y (Just z)            -> [x, y, z]
   If    x y Nothing             -> [x, y]
-  Throw x                       -> [x]
   Match x _ _                   -> [x]
   InlineCall x                  -> [x]
   Field      x _                -> [x]
@@ -170,7 +167,7 @@ exprChildren et = case et of
   RangeLiteral x y              -> [x, y]
   ArrayLiteral x                -> x
   VarDeclaration _ _ _ (Just x) -> [x]
-  Defer x                       -> [x]
+  -- Defer x                       -> [x]
   Box _ x                       -> [x]
   BoxedValue x                  -> [x]
   BoxedVtable _ x               -> [x]

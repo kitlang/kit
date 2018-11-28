@@ -113,9 +113,6 @@ convertExpr ctx tctx mod params e = do
     Return me1 -> do
       r1 <- maybeR me1
       return $ m (Return r1) voidType
-    Throw e1 -> do
-      r1 <- r e1
-      return $ m (Throw r1) voidType
     Match e1 cases def -> do
       t      <- mtv
       r1     <- r e1
@@ -168,7 +165,7 @@ convertExpr ctx tctx mod params e = do
       r1 <- maybeR e1
       t  <- resolveMaybeType ctx tctx mod params pos' t
       return $ m (VarDeclaration id t const r1) t
-    Defer  e1       -> singleWrapper e1 Defer
+    -- Defer  e1       -> singleWrapper e1 Defer
     -- Box impl e1 -> do
     --   impl' <- convertTraitImplementation (converter r (\_ -> typeOrTypeVar))
     --                                       modPath
