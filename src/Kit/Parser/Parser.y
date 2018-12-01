@@ -265,13 +265,17 @@ TopLevelExpr :: {Expr}
 StandaloneExpr :: {Expr}
   : ExprBlock {$1}
   | using UsingClauses StandaloneExpr {pe (snd $1 <+> snd $2) $ Using (reverse $ fst $2) $3}
-  | if BinopTermOr ExprBlock else StandaloneExpr {pe (snd $1 <+> pos $5) $ If $2 $3 (Just $5)}
-  | if BinopTermOr ExprBlock {pe (snd $1 <+> pos $3) $ If $2 $3 (Nothing)}
+  | IfStatement {$1}
+  | static IfStatement {pe (snd $1 <+> pos $2) $ StaticExpr $2}
   | for Identifier in Expr ExprBlock {pe (snd $1 <+> pos $5) $ For (pe (snd $2) (Identifier (fst $2))) $4 $5}
   | while Expr ExprBlock {pe (snd $1 <+> pos $3) $ While $2 $3 False}
   | do ExprBlock while Expr ';' {pe (snd $1 <+> pos $4) $ While $4 $2 True}
   | match Expr '{' MatchCases DefaultMatchCase '}' {pe (snd $1 <+> snd $6) $ Match $2 (reverse $4) $5}
   | Expr ';' {me (pos $1) $1}
+
+IfStatement :: {Expr}
+  : if BinopTermOr ExprBlock {pe (snd $1 <+> pos $3) $ If $2 $3 (Nothing)}
+  | if BinopTermOr ExprBlock else StandaloneExpr {pe (snd $1 <+> pos $5) $ If $2 $3 (Just $5)}
 
 UsingClauses :: {([UsingType Expr (Maybe TypeSpec)], Span)}
   : UsingClause {([fst $1], snd $1)}
@@ -734,6 +738,7 @@ BaseExpr :: {Expr}
   | struct TypeSpec {pe (snd $1 <+> snd $2) $ StructInit (Just $ fst $2) []}
   | implicit TypeSpec {pe (snd $1 <+> snd $2) $ Implicit $ Just $ fst $2}
   | inline_c TypeAnnotation {pe (snd $1 <+> snd $2) $ InlineCExpr (extract_inline_c $1) (fst $2)}
+  | static Expr {pe (snd $1 <+> pos $2) (StaticExpr $2)}
 
 ParenthesizedExprs :: {[Expr]}
   : {[]}

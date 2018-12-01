@@ -1,6 +1,7 @@
 module Kit.Compiler.Ir.FindUnderlyingType where
 
 import Control.Monad
+import Data.IORef
 import Data.List
 import Data.Maybe
 import Kit.Ast
@@ -14,6 +15,11 @@ import Kit.HashTable
 import Kit.Parser
 import Kit.Str
 
+recordTuples ctx mod t = do
+  case t of
+    TypeTuple _ -> modifyIORef (ctxTuples ctx) $ \x -> (modPath mod, t) : x
+    _           -> return ()
+
 {-
   Recursively dereference a high level ConcreteType into a BasicType.
 -}
@@ -22,14 +28,15 @@ findUnderlyingType
 findUnderlyingType ctx mod pos t = _findUnderlyingType ctx mod pos [] t
 _findUnderlyingType ctx mod pos stack t = do
   tctx <- newTypeContext []
-  t    <- mapType (follow ctx tctx) t
+  recordTuples ctx mod t
+  t <- mapType (follow ctx tctx) t
   let r x = _findUnderlyingType ctx mod pos (x : stack) x
   when (length stack > 256) $ throwk $ InternalError
     ("Maximum recursion depth in findUnderlyingType exceeded; " ++ show stack)
     Nothing
   veryNoisyDebugLog ctx $ "find underlying type " ++ show t
   modTctx <- modTypeContext ctx mod
-  x       <- case t of
+  case t of
     TypeBasicType b         -> return b
     TypeAnonStruct s fields -> do
       fields' <- forM
@@ -147,9 +154,3 @@ _findUnderlyingType ctx mod pos stack t = do
     _              -> -- TODO: REMOVE
                       throwk
       $ InternalError ("Couldn't find underlying type for " ++ show t) pos
-
-  case x of
-    BasicTypeTuple name t -> h_insert (modTuples mod) (s_unpack name) x
-    _                     -> return ()
-
-  return x

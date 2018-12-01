@@ -18,10 +18,9 @@ data TypedExpr = TypedExpr {
   tIsLvalue :: Bool,
   tIsLocal :: Bool,
   tIsLocalPtr :: Bool,
-  tIsCompileTime :: Bool,
+  tCompileTimeValue :: Maybe ValueLiteral,
   tIsConst :: Bool,
   tImplicitRules :: [RewriteRule TypedExpr ConcreteType]
-  -- tSubTypes :: [ConcreteType]
 } deriving (Eq, Generic, Show)
 
 instance Positioned TypedExpr where
@@ -45,15 +44,15 @@ instance Hashable (MatchCase TypedExpr)
 
 makeExprTyped :: TypedExprType -> ConcreteType -> Span -> TypedExpr
 makeExprTyped et t pos = TypedExpr
-  { tExpr          = et
-  , inferredType   = t
-  , tImplicits     = []
-  , tPos           = pos
-  , rewrittenBy    = Nothing
-  , tIsLvalue      = False
-  , tIsLocal       = False
-  , tIsLocalPtr    = False
-  , tIsCompileTime = False
-  , tIsConst       = False
-  , tImplicitRules = []
+  { tExpr             = et
+  , inferredType      = t
+  , tImplicits        = []
+  , tPos              = pos
+  , rewrittenBy       = Nothing
+  , tIsLvalue         = False
+  , tIsLocal          = False
+  , tIsLocalPtr       = False
+  , tCompileTimeValue = Nothing
+  , tIsConst          = False
+  , tImplicitRules    = []
   }
