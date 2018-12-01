@@ -119,6 +119,6 @@ osSpecificDefaultCompileArgs "darwin" =
   ]
 osSpecificDefaultCompileArgs _ = []
 
-ccSpecificDefaultCompileArgs Gcc   = ["-Wno-missing-braces"]
-ccSpecificDefaultCompileArgs Clang = ["-Wno-unused-command-line-argument"]
+ccSpecificDefaultCompileArgs Gcc   = ["-Wno-missing-braces", "-Wno-shift-op-parentheses"]
+ccSpecificDefaultCompileArgs Clang = ["-Wno-unused-command-line-argument", "-Wno-shift-op-parentheses"]
 ccSpecificDefaultCompileArgs _     = []
