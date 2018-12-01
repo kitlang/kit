@@ -3,6 +3,7 @@
 module Kit.Compiler.Passes.GenerateIr where
 
 import Control.Monad
+import Data.IORef
 import Data.List
 import Kit.Ast
 import Kit.Compiler.Context
@@ -18,18 +19,25 @@ import Kit.Ir
 -}
 generateIr
   :: CompileContext -> [(Module, [TypedDecl])] -> IO [(Module, [IrBundle])]
-generateIr ctx modContent = forM modContent (generateModuleIr ctx)
+generateIr ctx modContent = do
+  modContent     <- forM modContent (generateModuleIr ctx)
+  concreteTuples <- readIORef $ ctxTuples ctx
+  basicTuples    <- forM concreteTuples $ \(mod, t) -> do
+    mod <- getMod ctx mod
+    t <- findUnderlyingType ctx mod Nothing t
+    return t
+  mod <- getMod ctx (ctxMainModule ctx)
+  return
+    $ ( mod
+      , [ IrBundle ([], n) [DeclTuple t]
+        | t@(BasicTypeTuple n _) <- nub basicTuples
+        ]
+      )
+    : modContent
 
 generateModuleIr
   :: CompileContext -> (Module, [TypedDecl]) -> IO (Module, [IrBundle])
 generateModuleIr ctx (mod, decls) = do
   debugLog ctx $ "generating IR for " ++ show mod
-  decls  <- forM decls (generateDeclIr ctx mod)
-  tuples <- h_toList (modTuples mod)
-  return
-    ( mod
-    , [ IrBundle ([], n) [DeclTuple t]
-      | (_, t@(BasicTypeTuple n parts)) <- tuples
-      ]
-      ++ (foldr (++) [] decls)
-    )
+  decls <- forM decls (generateDeclIr ctx mod)
+  return $ (mod, (foldr (++) [] decls))

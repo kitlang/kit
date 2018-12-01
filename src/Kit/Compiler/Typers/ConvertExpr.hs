@@ -137,10 +137,10 @@ convertExpr ctx tctx mod params e = do
       return $ m (StructInit t fields) t
     -- EnumInit b Str [a]
     ArrayAccess e1 e2 -> container2 e1 e2 ArrayAccess
-    Call e1 imp args    -> do
+    Call e1 imp args  -> do
       t    <- mtv
       r1   <- r e1
-      imp <- mapM r imp
+      imp  <- mapM r imp
       args <- mapM r args
       return $ m (Call r1 imp args) t
     Cast e1 t -> do
@@ -190,6 +190,9 @@ convertExpr ctx tctx mod params e = do
     InlineCExpr s t -> do
       t <- resolveMaybeType ctx tctx mod params pos' t
       return $ m (InlineCExpr s t) t
+    StaticExpr x -> do
+      x <- r x
+      return $ m (StaticExpr x) TypeVoid
     _ -> throwk $ InternalError
       ("Can't convert expression: " ++ show (expr e))
       (Just pos')

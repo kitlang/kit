@@ -27,7 +27,6 @@ data Module = Module {
   modIncludes :: IORef [(FilePath, Span)],
   modDefaults :: IORef [((TypeSpec, TypeSpec), Span)],
   modUsing :: IORef [UsingType TypedExpr ConcreteType],
-  modTuples :: HashTable String BasicType,
   modIsCModule :: Bool
 }
 
@@ -39,7 +38,6 @@ newMod path fp = do
   defaults <- newIORef []
   includes <- newIORef []
   using    <- newIORef []
-  tuples   <- h_new
   return $ Module
     { modPath       = path
     , modSourcePath = fp
@@ -47,7 +45,6 @@ newMod path fp = do
     , modIncludes   = includes
     , modDefaults   = defaults
     , modUsing      = using
-    , modTuples     = tuples
     , modIsCModule  = False
     }
 

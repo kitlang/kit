@@ -3,12 +3,18 @@ abstract Size: Void;
 
 abstract Int[$W = 0]: Void {
     public static function minValue(): Self {
-        // this needs static if or it will generate warnings for 8/16 bit
-        return if W == 0 then ${INT_MIN: Int} as Self else (1 as Self << (W - 1));
+        static if W == 0 {
+            return ${INT_MIN: Int};
+        } else {
+            return ~(Self.maxValue());
+        }
     }
     public static function maxValue(): Self {
-        // this needs static if or it will generate warnings for 8/16 bit
-        return if W == 0 then ${INT_MAX: Int} as Self else ~(0 as Self) & ~((1 as Self << (W - 1)) as Self);
+        static if W == 0 {
+            return ${INT_MAX: Int};
+        } else {
+            return ~(0 as Self) & ~((1 as Self << (W - 1)) as Self);
+        }
     }
 }
 
@@ -17,7 +23,11 @@ abstract Uint[$W = 0]: Void {
         return 0;
     }
     public static function maxValue(): Self {
-        return if W == 0 then ${UINT_MAX: Uint} as Self else (1 as Self << (W - 1) as Self) | ~(1 as Self << (W - 1) as Self);
+        static if W == 0 {
+            return ${UINT_MAX: Uint};
+         } else {
+             return (1 as Self << (W - 1) as Self) | ~(1 as Self << (W - 1) as Self);
+         }
     }
 }
 

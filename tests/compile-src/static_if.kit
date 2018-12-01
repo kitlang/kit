@@ -1,0 +1,49 @@
+function main() {
+    static if true {
+        puts("true");
+    } else {
+        puts("???");
+    }
+
+    static if false {
+        puts("???");
+    } else {
+        puts("not false");
+    }
+
+    var x = true;
+    static if x {
+        puts("x = true");
+    } else {
+        puts("x = false");
+    }
+
+    // x = false;
+    // static if x {
+    //     puts("x = true");
+    // } else {
+    //     puts("x = false");
+    // }
+
+    static if 1 == 1 {
+        puts("1. 1 == 1");
+    } else {
+        puts("1. 1 != 1");
+    }
+
+    static if 1 != 1 {
+        puts("2. 1 != 1");
+    } else {
+        puts("2. 1 == 1");
+    }
+
+    static if 1 == 1 {
+        puts("3. 1 == 1");
+    }
+
+    static if 1 != 1 {
+        puts("4. 1 != 1");
+    }
+
+    printf("%i\n", static 1 + 1);
+}

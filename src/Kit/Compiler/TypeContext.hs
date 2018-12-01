@@ -234,6 +234,12 @@ _follow ctx tctx stack t = do
     Nothing
   veryNoisyDebugLog ctx $ "follow " ++ show t
   case t of
+    TypeBool                        -> return t
+    TypeChar                        -> return t
+    TypeSize                        -> return t
+    TypeInt   _                     -> return t
+    TypeUint  _                     -> return t
+    TypeFloat _                     -> return t
     UnresolvedType typeSpec modPath -> do
       mod <- getMod ctx modPath
       resolveType ctx tctx mod typeSpec
@@ -304,8 +310,8 @@ _follow ctx tctx stack t = do
     TypeTraitConstraint (tp, params) -> do
       resolvedParams <- forM params (r)
       return $ TypeTraitConstraint (tp, resolvedParams)
-    TypeAny pos -> makeTypeVar ctx pos
-    MethodTarget t -> do
+    TypeAny      pos -> makeTypeVar ctx pos
+    MethodTarget t   -> do
       t <- r t
       return $ MethodTarget t
     _ -> return t
@@ -357,9 +363,9 @@ builtinToConcreteType
   -> IO (Maybe ConcreteType)
 builtinToConcreteType ctx tctx mod s pos = do
   case s of
-    "FILE"    -> return $ Just $ TypeBasicType $ BasicTypeCFile
-    "Void"    -> return $ Just $ TypeBasicType BasicTypeVoid
-    _         -> return Nothing
+    "FILE" -> return $ Just $ TypeBasicType $ BasicTypeCFile
+    "Void" -> return $ Just $ TypeBasicType BasicTypeVoid
+    _      -> return Nothing
 
 getTraitImpl
   :: CompileContext

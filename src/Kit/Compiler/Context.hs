@@ -38,6 +38,7 @@ data CompileContext = CompileContext {
   ctxTypes :: HashTable TypePath SyntacticBinding,
   ctxBindings :: HashTable TypePath TypedBinding,
   ctxTypedefs :: HashTable Str ConcreteType,
+  ctxTuples :: IORef [(ModulePath, ConcreteType)],
   ctxPendingGenerics :: IORef [(TypePath, [ConcreteType])],
   ctxCompleteGenerics :: HashTable TypePath (HashTable [ConcreteType] ()),
   ctxUnresolvedTypeVars :: IORef [Int],
@@ -76,6 +77,7 @@ newCompileContext = do
   defaults           <- h_new
   impls              <- h_new
   typedefs           <- h_new
+  tuples             <- newIORef []
   -- make these big so we're less likely to have to resize later
   typeVars           <- h_newSized 4096
   templateVars       <- h_newSized 2048
@@ -109,6 +111,7 @@ newCompileContext = do
     , ctxTraitDefaults          = defaults
     , ctxImpls                  = impls
     , ctxTypedefs               = typedefs
+    , ctxTuples                 = tuples
     , ctxTypes                  = types
     , ctxBindings               = bindings
     , ctxPendingGenerics        = pendingGenerics
@@ -313,6 +316,9 @@ makeGenericConcrete ctx pos t = case t of
   TypeTraitConstraint (tp, p) -> do
     params <- makeGeneric ctx tp pos p
     return $ TypeTraitConstraint (tp, map snd params)
+  TypeTuple t -> do
+    t <- forM t $ makeGenericConcrete ctx pos
+    return $ TypeTuple t
   _ -> return t
 
 getTypeDefinition
