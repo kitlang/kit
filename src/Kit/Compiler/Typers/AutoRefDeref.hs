@@ -60,8 +60,14 @@ _autoRefDeref ctx tctx toType fromType ex = do
         case x of
           Just x  -> return $ Just x
           Nothing -> return Nothing
-      (TypePtr a, TypePtr b) -> r a b ex
-      (TypePtr a, b        ) -> do
+      (TypePtr a, TypePtr b                 ) -> r a b ex
+      (TypePtr a, b@(TypeInstance tp params)) -> do
+        -- special case for abstracts over pointers
+        result <- unifyStrict ctx tctx toType fromType
+        case result of
+          Just _  -> return $ Just ex
+          Nothing -> r a b (addRef ex)
+      (TypePtr a, b) -> do
         r a b (addRef ex)
       (a, TypePtr (TypeBasicType BasicTypeVoid)) ->
         -- don't try to deref a void pointer

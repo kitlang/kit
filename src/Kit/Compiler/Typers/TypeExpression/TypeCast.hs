@@ -34,6 +34,7 @@ typeCast (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _ty
               pos
         let
           typeCast rt = case (rt, t) of
+            (a, b) | isNumericType a && isNumericType b -> cast
             (TypeBox _ _, TypePtr (TypeBasicType BasicTypeVoid)) ->
               return $ makeExprTyped (BoxedValue r1) (TypePtr TypeVoid) pos
             (TypePtr _    , TypePtr (TypeBasicType BasicTypeVoid)) -> cast
