@@ -42,7 +42,8 @@ getAbstractParents ctx tctx t = do
     TypeInstance tp params -> do
       def <- getTypeDefinition ctx tp
       case typeSubtype def of
-        Abstract { abstractUnderlyingType = t' } -> do
+        Abstract { abstractUnderlyingType = TypeVoid } -> return []
+        Abstract { abstractUnderlyingType = t' }       -> do
           let tctx' = addTypeParams
                 tctx
                 [ (typeSubPath def $ paramName param, value)
@@ -154,10 +155,10 @@ unifyBase ctx tctx strict a' b'         = do
           return $ checkResults paramMatch
         else return Nothing
     (TypeArray t1 s1, TypeArray t2 s2) | (s1 > 0) && (s1 == s2) -> r t1 t2
-    (TypeArray t1 0 , TypeArray t2 _ )                          -> r t1 t2
-    (TypeArray t1 _ , TypePtr t2     )                          -> r t1 t2
-    (a, b) | (typeIsIntegral a) && (typeIsIntegral b)           -> return $ Just []
-    (TypeFloat _    , b              ) | typeIsIntegral b       -> return $ Just []
+    (TypeArray t1 0, TypeArray t2 _) -> r t1 t2
+    (TypeArray t1 _, TypePtr t2) -> r t1 t2
+    (a, b) | (typeIsIntegral a) && (typeIsIntegral b) -> return $ Just []
+    (TypeFloat _, b) | typeIsIntegral b -> return $ Just []
     (TypeInstance tp1 params1, TypeInstance tp2 params2) ->
       if (tp1 == tp2) && (length params1 == length params2)
         then do
@@ -198,12 +199,12 @@ unifyBase ctx tctx strict a' b'         = do
         _ -> return Nothing
 
 unifyBasic :: BasicType -> BasicType -> Maybe [TypeInformation]
-unifyBasic (BasicTypeVoid)    (BasicTypeVoid) = Just []
+unifyBasic (BasicTypeUnknown) (_)             = Nothing
+unifyBasic a                  b | a == b      = Just []
 unifyBasic (BasicTypeVoid)    _               = Nothing
 unifyBasic _                  (BasicTypeVoid) = Nothing
-unifyBasic (BasicTypeUnknown) (_            ) = Nothing
-unifyBasic (CPtr a          ) (CPtr b       ) = unifyBasic a b
-unifyBasic a b = if a == b then Just [] else Nothing
+unifyBasic (CPtr a)           (CPtr b       ) = unifyBasic a b
+unifyBasic a                  b               = Nothing
 
 resolveConstraint :: CompileContext -> TypeContext -> TypeConstraint -> IO ()
 resolveConstraint ctx tctx constraint@(TypeEq a b reason pos) = do

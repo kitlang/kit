@@ -128,6 +128,13 @@ pattern TypeFloat w = TypeInstance (["kit", "numeric"], "Float") [ConstantType (
 pattern TypeVoid :: ConcreteType
 pattern TypeVoid = TypeBasicType BasicTypeVoid
 
+isNumericType TypeChar = True
+isNumericType TypeSize = True
+isNumericType (TypeInt _) = True
+isNumericType (TypeUint _) = True
+isNumericType (TypeFloat _) = True
+isNumericType _ = False
+
 instance Show ConcreteType where
   show (TypePtr t) = "Ptr[" ++ show t ++ "]"
   show (TypeInstance tp params) = (s_unpack $ showTypePath tp) ++ showParams params
