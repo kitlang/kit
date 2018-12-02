@@ -21,7 +21,7 @@
     }
 }
 
-#[promote] abstract CString: Ptr[Char] {
+#[promote] #[demote] abstract CString: Ptr[Char] {
     rules {
         ($this.length) => strlen($this);
         ($this == ${other: CString}) => strcmp($this, $other) == 0;

@@ -16,7 +16,10 @@ data MetaArg
 meta s = Metadata {metaName = s, metaArgs = []}
 metaExtern = "extern" :: Str
 metaBuiltin = "builtin" :: Str
+-- "promote" allows base types to be used as their abstract type
 metaPromote = "promote" :: Str
+-- "demote" allows abstract types to unify strictly with their base type
+metaDemote = "demote" :: Str
 metaNoreturn = "noreturn" :: Str
 metaConst = "const" :: Str
 

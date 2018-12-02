@@ -63,7 +63,9 @@ _autoRefDeref ctx tctx toType fromType ex = do
       (TypePtr a, TypePtr b                 ) -> r a b ex
       (TypePtr a, b@(TypeInstance tp params)) -> do
         -- special case for abstracts over pointers
-        result <- unifyStrict ctx tctx toType fromType
+        def <- getTypeDefinition ctx tp
+        let strict = not $ hasMeta metaDemote (typeMeta def)
+        result <- (if strict then unifyStrict else unify) ctx tctx toType fromType
         case result of
           Just _  -> return $ Just ex
           Nothing -> r a b (addRef ex)

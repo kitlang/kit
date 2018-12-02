@@ -55,4 +55,10 @@ function main() {
     f3(p2);
     f3(*ptr5);
     f3(* (*ptr5));
+
+    var localString = "a string";
+    var localStringPtr: Ptr[CString] = localString;
+    var localCharPtrPtr: Ptr[Ptr[Char]] = localString;
+    printf("%s\n", *localStringPtr);
+    printf("%s\n", *localCharPtrPtr);
 }
