@@ -80,7 +80,8 @@ ctype BasicTypeVoid    = ([CTypeSpec $ u CVoidType], [])
 ctype BasicTypeBool    = ([CTypeSpec $ u CBoolType], [])
 ctype (BasicTypeCChar) = ([CTypeSpec $ u CCharType], [])
 ctype (BasicTypeCInt ) = ([CTypeSpec $ u CIntType], [])
-ctype (BasicTypeCUint) = ([CTypeSpec $ u $ CTypeDef (internalIdent "unsigned int")], [])
+ctype (BasicTypeCUint) =
+  ([CTypeSpec $ u $ CTypeDef (internalIdent "unsigned int")], [])
 ctype (BasicTypeCSize) =
   ([CTypeSpec $ u $ CTypeDef (internalIdent "size_t")], [])
 ctype (BasicTypeInt n) =
@@ -204,6 +205,17 @@ ctype (BasicTypeUnknown  ) = undefined
 -- ctype (t) = throwk $ InternalError ("Unhandled ctype: " ++ show t) Nothing
 
 intFlags f = foldr (\f acc -> setFlag f acc) noFlags f
+
+initializerExpr :: IrExpr -> CInit
+initializerExpr (IrCArrLiteral values _) =
+  u $ CInitList $ [ ([], x) | x <- map initializerExpr values ]
+initializerExpr (IrStructInit _ fields) =
+  u
+    $ CInitList
+    $ [ ([u $ CMemberDesig (cIdent name)], initializerExpr value)
+      | (name, value) <- fields
+      ]
+initializerExpr x = u $ CInitExpr $ transpileExpr x
 
 transpileExpr :: IrExpr -> CExpr
 transpileExpr (IrIdentifier s) = u $ CVar $ cIdent $ mangleName s
@@ -381,12 +393,12 @@ var_to_cdeclr x = u $ CDeclr (Just $ cIdent x) [] (Nothing) []
 transpileBlockItem :: IrExpr -> CBlockItem
 transpileBlockItem (IrVarDeclaration v t (Just (IrCArrLiteral values _))) =
   CBlockDecl $ cDecl t (Just ([], v)) $ Just $ u $ CInitList
-    [ ([], u $ CInitExpr $ transpileExpr val) | val <- values ]
+    [ ([], initializerExpr val) | val <- values ]
 transpileBlockItem (IrVarDeclaration v t varDefault) = CBlockDecl
   $ cDecl t (Just ([], v)) body
  where
   body = case varDefault of
-    Just x  -> Just $ u $ CInitExpr $ transpileExpr x
+    Just x  -> Just $ initializerExpr x
     Nothing -> Nothing
 transpileBlockItem x = CBlockStmt $ transpileStmt x
 

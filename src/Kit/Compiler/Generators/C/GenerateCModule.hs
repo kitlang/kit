@@ -67,12 +67,9 @@ generateDef ctx codeFile decl = do
   case decl of
     DeclFunction def@(FunctionDefinition { functionName = name, functionType = t, functionBody = Just body })
       -> do
-        hPutStrLn
-          codeFile
-          ("\n" ++ (render $ pretty $ cfunDef def)
-          )
+        hPutStrLn codeFile ("\n" ++ (render $ pretty $ cfunDef def))
 
-    DeclVar def@(VarDefinition { varName = name, varType = t@(BasicTypeStruct n), varDefault = Just val })
+    DeclVar def@(VarDefinition { varName = name, varType = t, varDefault = val })
       -> do
         -- somewhat arbitrarily, compound literals aren't supported as static initializers in GCC <= 4
         hPutStrLn
@@ -81,22 +78,10 @@ generateDef ctx codeFile decl = do
           ++ (render $ pretty $ CDeclExt $ cDecl
                t
                (Just name)
-               (Just $ case (transpileExpr val) of
-                 CCompoundLit _ x _ -> u $ CInitList $ x
-                 x                  -> u $ CInitExpr $ x
+               (case val of
+                 Just val -> Just $ initializerExpr val
+                 Nothing  -> Nothing
                )
-             )
-          )
-
-    DeclVar def@(VarDefinition { varName = name, varType = t, varDefault = Just val })
-      -> do
-        hPutStrLn
-          codeFile
-          (  "\n"
-          ++ (render $ pretty $ CDeclExt $ cDecl
-               t
-               (Just name)
-               (Just $ u $ CInitExpr $ transpileExpr val)
              )
           )
 

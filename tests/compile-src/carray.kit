@@ -7,6 +7,8 @@ struct B {
     var a: CArray[A];
 }
 
+var topLevelArray: CArray[A, 2] = [struct A {a: 1}, struct A {a: 2}];
+
 function main() {
     var a: CArray[Int, 3] = empty;
     printf("%i\n", a[0]);
@@ -32,4 +34,6 @@ function main() {
     for i in c {
         printf("i: %i\n", i);
     }
+
+    printf("0.a=%i 1.a=%i\n", topLevelArray[0].a, topLevelArray[1].a);
 }
