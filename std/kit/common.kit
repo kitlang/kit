@@ -34,6 +34,10 @@
         }
     }
 
+    public static function alloc(allocator: Box[Allocator], chars: Size): CString {
+        return allocator.alloc(chars + 1);
+    }
+
     public function copy(allocator: Box[Allocator]): CString {
         var new = allocator.alloc(this.length + 1);
         strcpy(new, this);

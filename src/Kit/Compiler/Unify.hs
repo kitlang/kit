@@ -164,10 +164,14 @@ unifyBase ctx tctx strict a' b'         = do
         then do
           paramMatch <- mapM (\(a, b) -> rStrict a b) (zip params1 params2)
           return $ checkResults paramMatch
-        else if strict then return Nothing else fallBackToAbstractParent a b
+        else if strict
+          then demoteAndFallBack a b
+          else fallBackToAbstractParent a b
     (_, TypeInstance tp1 params1) -> if a == b
       then return $ Just []
-      else if strict then return Nothing else fallBackToAbstractParent a b
+      else if strict
+        then demoteAndFallBack a b
+        else fallBackToAbstractParent a b
     (TypeInstance tp1 params1, _) ->
       -- in case of #[promote]
       fallBackToAbstractParent a b
@@ -182,6 +186,14 @@ unifyBase ctx tctx strict a' b'         = do
  where
   r       = unifyBase ctx tctx strict
   rStrict = unifyStrict ctx tctx
+  demoteAndFallBack a b = do
+    case b of
+      TypeInstance tp params -> do
+        t <- getTypeDefinition ctx tp
+        if hasMeta metaDemote (typeMeta t)
+          then fallBackToAbstractParent a b
+          else return Nothing
+      _ -> return Nothing
   fallBackToAbstractParent a b = do
     parents <- getAbstractParents ctx tctx b
     if not (null parents)

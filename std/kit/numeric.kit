@@ -1,4 +1,12 @@
-abstract Char: Void;
+abstract Char: Void {
+    public function capitalize(): Char {
+        if this >= c'a' && this <= c'z' {
+            return this + c'A' - c'a';
+        } else {
+            return this;
+        }
+    }
+}
 abstract Size: Void;
 
 abstract Int[$W = 0]: Void {
