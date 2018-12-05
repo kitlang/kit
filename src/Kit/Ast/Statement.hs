@@ -2,8 +2,10 @@ module Kit.Ast.Statement where
 
 import Kit.Ast.Declaration
 import Kit.Ast.Definitions
+import Kit.Ast.DefStatement
 import Kit.Ast.Expr
 import Kit.Ast.ModulePath
+import Kit.Ast.TypePath
 import Kit.Ast.Types
 import Kit.Ast.UsingType
 import Kit.Ast.Span
@@ -18,6 +20,7 @@ data StatementType a b
   | FunctionDeclaration (FunctionDefinition a b)
   | TypeDeclaration (TypeDefinition a b)
   | TraitDeclaration (TraitDefinition a b)
+  | ExtendDefinition b [DefStatement a b]
   | Implement (TraitImplementation a b)
   | TraitDefault TypeSpec TypeSpec
   | RuleSetDeclaration (RuleSet a b)

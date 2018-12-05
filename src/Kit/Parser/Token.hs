@@ -39,6 +39,7 @@ data TokenClass
   | KeywordElse
   | KeywordEmpty
   | KeywordEnum
+  | KeywordExtend
   | KeywordFor
   | KeywordFunction
   | KeywordIf
@@ -131,6 +132,7 @@ instance Show TokenClass where
     KeywordElse -> "else"
     KeywordEmpty -> "empty"
     KeywordEnum -> "enum"
+    KeywordExtend -> "extend"
     KeywordFor -> "for"
     KeywordFunction -> "function"
     KeywordIf -> "if"

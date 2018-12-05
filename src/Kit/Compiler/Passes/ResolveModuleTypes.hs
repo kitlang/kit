@@ -37,6 +37,8 @@ data ResolveTypesPass
   = ResolveRules
   | ResolveTypedefs
   | ResolveIdentifiers
+  | ResolveExtensions
+  | ResolveTypes
   | ResolveImpls
   deriving (Eq, Show, Enum, Ord)
 
@@ -52,9 +54,10 @@ resolveModuleTypes
   -> [(Module, [(Declaration Expr (Maybe TypeSpec), Span)])]
   -> IO [(Module, [TypedDeclWithContext])]
 resolveModuleTypes ctx modContents = do
-  results <- foldM
+  extensions <- h_new
+  results    <- foldM
     (\acc step -> do
-      stepResults <- forM modContents $ resolveTypesForMod step ctx
+      stepResults <- forM modContents $ resolveTypesForMod step ctx extensions
       return $ acc ++ stepResults
     )
     []
@@ -121,9 +124,10 @@ validateMain ctx = do
 resolveTypesForMod
   :: ResolveTypesPass
   -> CompileContext
+  -> HashTable TypePath (IORef [DefStatement Expr (Maybe TypeSpec)])
   -> (Module, [(Declaration Expr (Maybe TypeSpec), Span)])
   -> IO (Module, [TypedDeclWithContext])
-resolveTypesForMod pass ctx (mod, contents) = do
+resolveTypesForMod pass ctx extensions (mod, contents) = do
   debugLog ctx $ show pass
 
   -- handle module using statements before creating final TypeContext
@@ -255,7 +259,33 @@ resolveTypesForMod pass ctx (mod, contents) = do
                          False
           return $ Just $ (DeclFunction converted, tctx)
 
-        (ResolveIdentifiers, DeclType t) -> do
+        (ResolveExtensions, DeclExtend t stmts) -> do
+          let pos = case t of
+                Just t  -> position t
+                Nothing -> NoPos
+          ct <- resolveMaybeType ctx tctx mod [] pos t
+          let tp = case ct of
+                TypeInstance tp _           -> tp
+                TypeTraitConstraint (tp, _) -> tp
+                _                           -> throwk $ BasicError
+                  ("Couldn't resolve extension target for type " ++ show t)
+                  (Just pos)
+          existing <- h_lookup extensions tp
+          ref      <- case existing of
+            Just x  -> return x
+            Nothing -> do
+              new <- newIORef []
+              h_insert extensions tp new
+              return new
+          modifyIORef ref (\x -> x ++ stmts)
+          return Nothing
+
+        (ResolveTypes, DeclType t) -> do
+          extensions <- h_lookup extensions $ typeName t
+          extensions <- case extensions of
+            Just x  -> readIORef x
+            Nothing -> return []
+          t <- return $ foldr addTypeExtension t extensions
           let params' =
                 [ (tp, TypeTypeParam $ tp)
                 | p <- typeParams t
@@ -272,9 +302,7 @@ resolveTypesForMod pass ctx (mod, contents) = do
                 in  converter (convertExpr ctx tctx'' mod params)
                               (resolveMaybeType ctx tctx'' mod params)
           converted <- do
-            c' <- convertTypeDefinition paramConverter
-              $ t { typeName = addNamespace (modPath mod) (typeName t) }
-            let c = c' { typeName = addNamespace (modPath mod) (typeName c') }
+            c <- convertTypeDefinition paramConverter t
             let thisType = TypeSelf
             let m f x t = makeExprTyped x t (functionPos f)
             return $ implicitifyInstanceMethods
@@ -284,25 +312,23 @@ resolveTypesForMod pass ctx (mod, contents) = do
               c
 
           forMWithErrors_ (typeStaticFields converted)
-            $ \field -> addToInterface
-                ctx
-                mod
-                (subPath (typeName converted) $ tpName $ varName field)
-                (VarBinding field)
-                True
-                False
-          forMWithErrors_ (typeStaticMethods converted)
-            $ \method -> addToInterface
-                ctx
-                mod
-                (subPath (typeName converted) $ tpName $ functionName method)
-                (FunctionBinding method)
-                True
-                False
+            $ \field -> addToInterface ctx
+                                       mod
+                                       (varName field)
+                                       (VarBinding field)
+                                       True
+                                       False
+          forMWithErrors_ (typeStaticMethods converted) $ \method ->
+            addToInterface ctx
+                           mod
+                           (functionName method)
+                           (FunctionBinding method)
+                           True
+                           False
           forMWithErrors_ (typeMethods converted) $ \method -> addToInterface
             ctx
             mod
-            (subPath (typeName converted) $ tpName $ functionName method)
+            (functionName method)
             (FunctionBinding method)
             True
             False
@@ -324,7 +350,12 @@ resolveTypesForMod pass ctx (mod, contents) = do
           addBinding ctx (typeName t) $ TypeBinding converted
           return $ Just $ (DeclType converted, tctx')
 
-        (ResolveIdentifiers, DeclTrait t) -> do
+        (ResolveTypes, DeclTrait t) -> do
+          extensions <- h_lookup extensions $ traitName t
+          extensions <- case extensions of
+            Just x  -> readIORef x
+            Nothing -> return []
+          t <- return $ foldr addTraitExtension t extensions
           let
             tctx' = tctx
               { tctxTypeParams = [ (tp, TypeTypeParam $ tp)

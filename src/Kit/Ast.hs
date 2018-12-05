@@ -2,6 +2,7 @@ module Kit.Ast (
   module Kit.Ast.BasicType,
   module Kit.Ast.Declaration,
   module Kit.Ast.Definitions,
+  module Kit.Ast.DefStatement,
   module Kit.Ast.Expr,
   module Kit.Ast.ExprType,
   module Kit.Ast.Identifier,
@@ -22,6 +23,7 @@ module Kit.Ast (
 import Kit.Ast.BasicType
 import Kit.Ast.Declaration
 import Kit.Ast.Definitions
+import Kit.Ast.DefStatement
 import Kit.Ast.Expr
 import Kit.Ast.ExprType
 import Kit.Ast.Identifier
