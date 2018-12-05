@@ -307,6 +307,9 @@ addStmtToModuleInterface ctx mod s = do
     ModuleUsing using -> do
       return [DeclUsing using]
 
+    ExtendDefinition t s -> do
+      return [DeclExtend t s]
+
     _ -> return []
   return [ (decl, pos) | decl <- decls ]
  where

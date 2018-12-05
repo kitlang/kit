@@ -53,6 +53,7 @@ tokens :-
   else { tok KeywordElse }
   empty { tok KeywordEmpty }
   enum { tok KeywordEnum }
+  extend { tok KeywordExtend }
   for { tok KeywordFor }
   function { tok KeywordFunction }
   if { tok KeywordIf }

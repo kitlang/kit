@@ -1,6 +1,7 @@
 module Kit.Ast.Declaration where
 
 import Kit.Ast.Definitions
+import Kit.Ast.DefStatement
 import Kit.Ast.Span
 import Kit.Ast.TypePath
 import Kit.Ast.Types
@@ -17,6 +18,7 @@ data Declaration a b
   | DeclUsing (UsingType a b)
   | DeclTuple b
   | DeclTypedef TypePath TypeSpec Span
+  | DeclExtend b [DefStatement a b]
   deriving (Eq, Show)
 
 declName :: (Show b) => Declaration a b -> TypePath
