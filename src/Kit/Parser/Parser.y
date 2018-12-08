@@ -59,6 +59,7 @@ import Kit.Str
   include {(KeywordInclude,_)}
   inline {(KeywordInline,_)}
   in {(KeywordIn,_)}
+  macro {(KeywordMacro,_)}
   match {(KeywordMatch,_)}
   null {(KeywordNull,_)}
   private {(KeywordPrivate,_)}
@@ -74,6 +75,7 @@ import Kit.Str
   then {(KeywordThen,_)}
   this {(KeywordThis,_)}
   throw {(KeywordThrow,_)}
+  tokens {(KeywordTokens,_)}
   trait {(KeywordTrait,_)}
   typedef {(KeywordTypedef,_)}
   union {(KeywordUnion,_)}
@@ -81,6 +83,7 @@ import Kit.Str
   using {(KeywordUsing,_)}
   var {(KeywordVar,_)}
   while {(KeywordWhile,_)}
+  yield {(KeywordYield,_)}
   identifier {(LowerIdentifier _,_)}
   macro_identifier {(MacroIdentifier _,_)}
   upper_identifier {(UpperIdentifier _,_)}
@@ -166,6 +169,12 @@ Statement :: {Statement}
   | FunctionDefinition {ps (functionPos $1) $ FunctionDeclaration $1}
   | extend TypePath '{' DefStatements '}' {
       ps (snd $1 <+> snd $5) $ ExtendDefinition (Just $ TypeSpec (fst $2) [] (snd $2)) $4
+  }
+  | macro FunctionDefinitionBase {ps (snd $1 <+> functionPos $2) $ MacroDeclaration $ $2 {
+    functionPos = functionPos $2 <+> snd $1
+  }}
+  | identifier '(' CallArgs ')' ';' {
+    ps (snd $1 <+> snd $5) $ MacroCall (extract_identifier $1) $3
   }
 
 TypeDefinition :: {TypeDefinition Expr (Maybe TypeSpec)}
@@ -262,7 +271,8 @@ TopLevelExpr :: {Expr}
   -- | defer TopLevelExpr {pe (snd $1 <+> pos $2) $ Defer $ $2}
   | continue ';' {pe (snd $1) $ Continue}
   | break ';' {pe (snd $1) $ Break}
-  -- | tokens LexMacroTokenBlock {pe (snd $1 <+> snd $2) $ TokenExpr $ tc (fst $2)}
+  | yield Expr ';' {pe (snd $1 <+> pos $2) $ Yield $2}
+  | tokens str {pe (snd $1 <+> snd $2) $ Tokens $ extract_lit $ fst $2}
 
 StandaloneExpr :: {Expr}
   : ExprBlock {$1}
@@ -288,17 +298,24 @@ UsingClause :: {(UsingType Expr (Maybe TypeSpec), Span)}
   | implicit Expr {(UsingImplicit $ $2, snd $1 <+> pos $2)}
 
 FunctionDefinition :: {FunctionDefinition Expr (Maybe TypeSpec)}
-  : MetaMods function identifier TypeParams '(' VarArgs ')' TypeAnnotation OptionalBody {
-    newFunctionDefinition {
-      functionName = ns $ extract_identifier $3,
+  : MetaMods function FunctionDefinitionBase {
+    $3 {
       functionMeta = reverse $ metas $1,
       functionModifiers = reverse $ mods $1,
-      functionParams = fst $4,
-      functionType = fst $8,
-      functionArgs = reverse (fst $6),
-      functionBody = fst $9,
-      functionVararg = snd $6,
-      functionPos = snd $2 <+> snd $3
+      functionPos = functionPos $3 <+> snd $2
+    }
+  }
+
+FunctionDefinitionBase :: {FunctionDefinition Expr (Maybe TypeSpec)}
+  : identifier TypeParams '(' VarArgs ')' TypeAnnotation OptionalBody {
+    newFunctionDefinition {
+      functionName = ns $ extract_identifier $1,
+      functionParams = fst $2,
+      functionType = fst $6,
+      functionArgs = reverse (fst $4),
+      functionBody = fst $7,
+      functionVararg = snd $4,
+      functionPos = snd $1
     }
   }
 
@@ -692,111 +709,6 @@ MacroIdentifier :: {(Identifier (Maybe TypeSpec), Span)}
   | '$' '{' UpperOrLowerIdentifier TypeAnnotation '}' {(MacroVar (fst $3) (fst $4), (snd $1 <+> snd $5))}
   | '$' '{' '_' TypeAnnotation '}' {(MacroVar "_" (fst $4), (snd $1 <+> snd $5))}
 
--- LexMacroTokenBlock :: {([Token], Span)}
---   : '{' LexMacroTokensInsideBlock '}' {(reverse $2, snd $1 <+> snd $3)}
-
--- LexMacroTokensInsideBlock :: {[Token]}
---   : {[]}
---   | LexMacroTokensInsideBlock LexMacroToken {$2 : $1}
---   | LexMacroTokensInsideBlock LexMacroTokenBlock {((CurlyBraceClose, NoPos) : (reverse $ fst $2)) ++ ((CurlyBraceOpen, NoPos) : $1)}
-
--- LexMacroTokenAny :: {Token}
---   : '{' {$1}
---   | '}' {$1}
---   | LexMacroToken {$1}
-
--- LexMacroToken :: {Token}
---   : '[' {$1}
---   | ']' {$1}
---   | '(' {$1}
---   | ')' {$1}
---   | ':' {$1}
---   | "#[" {$1}
---   | "..." {$1}
---   | '.' {$1}
---   | '#' {$1}
---   | '$' {$1}
---   | "=>" {$1}
---   | '?' {$1}
---   | ',' {$1}
---   | ';' {$1}
---   | abstract {$1}
---   | as {$1}
---   | break {$1}
---   | case {$1}
---   | code {$1}
---   | const {$1}
---   | continue {$1}
---   | default {$1}
---   | do {$1}
---   | else {$1}
---   | enum {$1}
---   | for {$1}
---   | function {$1}
---   | if {$1}
---   | implement {$1}
---   | import {$1}
---   | include {$1}
---   | inline {$1}
---   | in {$1}
---   | macro {$1}
---   | match {$1}
---   | op {$1}
---   | override {$1}
---   | private {$1}
---   | public {$1}
---   | return {$1}
---   | rule {$1}
---   | rules {$1}
---   | Self {$1}
---   | sizeof {$1}
---   | static {$1}
---   | struct {$1}
---   | super {$1}
---   | switch {$1}
---   | then {$1}
---   | this {$1}
---   | throw {$1}
---   | token {$1}
---   | tokens {$1}
---   | trait {$1}
---   | typedef {$1}
---   | unsafe {$1}
---   | var {$1}
---   | while {$1}
---   | identifier {$1}
---   | macro_identifier {$1}
---   | upper_identifier {$1}
---   | "++" {$1}
---   | "--" {$1}
---   | '+' {$1}
---   | '-' {$1}
---   | '*' {$1}
---   | '/' {$1}
---   | '%' {$1}
---   | "==" {$1}
---   | "!=" {$1}
---   | ">=" {$1}
---   | "<=" {$1}
---   | "<<" {$1}
---   | ">>" {$1}
---   | '>' {$1}
---   | '<' {$1}
---   | "&&" {$1}
---   | "||" {$1}
---   | '&' {$1}
---   | '|' {$1}
---   | '^' {$1}
---   | '=' {$1}
---   | assign_op {$1}
---   | '!' {$1}
---   | '~' {$1}
---   | "::" {$1}
---   | custom_op {$1}
---   | bool {$1}
---   | str {$1}
---   | float {$1}
---   | int {$1}
 {
 
 thenP = (>>=)

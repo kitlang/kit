@@ -12,6 +12,7 @@ import Kit.Ast.TypePath
 import Kit.Ast.UsingType
 import Kit.Ast.Value
 import Kit.Error
+import Kit.Parser.Token
 import Kit.Str
 
 data MatchCase a = MatchCase {matchPattern :: a, matchBody :: a} deriving (Eq, Generic, Show)
@@ -32,9 +33,6 @@ matchCase x y = MatchCase {matchPattern = x, matchBody = y}
   - Typing converts this to `ExprType (TypedExpr) (ConcreteType)`, where each
     expression has a type and all types are resolved to a single compile-time
     type
-  - Finally, we generate an IR of `ExprType (IrExpr) (BasicType)` where the
-    allowed AST nodes are much more restricted, compile-time-only features are
-    erased, and all types are reduced to their actual storage type.
 -}
 data ExprType a b
   = Block [a]
@@ -91,6 +89,8 @@ data ExprType a b
   | InlineCExpr Str b
   | VarArg Str
   | StaticExpr a
+  | Yield a
+  | Tokens Str
   deriving (Eq, Generic, Show)
 
 exprDiscriminant :: ExprType a b -> Int
@@ -140,7 +140,10 @@ exprDiscriminant et = case et of
   Null                   -> 42
   Empty                  -> 43
   InlineCExpr _ _        -> 44
-  VarArg _               -> 45
+  VarArg     _           -> 45
+  StaticExpr _           -> 46
+  Yield      _           -> 47
+  Tokens     _           -> 48
   x -> throwk $ InternalError "Expression has no discriminant!" Nothing
 
 exprChildren :: ExprType a b -> [a]
@@ -177,6 +180,7 @@ exprChildren et = case et of
   TupleSlot x _                 -> [x]
   Temp       x                  -> [x]
   StaticExpr x                  -> [x]
+  Yield      x                  -> [x]
   _                             -> []
 
 exprMapReduce :: (a -> c) -> (c -> d -> d) -> (a -> ExprType a b) -> d -> a -> d

@@ -29,6 +29,8 @@ data StatementType a b
   | Import ModulePath Bool
   | Include FilePath (Maybe Str)
   | ModuleUsing (UsingType a b)
+  | MacroDeclaration (FunctionDefinition a b)
+  | MacroCall Str [a]
   deriving (Eq, Show)
 
 makeStmt st = Statement {stmt = st, stmtPos = NoPos}

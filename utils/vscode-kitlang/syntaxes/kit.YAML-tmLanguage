@@ -35,13 +35,13 @@ patterns:
 - name: constant.numeric.bin.kit
   match: \b-?0b[01]+(_([ui](8|16|32|64)|f(32|64)))?\b
 
+- name: string.quoted.block.kit
+  begin: '"""'
+  end: '"""'
 - name: string.quoted.double.kit
   match: '"(\.|[^"])*"'
 - name: string.quoted.single.kit
   match: '''(\.|[^\''])*'''
-- name: string.quoted.block.kit
-  begin: '"""'
-  end: '"""'
 
 - name: comment.line.double-slash.kit
   match: "(//).*$\n?"

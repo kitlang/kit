@@ -63,6 +63,7 @@ tokens :-
   include { tok KeywordInclude }
   inline { tok KeywordInline }
   in { tok KeywordIn }
+  macro { tok KeywordMacro }
   match { tok KeywordMatch }
   null { tok KeywordNull }
   private { tok KeywordPrivate }
@@ -79,6 +80,7 @@ tokens :-
   then { tok KeywordThen }
   this { tok KeywordThis }
   throw { tok KeywordThrow }
+  tokens { tok KeywordTokens }
   trait { tok KeywordTrait }
   typedef { tok KeywordTypedef }
   union { tok KeywordUnion }
@@ -86,6 +88,7 @@ tokens :-
   using { tok KeywordUsing }
   var { tok KeywordVar }
   while { tok KeywordWhile }
+  yield { tok KeywordYield }
 
   -- literals
   "true" { tok $ LiteralBool True }
