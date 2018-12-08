@@ -1,6 +1,7 @@
 module Kit.CompilerSpec where
 
 import Control.Monad
+import Data.IORef
 import System.Directory
 import System.Environment
 import System.FilePath
@@ -42,6 +43,7 @@ spec = parallel $ do
         forM_ [1 .. testRuns] $ \_ -> do
           ctx    <- newCompileContext
           cc     <- getCompiler Nothing
+          output <- newIORef ""
           result <- tryCompile
             (ctx
               { ctxSourcePaths = [ (f, []) | f <- [takeDirectory path, "std"] ]
@@ -50,6 +52,8 @@ spec = parallel $ do
               , ctxLinkerFlags   = ["-lm", "-Werror"]
               , ctxOutputPath    = ("build" </> "test")
               , ctxVerbose       = -1
+              , ctxRun           = True
+              , ctxResultHandler = Just $ writeIORef output
               }
             )
             cc
@@ -58,8 +62,7 @@ spec = parallel $ do
               Right ()  -> Nothing
             )
             `shouldBe` Nothing
-          out <- readProcess ("build" </> "test") [] ""
-          putStrLn out
+          out               <- readIORef output
           outTemplateExists <- doesFileExist (path -<.> "stdout")
           when (outTemplateExists) $ do
             outTemplate <- readFile (path -<.> "stdout")

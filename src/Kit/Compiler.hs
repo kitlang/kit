@@ -54,8 +54,14 @@ compile ctx cc = do
   {-
     Generate C modules for all includes found during buildModuleGraph.
   -}
-  printLogIf ctx "processing C includes"
+  printLogIf      ctx "processing C includes"
   includeCModules ctx cc
+
+  {-
+    Find and execute statement-level macros.
+  -}
+  printLogIf      ctx "expanding macros"
+  expandMacros    ctx cc
 
   {-
     This step utilizes the module interfaces from buildModuleGraph to convert
@@ -64,7 +70,7 @@ compile ctx cc = do
     checked yet; we'll get typed AST with a lot of spurious type variables,
     which will be unified later.
   -}
-  printLogIf ctx "resolving module types"
+  printLogIf      ctx "resolving module types"
   resolved <- resolveModuleTypes ctx declarations
 
   compilerSanityChecks ctx
@@ -128,15 +134,20 @@ compile ctx cc = do
       printLogIf ctx "skipping compile"
       return Nothing
     else do
-      printLogIf  ctx "compiling"
+      printLogIf ctx "compiling"
       compileCode ctx cc generated
 
   printLogIf ctx "finished"
 
   when (ctxRun ctx) $ case binPath of
     Just x -> do
-      callProcess x []
-      return ()
+      case ctxResultHandler ctx of
+        Just resultHandler -> do
+          result <- readProcess x [] ""
+          resultHandler result
+        Nothing -> do
+          callProcess x []
+          return ()
     Nothing -> logMsg
       Nothing
       "--run was set, but no binary path was generated; skipping"

@@ -62,7 +62,9 @@ data CompileContext = CompileContext {
   ctxNoCcache :: Bool,
   ctxRecursionLimit :: Int,
   ctxRun :: Bool,
-  ctxNameMangling :: Bool
+  ctxResultHandler :: Maybe (String -> IO ()),
+  ctxNameMangling :: Bool,
+  ctxMacro :: Bool
 }
 
 newCompileContext :: IO CompileContext
@@ -124,7 +126,9 @@ newCompileContext = do
     , ctxNoCcache               = False
     , ctxRecursionLimit         = 64
     , ctxRun                    = False
+    , ctxResultHandler          = Nothing
     , ctxNameMangling           = True
+    , ctxMacro                  = False
     }
 
 ctxSourceModules :: CompileContext -> IO [Module]
