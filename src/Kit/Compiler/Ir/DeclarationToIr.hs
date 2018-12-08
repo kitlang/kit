@@ -9,20 +9,20 @@ import Kit.Compiler.Ir.FindUnderlyingType
 import Kit.Compiler.Ir.ExprToIr
 import Kit.Compiler.Module
 import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedDecl
+import Kit.Compiler.TypedStmt
 import Kit.Compiler.Utils
 import Kit.Ir
 import Kit.NameMangling
 import Kit.Str
 
-generateDeclIr :: CompileContext -> Module -> TypedDecl -> IO [IrBundle]
+generateDeclIr :: CompileContext -> Module -> TypedStmt -> IO [IrBundle]
 generateDeclIr ctx mod t = do
   ictx <- newIrContext
   let converter' = converter (typedToIr ctx ictx mod)
                              (\pos -> findUnderlyingType ctx mod (Just pos))
   let paramConverter = \p -> converter'
-  case t of
-    DeclType def' -> do
+  case stmt t of
+    TypeDeclaration def' -> do
       let
         def =
           def' { typeName = monomorphName (typeName def') (typeMonomorph def') }
@@ -31,13 +31,13 @@ generateDeclIr ctx mod t = do
       debugLog ctx $ "generating IR for type " ++ (s_unpack $ showTypePath name)
       converted <- convertTypeDefinition paramConverter $ def { typeRules = [] }
       staticFields <- forM (typeStaticFields def)
-                           (\field -> generateDeclIr ctx mod $ DeclVar field)
+                           (\field -> generateDeclIr ctx mod $ varDecl field)
       staticMethods <- forM
         (typeStaticMethods def)
-        (\method -> generateDeclIr ctx mod $ DeclFunction method)
+        (\method -> generateDeclIr ctx mod $ functionDecl method)
       instanceMethods <- forM
         (typeMethods def)
-        (\method -> generateDeclIr ctx mod $ DeclFunction method)
+        (\method -> generateDeclIr ctx mod $ functionDecl method)
       subtype <- case typeSubtype converted of
         t@(Enum { enumVariants = variants }) -> do
           let newName n =
@@ -53,12 +53,12 @@ generateDeclIr ctx mod t = do
         $ [ foldr
               (\b acc -> mergeBundles acc b)
               (IrBundle (typeName def')
-                        [DeclType $ converted { typeSubtype = subtype }]
+                        [typeDecl $ converted { typeSubtype = subtype }]
               )
               (foldr (++) [] $ staticFields ++ staticMethods ++ instanceMethods)
           ]
 
-    DeclFunction f' -> do
+    FunctionDeclaration f' -> do
       let f = f'
             { functionName = monomorphName (functionName f')
                                            (functionMonomorph f')
@@ -91,7 +91,7 @@ generateDeclIr ctx mod t = do
         return
           $ [ IrBundle
                 name
-                ([ DeclFunction $ converted
+                ([ functionDecl $ converted
                      { functionName = name
                      , functionType = BasicTypeCInt
                      , functionBody = case body of
@@ -118,7 +118,7 @@ generateDeclIr ctx mod t = do
                   Just x -> x
                   _      -> tpShift name
                 )
-                [ DeclFunction $ converted
+                [ functionDecl $ converted
                     { functionType = if isMain
                       then BasicTypeCInt
                       else functionType converted
@@ -127,7 +127,7 @@ generateDeclIr ctx mod t = do
                 ]
             ]
 
-    DeclVar v@(VarDefinition { varName = name }) -> do
+    VarDeclaration v@(VarDefinition { varName = name }) -> do
       debugLog ctx $ "generating IR for var " ++ (s_unpack $ showTypePath name)
       converted <- convertVarDefinition converter' v
       return
@@ -136,12 +136,12 @@ generateDeclIr ctx mod t = do
                 Just x -> x
                 _      -> tpShift $ varName converted
               )
-              [DeclVar $ converted]
+              [varDecl converted]
           ]
 
-    DeclTrait (TraitDefinition { traitMethods = [], traitStaticFields = [], traitStaticMethods = [] })
+    TraitDeclaration (TraitDefinition { traitMethods = [], traitStaticFields = [], traitStaticMethods = [] })
       -> return []
-    DeclTrait trait' -> do
+    TraitDeclaration trait' -> do
       let trait = trait'
             { traitName  = monomorphName (traitName trait')
                                          (traitMonomorph trait')
@@ -204,11 +204,11 @@ generateDeclIr ctx mod t = do
           }
 
       return
-        $ [IrBundle (traitName trait') [DeclType $ traitBox, DeclType $ vtable]]
+        $ [IrBundle (traitName trait') [typeDecl traitBox, typeDecl vtable]]
 
-    DeclImpl (TraitImplementation { implMethods = [], implStaticFields = [], implStaticMethods = [] })
+    Implement (TraitImplementation { implMethods = [], implStaticFields = [], implStaticMethods = [] })
       -> return []
-    DeclImpl i'@(TraitImplementation { implTrait = TypeTraitConstraint (traitName, traitParams), implFor = ct })
+    Implement i'@(TraitImplementation { implTrait = TypeTraitConstraint (traitName, traitParams), implFor = ct })
       -> do
         tctx        <- modTypeContext ctx mod
         traitParams <- forM traitParams $ mapType (follow ctx tctx)
@@ -236,7 +236,7 @@ generateDeclIr ctx mod t = do
               )
               f'
           let name' = subPath (implName i) $ tpName $ functionName f
-          return (name', DeclFunction $ f { functionName = name' })
+          return (name', functionDecl $ f { functionName = name' })
         let
           impl = newVarDefinition
             { varName    = implName i
@@ -256,17 +256,23 @@ generateDeclIr ctx mod t = do
             }
         staticMethods <- forM
           (implStaticMethods i)
-          (\method -> generateDeclIr ctx mod $ DeclFunction method
+          (\method -> generateDeclIr ctx mod $ functionDecl $ method
             { functionName = subPath (implName i) $ tpName $ functionName method
             }
           )
 
         methodBundles <- forM (implMethods i)
-          $ \x -> generateDeclIr ctx mod $ DeclFunction x
+          $ \x -> generateDeclIr ctx mod $ functionDecl x
 
         return
-          [ foldr (\b acc -> mergeBundles acc b)
-                  (IrBundle traitName ((map snd methods) ++ [DeclVar $ impl]))
+          [ foldr
+                (\b acc -> mergeBundles acc b)
+                (IrBundle
+                  traitName
+                  (  (map snd methods)
+                  ++ [varDecl impl]
+                  )
+                )
               $ foldr (++) [] staticMethods
           ]
 

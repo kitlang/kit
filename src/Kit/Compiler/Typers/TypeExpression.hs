@@ -230,7 +230,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         _ -> throwk $ TypingError "Array literals must be typed as arrays" pos
       return $ makeExprTyped (ArrayLiteral items) (inferredType ex) pos
 
-    (VarDeclaration _ _ _ _) -> subTyper typeVarDeclaration
+    (LocalVarDeclaration _ _ _ _) -> subTyper typeVarDeclaration
 
     (StructInit _ _        ) -> subTyper typeStructInit
 

@@ -12,7 +12,7 @@ import Kit.Compiler.Module
 import Kit.Compiler.Passes.GenerateMonomorphs
 import Kit.Compiler.Passes.SpecializeTypes
 import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedDecl
+import Kit.Compiler.TypedStmt
 import Kit.Compiler.Typers
 import Kit.Compiler.Utils
 import Kit.Error
@@ -25,8 +25,8 @@ import Kit.Error
 -}
 typeContent
   :: CompileContext
-  -> [(Module, [TypedDeclWithContext])]
-  -> IO [(Module, TypedDecl)]
+  -> [(Module, [TypedStmtWithContext])]
+  -> IO [(Module, TypedStmt)]
 typeContent ctx modContent = do
   mapMWithErrors_ (typeModuleImplicits ctx) $ map fst modContent
   results <- typeIterative
@@ -49,17 +49,17 @@ typeModuleImplicits ctx mod = do
   writeIORef (modUsing mod) using
 
 data TypingStatus
-  = Complete (Module, TypedDecl)
-  | Incomplete Module TypedDeclWithContext (Maybe KitError)
+  = Complete (Module, TypedStmt)
+  | Incomplete Module TypedStmtWithContext (Maybe KitError)
 
 mono params mono = (null params) == (null mono)
 
 typeIterative
   :: CompileContext
-  -> [(Module, TypedDeclWithContext)]
-  -> [(Module, TypedDecl)]
+  -> [(Module, TypedStmtWithContext)]
+  -> [(Module, TypedStmt)]
   -> Int
-  -> IO [(Module, TypedDecl)]
+  -> IO [(Module, TypedStmt)]
 typeIterative ctx input output limit = do
   noisyDebugLog ctx
     $  "Beginning new typing pass; "
@@ -70,17 +70,17 @@ typeIterative ctx input output limit = do
           x <- x
           return (Just (mod, x), [])
     result <-
-      (try $ case d of
+      (try $ case stmt d of
           -- if there are type parameters in the definition, this is a
           -- template and not a monomorph, so skip it for now;
           -- generateMonomorphs will add all realized monomorphs to the
           -- input stack without parameters
-        DeclVar v -> singleResult $ typeVar ctx tctx mod v
-        DeclFunction f | mono (functionParams f) (functionMonomorph f) ->
+        VarDeclaration v -> singleResult $ typeVar ctx tctx mod v
+        FunctionDeclaration f | mono (functionParams f) (functionMonomorph f) ->
           singleResult $ typeFunction ctx tctx mod f
-        DeclType t | mono (typeParams t) (typeMonomorph t) -> do
-          DeclType x <- typeType ctx tctx mod t
-          x          <- followType ctx tctx x
+        TypeDeclaration t | mono (typeParams t) (typeMonomorph t) -> do
+          Statement { stmt = TypeDeclaration x } <- typeType ctx tctx mod t
+          x <- followType ctx tctx x
           -- split out methods/static fields into separate declarations
           let thisType     = TypeInstance (typeName x) (typeMonomorph t)
           let staticTctx   = tctx { tctxSelf = Just thisType }
@@ -90,12 +90,12 @@ typeIterative ctx input output limit = do
               then Nothing
               else Just
                 ( mod
-                , DeclType x { typeStaticFields  = []
-                             , typeStaticMethods = []
-                             , typeMethods       = []
-                             }
+                , ps (typePos x) $ TypeDeclaration $ x { typeStaticFields  = []
+                                                       , typeStaticMethods = []
+                                                       , typeMethods       = []
+                                                       }
                 )
-            , [ ( DeclVar $ v
+            , [ ( ps (varPos v) $ VarDeclaration $ v
                   { varName   = subPath (typeRealName t) $ tpName $ varName v
                   , varBundle = Just $ typeName x
                   }
@@ -103,7 +103,7 @@ typeIterative ctx input output limit = do
                 )
               | v <- typeStaticFields x
               ]
-            ++ [ ( DeclFunction $ f
+            ++ [ ( ps (functionPos f) $ FunctionDeclaration $ f
                    { functionName   = subPath (typeRealName t)
                      $ tpName
                      $ functionName f
@@ -113,7 +113,7 @@ typeIterative ctx input output limit = do
                  )
                | f <- typeStaticMethods x
                ]
-            ++ [ ( DeclFunction $ f
+            ++ [ ( ps (functionPos f) $ FunctionDeclaration $ f
                    { functionName   = subPath (typeRealName t)
                      $ tpName
                      $ functionName f
@@ -124,20 +124,20 @@ typeIterative ctx input output limit = do
                | f <- typeMethods x
                ]
             )
-        DeclTrait t | mono (traitAllParams t) (traitMonomorph t) -> do
-          DeclTrait x <- typeTrait ctx tctx mod t
-          return (Just (mod, DeclTrait $ x), [])
-        DeclImpl i -> do
+        TraitDeclaration t | mono (traitAllParams t) (traitMonomorph t) -> do
+          Statement { stmt = TraitDeclaration x } <- typeTrait ctx tctx mod t
+          return (Just (mod, ps (traitPos t) $ TraitDeclaration x), [])
+        Implement i -> do
           let thisType = implFor i
           let pos      = implPos i
           let tctx' =
                 tctx { tctxSelf = Just $ thisType, tctxThis = Just $ thisType }
-          DeclImpl x <- typeImpl ctx tctx' mod i
-          return (Just (mod, DeclImpl $ x), [])
-        DeclRuleSet rs -> return (Nothing, [])
-        _              -> return (Nothing, [])
+          Statement { stmt = Implement x } <- typeImpl ctx tctx' mod i
+          return (Just (mod, ps (implPos x) $ Implement x), [])
+        RuleSetDeclaration rs -> return (Nothing, [])
+        _                     -> return (Nothing, [])
       ) :: IO
-        (Either KitError (Maybe (Module, TypedDecl), [TypedDeclWithContext]))
+        (Either KitError (Maybe (Module, TypedStmt), [TypedStmtWithContext]))
     case result of
       Left e -> do
         noisyDebugLog ctx $ "typing failed"

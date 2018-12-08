@@ -25,7 +25,7 @@ data CompileContext = CompileContext {
   -- state
   ctxModules :: HashTable ModulePath Module,
   ctxFailedModules :: HashTable ModulePath (),
-  ctxPreludes :: HashTable ModulePath [Statement],
+  ctxPreludes :: HashTable ModulePath [SyntacticStatement],
   ctxIncludes :: IORef [FilePath],
   ctxLinkedLibs :: IORef [Str],
   ctxLastTypeVar :: IORef Int,

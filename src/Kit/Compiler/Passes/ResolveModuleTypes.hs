@@ -51,8 +51,8 @@ data ResolveTypesPass
 -}
 resolveModuleTypes
   :: CompileContext
-  -> [(Module, [(Declaration Expr (Maybe TypeSpec), Span)])]
-  -> IO [(Module, [TypedDeclWithContext])]
+  -> [(Module, [(SyntacticStatement, Span)])]
+  -> IO [(Module, [TypedStmtWithContext])]
 resolveModuleTypes ctx modContents = do
   extensions <- h_new
   results    <- foldM
@@ -125,8 +125,8 @@ resolveTypesForMod
   :: ResolveTypesPass
   -> CompileContext
   -> HashTable TypePath (IORef [DefStatement Expr (Maybe TypeSpec)])
-  -> (Module, [(Declaration Expr (Maybe TypeSpec), Span)])
-  -> IO (Module, [TypedDeclWithContext])
+  -> (Module, [(SyntacticStatement, Span)])
+  -> IO (Module, [TypedStmtWithContext])
 resolveTypesForMod pass ctx extensions (mod, contents) = do
   debugLog ctx $ show pass
 
@@ -135,8 +135,8 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
     then modTypeContext ctx mod
     else newTypeContext []
   forMWithErrors_ contents $ \(decl, pos) -> do
-    case decl of
-      DeclUsing u -> do
+    case stmt decl of
+      ModuleUsing u -> do
         addModUsing ctx tctx mod pos u
       _ -> return ()
 
@@ -155,11 +155,9 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
   converted <- forM
     contents
     (\(decl, pos) -> do
-      debugLog ctx
-        $  "resolving types for "
-        ++ (s_unpack $ showTypePath $ declName decl)
-      case (pass, decl) of
-        (ResolveImpls, DeclImpl (i@TraitImplementation { implFor = Just iFor, implTrait = Just trait }))
+      debugLog ctx $ "resolving types for " ++ (show $ stmt decl)
+      case (pass, stmt decl) of
+        (ResolveImpls, Implement (i@TraitImplementation { implFor = Just iFor, implTrait = Just trait }))
           -> do
             traitCt <- resolveType ctx tctx mod trait
             case traitCt of
@@ -220,7 +218,7 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
                     h_insert impls          ct                     impl
                     h_insert (ctxImpls ctx) (tpTrait, paramsTrait) impls
 
-                return $ Just $ (DeclImpl $ impl, tctx)
+                return $ Just $ (ps (implPos impl) $ Implement impl, tctx)
 
               _ -> throwk $ BasicError
                 (  "Couldn't resolve trait for trait implementation: "
@@ -228,7 +226,7 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
                 )
                 (Just $ implPos i)
 
-        (ResolveIdentifiers, DeclVar v) -> do
+        (ResolveIdentifiers, VarDeclaration v) -> do
           let extern = hasMeta "extern" (varMeta v)
           converted <- convertVarDefinition varConverter
             $ v { varName = addNamespace (modPath mod) (varName v) }
@@ -238,9 +236,9 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
                          (VarBinding converted)
                          (not extern)
                          False
-          return $ Just $ (DeclVar converted, tctx)
+          return $ Just $ (ps (varPos v) $ VarDeclaration converted, tctx)
 
-        (ResolveIdentifiers, DeclFunction f) -> do
+        (ResolveIdentifiers, FunctionDeclaration f) -> do
           let
             isMain =
               functionName f
@@ -257,9 +255,11 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
                          (FunctionBinding converted)
                          (not extern)
                          False
-          return $ Just $ (DeclFunction converted, tctx)
+          return
+            $ Just
+            $ (ps (functionPos f) $ FunctionDeclaration converted, tctx)
 
-        (ResolveExtensions, DeclExtend t stmts) -> do
+        (ResolveExtensions, ExtendDefinition t stmts) -> do
           let pos = case t of
                 Just t  -> position t
                 Nothing -> NoPos
@@ -280,7 +280,7 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
           modifyIORef ref (\x -> x ++ stmts)
           return Nothing
 
-        (ResolveTypes, DeclType t) -> do
+        (ResolveTypes, TypeDeclaration t) -> do
           extensions <- h_lookup extensions $ typeName t
           extensions <- case extensions of
             Just x  -> readIORef x
@@ -348,9 +348,11 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
             _ -> return ()
 
           addBinding ctx (typeName t) $ TypeBinding converted
-          return $ Just $ (DeclType converted, tctx')
+          return
+            $ Just
+            $ (ps (typePos converted) $ TypeDeclaration converted, tctx')
 
-        (ResolveTypes, DeclTrait t) -> do
+        (ResolveTypes, TraitDeclaration t) -> do
           extensions <- h_lookup extensions $ traitName t
           extensions <- case extensions of
             Just x  -> readIORef x
@@ -401,13 +403,15 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
                   (FunctionBinding method)
 
           addBinding ctx (traitName converted) $ TraitBinding converted
-          return $ Just $ (DeclTrait converted, tctx')
+          return
+            $ Just
+            $ (ps (traitPos converted) $ TraitDeclaration converted, tctx')
 
-        (ResolveTypedefs, DeclTypedef a b pos) -> do
-          addBinding ctx a $ TypedefBinding b (modPath mod) pos
+        (ResolveTypedefs, Typedef a b) -> do
+          addBinding ctx a $ TypedefBinding b (modPath mod) (stmtPos decl)
           return Nothing
 
-        (ResolveRules, DeclRuleSet r) -> do
+        (ResolveRules, RuleSetDeclaration r) -> do
           converted <- convertRuleSet varConverter r
           addBinding ctx (ruleSetName r) $ RuleSetBinding converted
           return Nothing

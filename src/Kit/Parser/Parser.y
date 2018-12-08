@@ -122,9 +122,9 @@ import Kit.Str
   char {(LiteralChar _, _)}
 %%
 
-Statements :: {[Statement]}
+Statements :: {[SyntacticStatement]}
   : Statements_ {reverse $1}
-Statements_ :: {[Statement]}
+Statements_ :: {[SyntacticStatement]}
   : {[]}
   | Statements_ Statement {$2 : $1}
   | Statements_ TypeDefinition DefinitionBody {
@@ -146,14 +146,14 @@ Statements_ :: {[Statement]}
   }
 
 
-Statement :: {Statement}
+Statement :: {SyntacticStatement}
   : import ModulePath ';' {ps (snd $1 <+> snd $3) $ Import (reverse $ fst $2) False}
   | import ModulePath ".*" ';' {ps (snd $1 <+> snd $3) $ Import (reverse $ fst $2) True}
   | include str "=>" str ';' {ps (snd $1 <+> snd $5) $ Include (B.unpack $ extract_lit $ fst $2) (Just $ extract_lit $ fst $4)}
   | include str ';' {ps (snd $1 <+> snd $3) $ Include (B.unpack $ extract_lit $ fst $2) Nothing}
   | using UsingClause ';' {ps (snd $1 <+> snd $3) $ ModuleUsing $ fst $2}
   | MetaMods typedef upper_identifier '=' TypeSpec ';' {
-    ps (fp [snd $1, snd $2, snd $6]) $ Typedef (extract_upper_identifier $3) (fst $5)
+    ps (fp [snd $1, snd $2, snd $6]) $ Typedef ([], extract_upper_identifier $3) (fst $5)
   }
   | MetaMods default TypeSpec as TypeSpec ';' {
     ps (fp [snd $1, snd $2, snd $6]) $ TraitDefault (fst $3) (fst $5)
@@ -165,7 +165,7 @@ Statement :: {Statement}
       ruleSetRules = $4
     }
   }
-  | VarDefinition {ps (varPos $1) $ ModuleVarDeclaration $ $1}
+  | VarDefinition {ps (varPos $1) $ VarDeclaration $ $1}
   | FunctionDefinition {ps (functionPos $1) $ FunctionDeclaration $1}
   | extend TypePath '{' DefStatements '}' {
       ps (snd $1 <+> snd $5) $ ExtendDefinition (Just $ TypeSpec (fst $2) [] (snd $2)) $4
@@ -265,7 +265,7 @@ AssocTypeDeclarations :: {[TypeParam (Maybe TypeSpec)]}
 
 TopLevelExpr :: {Expr}
   : StandaloneExpr {$1}
-  | ConstOrVar Identifier TypeAnnotation OptionalStandaloneDefault {pe (snd $1 <+> snd $4) $ VarDeclaration (fst $2) (fst $3) (fst $1) (fst $4)}
+  | ConstOrVar Identifier TypeAnnotation OptionalStandaloneDefault {pe (snd $1 <+> snd $4) $ LocalVarDeclaration (fst $2) (fst $3) (fst $1) (fst $4)}
   | return TopLevelExpr {pe (snd $1 <+> pos $2) $ Return $ Just $2}
   | return ';' {pe (snd $1) $ Return $ Nothing}
   -- | defer TopLevelExpr {pe (snd $1 <+> pos $2) $ Defer $ $2}
@@ -519,7 +519,7 @@ ArgSpec  :: {ArgSpec Expr (Maybe TypeSpec)}
     }
   }
 
-DefinitionBody :: {Maybe (Maybe TypeSpec -> Statement)}
+DefinitionBody :: {Maybe (Maybe TypeSpec -> SyntacticStatement)}
   : ';' {Nothing}
   | '{' DefStatements '}' {Just (\x -> ps (snd $1 <+> snd $3) $ ExtendDefinition x $ reverse $2)}
 

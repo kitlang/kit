@@ -24,10 +24,10 @@ import Kit.Str
 typeVarDeclaration :: SubTyper
 typeVarDeclaration (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _typeExpr = typeExpr, _maybeR = maybeR }) ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos })
   = case et of
-    (VarDeclaration s@(MacroVar vname _) a const b) -> do
+    (LocalVarDeclaration s@(MacroVar vname _) a const b) -> do
       case find (\(name, _) -> name == vname) (tctxMacroVars tctx) of
         Just (_, x@TypedExpr { tExpr = Identifier v@(Var vname) }) ->
-          r $ makeExprTyped (VarDeclaration v a const b) (inferredType ex) pos
+          r $ makeExprTyped (LocalVarDeclaration v a const b) (inferredType ex) pos
         x -> throwk $ InternalError
           (  "Macro var $"
           ++ s_unpack vname
@@ -36,7 +36,7 @@ typeVarDeclaration (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = re
           )
           (Just pos)
 
-    (VarDeclaration (Var vname) _ const init) -> do
+    (LocalVarDeclaration (Var vname) _ const init) -> do
       when (const && isNothing init) $ throwk $ TypingError
         ("const must have an initial value")
         pos
@@ -76,7 +76,7 @@ typeVarDeclaration (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = re
                 )
               )
           return $ makeExprTyped
-            (VarDeclaration (Var vname) (varType) const init')
+            (LocalVarDeclaration (Var vname) (varType) const init')
             varType
             pos
 

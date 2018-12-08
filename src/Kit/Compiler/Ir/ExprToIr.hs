@@ -87,7 +87,11 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
           temp@(IrTempInfo { irTempType = tempType, irTempExpr = tempDefault, irTempOrder = tempOrder }) <-
             h_get (ictxTempInfo ictx) i
           x <- typedToIr ctx ictx mod $ makeExprTyped
-            (VarDeclaration (Var ([], irTempName i)) tempType True tempDefault)
+            (LocalVarDeclaration (Var ([], irTempName i))
+                                 tempType
+                                 True
+                                 tempDefault
+            )
             tempType
             pos
           return $ (tempOrder * 2, x)
@@ -348,7 +352,7 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
                 ("unexpected array literal type: " ++ show f)
                 (Just pos)
         return $ IrCArrLiteral items' contentType
-      (VarDeclaration (Var name) ts const def) -> do
+      (LocalVarDeclaration (Var name) ts const def) -> do
         case (def, f) of
           (Just x, CArray _ _)
             | case x of
@@ -356,7 +360,7 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
               _                           -> True
             -> do
               a <- typedToIr ctx ictx mod $ makeExprTyped
-                (VarDeclaration (Var name) ts const Nothing)
+                (LocalVarDeclaration (Var name) ts const Nothing)
                 (inferredType e)
                 pos
               b <- typedToIr ctx ictx mod $ makeExprTyped
@@ -371,7 +375,7 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
           _ -> do
             def <- maybeR def
             return $ IrVarDeclaration (tpName name) f def
-      (VarDeclaration (MacroVar v _) _ _ _) -> do
+      (LocalVarDeclaration (MacroVar v _) _ _ _) -> do
         throwk $ BasicError
           ("unexpected macro var (" ++ (s_unpack v) ++ ") in typed AST")
           (Just pos)
@@ -468,7 +472,8 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
             pos
         return $ IrEmpty t'
       (VarArg x) -> do
-        return $ IrCall (IrIdentifier ([], "va_arg")) [IrIdentifier ([], x), IrType f]
+        return $ IrCall (IrIdentifier ([], "va_arg"))
+                        [IrIdentifier ([], x), IrType f]
       InlineCExpr s t -> return $ IrInlineC s
       t               -> do
         throwk $ InternalError

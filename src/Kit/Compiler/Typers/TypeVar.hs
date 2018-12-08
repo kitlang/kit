@@ -5,7 +5,7 @@ import Kit.Ast
 import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedDecl
+import Kit.Compiler.TypedStmt
 import Kit.Compiler.TypedExpr
 import Kit.Compiler.Typers.TypeExpression
 import Kit.Compiler.Unify
@@ -19,10 +19,10 @@ typeVar
   -> TypeContext
   -> Module
   -> VarDefinition TypedExpr ConcreteType
-  -> IO TypedDecl
+  -> IO TypedStmt
 typeVar ctx tctx mod def@(VarDefinition { varName = name }) = do
   typed <- typeVarDefinition ctx tctx mod def
-  return $ DeclVar typed
+  return $ ps (varPos def) $ VarDeclaration typed
 
 typeVarDefinition
   :: CompileContext

@@ -1,9 +1,7 @@
 module Kit.Ast.Statement where
 
-import Kit.Ast.Declaration
 import Kit.Ast.Definitions
 import Kit.Ast.DefStatement
-import Kit.Ast.Expr
 import Kit.Ast.ModulePath
 import Kit.Ast.TypePath
 import Kit.Ast.Types
@@ -11,12 +9,12 @@ import Kit.Ast.UsingType
 import Kit.Ast.Span
 import Kit.Str
 
-data Statement = Statement {stmt :: StatementType Expr (Maybe TypeSpec), stmtPos :: Span} deriving (Show)
-instance Eq Statement where
+data Statement a b = Statement {stmt :: StatementType a b, stmtPos :: Span} deriving (Show)
+instance (Eq a, Eq b) => Eq (Statement a b) where
   (==) a b = (stmt a) == (stmt b) && (stmtPos a == stmtPos b || stmtPos a == NoPos || stmtPos b == NoPos)
 
 data StatementType a b
-  = ModuleVarDeclaration (VarDefinition a b)
+  = VarDeclaration (VarDefinition a b)
   | FunctionDeclaration (FunctionDefinition a b)
   | TypeDeclaration (TypeDefinition a b)
   | TraitDeclaration (TraitDefinition a b)
@@ -24,18 +22,23 @@ data StatementType a b
   | Implement (TraitImplementation a b)
   | TraitDefault TypeSpec TypeSpec
   | RuleSetDeclaration (RuleSet a b)
-  | Typedef Str TypeSpec
+  | Typedef TypePath TypeSpec
   -- if the bool parameter is True, this is a wildcard import from a package
   | Import ModulePath Bool
   | Include FilePath (Maybe Str)
   | ModuleUsing (UsingType a b)
   | MacroDeclaration (FunctionDefinition a b)
   | MacroCall Str [a]
+  | TupleDeclaration b
   deriving (Eq, Show)
 
 makeStmt st = Statement {stmt = st, stmtPos = NoPos}
 
-ps :: Span -> StatementType Expr (Maybe TypeSpec) -> Statement
+ps :: (Eq a, Eq b) => Span -> StatementType a b -> Statement a b
 ps p st = Statement {stmt = st, stmtPos = p}
 
-type Decl = Declaration Expr (Maybe TypeSpec)
+varDecl v = ps (varPos v) $ VarDeclaration v
+functionDecl v = ps (functionPos v) $ FunctionDeclaration v
+typeDecl v = ps (typePos v) $ TypeDeclaration v
+traitDecl v = ps (traitPos v) $ TraitDeclaration v
+implDecl v = ps (implPos v) $ Implement v

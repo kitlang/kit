@@ -1,7 +1,6 @@
 module Kit.Ast.DefStatement where
 
 import Kit.Ast.Definitions
-import Kit.Ast.Expr
 import Kit.Ast.Modifier
 import Kit.Ast.TypePath
 import Kit.Ast.Types
