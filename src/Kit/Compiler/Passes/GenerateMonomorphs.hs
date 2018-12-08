@@ -17,14 +17,14 @@ import Kit.Error
 import Kit.HashTable
 import Kit.Parser
 
-generateMonomorphs :: CompileContext -> IO [(Module, TypedDeclWithContext)]
+generateMonomorphs :: CompileContext -> IO [(Module, TypedStmtWithContext)]
 generateMonomorphs ctx = do
   pendingGenerics <- readIORef (ctxPendingGenerics ctx)
   results <- forM (reverse pendingGenerics) $ \(tp@(modPath, name), params') ->
     do
-      mod        <- getMod ctx modPath
-      tctx       <- modTypeContext ctx mod
-      params     <- forM params' (mapType $ follow ctx tctx)
+      mod    <- getMod ctx modPath
+      tctx   <- modTypeContext ctx mod
+      params <- forM params' (mapType $ follow ctx tctx)
       let unresolved = map typeUnresolved params
       if or unresolved
         -- don't try to generate a monomorph if the params contain unresolved
@@ -52,14 +52,14 @@ generateMonomorphs ctx = do
                         [ (functionSubPath def $ paramName param, ct)
                         | (param, ct) <- zip (functionParams def) params
                         ]
-                  return
-                    $ Just
-                    $ Right
-                        ( mod
-                        , ( DeclFunction $ def { functionMonomorph = params }
-                          , monoTctx
-                          )
-                        )
+                  return $ Just $ Right
+                    ( mod
+                    , ( ps (functionPos def) $ FunctionDeclaration $ def
+                        { functionMonomorph = params
+                        }
+                      , monoTctx
+                      )
+                    )
 
                 TypeBinding def -> do
                   let thisType = TypeInstance (typeName def) params
@@ -70,18 +70,18 @@ generateMonomorphs ctx = do
                           | (param, ct) <- zip (typeParams def) params
                           ]
                         )
-                  return
-                    $ if hasMeta "builtin" (typeMeta def)
-                      then
-                        Nothing
-                      else
-                        Just
-                        $ Right
-                        $ ( mod
-                          , ( DeclType $ def { typeMonomorph = params }
-                            , monoTctx
-                            )
+                  return $ if hasMeta "builtin" (typeMeta def)
+                    then Nothing
+                    else
+                      Just
+                      $ Right
+                      $ ( mod
+                        , ( ps (typePos def) $ TypeDeclaration $ def
+                            { typeMonomorph = params
+                            }
+                          , monoTctx
                           )
+                        )
 
                 TraitBinding def -> do
                   let thisType = TypeBox (traitName def) params
@@ -90,14 +90,14 @@ generateMonomorphs ctx = do
                         [ (traitSubPath def $ paramName param, ct)
                         | (param, ct) <- zip (traitAllParams def) params
                         ]
-                  return
-                    $ Just
-                    $ Right
-                        ( mod
-                        , ( DeclTrait $ def { traitMonomorph = params }
-                          , monoTctx
-                          )
-                        )
+                  return $ Just $ Right
+                    ( mod
+                    , ( ps (traitPos def) $ TraitDeclaration $ def
+                        { traitMonomorph = params
+                        }
+                      , monoTctx
+                      )
+                    )
 
                 _ -> return Nothing
 

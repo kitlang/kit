@@ -27,8 +27,6 @@ instance Errable DuplicateGlobalNameError where
     ePutStrLn "\n#[extern] declarations and declarations from included C headers must have globally unique names."
   errPos (DuplicateGlobalNameError _ _ pos _) = Just pos
 
-type SyntacticDecl = Declaration Expr (Maybe TypeSpec)
-
 {-
   Starting from the compilation entry point ("main" module), recursively trace
   all imports and includes to discover the full set of modules and C modules
@@ -38,7 +36,8 @@ type SyntacticDecl = Declaration Expr (Maybe TypeSpec)
   interface which can be used in ResolveModuleTypes; we'll know e.g. that type
   X exists and is a struct, but not its fields or types, etc.
 -}
-buildModuleGraph :: CompileContext -> IO [(Module, [(SyntacticDecl, Span)])]
+buildModuleGraph
+  :: CompileContext -> IO [(Module, [(SyntacticStatement, Span)])]
 buildModuleGraph ctx = loadModule ctx (ctxMainModule ctx) Nothing
 
 {-
@@ -50,7 +49,7 @@ loadModule
   :: CompileContext
   -> ModulePath
   -> Maybe Span
-  -> IO [(Module, [(SyntacticDecl, Span)])]
+  -> IO [(Module, [(SyntacticStatement, Span)])]
 loadModule ctx mod pos = do
   existing <- h_lookup (ctxModules ctx) mod
   case existing of
@@ -114,7 +113,7 @@ loadModule ctx mod pos = do
   and appends the contents of any of these modules that exist in reverse
   order.
 -}
-_loadPreludes :: CompileContext -> ModulePath -> IO [Statement]
+_loadPreludes :: CompileContext -> ModulePath -> IO [SyntacticStatement]
 _loadPreludes ctx mod = do
   preludes <- _loadPrelude ctx mod
   if mod == []
@@ -124,7 +123,7 @@ _loadPreludes ctx mod = do
       return $ _parents ++ preludes
 
 -- Look for a single package prelude. Caches the result.
-_loadPrelude :: CompileContext -> ModulePath -> IO [Statement]
+_loadPrelude :: CompileContext -> ModulePath -> IO [SyntacticStatement]
 _loadPrelude ctx mod = do
   -- look for a possible prelude module for this package
   existing <- h_lookup (ctxPreludes ctx) mod
@@ -155,7 +154,7 @@ _loadModule
   :: CompileContext
   -> ModulePath
   -> Maybe Span
-  -> IO (Module, [(SyntacticDecl, Span)])
+  -> IO (Module, [(SyntacticStatement, Span)])
 _loadModule ctx mod pos = do
   (fp, exprs) <- parseModuleExprs ctx mod Nothing pos
   prelude     <- if last mod == "prelude"
@@ -189,7 +188,7 @@ addModuleTypes ctx tp = do
 _loadImportedModule
   :: CompileContext
   -> (ModulePath, Span)
-  -> IO (Either KitError [(Module, [(SyntacticDecl, Span)])])
+  -> IO (Either KitError [(Module, [(SyntacticStatement, Span)])])
 _loadImportedModule ctx (mod, pos) = try $ loadModule ctx mod (Just pos)
 
 parseModuleExprs
@@ -197,7 +196,7 @@ parseModuleExprs
   -> ModulePath
   -> Maybe FilePath
   -> Maybe Span
-  -> IO (FilePath, [Statement])
+  -> IO (FilePath, [SyntacticStatement])
 parseModuleExprs ctx mod fp pos = do
   path <- case fp of
     Just fp -> do
@@ -228,7 +227,10 @@ interfaceTypeConverter ctx mod pos typeParams (Just x) =
 interfaceTypeConverter ctx mod pos typeParams x = makeTypeVar ctx pos
 
 addStmtToModuleInterface
-  :: CompileContext -> Module -> Statement -> IO [(SyntacticDecl, Span)]
+  :: CompileContext
+  -> Module
+  -> SyntacticStatement
+  -> IO [(SyntacticStatement, Span)]
 addStmtToModuleInterface ctx mod s = do
   -- the expressions from these conversions shouldn't be used;
   -- we'll use the actual typed versions generated later
@@ -242,8 +244,8 @@ addStmtToModuleInterface ctx mod s = do
         (\pos t -> interfaceTypeConverter ctx mod pos params t)
   let interfaceConverter = interfaceParamConverter ([], "") []
   decls <- case stmt s of
-    Typedef name t -> do
-      return [DeclTypedef (modPath mod, name) t (stmtPos s)]
+    Typedef ([], name) t -> do
+      return [s { stmt = Typedef (modPath mod, name) t }]
 
     TypeDeclaration d -> do
       let extern = hasMeta "extern" (typeMeta d)
@@ -251,23 +253,23 @@ addStmtToModuleInterface ctx mod s = do
       let tp     = (if extern then [] else modPath mod, name)
       d <- return $ d { typeName = tp }
       h_insert (ctxTypes ctx) tp $ TypeBinding d
-      return [DeclType d]
+      return [s { stmt = TypeDeclaration d }]
 
     TraitDeclaration d -> do
       let name = tpName $ traitName d
       let tp   = (modPath mod, name)
       d <- return $ d { traitName = tp }
       h_insert (ctxTypes ctx) tp $ TraitBinding d
-      return [DeclTrait d]
+      return [s { stmt = TraitDeclaration d }]
 
-    ModuleVarDeclaration d -> do
+    VarDeclaration d -> do
       let extern = hasMeta "extern" (varMeta d)
       let name   = tpName $ varName d
       let tp     = (if extern then [] else modPath mod, name)
       converted <- convertVarDefinition interfaceConverter (d { varName = tp })
       when extern $ recordGlobalName name
       d <- return $ d { varName = tp }
-      return [DeclVar d]
+      return [s { stmt = VarDeclaration d }]
 
     FunctionDeclaration d@(FunctionDefinition { functionVararg = vararg }) ->
       do
@@ -279,14 +281,14 @@ addStmtToModuleInterface ctx mod s = do
         let tp     = (if extern then [] else modPath mod, name)
         when extern $ recordGlobalName name
         d <- return $ d { functionName = tp }
-        return [DeclFunction d]
+        return [s { stmt = FunctionDeclaration d }]
 
     RuleSetDeclaration r -> do
       let name = tpName $ ruleSetName r
       let tp   = (modPath mod, name)
       r <- return $ r { ruleSetName = tp }
       h_insert (ctxTypes ctx) tp $ RuleSetBinding r
-      return [DeclRuleSet r]
+      return [s { stmt = RuleSetDeclaration r }]
 
     TraitDefault a b -> do
       modifyIORef (modDefaults mod) (\l -> ((a, b), stmtPos s) : l)
@@ -302,15 +304,16 @@ addStmtToModuleInterface ctx mod s = do
                          )
                        )
           }
-      return [DeclImpl impl]
+      return [s { stmt = Implement impl }]
 
-    ModuleUsing using -> do
-      return [DeclUsing using]
+    ModuleUsing _ -> do
+      return [s]
 
-    ExtendDefinition t s -> do
-      return [DeclExtend t s]
+    ExtendDefinition _ _ -> do
+      return [s]
 
     _ -> return []
+
   return [ (decl, pos) | decl <- decls ]
  where
   pos = stmtPos s
@@ -322,7 +325,10 @@ addStmtToModuleInterface ctx mod s = do
       _ -> return ()
 
 findImports
-  :: CompileContext -> ModulePath -> [Statement] -> IO [(ModulePath, Span)]
+  :: CompileContext
+  -> ModulePath
+  -> [SyntacticStatement]
+  -> IO [(ModulePath, Span)]
 findImports ctx mod stmts = do
   r <- foldM
     (\acc e -> case e of
@@ -338,7 +344,7 @@ findImports ctx mod stmts = do
     stmts
   return $ reverse r
 
-findIncludes :: [Statement] -> [(FilePath, Span)]
+findIncludes :: [SyntacticStatement] -> [(FilePath, Span)]
 findIncludes stmts = foldr
   (\e acc -> case e of
     Statement { stmt = Include ip _, stmtPos = p } -> (ip, p) : acc
@@ -348,7 +354,7 @@ findIncludes stmts = foldr
   stmts
 
 
-findLibs :: [Statement] -> [Str]
+findLibs :: [SyntacticStatement] -> [Str]
 findLibs stmts = foldr
   (\e acc -> case e of
     Statement { stmt = Include _ (Just s), stmtPos = p } -> s : acc

@@ -6,7 +6,7 @@ import Kit.Ast
 import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedDecl
+import Kit.Compiler.TypedStmt
 import Kit.Compiler.TypedExpr
 import Kit.Compiler.Typers.TypeFunction
 import Kit.Compiler.Unify
@@ -22,7 +22,7 @@ typeImpl
   -> TypeContext
   -> Module
   -> TraitImplementation TypedExpr ConcreteType
-  -> IO TypedDecl
+  -> IO TypedStmt
 typeImpl ctx tctx' mod def = do
   (traitDef, params, tctx) <- case implTrait def of
     TypeTraitConstraint (tp, params) -> do
@@ -88,9 +88,10 @@ typeImpl ctx tctx' mod def = do
             )
           return methods
 
-  return $ DeclImpl $ def { implMethods       = methods
-                          , implStaticMethods = staticMethods
-                          }
+  return $ ps (implPos def) $ Implement $ def
+    { implMethods       = methods
+    , implStaticMethods = staticMethods
+    }
 
 findMethodByName
   :: [FunctionDefinition TypedExpr ConcreteType]

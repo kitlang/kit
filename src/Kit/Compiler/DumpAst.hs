@@ -6,22 +6,22 @@ import Data.Maybe
 import Kit.Ast
 import Kit.Compiler.Context
 import Kit.Compiler.Module
-import Kit.Compiler.TypedDecl
+import Kit.Compiler.TypedStmt
 import Kit.Compiler.TypedExpr
 import Kit.Parser
 import Kit.Str
 
-dumpModuleContent :: CompileContext -> Module -> [TypedDecl] -> IO ()
+dumpModuleContent :: CompileContext -> Module -> [TypedStmt] -> IO ()
 dumpModuleContent ctx mod defs = do
   putStrLn $ show mod
   forM_ defs (dumpModuleDecl ctx mod 0)
   putStrLn ""
 
-dumpModuleDecl :: CompileContext -> Module -> Int -> TypedDecl -> IO ()
+dumpModuleDecl :: CompileContext -> Module -> Int -> TypedStmt -> IO ()
 dumpModuleDecl ctx mod indent decl = do
   let i = take (indent * 2) (repeat ' ')
-  case decl of
-    DeclFunction f -> do
+  case stmt decl of
+    FunctionDeclaration f -> do
       putStr
         $  i
         ++ "  "
@@ -52,7 +52,7 @@ dumpModuleDecl ctx mod indent decl = do
         _ -> return ()
       putStrLn ""
 
-    DeclVar v -> do
+    VarDeclaration v -> do
       t <- dumpCt ctx (varType v)
       putStrLn
         $  i
@@ -67,25 +67,25 @@ dumpModuleDecl ctx mod indent decl = do
           putStrLn out
         _ -> return ()
 
-    DeclTrait t -> do
+    TraitDeclaration t -> do
       putStrLn $ i ++ "  trait " ++ (s_unpack $ showTypePath $ traitName t)
       forM_
         (traitMethods t)
-        (\method -> dumpModuleDecl ctx mod (indent + 1) (DeclFunction method))
+        (\method -> dumpModuleDecl ctx mod (indent + 1) (functionDecl method))
 
-    DeclImpl t -> do
+    Implement t -> do
       traitName <- dumpCt ctx $ implTrait t
       forName   <- dumpCt ctx $ implFor t
       putStrLn $ i ++ "  impl " ++ traitName ++ " for " ++ forName
       forM_
         (implMethods t)
-        (\method -> dumpModuleDecl ctx mod (indent + 1) (DeclFunction method))
+        (\method -> dumpModuleDecl ctx mod (indent + 1) (functionDecl method))
 
-    DeclType t -> do
+    TypeDeclaration t -> do
       putStrLn $ i ++ "  type " ++ (s_unpack $ showTypePath $ typeName t)
       forM_
         (typeStaticMethods t)
-        (\method -> dumpModuleDecl ctx mod (indent + 1) (DeclFunction method))
+        (\method -> dumpModuleDecl ctx mod (indent + 1) (functionDecl method))
       forM_
         (typeStaticFields t)
         (\v -> do
@@ -103,7 +103,7 @@ dumpModuleDecl ctx mod indent decl = do
         )
       forM_
         (typeMethods t)
-        (\method -> dumpModuleDecl ctx mod (indent + 1) (DeclFunction method))
+        (\method -> dumpModuleDecl ctx mod (indent + 1) (functionDecl method))
 
       -- TODO: instance methods
       case typeSubtype t of
@@ -213,7 +213,7 @@ dumpAst ctx indent e@(TypedExpr { tExpr = texpr, inferredType = t, tPos = pos })
       -- LexMacro Str [TokenClass]
       RangeLiteral a b -> i "_ ... _" [a, b]
       ArrayLiteral x   -> i "[]" x
-      VarDeclaration id _ const a ->
+      LocalVarDeclaration id _ const a ->
         i ((if const then "const " else "var ") ++ show id) (catMaybes [a])
       Using u x       -> i ("using " ++ show u) [x]
       TupleInit slots -> i "tuple" slots

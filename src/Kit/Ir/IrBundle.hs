@@ -1,9 +1,9 @@
 module Kit.Ir.IrBundle where
 
 import Kit.Ast
-import Kit.Ir.IrDecl
+import Kit.Ir.IrStmt
 
-data IrBundle = IrBundle TypePath [IrDecl]
+data IrBundle = IrBundle TypePath [IrStmt]
 
 bundleTp (IrBundle x _) = x
 bundleMembers (IrBundle _ x) = x

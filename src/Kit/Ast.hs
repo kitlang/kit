@@ -1,6 +1,5 @@
 module Kit.Ast (
   module Kit.Ast.BasicType,
-  module Kit.Ast.Declaration,
   module Kit.Ast.Definitions,
   module Kit.Ast.DefStatement,
   module Kit.Ast.Expr,
@@ -21,7 +20,6 @@ module Kit.Ast (
 ) where
 
 import Kit.Ast.BasicType
-import Kit.Ast.Declaration
 import Kit.Ast.Definitions
 import Kit.Ast.DefStatement
 import Kit.Ast.Expr

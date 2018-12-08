@@ -6,7 +6,7 @@ import Kit.Ast
 import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedDecl
+import Kit.Compiler.TypedStmt
 import Kit.Compiler.TypedExpr
 import Kit.Compiler.Typers.TypeFunction
 import Kit.Compiler.Utils
@@ -20,7 +20,7 @@ typeTrait
   -> TypeContext
   -> Module
   -> TraitDefinition TypedExpr ConcreteType
-  -> IO TypedDecl
+  -> IO TypedStmt
 typeTrait ctx tctx mod def = do
   debugLog ctx
     $  "typing trait "
@@ -40,7 +40,7 @@ typeTraitDefinition
   -> Module
   -> ConcreteType
   -> TraitDefinition TypedExpr ConcreteType
-  -> IO TypedDecl
+  -> IO TypedStmt
 typeTraitDefinition ctx tctx' mod selfType def = do
   let tctx = tctx' { tctxSelf = Just selfType, tctxThis = Just selfType }
   methods <- forM
@@ -49,4 +49,4 @@ typeTraitDefinition ctx tctx' mod selfType def = do
       typed <- typeFunctionDefinition ctx tctx mod method
       return typed
     )
-  return $ DeclTrait $ def { traitMethods = methods }
+  return $ ps (traitPos def) $ TraitDeclaration $ def { traitMethods = methods }

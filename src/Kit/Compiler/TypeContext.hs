@@ -8,7 +8,7 @@ import Kit.Compiler.Binding
 import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
-import Kit.Compiler.TypedDecl
+import Kit.Compiler.TypedStmt
 import Kit.Compiler.TypedExpr
 import Kit.Compiler.Utils
 import Kit.Error
@@ -21,7 +21,7 @@ instance Errable TypingError where
   logError e@(TypingError s _) = logErrorBasic (KitError e) s
   errPos (TypingError _ pos) = Just pos
 
-type TypedDeclWithContext = (TypedDecl, TypeContext)
+type TypedStmtWithContext = (TypedStmt, TypeContext)
 
 data TypeContext = TypeContext {
   tctxScopes :: [Scope TypedBinding],

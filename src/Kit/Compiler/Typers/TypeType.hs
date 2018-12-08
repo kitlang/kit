@@ -6,7 +6,7 @@ import Kit.Ast
 import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedDecl
+import Kit.Compiler.TypedStmt
 import Kit.Compiler.TypedExpr
 import Kit.Compiler.Typers.TypeExpression
 import Kit.Compiler.Unify
@@ -22,7 +22,7 @@ typeType
   -> TypeContext
   -> Module
   -> TypeDefinition TypedExpr ConcreteType
-  -> IO TypedDecl
+  -> IO TypedStmt
 typeType ctx tctx mod def = do
   debugLog ctx
     $  "typing type "
@@ -44,7 +44,7 @@ typeTypeDefinition
   -> Module
   -> ConcreteType
   -> TypeDefinition TypedExpr ConcreteType
-  -> IO TypedDecl
+  -> IO TypedStmt
 typeTypeDefinition ctx tctx mod selfType def@(TypeDefinition { typeName = name })
   = do
     let s = typeSubtype def
@@ -89,4 +89,4 @@ typeTypeDefinition ctx tctx mod selfType def@(TypeDefinition { typeName = name }
       --     variant
       --   return $ s { enumVariants = variants }
       _ -> return $ typeSubtype def
-    return $ DeclType $ def { typeSubtype = subtype }
+    return $ ps (typePos def) $ TypeDeclaration $ def { typeSubtype = subtype }

@@ -43,13 +43,13 @@ generateProjectHeader ctx ir = do
   hClose handle
   return ()
 
-sortHeaderDefs :: [IrDecl] -> IO [IrDecl]
+sortHeaderDefs :: [IrStmt] -> IO [IrStmt]
 sortHeaderDefs decls = do
   memos        <- h_newSized (length decls)
   dependencies <- h_newSized (length decls)
   -- memoize BasicType dependencies of type declarations
-  forM_ decls $ \decl -> case decl of
-    DeclType t -> case typeSubtype t of
+  forM_ decls $ \decl -> case stmt decl of
+    TypeDeclaration t -> case typeSubtype t of
       Struct { structFields = fields } ->
         h_insert dependencies (typeName t) (map varType fields)
       Union { unionFields = fields } ->
@@ -66,9 +66,9 @@ sortHeaderDefs decls = do
   return $ map snd $ sortBy (\(a, _) (b, _) -> if a > b then GT else LT)
                             (nub scored)
 
-declToBt :: IrDecl -> BasicType
-declToBt (DeclTuple t) = t
-declToBt (DeclType  t) = case typeBasicType t of
+declToBt :: IrStmt -> BasicType
+declToBt (Statement { stmt = TupleDeclaration t }) = t
+declToBt (Statement { stmt = TypeDeclaration t } ) = case typeBasicType t of
   Just x  -> x
   Nothing -> BasicTypeUnknown
 declToBt t = BasicTypeUnknown
@@ -109,10 +109,10 @@ btOrder dependencies memos t = do
 bundleDef :: Str -> String
 bundleDef s = "KIT_INCLUDE__" ++ s_unpack s
 
-generateHeaderForwardDecl :: IrDecl -> Maybe String
-generateHeaderForwardDecl decl = case decl of
-  DeclTuple t -> generateTypeForwardDecl t
-  DeclType  def@(TypeDefinition { typeName = name }) -> do
+generateHeaderForwardDecl :: IrStmt -> Maybe String
+generateHeaderForwardDecl decl = case stmt decl of
+  TupleDeclaration t -> generateTypeForwardDecl t
+  TypeDeclaration  def@(TypeDefinition { typeName = name }) -> do
     case typeBasicType def of
       -- ISO C forbids forward references to enum types
       Just t  -> generateTypeForwardDecl t
@@ -126,26 +126,28 @@ generateTypeForwardDecl t = case t of
   BasicTypeComplexEnum _ -> Nothing
   _ -> Just (render $ pretty $ CDeclExt $ cDecl t Nothing Nothing)
 
-generateHeaderDef :: IrDecl -> Maybe String
-generateHeaderDef decl = case decl of
-  DeclTuple (BasicTypeTuple name slots) ->
+generateHeaderDef :: IrStmt -> Maybe String
+generateHeaderDef decl = case stmt decl of
+  TupleDeclaration (BasicTypeTuple name slots) ->
     let decls = cTupleDecl name slots
     in  Just $ intercalate "\n" $ map (\d -> render $ pretty $ CDeclExt d) decls
 
-  DeclType def@(TypeDefinition{}) ->
+  TypeDeclaration def@(TypeDefinition{}) ->
     let decls = cTypeDecl def
     in  Just $ intercalate "\n" $ map (\d -> render $ pretty $ CDeclExt d) decls
 
-  DeclFunction def -> Just $ render $ pretty $ CDeclExt $ cfunDecl def
+  FunctionDeclaration def -> Just $ render $ pretty $ CDeclExt $ cfunDecl def
 
-  DeclVar def@(VarDefinition { varType = t }) ->
+  VarDeclaration def@(VarDefinition { varType = t }) ->
     Just $ render $ pretty $ CDeclExt $ cDecl t (Just $ varRealName def) Nothing
 
   _ -> Nothing
 
 functionBasicType :: FunctionDefinition a BasicType -> BasicType
 functionBasicType (FunctionDefinition { functionType = t, functionArgs = args, functionVararg = vararg })
-  = (BasicTypeFunction t (map (\arg -> (argName arg, argType arg)) args) (isJust vararg)
+  = (BasicTypeFunction t
+                       (map (\arg -> (argName arg, argType arg)) args)
+                       (isJust vararg)
     )
 
 typeBasicType :: TypeDefinition a BasicType -> Maybe BasicType

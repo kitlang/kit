@@ -399,7 +399,9 @@ spec = parallel $ do
 
     it "parses typedefs" $ do
       testParse "typedef MyType = OtherType;"
-        `shouldBe` [makeStmt $ Typedef "MyType" $ makeTypeSpec "OtherType"]
+        `shouldBe` [ makeStmt $ Typedef ([], "MyType") $ makeTypeSpec
+                       "OtherType"
+                   ]
       {-testParse "typedef MyType[A] = OtherType[B];" `shouldBe` [makeStmt $ TypeDeclaration $ TypeDefinition {
         typeName = "MyType",
         typeMeta = [],
@@ -450,7 +452,9 @@ spec = parallel $ do
                                                 , variantValue = Nothing
                                                 }
                                               , newEnumVariant
-                                                { variantName = (["MyEnum"], "Strawberry")
+                                                { variantName = ( ["MyEnum"]
+                                                                , "Strawberry"
+                                                                )
                                                 , variantParent = ([], "MyEnum")
                                                 , variantArgs = []
                                                 , variantMeta = []
@@ -479,7 +483,7 @@ spec = parallel $ do
                      , typeRules         = []
                      , typeParams        = []
                      , typeStaticFields  = [ newVarDefinition
-                                               { varName      = (["MyStruct"], "ghi")
+                                               { varName = (["MyStruct"], "ghi")
                                                , varMeta      = []
                                                , varModifiers = [Static]
                                                , varType      = Nothing
@@ -487,7 +491,9 @@ spec = parallel $ do
                                                }
                                            ]
                      , typeStaticMethods = [ newFunctionDefinition
-                                               { functionName      = (["MyStruct"], "jkl")
+                                               { functionName = ( ["MyStruct"]
+                                                                , "jkl"
+                                                                )
                                                , functionMeta      = []
                                                , functionModifiers = [Static]
                                                , functionParams    = []

@@ -7,7 +7,7 @@ import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedDecl
+import Kit.Compiler.TypedStmt
 import Kit.Compiler.TypedExpr
 import Kit.Compiler.Typers.TypeExpression
 import Kit.Compiler.Unify
@@ -33,7 +33,7 @@ typeFunction
   -> TypeContext
   -> Module
   -> FunctionDefinition TypedExpr ConcreteType
-  -> IO TypedDecl
+  -> IO TypedStmt
 typeFunction ctx tctx mod def = do
   debugLog ctx
     $  "typing function "
@@ -43,7 +43,7 @@ typeFunction ctx tctx mod def = do
          x  -> " monomorph " ++ show x
        )
   typed <- typeFunctionDefinition ctx tctx mod def
-  return $ DeclFunction typed
+  return $ ps (functionPos def) $ FunctionDeclaration typed
 
 typeFunctionDefinition
   :: CompileContext
