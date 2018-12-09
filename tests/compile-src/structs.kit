@@ -36,4 +36,10 @@ function main() {
 
     var s2 = struct MyStruct2 {a};
     var s3 = struct MyStruct3 {a: s2, b: a};
+
+    puts("MyStruct fields:");
+    for field in MyStruct.fields {
+        printf("- ");
+        puts(field);
+    }
 }

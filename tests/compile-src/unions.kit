@@ -12,4 +12,10 @@ function main() {
     printf("%hhi\n", a.a);
     a.b = "abcdefg";
     printf("%s\n", a.b);
+
+    puts("MyUnion fields:");
+    for field in MyUnion.fields {
+        printf("- ");
+        puts(field);
+    }
 }

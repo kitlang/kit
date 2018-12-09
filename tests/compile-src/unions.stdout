@@ -1,3 +1,6 @@
 hi
 100
 abcdefg
+MyUnion fields:
+- a
+- b

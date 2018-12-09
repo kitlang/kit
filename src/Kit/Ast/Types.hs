@@ -127,6 +127,8 @@ pattern TypeFloat :: Int -> ConcreteType
 pattern TypeFloat w = TypeInstance (["kit", "numeric"], "Float") [ConstantType (IntValue w)]
 pattern TypeVoid :: ConcreteType
 pattern TypeVoid = TypeBasicType BasicTypeVoid
+pattern TypeCString :: ConcreteType
+pattern TypeCString = TypeInstance (["kit", "common"], "CString") []
 
 isNumericType TypeChar = True
 isNumericType TypeSize = True
