@@ -333,7 +333,7 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
             True
             False
           case typeSubtype converted of
-            Enum { enumVariants = variants } ->
+            Enum { enumVariants = variants } -> do
               forMWithErrors_ variants $ \variant -> do
                 h_insert
                   (ctxBindings ctx)
@@ -345,6 +345,22 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
                                (EnumConstructor variant)
                                True
                                True
+                when (enumIsSimple $ typeSubtype converted) $ h_insert
+                  (ctxBindings ctx)
+                  (subPath (typeName converted) "variants")
+                  (ExprBinding $ makeExprTyped
+                    (ArrayLiteral
+                      [ makeExprTyped (Identifier $ Var $ variantName variant)
+                                      (TypeInstance (typeName converted) [])
+                                      (typePos converted)
+                      | variant <- variants
+                      ]
+                    )
+                    (TypeArray (TypeInstance (typeName converted) [])
+                               (length variants)
+                    )
+                    (typePos converted)
+                  )
             _ -> return ()
 
           addBinding ctx (typeName t) $ TypeBinding converted

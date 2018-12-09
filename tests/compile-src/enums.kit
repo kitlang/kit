@@ -72,4 +72,10 @@ function main() {
     e.print();
 
     var g = MyRedundantEnum.Apple;
+
+    puts("MySimpleEnum variants:");
+    for variant in MySimpleEnum.variants {
+        printf("- ");
+        variant.print();
+    }
 }
