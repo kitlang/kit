@@ -264,12 +264,18 @@ findImports
 findImports ctx mod stmts = do
   r <- foldM
     (\acc e -> case e of
-      Statement { stmt = Import mp False, stmtPos = p } ->
-  -- eliminate self imports (e.g. from prelude)
-        return $ if mod == mp then acc else (mp, p) : acc
-      Statement { stmt = Import mp True, stmtPos = p } -> do
-        results <- findPackageContents ctx mp
-        return $ [ (i, p) | i <- results ] ++ acc
+      Statement { stmt = Import mp importType, stmtPos = p } ->
+        case importType of
+          ImportSingle ->
+            -- eliminate self imports (e.g. from prelude)
+            return $ if mod == mp then acc else (mp, p) : acc
+          ImportWildcard -> do
+            results <- findPackageContents ctx mp
+            return $ [ (i, p) | i <- results ] ++ acc
+          ImportDoubleWildcard -> do
+            results  <- findPackageContents ctx mp
+            children <- forMWithErrors results $ findPackageContents ctx
+            return $ [ (i, p) | i <- results ++ foldr (++) [] children ] ++ acc
       _ -> return acc
     )
     []

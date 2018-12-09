@@ -36,6 +36,7 @@ tokens :-
   "->" { tok FunctionArrow }
   "?" { tok Question }
   ".*" { tok WildcardSuffix }
+  ".**" { tok DoubleWildcardSuffix }
 
   -- comments
   "/*" ([^\*]|\*[^\/]|\*\n|\n)* "*/";

@@ -9,6 +9,8 @@ import Kit.Ast.UsingType
 import Kit.Ast.Span
 import Kit.Str
 
+data ImportType = ImportSingle | ImportWildcard | ImportDoubleWildcard deriving (Eq, Show)
+
 data Statement a b = Statement {stmt :: StatementType a b, stmtPos :: Span} deriving (Show)
 instance (Eq a, Eq b) => Eq (Statement a b) where
   (==) a b = (stmt a) == (stmt b) && (stmtPos a == stmtPos b || stmtPos a == NoPos || stmtPos b == NoPos)
@@ -23,8 +25,7 @@ data StatementType a b
   | TraitDefault TypeSpec TypeSpec
   | RuleSetDeclaration (RuleSet a b)
   | Typedef TypePath TypeSpec
-  -- if the bool parameter is True, this is a wildcard import from a package
-  | Import ModulePath Bool
+  | Import ModulePath ImportType
   | Include FilePath (Maybe Str)
   | ModuleUsing (UsingType a b)
   | MacroDeclaration (FunctionDefinition a b)
