@@ -3,6 +3,7 @@
 module Kit.Ast.Definitions.VarDefinition where
 
 import Control.Monad
+import Data.Hashable
 import GHC.Generics
 import Kit.Ast.Definitions.Base
 import Kit.Ast.Metadata
@@ -25,6 +26,8 @@ data VarDefinition a b = VarDefinition {
 
 instance Positioned (VarDefinition a b) where
   position = varPos
+
+instance (Hashable a, Hashable b) => Hashable (VarDefinition a b)
 
 varRealName f =
   if hasMeta "extern" (varMeta f) then ([], tpName $ varName f) else varName f

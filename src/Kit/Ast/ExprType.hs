@@ -3,6 +3,7 @@
 
 module Kit.Ast.ExprType where
 
+import Data.Hashable
 import GHC.Generics
 import Kit.Ast.Definitions
 import Kit.Ast.Identifier
@@ -16,6 +17,8 @@ import Kit.Parser.Token
 import Kit.Str
 
 data MatchCase a = MatchCase {matchPattern :: a, matchBody :: a} deriving (Eq, Generic, Show)
+
+instance (Hashable a) => Hashable (MatchCase a)
 
 newMatchCase = MatchCase {matchPattern = undefined, matchBody = undefined}
 matchCase x y = MatchCase {matchPattern = x, matchBody = y}
@@ -92,6 +95,8 @@ data ExprType a b
   | Yield a
   | Tokens Str
   deriving (Eq, Generic, Show)
+
+instance (Hashable a, Hashable b) => Hashable (ExprType a b)
 
 exprDiscriminant :: ExprType a b -> Int
 exprDiscriminant et = case et of

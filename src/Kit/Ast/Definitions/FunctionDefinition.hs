@@ -3,6 +3,7 @@
 module Kit.Ast.Definitions.FunctionDefinition where
 
 import Control.Monad
+import Data.Hashable
 import GHC.Generics
 import Kit.Ast.Definitions.Base
 import Kit.Ast.Metadata
@@ -30,6 +31,8 @@ data FunctionDefinition a b = FunctionDefinition {
 
 instance Positioned (FunctionDefinition a b) where
   position = functionPos
+
+instance (Hashable a, Hashable b) => Hashable (FunctionDefinition a b)
 
 functionSubPath :: FunctionDefinition a b -> Str -> TypePath
 functionSubPath def s = if hasMeta "extern" (functionMeta def)
@@ -93,6 +96,8 @@ data ArgSpec a b = ArgSpec {
 
 instance Positioned (ArgSpec a b) where
   position = argPos
+
+instance (Hashable a, Hashable b) => Hashable (ArgSpec a b)
 
 instance (Eq a, Eq b) => Eq (ArgSpec a b) where
   (==) a b = (argName a == argName b) && (argType a == argType b) && (argDefault a == argDefault b)

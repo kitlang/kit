@@ -54,7 +54,7 @@ data CompileContext = CompileContext {
   ctxRun :: Bool,
   ctxResultHandler :: Maybe (String -> IO ()),
   ctxNameMangling :: Bool,
-  ctxMacro :: Maybe (FunctionDefinition Expr (Maybe TypeSpec), [Expr])
+  ctxMacro :: Maybe (FunctionDefinition Expr (Maybe TypeSpec), [(Int, [Expr])])
 }
 
 data CompileContextState = CompileContextState {

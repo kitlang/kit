@@ -31,7 +31,7 @@ buildModuleGraph :: CompileContext -> IO [(Module, [SyntacticStatement])]
 buildModuleGraph ctx = do
   results <- loadModule ctx (ctxMainModule ctx) Nothing
   case ctxMacro ctx of
-    Just (f, args) -> forM results $ \(mod, stmts) -> do
+    Just (f, argSets) -> forM results $ \(mod, stmts) -> do
       if modPath mod == ctxMainModule ctx
         then do
           return
@@ -41,13 +41,46 @@ buildModuleGraph ctx = do
                 { functionName = ([], "main")
                 , functionType = Nothing
                 , functionPos  = functionPos f
-                , functionBody = Just $ pe
-                  (functionPos f)
-                  (Call
-                    (pe (functionPos f) $ Identifier (Var $ functionName f))
-                    []
-                    args
-                  )
+                , functionArgs = [ newArgSpec
+                                   { argName = "argc"
+                                   , argType = Just $ makeTypeSpec "Int"
+                                   }
+                                 , newArgSpec
+                                   { argName = "argv"
+                                   , argType = Just $ PointerTypeSpec
+                                     (makeTypeSpec "CString")
+                                     NoPos
+                                   }
+                                 ]
+                , functionBody = let p = pe (functionPos f)
+                                 in
+                                   Just $ p $ Block
+                                     [ p $ Match
+                                         (p $ Call
+                                           (p $ Identifier (Var $ ([], "atoi")))
+                                           []
+                                           [ (p $ ArrayAccess
+                                               (p $ Identifier (Var $ ([], "argv")))
+                                               (p $ Literal (IntValue 1)
+                                                            (Just $ makeTypeSpec "Int")
+                                               )
+                                             )
+                                           ]
+                                         )
+                                         [ matchCase
+                                             (p $ Literal (IntValue index)
+                                                          (Just $ makeTypeSpec "Int")
+                                             )
+                                             (p
+                                               (Call (p $ Identifier (Var $ functionName f))
+                                                     []
+                                                     args
+                                               )
+                                             )
+                                         | (index, args) <- argSets
+                                         ]
+                                         Nothing
+                                     ]
                 }
               )
             : stmts

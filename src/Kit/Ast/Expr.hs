@@ -1,8 +1,11 @@
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Kit.Ast.Expr where
 
+import Data.Hashable
+import GHC.Generics
 import Kit.Ast.ExprType
 import Kit.Ast.Span
 import Kit.Ast.Statement
@@ -11,7 +14,8 @@ import Kit.Ast.Types
 type SyntacticStatement = Statement Expr (Maybe TypeSpec)
 type SyntacticExprType = ExprType Expr (Maybe TypeSpec)
 
-data Expr = Expr {expr :: SyntacticExprType, pos :: Span} deriving (Eq, Show)
+data Expr = Expr {expr :: SyntacticExprType, pos :: Span} deriving (Eq, Show, Generic)
+instance Hashable Expr
 ePos = pos
 
 e :: SyntacticExprType -> Expr

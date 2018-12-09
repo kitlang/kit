@@ -3,6 +3,7 @@
 module Kit.Ast.Definitions.TraitDefinition where
 
 import Control.Monad
+import Data.Hashable
 import GHC.Generics
 import Kit.Ast.Definitions.Base
 import Kit.Ast.Definitions.FunctionDefinition
@@ -30,6 +31,8 @@ data TraitDefinition a b = TraitDefinition {
   traitStaticFields :: [VarDefinition a b],
   traitStaticMethods :: [FunctionDefinition a b]
 } deriving (Eq, Generic, Show)
+
+instance (Hashable a, Hashable b) => Hashable (TraitDefinition a b)
 
 instance Positioned (TraitDefinition a b) where
   position = traitPos

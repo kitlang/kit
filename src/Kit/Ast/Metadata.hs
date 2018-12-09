@@ -2,6 +2,7 @@
 
 module Kit.Ast.Metadata where
 
+import Data.Hashable
 import GHC.Generics
 import Kit.Ast.Value
 import Kit.Str
@@ -12,6 +13,9 @@ data MetaArg
   = MetaIdentifier Str
   | MetaLiteral ValueLiteral
   deriving (Eq, Generic, Show)
+
+instance Hashable Metadata
+instance Hashable MetaArg
 
 meta s = Metadata {metaName = s, metaArgs = []}
 metaExtern = "extern" :: Str

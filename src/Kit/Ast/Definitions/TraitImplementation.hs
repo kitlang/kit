@@ -3,6 +3,7 @@
 module Kit.Ast.Definitions.TraitImplementation where
 
 import Control.Monad
+import Data.Hashable
 import GHC.Generics
 import Kit.Ast.Definitions.Base
 import Kit.Ast.Definitions.FunctionDefinition
@@ -25,6 +26,8 @@ data TraitImplementation a b = TraitImplementation {
   implStaticMethods :: [FunctionDefinition a b],
   implPos :: Span
 } deriving (Eq, Generic, Show)
+
+instance (Hashable a, Hashable b) => Hashable (TraitImplementation a b)
 
 instance Positioned (TraitImplementation a b) where
   position = implPos
