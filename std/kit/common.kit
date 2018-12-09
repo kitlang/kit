@@ -43,6 +43,18 @@
         strcpy(new, this);
         return new;
     }
+
+    public function startsWith(other: CString): Bool {
+        var len1 = this.length;
+        var len2 = other.length;
+        return len1 >= len2 && strncmp(this, other, len2) == 0;
+    }
+
+    public function endsWith(other: CString): Bool {
+        var len1 = this.length;
+        var len2 = other.length;
+        return len1 >= len2 && strcmp(&this[len1 - len2], other) == 0;
+    }
 }
 
 trait Enum {
