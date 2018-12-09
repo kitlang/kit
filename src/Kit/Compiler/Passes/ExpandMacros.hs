@@ -111,14 +111,19 @@ expandMacro ctx cc compile mod def args = do
   -- FIXME: should be able to reuse already parsed modules
   -- FIXME: optimization: only compile a macro once, and run with each combination of args
   macroState <- newCtxState
-  let macroCtx = ctx { ctxMainModule    = modPath mod
-                     , ctxMacro         = Just (def, args)
-                     , ctxRun           = True
-                     , ctxResultHandler = Just $ writeIORef result
-                     , ctxState         = macroState
-                     , ctxVerbose       = ctxVerbose ctx - 1
-                     , ctxBuildDir      = ctxBuildDir ctx </> "macro"
-                     }
+  let macroCtx = ctx
+        { ctxMainModule    = modPath mod
+        , ctxMacro         = Just (def, args)
+        , ctxRun           = True
+        , ctxResultHandler = Just $ writeIORef result
+        , ctxState         = macroState
+        , ctxVerbose       = ctxVerbose ctx - 1
+        , ctxBuildDir      = ctxBuildDir ctx
+          </>  "macro"
+          </>  (moduleFilePath $ modPath mod)
+          -<.> ""
+          </>  (s_unpack $ tpName $ functionName def)
+        }
   compile macroCtx cc
   result <- readIORef result
   debugLog ctx result
