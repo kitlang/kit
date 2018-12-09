@@ -14,6 +14,8 @@ import Kit.Log
 import Kit.Parser
 import Kit.Str
 
+printLogIf ctx s = when (ctxVerbose ctx >= 0) $ printLog s
+
 data ImportError = ImportError ModulePath [FilePath] (Maybe Span) deriving (Eq, Show)
 instance Errable ImportError where
   logError e@(ImportError mod searchPaths _) =

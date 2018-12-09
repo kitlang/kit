@@ -28,14 +28,13 @@ import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
 import Kit.Compiler.TypedExpr
 import Kit.Compiler.Unify
+import Kit.Compiler.Utils
 import Kit.Error
 import Kit.Log
 import Kit.Str
 
 tryCompile :: CompileContext -> CCompiler -> IO (Either KitError ())
 tryCompile context cc = try $ compile context cc
-
-printLogIf ctx s = when (ctxVerbose ctx >= 0) $ printLog s
 
 {-
   Run compilation to completion from the given CompileContext. Throws an
@@ -61,7 +60,7 @@ compile ctx cc = do
     Find and execute statement-level macros.
   -}
   printLogIf      ctx "expanding macros"
-  expandMacros    ctx cc
+  declarations <- expandMacros ctx cc compile declarations
 
   {-
     This step utilizes the module interfaces from buildModuleGraph to convert
@@ -70,7 +69,7 @@ compile ctx cc = do
     checked yet; we'll get typed AST with a lot of spurious type variables,
     which will be unified later.
   -}
-  printLogIf      ctx "resolving module types"
+  printLogIf ctx "resolving module types"
   resolved <- resolveModuleTypes ctx declarations
 
   compilerSanityChecks ctx

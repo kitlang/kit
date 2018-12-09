@@ -173,8 +173,8 @@ Statement :: {SyntacticStatement}
   | macro FunctionDefinitionBase {ps (snd $1 <+> functionPos $2) $ MacroDeclaration $ $2 {
     functionPos = functionPos $2 <+> snd $1
   }}
-  | identifier '(' CallArgs ')' ';' {
-    ps (snd $1 <+> snd $5) $ MacroCall (extract_identifier $1) $3
+  | TypePath '(' CallArgs ')' ';' {
+    ps (snd $1 <+> snd $5) $ MacroCall (fst $1) $ reverse $3
   }
 
 TypeDefinition :: {TypeDefinition Expr (Maybe TypeSpec)}
