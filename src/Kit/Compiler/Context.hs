@@ -21,28 +21,18 @@ import Kit.Log
 import Kit.NameMangling
 import Kit.Str
 
+data DuplicateGlobalNameError = DuplicateGlobalNameError ModulePath Str Span Span deriving (Eq, Show)
+instance Errable DuplicateGlobalNameError where
+  logError e@(DuplicateGlobalNameError mod name pos1 pos2) = do
+    logErrorBasic e $ "Duplicate declaration for global name `" ++ s_unpack name ++ "` in " ++ s_unpack (showModulePath mod) ++ "; \n\nFirst declaration:"
+    ePutStrLn "\nSecond declaration:"
+    displayFileSnippet pos2
+    ePutStrLn "\n#[extern] declarations and declarations from included C headers must have globally unique names."
+  errPos (DuplicateGlobalNameError _ _ pos _) = Just pos
+
 data CompileContext = CompileContext {
   -- state
-  ctxModules :: HashTable ModulePath Module,
-  ctxFailedModules :: HashTable ModulePath (),
-  ctxPreludes :: HashTable ModulePath [SyntacticStatement],
-  ctxIncludes :: IORef [FilePath],
-  ctxLinkedLibs :: IORef [Str],
-  ctxLastTypeVar :: IORef Int,
-  ctxLastTemplateVar :: IORef Int,
-  ctxTypeVariables :: HashTable Int TypeVarInfo,
-  ctxTemplateVariables :: HashTable Int (HashTable Str Int),
-  ctxTraitDefaults :: HashTable TypePath (ConcreteType, Span),
-  ctxImpls :: HashTable TraitConstraint (HashTable ConcreteType (TraitImplementation TypedExpr ConcreteType)),
-  -- ctxGenericImpls :: HashTable
-  ctxTypes :: HashTable TypePath SyntacticBinding,
-  ctxBindings :: HashTable TypePath TypedBinding,
-  ctxTypedefs :: HashTable Str ConcreteType,
-  ctxTuples :: IORef [(ModulePath, ConcreteType)],
-  ctxPendingGenerics :: IORef [(TypePath, [ConcreteType])],
-  ctxCompleteGenerics :: HashTable TypePath (HashTable [ConcreteType] ()),
-  ctxUnresolvedTypeVars :: IORef [Int],
-  ctxUnresolvedTemplateVars :: IORef [(Int, [ConcreteType], Span)],
+  ctxState :: CompileContextState,
 
   -- options
   ctxVerbose :: Int,
@@ -64,11 +54,60 @@ data CompileContext = CompileContext {
   ctxRun :: Bool,
   ctxResultHandler :: Maybe (String -> IO ()),
   ctxNameMangling :: Bool,
-  ctxMacro :: Bool
+  ctxMacro :: Maybe (FunctionDefinition Expr (Maybe TypeSpec), [Expr])
+}
+
+data CompileContextState = CompileContextState {
+  ctxStateModules :: HashTable ModulePath Module,
+  ctxStateFailedModules :: HashTable ModulePath (),
+  ctxStatePreludes :: HashTable ModulePath [SyntacticStatement],
+  ctxStateIncludes :: IORef [FilePath],
+  ctxStateLinkedLibs :: IORef [Str],
+  ctxStateLastTypeVar :: IORef Int,
+  ctxStateLastTemplateVar :: IORef Int,
+  ctxStateTypeVariables :: HashTable Int TypeVarInfo,
+  ctxStateTemplateVariables :: HashTable Int (HashTable Str Int),
+  ctxStateTraitDefaults :: HashTable TypePath (ConcreteType, Span),
+  ctxStateImpls :: HashTable TraitConstraint (HashTable ConcreteType (TraitImplementation TypedExpr ConcreteType)),
+  -- ctxStateGenericImpls :: HashTable
+  ctxStateTypes :: HashTable TypePath SyntacticBinding,
+  ctxStateBindings :: HashTable TypePath TypedBinding,
+  ctxStateTypedefs :: HashTable Str ConcreteType,
+  ctxStateTuples :: IORef [(ModulePath, ConcreteType)],
+  ctxStatePendingGenerics :: IORef [(TypePath, [ConcreteType])],
+  ctxStateCompleteGenerics :: HashTable TypePath (HashTable [ConcreteType] ()),
+  ctxStateUnresolvedTypeVars :: IORef [Int],
+  ctxStateUnresolvedTemplateVars :: IORef [(Int, [ConcreteType], Span)]
 }
 
 newCompileContext :: IO CompileContext
 newCompileContext = do
+  state <- newCtxState
+  return $ CompileContext
+    { ctxMainModule     = ["main"]
+    , ctxIsLibrary      = False
+    , ctxSourcePaths    = [("src", [])]
+    , ctxCompilerPath   = Nothing
+    , ctxIncludePaths   = []
+    , ctxBuildDir       = "build"
+    , ctxOutputPath     = "main"
+    , ctxDefines        = []
+    , ctxVerbose        = 0
+    , ctxCompilerFlags  = []
+    , ctxLinkerFlags    = []
+    , ctxNoCompile      = False
+    , ctxNoLink         = False
+    , ctxDumpAst        = False
+    , ctxNoCcache       = False
+    , ctxRecursionLimit = 64
+    , ctxRun            = False
+    , ctxResultHandler  = Nothing
+    , ctxNameMangling   = True
+    , ctxMacro          = Nothing
+    , ctxState          = state
+    }
+
+newCtxState = do
   mods               <- h_new
   failed             <- h_new
   preludes           <- h_new
@@ -89,47 +128,47 @@ newCompileContext = do
   completeGenerics   <- h_new
   unresolved         <- newIORef []
   unresolvedTemplate <- newIORef []
-  return $ CompileContext
-    { ctxMainModule             = ["main"]
-    , ctxIsLibrary              = False
-    , ctxSourcePaths            = [("src", [])]
-    , ctxCompilerPath           = Nothing
-    , ctxIncludePaths           = []
-    , ctxBuildDir               = "build"
-    , ctxOutputPath             = "main"
-    , ctxDefines                = []
-    , ctxModules                = mods
-    , ctxFailedModules          = failed
-    , ctxPreludes               = preludes
-    , ctxVerbose                = 0
-    , ctxIncludes               = includes
-    , ctxLinkedLibs             = linkedLibs
-    , ctxLastTypeVar            = lastTypeVar
-    , ctxLastTemplateVar        = lastTemplateVar
-    , ctxUnresolvedTypeVars     = unresolved
-    , ctxUnresolvedTemplateVars = unresolvedTemplate
-    , ctxTypeVariables          = typeVars
-    , ctxTemplateVariables      = templateVars
-    , ctxTraitDefaults          = defaults
-    , ctxImpls                  = impls
-    , ctxTypedefs               = typedefs
-    , ctxTuples                 = tuples
-    , ctxTypes                  = types
-    , ctxBindings               = bindings
-    , ctxPendingGenerics        = pendingGenerics
-    , ctxCompleteGenerics       = completeGenerics
-    , ctxCompilerFlags          = []
-    , ctxLinkerFlags            = []
-    , ctxNoCompile              = False
-    , ctxNoLink                 = False
-    , ctxDumpAst                = False
-    , ctxNoCcache               = False
-    , ctxRecursionLimit         = 64
-    , ctxRun                    = False
-    , ctxResultHandler          = Nothing
-    , ctxNameMangling           = True
-    , ctxMacro                  = False
+  return $ CompileContextState
+    { ctxStateIncludes               = includes
+    , ctxStateLinkedLibs             = linkedLibs
+    , ctxStateLastTypeVar            = lastTypeVar
+    , ctxStateLastTemplateVar        = lastTemplateVar
+    , ctxStateUnresolvedTypeVars     = unresolved
+    , ctxStateUnresolvedTemplateVars = unresolvedTemplate
+    , ctxStateTypeVariables          = typeVars
+    , ctxStateTemplateVariables      = templateVars
+    , ctxStateTraitDefaults          = defaults
+    , ctxStateImpls                  = impls
+    , ctxStateTypedefs               = typedefs
+    , ctxStateTuples                 = tuples
+    , ctxStateTypes                  = types
+    , ctxStateBindings               = bindings
+    , ctxStatePendingGenerics        = pendingGenerics
+    , ctxStateCompleteGenerics       = completeGenerics
+    , ctxStateModules                = mods
+    , ctxStateFailedModules          = failed
+    , ctxStatePreludes               = preludes
     }
+
+ctxModules = ctxStateModules . ctxState
+ctxFailedModules = ctxStateFailedModules . ctxState
+ctxPreludes = ctxStatePreludes . ctxState
+ctxIncludes = ctxStateIncludes . ctxState
+ctxLinkedLibs = ctxStateLinkedLibs . ctxState
+ctxLastTypeVar = ctxStateLastTypeVar . ctxState
+ctxLastTemplateVar = ctxStateLastTemplateVar . ctxState
+ctxTypeVariables = ctxStateTypeVariables . ctxState
+ctxTemplateVariables = ctxStateTemplateVariables . ctxState
+ctxTraitDefaults = ctxStateTraitDefaults . ctxState
+ctxImpls = ctxStateImpls . ctxState
+ctxTypes = ctxStateTypes . ctxState
+ctxBindings = ctxStateBindings . ctxState
+ctxTypedefs = ctxStateTypedefs . ctxState
+ctxTuples = ctxStateTuples . ctxState
+ctxPendingGenerics = ctxStatePendingGenerics . ctxState
+ctxCompleteGenerics = ctxStateCompleteGenerics . ctxState
+ctxUnresolvedTypeVars = ctxStateUnresolvedTypeVars . ctxState
+ctxUnresolvedTemplateVars = ctxStateUnresolvedTemplateVars . ctxState
 
 ctxSourceModules :: CompileContext -> IO [Module]
 ctxSourceModules ctx = do
@@ -449,3 +488,123 @@ getCtxLinkerFlags ctx = do
     -- FIXME
     Just s  -> ctxFlags ++ words s
     Nothing -> ctxFlags
+
+interfaceTypeConverter
+  :: CompileContext
+  -> Module
+  -> Span
+  -> [TypePath]
+  -> Maybe TypeSpec
+  -> IO ConcreteType
+interfaceTypeConverter ctx mod pos typeParams (Just (ConstantTypeSpec v _)) =
+  return $ ConstantType v
+interfaceTypeConverter ctx mod pos (h : t) x@(Just (TypeSpec tp [] _)) =
+  if h == tp || ((null $ fst tp) && tpName tp == tpName h)
+    then return $ TypeTypeParam h
+    else interfaceTypeConverter ctx mod pos t x
+interfaceTypeConverter ctx mod pos typeParams (Just x) =
+  return $ UnresolvedType x $ modPath mod
+interfaceTypeConverter ctx mod pos typeParams x = makeTypeVar ctx pos
+
+addStmtToModuleInterface
+  :: CompileContext -> Module -> SyntacticStatement -> IO [SyntacticStatement]
+addStmtToModuleInterface ctx mod s = do
+  -- the expressions from these conversions shouldn't be used;
+  -- we'll use the actual typed versions generated later
+  let interfaceParamConverter tp params = converter
+        (\e -> do
+          tv <- if null params
+            then makeTypeVar ctx (ePos e)
+            else makeTemplateVar ctx params (ePos e)
+          return $ makeExprTyped (This) tv (ePos e)
+        )
+        (\pos t -> interfaceTypeConverter ctx mod pos params t)
+  let interfaceConverter = interfaceParamConverter ([], "") []
+  decls <- case stmt s of
+    Typedef ([], name) t -> do
+      return [s { stmt = Typedef (modPath mod, name) t }]
+
+    TypeDeclaration d -> do
+      let extern = hasMeta "extern" (typeMeta d)
+      let name   = tpName $ typeName d
+      let tp     = (if extern then [] else modPath mod, name)
+      d <- return $ d { typeName = tp }
+      h_insert (ctxTypes ctx) tp $ TypeBinding d
+      return [s { stmt = TypeDeclaration d }]
+
+    TraitDeclaration d -> do
+      let name = tpName $ traitName d
+      let tp   = (modPath mod, name)
+      d <- return $ d { traitName = tp }
+      h_insert (ctxTypes ctx) tp $ TraitBinding d
+      return [s { stmt = TraitDeclaration d }]
+
+    VarDeclaration d -> do
+      let extern = hasMeta "extern" (varMeta d)
+      let name   = tpName $ varName d
+      let tp     = (if extern then [] else modPath mod, name)
+      converted <- convertVarDefinition interfaceConverter (d { varName = tp })
+      when extern $ recordGlobalName name
+      d <- return $ d { varName = tp }
+      return [s { stmt = VarDeclaration d }]
+
+    FunctionDeclaration d@(FunctionDefinition { functionVararg = vararg }) ->
+      let isMain =
+            functionName d == ([], "main") && (ctxMainModule ctx == modPath mod)
+      in  case (ctxMacro ctx, isMain) of
+            (Just _, True) -> -- filter out main for macros
+              return []
+            _ -> do
+              let extern = (hasMeta "extern" (functionMeta d)) || isMain
+              let name   = tpName $ functionName d
+              let tp     = (if extern then [] else modPath mod, name)
+              when extern $ recordGlobalName name
+              d <- return $ d { functionName = tp }
+              return [s { stmt = FunctionDeclaration d }]
+
+    RuleSetDeclaration r -> do
+      let name = tpName $ ruleSetName r
+      let tp   = (modPath mod, name)
+      r <- return $ r { ruleSetName = tp }
+      h_insert (ctxTypes ctx) tp $ RuleSetBinding r
+      return [s { stmt = RuleSetDeclaration r }]
+
+    TraitDefault a b -> do
+      modifyIORef (modDefaults mod) (\l -> ((a, b), stmtPos s) : l)
+      return []
+
+    Implement i -> do
+      let
+        impl = i
+          { implName = ( modPath mod
+                       , s_hash
+                         ( s_concat
+                         $ map (s_pack . show) [implTrait i, implFor i]
+                         )
+                       )
+          }
+      return [s { stmt = Implement impl }]
+
+    ModuleUsing _ -> do
+      return [s]
+
+    ExtendDefinition _ _ -> do
+      return [s]
+
+    MacroDeclaration _ -> do
+      return [s]
+    MacroCall _ _ -> do
+      return [s]
+
+    _ -> return []
+
+  return decls
+ where
+  recordGlobalName name = do
+    existing <- lookupBinding ctx ([], name)
+    case existing of
+      Just b -> throwk $ DuplicateGlobalNameError (modPath mod)
+                                                  name
+                                                  (bindingPos b)
+                                                  (stmtPos s)
+      _ -> return ()

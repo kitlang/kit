@@ -28,7 +28,7 @@ data StatementType a b
   | Include FilePath (Maybe Str)
   | ModuleUsing (UsingType a b)
   | MacroDeclaration (FunctionDefinition a b)
-  | MacroCall Str [a]
+  | MacroCall TypePath [a]
   | TupleDeclaration b
   deriving (Eq, Show)
 

@@ -153,7 +153,6 @@ main = do
   if optShowVersion opts
     then putStrLn $ "kitc v" ++ version
     else do
-      modules     <- h_new
       stdPath     <- findStd
       cc          <- getCompiler $ optCompilerPath opts
       baseContext <- newCompileContext
@@ -170,7 +169,6 @@ main = do
             , ctxDefines      = map
               (\s -> (takeWhile (/= '=') s, drop 1 $ dropWhile (/= '=') s))
               (optDefines opts)
-            , ctxModules      = modules
             , ctxVerbose      = if optQuiet opts then -1 else optVerbose opts
             , ctxNoCompile    = optNoCompile opts
             , ctxNoLink       = optNoLink opts

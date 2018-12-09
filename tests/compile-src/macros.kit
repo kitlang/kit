@@ -1,0 +1,43 @@
+macro generateStruct() {
+    puts("""
+struct GeneratedStruct {
+    public var a: Int;
+    public var b: Float;
+}
+""");
+}
+
+macro extendStruct(field: CString, type: CString) {
+    printf("""
+extend GeneratedStruct {
+    public var %s: %s;
+}
+""", field, type);
+}
+
+generateStruct();
+extendStruct("c", "Int");
+extendStruct("d", "CString");
+
+macro makeAFunction(name: CString) {
+    printf("""
+function %s() {
+    printf("hello from function %s!\\n");
+}
+""", name, name);
+}
+
+makeAFunction("helloWorld");
+
+function main() {
+    var x = struct GeneratedStruct {
+        a: 1,
+        b: 2.0,
+        c: 3,
+        d: "hi",
+    };
+
+    printf("%i %.1f %i %s\n", x.a, x.b, x.c, x.d);
+
+    helloWorld();
+}

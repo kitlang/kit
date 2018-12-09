@@ -51,7 +51,7 @@ typeTypeDefinition ctx tctx mod selfType def@(TypeDefinition { typeName = name }
     subtype <- case s of
       Struct { structFields = f } -> do
         when (null f) $ throwk $ TypingError
-          ("Can't declare a struct with no fields")
+          ("Can't declare struct " ++ s_unpack (showTypePath $ typeName def) ++ " with no fields")
           (typePos def)
         fields <- forM
           f

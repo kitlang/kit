@@ -15,6 +15,11 @@ extend A {
     }
 }
 
+struct StartsEmpty {}
+extend StartsEmpty {
+    public var nowItHasAField: Int;
+}
+
 function main() {
     var s = struct A {a: 1, b: 1, c: 1};
     printf("%i %i %i\n", s.a, s.b, s.c);

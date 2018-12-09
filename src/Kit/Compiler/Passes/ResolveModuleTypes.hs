@@ -51,7 +51,7 @@ data ResolveTypesPass
 -}
 resolveModuleTypes
   :: CompileContext
-  -> [(Module, [(SyntacticStatement, Span)])]
+  -> [(Module, [SyntacticStatement])]
   -> IO [(Module, [TypedStmtWithContext])]
 resolveModuleTypes ctx modContents = do
   extensions <- h_new
@@ -125,7 +125,7 @@ resolveTypesForMod
   :: ResolveTypesPass
   -> CompileContext
   -> HashTable TypePath (IORef [DefStatement Expr (Maybe TypeSpec)])
-  -> (Module, [(SyntacticStatement, Span)])
+  -> (Module, [SyntacticStatement])
   -> IO (Module, [TypedStmtWithContext])
 resolveTypesForMod pass ctx extensions (mod, contents) = do
   debugLog ctx $ show pass
@@ -134,10 +134,10 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
   tctx <- if pass > ResolveRules
     then modTypeContext ctx mod
     else newTypeContext []
-  forMWithErrors_ contents $ \(decl, pos) -> do
+  forMWithErrors_ contents $ \decl -> do
     case stmt decl of
       ModuleUsing u -> do
-        addModUsing ctx tctx mod pos u
+        addModUsing ctx tctx mod (stmtPos decl) u
       _ -> return ()
 
   when (pass == ResolveImpls) $ do
@@ -154,7 +154,7 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
 
   converted <- forM
     contents
-    (\(decl, pos) -> do
+    (\decl -> do
       debugLog ctx $ "resolving types for " ++ (show $ stmt decl)
       case (pass, stmt decl) of
         (ResolveImpls, Implement (i@TraitImplementation { implFor = Just iFor, implTrait = Just trait }))
