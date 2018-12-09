@@ -64,6 +64,7 @@ tests:
   unit-tests:
     main: Test.hs
     source-dirs: tests
+    ghc-options: -threaded
     build-tools:
     - alex
     - happy
@@ -76,3 +77,4 @@ tests:
     - pretty
     - process
     - QuickCheck
+    - temporary-rc
