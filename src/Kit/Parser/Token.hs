@@ -31,6 +31,7 @@ data TokenClass
   | Question
   | Underscore
   | WildcardSuffix
+  | DoubleWildcardSuffix
   | KeywordAbstract
   | KeywordAs
   | KeywordBreak
@@ -130,6 +131,7 @@ instance Show TokenClass where
     Question -> "?"
     Underscore -> "_"
     WildcardSuffix -> ".*"
+    DoubleWildcardSuffix -> ".**"
     KeywordAbstract -> "abstract"
     KeywordAs -> "as"
     KeywordBreak -> "break"

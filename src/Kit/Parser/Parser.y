@@ -38,6 +38,7 @@ import Kit.Str
   -- '?' {(Question,_)}
   '_' {(Underscore,_)}
   ".*" {(WildcardSuffix,_)}
+  ".**" {(DoubleWildcardSuffix,_)}
   abstract {(KeywordAbstract,_)}
   as {(KeywordAs,_)}
   break {(KeywordBreak,_)}
@@ -147,8 +148,9 @@ Statements_ :: {[SyntacticStatement]}
 
 
 Statement :: {SyntacticStatement}
-  : import ModulePath ';' {ps (snd $1 <+> snd $3) $ Import (reverse $ fst $2) False}
-  | import ModulePath ".*" ';' {ps (snd $1 <+> snd $3) $ Import (reverse $ fst $2) True}
+  : import ModulePath ';' {ps (snd $1 <+> snd $3) $ Import (reverse $ fst $2) ImportSingle}
+  | import ModulePath ".*" ';' {ps (snd $1 <+> snd $3) $ Import (reverse $ fst $2) ImportWildcard}
+  | import ModulePath ".**" ';' {ps (snd $1 <+> snd $3) $ Import (reverse $ fst $2) ImportDoubleWildcard}
   | include str "=>" str ';' {ps (snd $1 <+> snd $5) $ Include (B.unpack $ extract_lit $ fst $2) (Just $ extract_lit $ fst $4)}
   | include str ';' {ps (snd $1 <+> snd $3) $ Include (B.unpack $ extract_lit $ fst $2) Nothing}
   | using UsingClause ';' {ps (snd $1 <+> snd $3) $ ModuleUsing $ fst $2}
