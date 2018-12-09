@@ -37,7 +37,7 @@ script:
 - "clang --version"
 - stack build kitlang:kitc
 - stack exec kitc -- -h
-- TEST_RUNS=1 stack test
+- TEST_RUNS=1 stack test --test-arguments '+RTS -N -RTS'
 
 notifications:
   webhooks:

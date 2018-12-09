@@ -390,10 +390,11 @@ spec = parallel $ do
 
   describe "Parse toplevel statements" $ do
     it "parses imports" $ do
-      testParse "import a;" `shouldBe` [makeStmt $ Import ["a"] False]
-      testParse "import a.b.c.*; import d;"
-        `shouldBe` [ makeStmt $ Import ["a", "b", "c"] True
-                   , makeStmt $ Import ["d"] False
+      testParse "import a;" `shouldBe` [makeStmt $ Import ["a"] ImportSingle]
+      testParse "import a.b.c.*; import d; import e.f.**;"
+        `shouldBe` [ makeStmt $ Import ["a", "b", "c"] ImportWildcard
+                   , makeStmt $ Import ["d"] ImportSingle
+                   , makeStmt $ Import ["e", "f"] ImportDoubleWildcard
                    ]
 
 
@@ -549,10 +550,10 @@ spec = parallel $ do
   describe "Parses statement lists" $ do
     it "parses multiple statements" $ do
       testParse "import a; import b; import c; import d;"
-        `shouldBe` [ makeStmt $ Import ["a"] False
-                   , makeStmt $ Import ["b"] False
-                   , makeStmt $ Import ["c"] False
-                   , makeStmt $ Import ["d"] False
+        `shouldBe` [ makeStmt $ Import ["a"] ImportSingle
+                   , makeStmt $ Import ["b"] ImportSingle
+                   , makeStmt $ Import ["c"] ImportSingle
+                   , makeStmt $ Import ["d"] ImportSingle
                    ]
 
   describe "Parses trait declarations" $ do

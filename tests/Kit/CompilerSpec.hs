@@ -7,6 +7,7 @@ import System.Directory
 import System.Environment
 import System.FilePath
 import System.Process
+import System.IO.Temp
 import Test.Hspec
 import Test.QuickCheck
 import Kit.Compiler
@@ -33,28 +34,62 @@ sampleFiles = readDir "samples"
 
 spec :: Spec
 spec = parallel $ do
-  describe "Successful compile tests" $ do
+  describe ("Successful compile tests") $ do
     testRunsArg <- runIO $ lookupEnv "TEST_RUNS"
     let testRuns = case testRunsArg of
           Just x  -> read x
           Nothing -> 1
     paths <- runIO testFiles
-    forM_ (paths) $ \path -> do
+    forM_ paths $ \path -> do
       it path $ do
-        forM_ [1 .. testRuns] $ \_ -> do
-          ctx    <- newCompileContext
-          cc     <- getCompiler Nothing
-          output <- newIORef ""
+        output <- newIORef ""
+        withSystemTempDirectory "build.test." $ \tmpDir -> do
+          forM_ [1 .. testRuns] $ \_ -> do
+            ctx    <- newCompileContext
+            cc     <- getCompiler Nothing
+            result <- tryCompile
+              (ctx
+                { ctxSourcePaths   = [ (f, [])
+                                     | f <- [takeDirectory path, "std"]
+                                     ]
+                , ctxMainModule    = [s_pack $ takeFileName path -<.> ""]
+                , ctxCompilerFlags = ["-Werror"]
+                , ctxLinkerFlags   = ["-lm", "-Werror"]
+                , ctxBuildDir      = tmpDir
+                , ctxOutputPath    = tmpDir </> "test"
+                , ctxVerbose       = -1
+                , ctxRun           = True
+                , ctxResultHandler = Just $ writeIORef output
+                }
+              )
+              cc
+            (case result of
+                Left  err -> Just err
+                Right ()  -> Nothing
+              )
+              `shouldBe` Nothing
+          out               <- readIORef output
+          outTemplateExists <- doesFileExist (path -<.> "stdout")
+          when (outTemplateExists) $ do
+            outTemplate <- readFile (path -<.> "stdout")
+            out `shouldBe` outTemplate
+
+  describe "Build samples" $ do
+    paths <- runIO sampleFiles
+    forM_ paths $ \path -> do
+      it path $ do
+        ctx <- newCompileContext
+        cc  <- getCompiler Nothing
+        withSystemTempDirectory "build.sample." $ \tmpDir -> do
           result <- tryCompile
             (ctx
               { ctxSourcePaths = [ (f, []) | f <- [takeDirectory path, "std"] ]
               , ctxMainModule    = [s_pack $ takeFileName path -<.> ""]
               , ctxCompilerFlags = ["-Werror"]
               , ctxLinkerFlags   = ["-lm", "-Werror"]
-              , ctxOutputPath    = ("build" </> "test")
+              , ctxBuildDir      = tmpDir
+              , ctxOutputPath    = tmpDir </> "sample"
               , ctxVerbose       = -1
-              , ctxRun           = True
-              , ctxResultHandler = Just $ writeIORef output
               }
             )
             cc
@@ -63,34 +98,6 @@ spec = parallel $ do
               Right ()  -> Nothing
             )
             `shouldBe` Nothing
-          out               <- readIORef output
-          outTemplateExists <- doesFileExist (path -<.> "stdout")
-          when (outTemplateExists) $ do
-            outTemplate <- readFile (path -<.> "stdout")
-            out `shouldBe` outTemplate
-
-
-  describe "Build samples" $ do
-    paths <- runIO sampleFiles
-    forM_ (paths) $ \path -> do
-      it path $ do
-        ctx    <- newCompileContext
-        cc     <- getCompiler Nothing
-        result <- tryCompile
-          (ctx { ctxSourcePaths = [ (f, []) | f <- [takeDirectory path, "std"] ]
-               , ctxMainModule    = [s_pack $ takeFileName path -<.> ""]
-               , ctxCompilerFlags = ["-Werror"]
-               , ctxLinkerFlags   = ["-lm", "-Werror"]
-               , ctxOutputPath    = ("build" </> "test")
-               , ctxVerbose       = -1
-               }
-          )
-          cc
-        (case result of
-            Left  err -> Just err
-            Right ()  -> Nothing
-          )
-          `shouldBe` Nothing
 
   describe "Test decideModuleAndSourcePaths" $ do
     let testData =
