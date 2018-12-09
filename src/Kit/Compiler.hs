@@ -14,6 +14,7 @@ module Kit.Compiler (
 import Control.Exception
 import Control.Monad
 import Data.List
+import Data.Time
 import System.FilePath
 import System.Process
 import Kit.Ast
@@ -42,6 +43,8 @@ tryCompile context cc = try $ compile context cc
 -}
 compile :: CompileContext -> CCompiler -> IO ()
 compile ctx cc = do
+  startTime <- getCurrentTime
+
   {-
     Load the main module and all of its dependencies recursively. Also builds
     module interfaces, which declare the set of types that exist in a module
@@ -136,10 +139,14 @@ compile ctx cc = do
       printLogIf ctx "compiling"
       compileCode ctx cc generated
 
-  printLogIf ctx "finished"
+  endTime <- getCurrentTime
+  printLogIf ctx
+    $  "finished; total time: "
+    ++ (show $ diffUTCTime endTime startTime)
 
   when (ctxRun ctx) $ case binPath of
     Just x -> do
+      printLogIf ctx "running"
       case ctxResultHandler ctx of
         Just resultHandler -> do
           result <- readProcess x [] ""

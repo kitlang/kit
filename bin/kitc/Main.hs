@@ -134,7 +134,6 @@ p = prefs (showHelpOnError)
 
 main :: IO ()
 main = do
-  startTime <- getCurrentTime
   argv      <- getArgs
   let args = if length argv == 0 then ["--help"] else argv
 
@@ -179,17 +178,13 @@ main = do
             }
 
       result  <- tryCompile ctx cc
-      endTime <- getCurrentTime
       errors  <- case result of
         Left e -> do
           let errs = flattenErrors e
           mapM_ logError $ errs
           return $ length errs
         Right () -> return 0
-      when (ctxVerbose ctx >= 0)
-        $  printLog
-        $  "total time: "
-        ++ (show $ diffUTCTime endTime startTime)
+
       if errors == 0
         then return ()
         else do
