@@ -2,6 +2,7 @@ module Kit.CompilerSpec where
 
 import Control.Monad
 import Data.IORef
+import Data.List
 import System.Directory
 import System.Environment
 import System.FilePath
@@ -25,7 +26,7 @@ readDir d = do
         then readDir (d </> d2)
         else return (if isKitFile d2 then [(d </> d2)] else [])
       else return []
-  return $ concat files
+  return $ sort $ concat files
 
 testFiles = readDir "tests/compile-src"
 sampleFiles = readDir "samples"
