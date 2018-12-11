@@ -134,7 +134,7 @@ p = prefs (showHelpOnError)
 
 main :: IO ()
 main = do
-  argv      <- getArgs
+  argv <- getArgs
   let args = if length argv == 0 then ["--help"] else argv
 
   opts <- handleParseResult $ execParserPure
@@ -177,8 +177,8 @@ main = do
             , ctxNameMangling = not $ optNoMangle opts
             }
 
-      result  <- tryCompile ctx cc
-      errors  <- case result of
+      result <- tryCompile ctx cc
+      errors <- case result of
         Left e -> do
           let errs = flattenErrors e
           mapM_ logError $ errs
@@ -191,8 +191,7 @@ main = do
           errorLog $ "compilation failed (" ++ show errors ++ " errors)"
           exitWith $ ExitFailure 1
 
-parseSourcePath x =
-  let (path, modPathString) = case elemIndex ':' x of
-        Just i  -> let (a, b) = splitAt i x in (a, tail b)
-        Nothing -> (x, "")
-  in  (path, parseModulePath $ s_pack modPathString)
+parseSourcePath :: String -> (FilePath, ModulePath)
+parseSourcePath (':' : ':' : t) = ("", parseModulePath $ s_pack t)
+parseSourcePath (h         : t) = let (a, b) = parseSourcePath t in (h : a, b)
+parseSourcePath []              = ("", [])
