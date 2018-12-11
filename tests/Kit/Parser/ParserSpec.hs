@@ -505,45 +505,47 @@ spec = parallel $ do
                                                , functionVararg    = Nothing
                                                }
                                            ]
-                     , typeSubtype       = Struct
-                       { structFields = [ (newVarDefinition :: VarDefinition
-                                              Expr
-                                              (Maybe TypeSpec)
-                                          )
-                                          { varName      = ([], "abc")
-                                          , varMeta      = []
-                                          , varModifiers = []
-                                          , varType      = Nothing
-                                          , varDefault   = Nothing
-                                          }
-                                        , (newVarDefinition :: VarDefinition
-                                              Expr
-                                              (Maybe TypeSpec)
-                                          )
-                                          { varName      = ([], "def")
-                                          , varMeta      = []
-                                          , varModifiers = [Public]
-                                          , varType      = Nothing
-                                          , varDefault   = Nothing
-                                          }
-                                        , (newVarDefinition :: VarDefinition
-                                              Expr
-                                              (Maybe TypeSpec)
-                                          )
-                                          { varName      = ([], "ghi")
-                                          , varMeta      = [ Metadata
-                                                               { metaName = "meta"
-                                                               , metaArgs = []
-                                                               }
-                                                           ]
-                                          , varModifiers = []
-                                          , varType = Just (makeTypeSpec "Int")
-                                          , varDefault   = Just $ e $ Literal
+                     , typeSubtype       = StructUnion
+                       { structUnionFields = [ (newVarDefinition :: VarDefinition
+                                                   Expr
+                                                   (Maybe TypeSpec)
+                                               )
+                                               { varName      = ([], "abc")
+                                               , varMeta      = []
+                                               , varModifiers = []
+                                               , varType      = Nothing
+                                               , varDefault   = Nothing
+                                               }
+                                             , (newVarDefinition :: VarDefinition
+                                                   Expr
+                                                   (Maybe TypeSpec)
+                                               )
+                                               { varName      = ([], "def")
+                                               , varMeta      = []
+                                               , varModifiers = [Public]
+                                               , varType      = Nothing
+                                               , varDefault   = Nothing
+                                               }
+                                             , (newVarDefinition :: VarDefinition
+                                                   Expr
+                                                   (Maybe TypeSpec)
+                                               )
+                                               { varName      = ([], "ghi")
+                                               , varMeta      = [ Metadata
+                                                                    { metaName = "meta"
+                                                                    , metaArgs = []
+                                                                    }
+                                                                ]
+                                               , varModifiers = []
+                                               , varType      = Just
+                                                 (makeTypeSpec "Int")
+                                               , varDefault = Just $ e $ Literal
 
-                                            (IntValue 1)
-                                            Nothing
-                                          }
-                                        ]
+                                                 (IntValue 1)
+                                                 Nothing
+                                               }
+                                             ]
+                       , isStruct = True
                        }
                      }
 

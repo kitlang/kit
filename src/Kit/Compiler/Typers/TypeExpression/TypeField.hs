@@ -243,41 +243,25 @@ typeField (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _t
                               }
 
                       _ -> case subtype of
-                        Struct { structFields = fields } -> do
-                          result <- typeStructUnionFieldAccess ctx
-                                                               tctx'
-                                                               t
-                                                               fields
-                                                               r1
-                                                               fieldName
-                                                               pos
-                          case result of
-                            Just x -> return $ x { tIsLvalue = True }
-                            _      -> throwk $ TypingError
-                              (  "Struct "
-                              ++ s_unpack (showTypePath tp)
-                              ++ " doesn't have a field called `"
-                              ++ s_unpack fieldName
-                              ++ "`"
-                              )
-                              pos
-
-                        Union { unionFields = fields } -> do
-                          result <- typeStructUnionFieldAccess ctx
-                                                               tctx'
-                                                               t
-                                                               fields
-                                                               r1
-                                                               fieldName
-                                                               pos
-                          case result of
-                            Just x -> return $ x { tIsLvalue = True }
-                            _      -> throwk $ TypingError
-                              (  "Union doesn't have a field called `"
-                              ++ s_unpack fieldName
-                              ++ "`"
-                              )
-                              pos
+                        StructUnion { structUnionFields = fields, isStruct = isStruct }
+                          -> do
+                            result <- typeStructUnionFieldAccess ctx
+                                                                 tctx'
+                                                                 t
+                                                                 fields
+                                                                 r1
+                                                                 fieldName
+                                                                 pos
+                            case result of
+                              Just x -> return $ x { tIsLvalue = True }
+                              _      -> throwk $ TypingError
+                                (  (if isStruct then "Struct " else "Union ")
+                                ++ s_unpack (showTypePath tp)
+                                ++ " doesn't have a field called `"
+                                ++ s_unpack fieldName
+                                ++ "`"
+                                )
+                                pos
 
                         Abstract { abstractUnderlyingType = u } ->
                           -- forward to parent

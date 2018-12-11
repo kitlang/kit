@@ -136,10 +136,9 @@ _findUnderlyingType ctx mod pos stack t = do
       def <- followType ctx tctx templateDef
       let typeName = monomorphName (typeRealName templateDef) params
       case typeSubtype def of
-        Struct { structFields = fields } -> do
-          return $ BasicTypeStruct typeName
-        Union { unionFields = fields } -> do
-          return $ BasicTypeUnion typeName
+        StructUnion { structUnionFields = fields, isStruct = isStruct } -> do
+          return
+            $ (if isStruct then BasicTypeStruct else BasicTypeUnion) typeName
         enum@(Enum { enumVariants = variants }) -> do
           return $ if enumIsSimple enum
             then BasicTypeSimpleEnum typeName

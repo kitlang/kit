@@ -35,10 +35,12 @@ addTypeExtension (DefField v) t = if elem Static (varModifiers v)
       : typeStaticFields t
     }
   else case typeSubtype t of
-    Struct { structFields = fields } ->
-      t { typeSubtype = Struct {structFields = v : fields} }
-    Union { unionFields = fields } ->
-      t { typeSubtype = Union {unionFields = v : fields} }
+    StructUnion { structUnionFields = fields } -> t
+      { typeSubtype = StructUnion
+        { structUnionFields = v : fields
+        , isStruct          = isStruct $ typeSubtype t
+        }
+      }
     _ -> throwk $ BasicError
       "Non-static fields can only be added to a struct or union"
       (Just $ varPos v)

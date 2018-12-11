@@ -361,25 +361,7 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
                     )
                     (typePos converted)
                   )
-            Struct { structFields = fields } -> do
-              h_insert
-                (ctxBindings ctx)
-                (subPath (typeName converted) "fields")
-                (ExprBinding $ makeExprTyped
-                  (ArrayLiteral
-                    [ makeExprTyped
-                        (Literal (StringValue $ tpName $ varName field)
-                                 TypeCString
-                        )
-                        TypeCString
-                        (typePos converted)
-                    | field <- fields
-                    ]
-                  )
-                  (TypeArray TypeCString (length fields))
-                  (typePos converted)
-                )
-            Union { unionFields = fields } -> do
+            StructUnion { structUnionFields = fields } -> do
               h_insert
                 (ctxBindings ctx)
                 (subPath (typeName converted) "fields")

@@ -200,8 +200,9 @@ TypeDefinition :: {TypeDefinition Expr (Maybe TypeSpec)}
       typeModifiers = reverse $ mods $1,
       typeParams = fst $4,
       typePos = snd $2 <+> snd $3,
-      typeSubtype = Struct {
-        structFields = []
+      typeSubtype = StructUnion {
+        structUnionFields = [],
+        isStruct = True
       }
     }
   }
@@ -212,8 +213,9 @@ TypeDefinition :: {TypeDefinition Expr (Maybe TypeSpec)}
       typeModifiers = reverse $ mods $1,
       typeParams = fst $4,
       typePos = snd $2 <+> snd $3,
-      typeSubtype = Union {
-        unionFields = []
+      typeSubtype = StructUnion {
+        structUnionFields = [],
+        isStruct = False
       }
     }
   }

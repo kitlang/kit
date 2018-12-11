@@ -50,9 +50,7 @@ sortHeaderDefs decls = do
   -- memoize BasicType dependencies of type declarations
   forM_ decls $ \decl -> case stmt decl of
     TypeDeclaration t -> case typeSubtype t of
-      Struct { structFields = fields } ->
-        h_insert dependencies (typeName t) (map varType fields)
-      Union { unionFields = fields } ->
+      StructUnion { structUnionFields = fields } ->
         h_insert dependencies (typeName t) (map varType fields)
       Enum { enumVariants = variants } -> h_insert
         dependencies
@@ -153,8 +151,8 @@ functionBasicType (FunctionDefinition { functionType = t, functionArgs = args, f
 typeBasicType :: TypeDefinition a BasicType -> Maybe BasicType
 typeBasicType def@(TypeDefinition { typeName = name }) =
   case typeSubtype def of
-    Struct { structFields = fields } -> Just $ BasicTypeStruct name
-    Union { unionFields = fields }   -> Just $ BasicTypeUnion name
+    StructUnion { structUnionFields = fields, isStruct = isStruct } ->
+      Just $ (if isStruct then BasicTypeStruct else BasicTypeUnion) name
     Enum { enumVariants = variants } -> if all variantIsSimple variants
       then Just $ BasicTypeSimpleEnum name
       else Just $ BasicTypeComplexEnum name

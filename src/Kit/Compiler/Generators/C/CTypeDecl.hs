@@ -14,31 +14,18 @@ makeSUFields fields = [ cDecl t (Just n) Nothing | (n, t) <- fields ]
 
 cTypeDecl :: TypeDefinition IrExpr BasicType -> [CDecl]
 cTypeDecl t@(TypeDefinition { typeName = name }) = case typeSubtype t of
-  Struct { structFields = fields }
-    -> [ u $ CDecl
-           [ CTypeSpec $ u $ CSUType $ u $ CStruct
-               CStructTag
-               (Just $ cIdent $ mangleName name)
-               (Just $ makeSUFields
-                 [ (varName field, varType field) | field <- fields ]
-               )
-               []
-           ]
-           []
-       ]
-
-  Union { unionFields = fields }
-    -> [ u $ CDecl
-           [ CTypeSpec $ u $ CSUType $ u $ CStruct
-               CUnionTag
-               (Just $ cIdent $ mangleName name)
-               (Just $ makeSUFields
-                 [ (varName field, varType field) | field <- fields ]
-               )
-               []
-           ]
-           []
-       ]
+  StructUnion { structUnionFields = fields, isStruct = isStruct } ->
+    [ u $ CDecl
+        [ CTypeSpec $ u $ CSUType $ u $ CStruct
+            (if isStruct then CStructTag else CUnionTag)
+            (Just $ cIdent $ mangleName name)
+            (Just $ makeSUFields
+              [ (varName field, varType field) | field <- fields ]
+            )
+            []
+        ]
+        []
+    ]
 
   {- Simple enums (no variant has any fields) will generate a C enum. -}
   e@(Enum { enumVariants = variants }) | enumIsSimple e ->
@@ -77,11 +64,10 @@ cTypeDecl t@(TypeDefinition { typeName = name }) = case typeSubtype t of
             Nothing
             []
         ]
-        [ ( Just $ u $ CDeclr
-            (Just $ cIdent discriminantFieldName)
-            []
-            Nothing
-            []
+        [ ( Just $ u $ CDeclr (Just $ cIdent discriminantFieldName)
+                              []
+                              Nothing
+                              []
           , Nothing
           , Nothing
           )
@@ -92,11 +78,7 @@ cTypeDecl t@(TypeDefinition { typeName = name }) = case typeSubtype t of
                                                 (Just variantFields)
                                                 []
         ]
-        [ ( Just $ u $ CDeclr
-            (Just $ cIdent variantFieldName)
-            []
-            Nothing
-            []
+        [ ( Just $ u $ CDeclr (Just $ cIdent variantFieldName) [] Nothing []
           , Nothing
           , Nothing
           )
@@ -106,9 +88,7 @@ cTypeDecl t@(TypeDefinition { typeName = name }) = case typeSubtype t of
       [ u $ CDecl
           [ CTypeSpec $ u $ CSUType $ u $ CStruct
               CStructTag
-              (Just $ cIdent $ mangleName $ subPath
-                (variantName variant)
-                "data"
+              (Just $ cIdent $ mangleName $ subPath (variantName variant) "data"
               )
               Nothing
               []
@@ -131,12 +111,14 @@ cTypeDecl t@(TypeDefinition { typeName = name }) = case typeSubtype t of
         (cTypeDecl
           (newTypeDefinition
             { typeName    = subPath (variantName variant) "data"
-            , typeSubtype = Struct
-              { structFields = [ newVarDefinition { varName = ([], argName arg)
-                                                  , varType = argType arg
-                                                  }
-                               | arg <- (variantArgs variant)
-                               ]
+            , typeSubtype = StructUnion
+              { structUnionFields = [ newVarDefinition
+                                        { varName = ([], argName arg)
+                                        , varType = argType arg
+                                        }
+                                    | arg <- (variantArgs variant)
+                                    ]
+              , isStruct          = True
               }
             }
           )
@@ -154,11 +136,7 @@ enumDiscriminant name variantNames = u $ CDecl
         Just name -> Just $ cIdent name
         Nothing   -> Nothing
       )
-      (Just
-        [ (cIdent $ mangleName v, Nothing)
-        | v <- variantNames
-        ]
-      )
+      (Just [ (cIdent $ mangleName v, Nothing) | v <- variantNames ])
       []
   ]
   []

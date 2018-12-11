@@ -62,8 +62,8 @@ includeCHeader ctx cc mod path = do
 
 parseCHeader :: CompileContext -> CCompiler -> Module -> FilePath -> IO ()
 parseCHeader ctx cc mod path = do
-  flags       <- getCompileFlags ctx cc
-  flags       <- return $ (filter (\flag -> flag /= "-pedantic") $ flags) ++ ["-w"]
+  flags <- getCompileFlags ctx cc
+  flags <- return $ (filter (\flag -> flag /= "-pedantic") $ flags) ++ ["-w"]
   parseResult <- parseCFile (newGCC $ ccPath cc) Nothing flags path
   case parseResult of
     Left e -> throwk $ BasicError
@@ -310,9 +310,10 @@ defineNamedStructsEnumsUnions ctx mod pos (h : t) = do
             ((newTypeDefinition)
               { typeName    = ([], s_pack name)
               , typeMeta    = [meta metaExtern]
-              , typeSubtype = if tag == CStructTag
-                then Struct {structFields = fields}
-                else Union {unionFields = fields}
+              , typeSubtype = StructUnion
+                { structUnionFields = fields
+                , isStruct          = tag == CStructTag
+                }
               }
             )
       addBinding ctx ([], s_pack name) (TypeBinding typeDef)

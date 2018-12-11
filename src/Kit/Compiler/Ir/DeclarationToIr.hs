@@ -159,35 +159,37 @@ generateDeclIr ctx mod t = do
       let
         traitBox = newTypeDefinition
           { typeName    = boxName
-          , typeSubtype = Struct
-            { structFields = [ newVarDefinition
-                               { varName = ([], valuePointerName)
-                               , varType = CPtr BasicTypeVoid
-                               }
-                             , newVarDefinition
-                               { varName = ([], vtablePointerName)
-                               , varType = CPtr $ BasicTypeStruct vtableName
-                               }
-                             ]
+          , typeSubtype = StructUnion
+            { structUnionFields = [ newVarDefinition
+                                    { varName = ([], valuePointerName)
+                                    , varType = CPtr BasicTypeVoid
+                                    }
+                                  , newVarDefinition
+                                    { varName = ([], vtablePointerName)
+                                    , varType = CPtr
+                                      $ BasicTypeStruct vtableName
+                                    }
+                                  ]
+            , isStruct          = True
             }
           }
       let
         vtable = newTypeDefinition
           { typeName    = vtableName
-          , typeSubtype = Struct
-            { structFields = [ newVarDefinition
-                                 { varName = ([], tpName $ functionName f)
-                                 , varType = BasicTypeFunction
-                                   (functionType f)
-                                   ( (vThisArgName, CPtr BasicTypeVoid)
-                                   : [ (argName arg, argType arg)
-                                     | arg <- functionArgs f
-                                     ]
-                                   )
-                                   (isJust $ functionVararg f)
-                                 }
-                             | f <- traitMethods converted
-                             ]
+          , typeSubtype = StructUnion
+            { structUnionFields = [ newVarDefinition
+                                      { varName = ([], tpName $ functionName f)
+                                      , varType = BasicTypeFunction
+                                        (functionType f)
+                                        ( (vThisArgName, CPtr BasicTypeVoid)
+                                        : [ (argName arg, argType arg)
+                                          | arg <- functionArgs f
+                                          ]
+                                        )
+                                        (isJust $ functionVararg f)
+                                      }
+                                  | f <- traitMethods converted
+                                  ]
               ++ [ f { varName = ([], tpName $ varName f) }
                  | f <- traitStaticFields converted
                  ]
@@ -200,6 +202,7 @@ generateDeclIr ctx mod t = do
                      }
                  | f <- traitStaticMethods converted
                  ]
+            , isStruct          = True
             }
           }
 
@@ -265,14 +268,8 @@ generateDeclIr ctx mod t = do
           $ \x -> generateDeclIr ctx mod $ functionDecl x
 
         return
-          [ foldr
-                (\b acc -> mergeBundles acc b)
-                (IrBundle
-                  traitName
-                  (  (map snd methods)
-                  ++ [varDecl impl]
-                  )
-                )
+          [ foldr (\b acc -> mergeBundles acc b)
+                  (IrBundle traitName ((map snd methods) ++ [varDecl impl]))
               $ foldr (++) [] staticMethods
           ]
 

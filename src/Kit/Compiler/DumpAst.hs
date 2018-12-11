@@ -107,23 +107,7 @@ dumpModuleDecl ctx mod indent decl = do
 
       -- TODO: instance methods
       case typeSubtype t of
-        Struct { structFields = f } -> do
-          forM_
-            f
-            (\v -> do
-              t <- dumpCt ctx (varType v)
-              putStrLn
-                $  "    var "
-                ++ (s_unpack $ showTypePath $ varName v)
-                ++ ": "
-                ++ t
-              case varDefault v of
-                Just x -> do
-                  out <- dumpAst ctx 3 x
-                  putStrLn out
-                _ -> return ()
-            )
-        Union { unionFields = f } -> do
+        StructUnion { structUnionFields = f } -> do
           forM_
             f
             (\v -> do

@@ -170,16 +170,18 @@ spec = do
         $ typeDecl
         $ (newTypeDefinition :: TypeDefinition Expr (Maybe TypeSpec))
             { typeName    = ([], "Struct1")
-            , typeSubtype = Struct
-              { structFields = [ newVarDefinition
-                                 { varName = ([], "field1")
-                                 , varType = Just $ ConcreteType $ TypeChar
-                                 }
-                               , newVarDefinition
-                                 { varName = ([], "field2")
-                                 , varType = Just $ ConcreteType $ TypeUint 16
-                                 }
-                               ]
+            , typeSubtype = StructUnion
+              { structUnionFields = [ newVarDefinition
+                                      { varName = ([], "field1")
+                                      , varType = Just $ ConcreteType $ TypeChar
+                                      }
+                                    , newVarDefinition
+                                      { varName = ([], "field2")
+                                      , varType = Just $ ConcreteType $ TypeUint
+                                        16
+                                      }
+                                    ]
+              , isStruct          = True
               }
             }
         )
@@ -196,7 +198,10 @@ spec = do
         $ typeDecl
         $ (newTypeDefinition :: TypeDefinition Expr (Maybe TypeSpec))
             { typeName    = ([], "Struct3")
-            , typeSubtype = Struct {structFields = []}
+            , typeSubtype = StructUnion
+              { structUnionFields = []
+              , isStruct          = True
+              }
             }
         )
       , ( "Parses enum definitions"

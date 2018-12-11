@@ -37,70 +37,77 @@ typeStructInit (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolv
                 parent <- mapType (follow ctx tctx) parent
                 findStruct parent tctx
 
-            Struct { structFields = structFields } -> do
-              let providedNames = map fst fields
-              let fieldNames    = map (tpName . varName) structFields
-              let extraNames    = providedNames \\ fieldNames
-              -- TODO: check for duplicate fields
-              -- check for extra fields
-              unless (null extraNames) $ throwk $ TypingError
-                (  "Struct "
-                ++ s_unpack (showTypePath tp)
-                ++ " has the following extra fields:\n\n"
-                ++ intercalate
-                     "\n"
-                     [ "  - `" ++ s_unpack name ++ "`" | name <- extraNames ]
-                ++ "\n\nRemove these fields or correct any typos."
-                )
-                pos
-              let nonProvidedNames = fieldNames \\ providedNames
-              typedFields <- forMWithErrors
-                (structFields)
-                (\field -> do
-                  fieldType <- mapType (follow ctx tctx) $ varType field
-                  let
-                    provided =
-                      find (\(name, _) -> name == tpName (varName field)) fields
-                  case provided of
-                    Just (name, value) -> do
-                      value <- typeExpr ctx tctx mod value
-                      return $ Just ((name, value), fieldType)
-                    Nothing -> case varDefault field of
-                      Just fieldDefault -> do
-                        fieldDefault <- typeExpr ctx tctx mod fieldDefault
-                        return $ Just
-                          ((tpName $ varName field, fieldDefault), fieldType)
-                      Nothing -> case tctxState tctx of
-                        TypingPattern -> return Nothing
-                        _             -> throwk $ TypingError
-                          (  "Struct "
-                          ++ s_unpack (showTypePath tp)
-                          ++ " is missing field "
-                          ++ s_unpack (showTypePath $ varName field)
-                          ++ ", and no default value is provided."
-                          )
-                          pos
-                )
-              typedFields <- forMWithErrors
-                (catMaybes typedFields)
-                (\((name, expr), fieldType) -> do
-                  r1        <- r expr
-                  converted <- tryAutoRefDeref ctx tctx fieldType r1
-                  resolveConstraint ctx tctx $ TypeEq
-                    fieldType
-                    (inferredType converted)
-                    "Struct field values must match the declared struct field type"
-                    (tPos r1)
-                  return (name, converted)
-                )
-              structType <- mapType (follow ctx tctx) $ TypeInstance tp params
-              return $ (makeExprTyped (StructInit structType typedFields)
-                                      structType
-                                      pos
-                       )
-                { tIsLvalue = True
-                , tIsLocal  = True
-                }
+            StructUnion { structUnionFields = structUnionFields, isStruct = True }
+              -> do
+                let providedNames = map fst fields
+                let fieldNames    = map (tpName . varName) structUnionFields
+                let extraNames    = providedNames \\ fieldNames
+                -- TODO: check for duplicate fields
+                -- check for extra fields
+                unless (null extraNames) $ throwk $ TypingError
+                  (  "Struct "
+                  ++ s_unpack (showTypePath tp)
+                  ++ " has the following extra fields:\n\n"
+                  ++ intercalate
+                       "\n"
+                       [ "  - `" ++ s_unpack name ++ "`"
+                       | name <- extraNames
+                       ]
+                  ++ "\n\nRemove these fields or correct any typos."
+                  )
+                  pos
+                let nonProvidedNames = fieldNames \\ providedNames
+                typedFields <- forMWithErrors
+                  (structUnionFields)
+                  (\field -> do
+                    fieldType <- mapType (follow ctx tctx) $ varType field
+                    let
+                      provided = find
+                        (\(name, _) -> name == tpName (varName field))
+                        fields
+                    case provided of
+                      Just (name, value) -> do
+                        value <- typeExpr ctx tctx mod value
+                        return $ Just ((name, value), fieldType)
+                      Nothing -> case varDefault field of
+                        Just fieldDefault -> do
+                          fieldDefault <- typeExpr ctx tctx mod fieldDefault
+                          return
+                            $ Just
+                                ( (tpName $ varName field, fieldDefault)
+                                , fieldType
+                                )
+                        Nothing -> case tctxState tctx of
+                          TypingPattern -> return Nothing
+                          _             -> throwk $ TypingError
+                            (  "Struct "
+                            ++ s_unpack (showTypePath tp)
+                            ++ " is missing field "
+                            ++ s_unpack (showTypePath $ varName field)
+                            ++ ", and no default value is provided."
+                            )
+                            pos
+                  )
+                typedFields <- forMWithErrors
+                  (catMaybes typedFields)
+                  (\((name, expr), fieldType) -> do
+                    r1        <- r expr
+                    converted <- tryAutoRefDeref ctx tctx fieldType r1
+                    resolveConstraint ctx tctx $ TypeEq
+                      fieldType
+                      (inferredType converted)
+                      "Struct field values must match the declared struct field type"
+                      (tPos r1)
+                    return (name, converted)
+                  )
+                structType <- mapType (follow ctx tctx) $ TypeInstance tp params
+                return $ (makeExprTyped (StructInit structType typedFields)
+                                        structType
+                                        pos
+                         )
+                  { tIsLvalue = True
+                  , tIsLocal  = True
+                  }
 
             x -> throwk $ TypingError
               ("Type " ++ s_unpack (showTypePath tp) ++ " isn't a struct")
