@@ -540,7 +540,6 @@ spec = parallel $ do
                                                , varType      = Just
                                                  (makeTypeSpec "Int")
                                                , varDefault = Just $ e $ Literal
-
                                                  (IntValue 1)
                                                  Nothing
                                                }
