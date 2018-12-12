@@ -42,12 +42,11 @@ compileBundle ctx ccache cc args name = do
     return
     $  args
     ++ ["-I" ++ includeDir ctx, "-c", libPath ctx name, "-o", objPath ctx name]
-  when (ctxVerbose ctx >= 0) $ printLog $ "compiling " ++ s_unpack
-    (showTypePath name)
+  debugLog ctx $ "compiling " ++ s_unpack (showTypePath name)
   (ccPath, args) <- return $ case ccache of
     Just x  -> (x, ccPath cc : args)
     Nothing -> (ccPath cc, args)
-  when (ctxVerbose ctx >= 0) $ traceLog $ showCommandForUser ccPath args
+  debugLog ctx $ showCommandForUser ccPath args
   callProcess ccPath args
 
 link :: CompileContext -> CCompiler -> [String] -> [TypePath] -> IO FilePath
@@ -62,7 +61,7 @@ link ctx cc args names = do
              )
           ++ args
   when (ctxVerbose ctx >= 0) $ printLog $ "linking"
-  when (ctxVerbose ctx >= 0) $ traceLog $ showCommandForUser (ccPath cc) args'
+  debugLog ctx $ showCommandForUser (ccPath cc) args'
   callProcess (ccPath cc) args'
   binPath <- canonicalizePath outName
   return $ binPath

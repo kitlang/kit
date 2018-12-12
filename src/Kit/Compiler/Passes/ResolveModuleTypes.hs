@@ -155,7 +155,7 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
   converted <- forM
     contents
     (\decl -> do
-      debugLog ctx $ "resolving types for " ++ (show $ stmt decl)
+      noisyDebugLog ctx $ "resolving types for " ++ (show $ stmt decl)
       case (pass, stmt decl) of
         (ResolveImpls, Implement (i@TraitImplementation { implFor = Just iFor, implTrait = Just trait }))
           -> do
