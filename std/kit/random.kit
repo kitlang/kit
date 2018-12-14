@@ -1,7 +1,7 @@
 /**
  * Seed the random number generator used by `random` and `randomRange`.
  */
-public function seed(seed: Uint16) {
+public function seed(seed: Uint) {
     srand(seed);
 }
 
@@ -15,6 +15,6 @@ public function random(): Double {
 /**
  * Generates a random integer between min and max, inclusive.
  */
-public function randomRange(min, max) {
-    return min + (1 + max - min) * random();
+public function randomRange(min: Int, max: Int): Int {
+    return min + ((1 + max - min) * random() as Int);
 }
