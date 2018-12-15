@@ -11,10 +11,12 @@ import Kit.Str
 cfunDecl :: FunctionDefinition IrExpr BasicType -> CDecl
 cfunDecl f@(FunctionDefinition { functionName = name, functionType = rt, functionArgs = args, functionVararg = vararg })
   = u $ CDecl
-    typeSpec
+    ((specFromMeta $ functionMeta f) ++ typeSpec)
     [ ( Just $ u $ CDeclr
         (Just $ cIdent $ mangleName name)
-        ((u $ CFunDeclr (Right (map cfunArg args, isJust vararg)) []) : derivedDeclr)
+        ( (u $ CFunDeclr (Right (map cfunArg args, isJust vararg)) [])
+        : derivedDeclr
+        )
         Nothing
         (attributesFromMeta $ functionMeta f)
       , Nothing
@@ -26,10 +28,12 @@ cfunDecl f@(FunctionDefinition { functionName = name, functionType = rt, functio
 cfunDef :: FunctionDefinition IrExpr BasicType -> CFunDef
 cfunDef f@(FunctionDefinition { functionName = name, functionType = rt, functionArgs = args, functionVararg = vararg, functionBody = Just body })
   = u $ CFunDef
-    typeSpec
+    ((specFromMeta $ functionMeta f) ++ typeSpec)
     (u $ CDeclr
       (Just $ cIdent $ mangleName name)
-      ((u $ CFunDeclr (Right (map cfunArg args, isJust vararg)) []) : derivedDeclr)
+      ( (u $ CFunDeclr (Right (map cfunArg args, isJust vararg)) [])
+      : derivedDeclr
+      )
       Nothing
       []
     )
@@ -48,3 +52,9 @@ attributesFromMeta (h : t) = case metaName h of
     (u $ CAttr (internalIdent "noreturn") []) : attributesFromMeta t
   _ -> attributesFromMeta t
 attributesFromMeta [] = []
+
+specFromMeta :: [Metadata] -> [CDeclSpec]
+specFromMeta (h : t) = case metaName h of
+  "static" -> (CStorageSpec $ u $ CStatic) : specFromMeta t
+  _        -> specFromMeta t
+specFromMeta [] = []

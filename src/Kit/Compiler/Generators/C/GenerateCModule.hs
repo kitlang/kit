@@ -12,7 +12,6 @@ import Kit.Ast
 import Kit.Compiler.Context
 import Kit.Compiler.Generators.C.CExpr
 import Kit.Compiler.Generators.C.CFun
-import Kit.Compiler.Generators.C.GenerateCHeader
 import Kit.Compiler.Module
 import Kit.Compiler.Utils
 import Kit.Ir
@@ -67,7 +66,19 @@ generateDef ctx codeFile decl = do
   case stmt decl of
     FunctionDeclaration def@(FunctionDefinition { functionName = name, functionType = t, functionBody = Just body })
       -> do
-        hPutStrLn codeFile ("\n" ++ (render $ pretty $ cfunDef def))
+        body <- if name == ([], "main")
+          then do
+            let (IrBlock stmts) = body
+            return
+              $ IrBlock
+              $ (IrCall (IrIdentifier ([], "__kit_init")) [])
+              : stmts
+          else return body
+        hPutStrLn
+          codeFile
+          (  "\n"
+          ++ (render $ pretty $ cfunDef $ def { functionBody = Just body })
+          )
 
     VarDeclaration def@(VarDefinition { varName = name, varType = t, varDefault = val })
       -> do

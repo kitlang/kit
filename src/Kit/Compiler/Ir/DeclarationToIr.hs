@@ -136,7 +136,16 @@ generateDeclIr ctx mod t = do
                 Just x -> x
                 _      -> tpShift $ varName converted
               )
-              [varDecl converted]
+              (case varDefault converted of
+                Just x | not (isValidInitializer x) ->
+                  [ makeStmt $ StaticInit $ IrBinop
+                    Assign
+                    (IrIdentifier $ varName converted)
+                    x
+                  , varDecl $ converted { varDefault = Nothing }
+                  ]
+                _ -> [varDecl converted]
+              )
           ]
 
     TraitDeclaration (TraitDefinition { traitMethods = [], traitStaticFields = [], traitStaticMethods = [] })
