@@ -362,6 +362,10 @@ MetaArgs :: {[MetaArg]}
 Metadata :: {(Metadata, Span)}
   : "#[" identifier '(' MetaArgs ')' ']' {(Metadata {metaName = extract_identifier $2, metaArgs = reverse $4}, (snd $1) <+> (snd $6))}
   | "#[" identifier ']' {(Metadata {metaName = extract_identifier $2, metaArgs = []}, (snd $1) <+> (snd $3))}
+  | "#[" ReservedIdentifier ']' {(Metadata {metaName = $2, metaArgs = []}, (snd $1) <+> (snd $3))}
+
+ReservedIdentifier :: {Str}
+  : static {"static"}
 
 MetaMods :: {(([Metadata], [Modifier]), Span)}
   : {(([], []), NoPos)}

@@ -26,6 +26,7 @@ metaPromote = "promote" :: Str
 metaDemote = "demote" :: Str
 metaNoreturn = "noreturn" :: Str
 metaConst = "const" :: Str
+metaStatic = "static" :: Str
 
 hasMeta :: Str -> [Metadata] -> Bool
 hasMeta s []      = False

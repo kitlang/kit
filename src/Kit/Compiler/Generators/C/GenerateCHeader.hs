@@ -14,6 +14,7 @@ import Kit.Ast
 import Kit.Compiler.Generators.C.CExpr
 import Kit.Compiler.Generators.C.CFun
 import Kit.Compiler.Generators.C.CTypeDecl
+import Kit.Compiler.Generators.C.GenerateCModule
 import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.Utils
@@ -40,8 +41,17 @@ generateProjectHeader ctx ir = do
   sorted <- sortHeaderDefs flatDecls
   let defs = map generateHeaderDef sorted
   forM_ (catMaybes defs) $ hPutStrLn handle
+  generateDef ctx handle $ generateInit $ findInits flatDecls
   hClose handle
   return ()
+
+findInits :: [IrStmt] -> [IrExpr]
+findInits x = catMaybes $ map
+  (\s -> case stmt s of
+    StaticInit x -> Just x
+    _            -> Nothing
+  )
+  x
 
 sortHeaderDefs :: [IrStmt] -> IO [IrStmt]
 sortHeaderDefs decls = do
@@ -140,6 +150,14 @@ generateHeaderDef decl = case stmt decl of
     Just $ render $ pretty $ CDeclExt $ cDecl t (Just $ varRealName def) Nothing
 
   _ -> Nothing
+
+generateInit :: [IrExpr] -> IrStmt
+generateInit inits = makeStmt $ FunctionDeclaration $ newFunctionDefinition
+  { functionName = ([], "__kit_init")
+  , functionType = BasicTypeVoid
+  , functionBody = Just $ IrBlock inits
+  , functionMeta = [meta metaStatic]
+  }
 
 functionBasicType :: FunctionDefinition a BasicType -> BasicType
 functionBasicType (FunctionDefinition { functionType = t, functionArgs = args, functionVararg = vararg })

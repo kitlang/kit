@@ -39,3 +39,12 @@ data IrExpr
   deriving (Eq, Show, Generic)
 
 instance Hashable IrExpr
+
+isValidInitializer (IrLiteral _ _    ) = True
+isValidInitializer (IrIdentifier _   ) = True
+isValidInitializer (IrCArrLiteral x _) = all isValidInitializer x
+isValidInitializer (IrCast        x _) = isValidInitializer x
+isValidInitializer (IrStructInit _ fields) =
+  all isValidInitializer $ map snd fields
+isValidInitializer (IrPreUnop Ref x) = isValidInitializer x
+isValidInitializer _                 = False

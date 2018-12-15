@@ -31,6 +31,7 @@ data StatementType a b
   | MacroDeclaration (FunctionDefinition a b)
   | MacroCall TypePath [a]
   | TupleDeclaration b
+  | StaticInit a
   deriving (Eq, Show)
 
 makeStmt st = Statement {stmt = st, stmtPos = NoPos}
