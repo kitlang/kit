@@ -67,9 +67,8 @@ convertFunctionDefinition
 convertFunctionDefinition paramConverter f = do
   let params =
         [ functionSubPath f $ paramName param | param <- functionParams f ]
-  let
-    converter@(Converter { exprConverter = exprConverter, typeConverter = typeConverter })
-      = paramConverter params
+  converter@(Converter { exprConverter = exprConverter, typeConverter = typeConverter }) <-
+    paramConverter params
   rt     <- typeConverter (functionPos f) (functionType f)
   args   <- forM (functionArgs f) (convertArgSpec converter)
   body   <- maybeConvert exprConverter (functionBody f)

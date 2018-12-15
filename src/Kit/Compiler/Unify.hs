@@ -44,13 +44,15 @@ getAbstractParents ctx tctx t = do
       case typeSubtype def of
         Abstract { abstractUnderlyingType = TypeVoid } -> return []
         Abstract { abstractUnderlyingType = t' }       -> do
-          let tctx' = addTypeParams
-                tctx
-                [ (typeSubPath def $ paramName param, value)
-                | (param, value) <- zip (typeParams def) params
-                ]
-          t       <- mapType (follow ctx tctx') t'
-          parents <- getAbstractParents ctx tctx' t
+          tctx <- addTypeParams
+            ctx
+            tctx
+            [ (typeSubPath def $ paramName param, value)
+            | (param, value) <- zip (typeParams def) params
+            ]
+            (typePos def)
+          t       <- mapType (follow ctx tctx) t'
+          parents <- getAbstractParents ctx tctx t
           return $ t : parents
         _ -> return []
     _ -> return []

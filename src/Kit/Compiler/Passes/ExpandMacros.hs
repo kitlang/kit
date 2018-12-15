@@ -191,14 +191,13 @@ findMacro
 findMacro ctx mod macros name pos = do
   result <- case name of
     ([], s) -> do
-      imports <- getModImports ctx mod
       foldM
         (\acc modPath -> case acc of
           Just _  -> return acc
           Nothing -> h_lookup macros (modPath, s)
         )
         Nothing
-        imports
+        (modImportPaths mod)
     (m, s) -> h_lookup macros name
   case result of
     Just x  -> return x

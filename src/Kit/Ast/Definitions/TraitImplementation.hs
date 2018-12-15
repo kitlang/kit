@@ -60,12 +60,12 @@ convertTraitImplementation converter@(Converter { exprConverter = exprConverter,
     for        <- typeConverter (implPos i) (implFor i)
     assocTypes <- forM (implAssocTypes i) $ typeConverter (implPos i)
     methods    <- forM (implMethods i)
-                       (\f -> convertFunctionDefinition (\p -> converter) f)
+                       (\f -> convertFunctionDefinition (\p -> return converter) f)
     staticFields <- forM (implStaticFields i)
                          (\f -> convertVarDefinition converter f)
     staticMethods <- forM
       (implStaticMethods i)
-      (\f -> convertFunctionDefinition (\p -> converter) f)
+      (\f -> convertFunctionDefinition (\p -> return converter) f)
     params <- forM (implParams i) $ convertTypeParam converter
     return $ (newTraitImplementation) { implName          = implName i
                                       , implTrait         = trait

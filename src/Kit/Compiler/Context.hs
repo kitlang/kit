@@ -206,10 +206,10 @@ getMod ctx mod = do
       Nothing
 
 makeTypeVar :: CompileContext -> Span -> IO ConcreteType
-makeTypeVar ctx NoPos = throwk $ InternalError
-  -- type vars from nowhere are impossible to debug, so disallow them
-  ("Attempt to make type variable with no position data")
-  Nothing
+-- makeTypeVar ctx NoPos = throwk $ InternalError
+--   -- type vars from nowhere are impossible to debug, so disallow them
+--   ("Attempt to make type variable with no position data")
+--   Nothing
 makeTypeVar ctx pos = do
   last <- readIORef (ctxLastTypeVar ctx)
   let next = last + 1
@@ -273,19 +273,13 @@ resolveVar ctx scopes mod s = do
   case local of
     Just _  -> return local
     Nothing -> do
-      imports <- getModImports ctx mod
       foldM
         (\acc v -> case acc of
           Just _  -> return acc
           Nothing -> lookupBinding ctx (v, s)
         )
         Nothing
-        imports
-
-getModImports :: CompileContext -> Module -> IO [ModulePath]
-getModImports ctx mod = do
-  let imports = map fst $ modImports mod
-  return $ (modPath mod) : (imports ++ [[]])
+        (modImportPaths mod)
 
 makeGeneric
   :: CompileContext

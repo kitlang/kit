@@ -47,11 +47,12 @@ generateMonomorphs ctx = do
               binding <- getBinding ctx tp
               case binding of
                 FunctionBinding def -> do
-                  let monoTctx = addTypeParams
-                        tctx
-                        [ (functionSubPath def $ paramName param, ct)
-                        | (param, ct) <- zip (functionParams def) params
-                        ]
+                  monoTctx <- addTypeParams
+                    ctx
+                    tctx
+                    [ (functionSubPath def $ paramName param, ct)
+                    | (param, ct) <- zip (functionParams def) params
+                    ] (functionPos def)
                   return $ Just $ Right
                     ( mod
                     , ( ps (functionPos def) $ FunctionDeclaration $ def
@@ -63,13 +64,12 @@ generateMonomorphs ctx = do
 
                 TypeBinding def -> do
                   let thisType = TypeInstance (typeName def) params
-                  let monoTctx =
-                        (addTypeParams
-                          tctx
-                          [ (typeSubPath def $ paramName param, ct)
-                          | (param, ct) <- zip (typeParams def) params
-                          ]
-                        )
+                  monoTctx <- addTypeParams
+                    ctx
+                    tctx
+                    [ (typeSubPath def $ paramName param, ct)
+                    | (param, ct) <- zip (typeParams def) params
+                    ] (typePos def)
                   return $ if hasMeta "builtin" (typeMeta def)
                     then Nothing
                     else
@@ -85,11 +85,12 @@ generateMonomorphs ctx = do
 
                 TraitBinding def -> do
                   let thisType = TypeBox (traitName def) params
-                  let monoTctx = addTypeParams
-                        tctx
-                        [ (traitSubPath def $ paramName param, ct)
-                        | (param, ct) <- zip (traitAllParams def) params
-                        ]
+                  monoTctx <- addTypeParams
+                    ctx
+                    tctx
+                    [ (traitSubPath def $ paramName param, ct)
+                    | (param, ct) <- zip (traitAllParams def) params
+                    ] (traitPos def)
                   return $ Just $ Right
                     ( mod
                     , ( ps (traitPos def) $ TraitDeclaration $ def

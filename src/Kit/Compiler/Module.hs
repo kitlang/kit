@@ -70,3 +70,6 @@ modImplicits mod = do
         _               -> Nothing
     | u <- usings
     ]
+
+modImportPaths :: Module -> [ModulePath]
+modImportPaths mod = (modPath mod) : ((map fst $ modImports mod) ++ [[]])

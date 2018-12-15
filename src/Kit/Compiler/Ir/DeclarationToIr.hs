@@ -20,7 +20,7 @@ generateDeclIr ctx mod t = do
   ictx <- newIrContext
   let converter' = converter (typedToIr ctx ictx mod)
                              (\pos -> findUnderlyingType ctx mod (Just pos))
-  let paramConverter = \p -> converter'
+  let paramConverter = \p -> return $ converter'
   case stmt t of
     TypeDeclaration def' -> do
       let
@@ -278,7 +278,7 @@ generateDeclIr ctx mod t = do
 
         return
           [ foldr (\b acc -> mergeBundles acc b)
-                  (IrBundle traitName ((map snd methods) ++ [varDecl impl]))
+                  (IrBundle (implName i) ((map snd methods) ++ [varDecl impl]))
               $ foldr (++) [] staticMethods
           ]
 

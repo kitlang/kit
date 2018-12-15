@@ -147,10 +147,12 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
 
   let varConverter = converter (convertExpr ctx tctx mod [])
                                (resolveMaybeType ctx tctx mod [])
-  let paramConverter params =
-        let tctx' = addTypeParams tctx [ (p, TypeTypeParam p) | p <- params ]
-        in  converter (convertExpr ctx tctx' mod params)
-                      (resolveMaybeType ctx tctx' mod params)
+  let paramConverter pos params = do
+        tctx <- addTypeParams ctx
+                              tctx
+                              [ (p, TypeTypeParam p) | p <- params ] pos
+        return $ converter (convertExpr ctx tctx mod params)
+                           (resolveMaybeType ctx tctx mod params)
 
   converted <- forM
     contents
@@ -165,14 +167,15 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
                 paramsTrait <- return $ take
                   (length paramsTrait - (length $ implAssocTypes i))
                   paramsTrait
-                def <- getTraitDefinition ctx tpTrait
+                def       <- getTraitDefinition ctx tpTrait
 
-                let paramTctx = addTypeParams
-                      tctx
-                      [ let p = traitSubPath def $ paramName param
-                        in  (p, TypeTypeParam $ p)
-                      | param <- traitAllParams def
-                      ]
+                paramTctx <- addTypeParams
+                  ctx
+                  tctx
+                  [ let p = traitSubPath def $ paramName param
+                    in  (p, TypeTypeParam $ p)
+                  | param <- traitAllParams def
+                  ] (implPos i)
                 ct <- resolveType ctx paramTctx mod iFor
                 let selfTctx = paramTctx { tctxSelf = Just ct }
                 impl <- convertTraitImplementation
@@ -245,10 +248,12 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
                 == ([], "main")
                 && (ctxMainModule ctx == modPath mod)
           let extern = (hasMeta "extern" (functionMeta f)) || isMain
-          converted <- convertFunctionDefinition paramConverter $ f
-            { functionName = addNamespace (if extern then [] else modPath mod)
-                                          (functionName f)
-            }
+          converted <-
+            convertFunctionDefinition (paramConverter $ functionPos f) $ f
+              { functionName = addNamespace
+                (if extern then [] else modPath mod)
+                (functionName f)
+              }
           addToInterface ctx
                          mod
                          (functionName converted)
@@ -291,16 +296,16 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
                 | p <- typeParams t
                 , let tp = typeSubPath t $ paramName p
                 ]
-          let tctx' = tctx
-                { tctxTypeParams = params' ++ tctxTypeParams tctx
-                , tctxSelf = Just (TypeInstance (typeName t) (map snd params'))
-                }
-          let paramConverter params =
-                let tctx'' = addTypeParams
-                      tctx'
-                      [ (p, TypeTypeParam p) | p <- params ]
-                in  converter (convertExpr ctx tctx'' mod params)
-                              (resolveMaybeType ctx tctx'' mod params)
+          tctx <- return $ tctx
+            { tctxTypeParams = params' ++ tctxTypeParams tctx
+            , tctxSelf = Just (TypeInstance (typeName t) (map snd params'))
+            }
+          let
+            paramConverter params = do
+              tctx <-
+                addTypeParams ctx tctx [ (p, TypeTypeParam p) | p <- params ] (typePos t)
+              return $ converter (convertExpr ctx tctx mod params)
+                                 (resolveMaybeType ctx tctx mod params)
           converted <- do
             c <- convertTypeDefinition paramConverter t
             let thisType = TypeSelf
@@ -335,16 +340,16 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
           case typeSubtype converted of
             Enum { enumVariants = variants } -> do
               forMWithErrors_ variants $ \variant -> do
-                h_insert
-                  (ctxBindings ctx)
-                  (subPath (typeName converted) (tpName $ variantName variant))
-                  (EnumConstructor variant)
-                addToInterface ctx
-                               mod
-                               ([], tpName $ variantName variant)
-                               (EnumConstructor variant)
-                               True
-                               True
+                forM_
+                    [ (subPath (typeName converted)
+                               (tpName $ variantName variant)
+                      )
+                    , (modPath mod, (tpName $ variantName variant))
+                    ]
+                  $ \name -> h_insert
+                      (ctxBindings ctx)
+                      name
+                      (EnumConstructor variant)
                 when (enumIsSimple $ typeSubtype converted) $ h_insert
                   (ctxBindings ctx)
                   (subPath (typeName converted) "variants")
@@ -384,7 +389,7 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
           addBinding ctx (typeName t) $ TypeBinding converted
           return
             $ Just
-            $ (ps (typePos converted) $ TypeDeclaration converted, tctx')
+            $ (ps (typePos converted) $ TypeDeclaration converted, tctx)
 
         (ResolveTypes, TraitDeclaration t) -> do
           extensions <- h_lookup extensions $ traitName t
@@ -404,7 +409,7 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
                 ++ tctxTypeParams tctx
               , tctxSelf       = Just TypeSelf
               }
-          let paramConverter params = converter
+          let paramConverter params = return $ converter
                 (convertExpr ctx tctx' mod params)
                 (resolveMaybeType ctx tctx' mod params)
           converted <- convertTraitDefinition paramConverter

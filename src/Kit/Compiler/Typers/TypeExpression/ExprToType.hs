@@ -27,7 +27,7 @@ exprToType ctx tctx mod pos ex = do
       case result of
         Just x -> do
           return $ Just $ TypeTuple x
-        _      -> return Nothing
+        _ -> return Nothing
     (ArrayAccess a b, _) -> do
       b <- r b
       case b of
