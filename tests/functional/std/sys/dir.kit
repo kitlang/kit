@@ -1,7 +1,7 @@
 import kit.sys.dir;
 
 function main() {
-    var path = "tests/compile-src/std/sys/";
+    var path = "tests/functional/std/sys/";
     for dir in Directory.read(path) {
         var path = (*dir).path;
         if path == "dir.kit" {
