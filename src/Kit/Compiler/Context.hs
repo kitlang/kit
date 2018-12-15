@@ -438,31 +438,41 @@ splitDirs f = case break (== ',') f of
 buildDir :: CompileContext -> FilePath
 buildDir ctx = ctxBuildDir ctx
 
-findPackageContents :: CompileContext -> ModulePath -> IO [ModulePath]
-findPackageContents ctx modPath = do
-  x <- forM (ctxSourcePaths ctx) $ findPackageContents_ modPath
+findPackageContents :: CompileContext -> ModulePath -> Bool -> IO [ModulePath]
+findPackageContents ctx modPath recurse = do
+  x <- forM (ctxSourcePaths ctx) $ findPackageContents_ recurse modPath
   return $ foldr (++) [] x
 
-findPackageContents_ :: ModulePath -> (FilePath, ModulePath) -> IO [ModulePath]
-findPackageContents_ m (dir, []) = do
+findPackageContents_
+  :: Bool -> ModulePath -> (FilePath, ModulePath) -> IO [ModulePath]
+findPackageContents_ recurse m (dir, []) = do
   let dirPath = dir </> (moduleFilePath m -<.> "")
   exists <- doesDirectoryExist dirPath
   if not exists
     then return []
     else do
       files <- listDirectory dirPath
-      return
-        $ [ m ++ [s_pack $ file -<.> ""]
-          | file <- files
-          , takeExtension file == ".kit"
-          , file /= "prelude.kit"
-          ]
-findPackageContents_ (m : n) (dir, (h : t)) = if m == h
+      if recurse
+        then do
+          children <- forM files $ \file -> do
+            isDir <- doesDirectoryExist $ dirPath </> file
+            if isDir
+              then findPackageContents_ True (m ++ [s_pack file]) (dir, [])
+              else if isModule file
+                then return [m ++ [s_pack $ file -<.> ""]]
+                else return []
+          return $ foldr (++) [] children
+        else
+          return
+            $ [ m ++ [s_pack $ file -<.> ""] | file <- files, isModule file ]
+findPackageContents_ recurse (m : n) (dir, (h : t)) = if m == h
   then do
-    contents <- findPackageContents_ n (dir, t)
+    contents <- findPackageContents_ recurse n (dir, t)
     return $ [ (h : c) | c <- contents ]
   else return []
-findPackageContents_ _ _ = return []
+findPackageContents_ _ _ _ = return []
+
+isModule file = (takeExtension file == ".kit") && (file /= "prelude.kit")
 
 findCcache :: CompileContext -> IO (Maybe FilePath)
 findCcache ctx =
