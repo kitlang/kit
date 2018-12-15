@@ -18,6 +18,7 @@ import Kit.Compiler.Typers.TypeExpression.TypeVarBinding
 import Kit.Compiler.Unify
 import Kit.Compiler.Utils
 import Kit.Error
+import Kit.HashTable
 import Kit.Str
 
 typeArrayAccess :: SubTyper

@@ -64,17 +64,15 @@ typeCall (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _ty
                                             params
                   TypeInstance tp params -> do
                     templateDef <- getTypeDefinition ctx tp
-                    let
-                      tctx' =
-                        (addTypeParams
-                            tctx
-                            [ (typeSubPath templateDef $ paramName param, val)
-                            | (param, val) <- zip (typeParams templateDef) params
-                            ]
-                          )
-                          { tctxSelf = Just t
-                          }
-                    def <- followType ctx tctx' templateDef
+                    tctx        <- addTypeParams
+                      ctx
+                      (tctx { tctxSelf = Just t })
+                      [ (typeSubPath templateDef $ paramName param, val)
+                      | (param, val) <- zip (typeParams templateDef) params
+                      ]
+                      pos
+
+                    def <- followType ctx tctx templateDef
                     let subtype = typeSubtype def
                     case subtype of
                       Abstract { abstractUnderlyingType = u } ->
@@ -87,10 +85,10 @@ typeCall (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _ty
 
     (Return e1) -> do
       r1 <- case e1 of
-              Just x -> do
-                x <- r x
-                return $ Just x
-              Nothing -> return Nothing
+        Just x -> do
+          x <- r x
+          return $ Just x
+        Nothing -> return Nothing
       case (tctxReturnType tctx, r1) of
         (Just rt, Just r1) -> do
           rt <- follow ctx tctx rt
@@ -291,20 +289,22 @@ typeEnumConstructorCall ctx tctx mod e args tp discriminant argTypes params =
       ++ ")"
       )
       (tPos e)
-    def <- getTypeDefinition ctx tp
-    let tctx' = addTypeParams
-          tctx
-          [ (typeSubPath def $ paramName param, value)
-          | (param, value) <- zip (typeParams def) params
-          ]
+    def  <- getTypeDefinition ctx tp
+    tctx <- addTypeParams
+      ctx
+      tctx
+      [ (typeSubPath def $ paramName param, value)
+      | (param, value) <- zip (typeParams def) params
+      ]
+      (tPos e)
     forMWithErrors_
       (zip argTypes args)
       (\((_, argType), argValue) -> do
-        t1 <- follow ctx tctx' argType
-        t2 <- follow ctx tctx' (inferredType argValue)
+        t1 <- follow ctx tctx argType
+        t2 <- follow ctx tctx (inferredType argValue)
         resolveConstraint
           ctx
-          tctx'
+          tctx
           (TypeEq t1
                   t2
                   "Enum arg types must match the enum's declaration"

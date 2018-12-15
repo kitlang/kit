@@ -45,7 +45,7 @@ struct Vector[T] {
         return newVector;
     }
 
-    function ensureSize(n: Int): Void {
+    function ensureSize(n: Size): Void {
         if this.data.length < n {
             var l = this.length;
             if l == 0 {

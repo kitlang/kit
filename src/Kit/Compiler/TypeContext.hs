@@ -116,14 +116,13 @@ findLocalOrImportedCt ctx tctx mod s resolvedParams = do
     Just x  -> return $ Just x
     Nothing -> do
       -- search other modules
-      imports <- getModImports ctx mod
-      bound   <- foldM
+      bound <- foldM
         (\acc v -> case acc of
           Just x  -> return acc
           Nothing -> findBindingCt ctx tctx mod (v, s) resolvedParams
         )
         Nothing
-        imports
+        (modImportPaths mod)
       case bound of
         Just t -> return $ Just t
         _      -> do
@@ -142,10 +141,9 @@ resolveType
   :: CompileContext -> TypeContext -> Module -> TypeSpec -> IO ConcreteType
 resolveType ctx tctx mod t = do
   veryNoisyDebugLog ctx $ "resolve type: " ++ show t
-  importedMods <- getModImports ctx mod
   case t of
     ConcreteType ct        -> follow ctx tctx ct
-    ConstantTypeSpec v pos -> return $ ConstantType v
+    ConstantTypeSpec v _   -> return $ ConstantType v
     TupleTypeSpec    t pos -> do
       slots <- forM t (resolveType ctx tctx mod)
       return $ TypeTuple slots
@@ -317,11 +315,11 @@ _follow ctx tctx stack t = do
     _ -> return t
 
 followType ctx tctx = convertTypeDefinition
-  (\_ -> converter return (\_ -> mapType $ follow ctx tctx))
+  (\_ -> return $ converter return (\_ -> mapType $ follow ctx tctx))
 followFunction ctx tctx = convertFunctionDefinition
-  (\_ -> converter return (\_ -> mapType $ follow ctx tctx))
+  (\_ -> return $ converter return (\_ -> mapType $ follow ctx tctx))
 followTrait ctx tctx = convertTraitDefinition
-  (\_ -> converter return (\_ -> mapType $ follow ctx tctx))
+  (\_ -> return $ converter return (\_ -> mapType $ follow ctx tctx))
 followVariant ctx tctx =
   convertEnumVariant (converter return (\_ -> mapType $ follow ctx tctx))
 
@@ -344,9 +342,32 @@ addUsing ctx tctx using = case using of
     y                -> return $ tctx { tctxImplicits = x : y }
   _ -> return tctx
 
-addTypeParams :: TypeContext -> [(TypePath, ConcreteType)] -> TypeContext
-addTypeParams tctx params =
-  tctx { tctxTypeParams = params ++ tctxTypeParams tctx }
+addTypeParams
+  :: CompileContext
+  -> TypeContext
+  -> [(TypePath, ConcreteType)]
+  -> Span
+  -> IO TypeContext
+addTypeParams ctx tctx params pos = do
+  scope <- newScope
+  forM_ params $ \(param, pt) -> do
+    case pt of
+      ConstantType v -> do
+        tv <- makeTypeVar ctx pos
+        bindToScope scope (tpName param)
+          $ ExprBinding
+          $ (makeExprTyped (Literal v tv) tv pos) { tIsConst          = True
+                                                  , tCompileTimeValue = Just v
+                                                  }
+      TypeInstance tp params ->
+        bindToScope scope (tpName param) $ ExprBinding $ makeExprTyped
+          (Identifier (Var param))
+          (TypeTypeOf tp params)
+          NoPos
+      _ -> return ()
+  return $ tctx { tctxScopes     = scope : tctxScopes tctx
+                , tctxTypeParams = params ++ tctxTypeParams tctx
+                }
 
 modTypeContext :: CompileContext -> Module -> IO TypeContext
 modTypeContext ctx mod = do
@@ -393,12 +414,13 @@ getTraitImpl ctx tctx trait@(traitTp, params) ct = do
           def <- getTypeDefinition ctx tp
           case typeSubtype def of
             Abstract { abstractUnderlyingType = u } -> do
-              let tctx' = addTypeParams
-                    tctx
-                    [ (typeSubPath def (paramName param), value)
-                    | (param, value) <- zip (typeParams def) params
-                    ]
-              getTraitImpl ctx tctx' trait u
+              tctx <- addTypeParams
+                ctx
+                tctx
+                [ (typeSubPath def (paramName param), value)
+                | (param, value) <- zip (typeParams def) params
+                ] (typePos def)
+              getTraitImpl ctx tctx trait u
             _ -> return Nothing
         _ -> return Nothing
 
@@ -424,7 +446,7 @@ genericTctx ctx tctx pos t = do
       params  <- forMWithErrors params $ mapType $ follow ctx tctx
       tctx    <- foldM (\tctx t -> genericTctx ctx tctx pos t) tctx params
       params  <- makeGeneric ctx tp pos params
-      tctx    <- return $ addTypeParams tctx params
+      tctx    <- addTypeParams ctx tctx params pos
       binding <- lookupBinding ctx tp
       -- if this is an abstract, make a generic instance of its parent;
       -- since we might call this before all type definitions are available,
@@ -448,6 +470,6 @@ genericTctx ctx tctx pos t = do
       params <- forMWithErrors params $ mapType $ follow ctx tctx
       tctx   <- foldM (\tctx t -> genericTctx ctx tctx pos t) tctx params
       params <- makeGeneric ctx tp pos params
-      return $ addTypeParams tctx params
+      addTypeParams ctx tctx params pos
     TypeTuple t -> foldM (\tctx -> genericTctx ctx tctx pos) tctx t
     _           -> return tctx

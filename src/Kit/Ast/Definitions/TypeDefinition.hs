@@ -80,9 +80,8 @@ convertTypeDefinition
   -> m (TypeDefinition c d)
 convertTypeDefinition paramConverter t = do
   let params = [ typeSubPath t $ paramName param | param <- typeParams t ]
-  let
-    (converter@(Converter { exprConverter = exprConverter, typeConverter = typeConverter }))
-      = paramConverter params
+  (converter@(Converter { exprConverter = exprConverter, typeConverter = typeConverter })) <-
+    paramConverter params
   let methodParamConverter methodParams =
         paramConverter (methodParams ++ params)
   newType <- case typeSubtype t of

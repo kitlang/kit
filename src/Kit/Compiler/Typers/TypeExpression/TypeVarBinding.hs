@@ -31,9 +31,8 @@ typeVarBinding ctx tctx binding pos = do
       let extern       = hasMeta "extern" (variantMeta def)
       -- FIXME: pull params from tctx
       params <- makeGeneric ctx parentTp pos []
-      let tctx' = addTypeParams tctx params
-      let ct    = TypeInstance parentTp $ map snd params
-      let args  = [ (argName arg, argType arg) | arg <- variantArgs def ]
+      let ct   = TypeInstance parentTp $ map snd params
+      let args = [ (argName arg, argType arg) | arg <- variantArgs def ]
       if null args
         then return $ makeExprTyped (EnumInit ct discriminant []) ct pos
         else do
@@ -59,8 +58,8 @@ typeVarBinding ctx tctx binding pos = do
         else do
   -- TODO: allow specifying explicit function params
           params <- makeGeneric ctx tp pos []
-          let tctx' = addTypeParams tctx params
-          t <- mapType (follow ctx tctx') t
+          tctx   <- addTypeParams ctx tctx params (functionPos def)
+          t      <- mapType (follow ctx tctx) t
           let ft = case t of
                 TypeFunction rt args varargs _ ->
                   TypeFunction rt args varargs (map snd params)

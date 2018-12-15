@@ -62,17 +62,14 @@ typeCast (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _ty
                 Just x -> cast
                 _      -> do
                   templateDef <- getTypeDefinition ctx tp
-                  let
-                    tctx' =
-                      (addTypeParams
-                          tctx
-                          [ (typeSubPath templateDef $ paramName param, val)
-                          | (param, val) <- zip (typeParams templateDef) params
-                          ]
-                        )
-                        { tctxSelf = Just t
-                        }
-                  def <- followType ctx tctx' templateDef
+                  tctx        <- addTypeParams
+                    ctx
+                    (tctx { tctxSelf = Just t })
+                    [ (typeSubPath templateDef $ paramName param, val)
+                    | (param, val) <- zip (typeParams templateDef) params
+                    ] pos
+
+                  def <- followType ctx tctx templateDef
                   let subtype = typeSubtype def
                   case subtype of
                     Abstract { abstractUnderlyingType = u } ->

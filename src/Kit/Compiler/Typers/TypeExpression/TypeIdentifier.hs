@@ -46,6 +46,7 @@ typeIdentifier (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolv
           tryRewrite
             ex
             (do
+              -- look for a var binding
               binding <- case fst vname of
                 [] -> resolveVar ctx (tctxScopes tctx) mod (tpName vname)
                 _  -> return Nothing
@@ -58,27 +59,9 @@ typeIdentifier (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolv
                   return $ case inferredType x of
                     TypeFunction _ _ _ _ -> x { tIsLvalue = True }
                     _                    -> x
-                Nothing ->
-                  case
-                      foldr
-                        (\(paramName, paramType) acc ->
-                          acc <|> case paramType of
-                            ConstantType v | tpName paramName == tpName vname ->
-                              Just v
-                            _ -> Nothing
-                        )
-                        Nothing
-                        (tctxTypeParams tctx)
-                    of
-                      Just v -> do
-                        tv <- makeTypeVar ctx pos
-                        r $ (makeExprTyped (Literal v tv) tv pos) { tIsConst = True
-                                                                  }
-                      Nothing -> throwk $ TypingError
-                        (  "Unknown identifier: "
-                        ++ (s_unpack $ showTypePath vname)
-                        )
-                        pos
+                Nothing -> throwk $ TypingError
+                  ("Unknown identifier: " ++ (s_unpack $ showTypePath vname))
+                  pos
             )
         (_, MacroVar vname t) -> do
           case find (\(name, _) -> name == vname) (tctxMacroVars tctx) of

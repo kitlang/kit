@@ -57,15 +57,15 @@ typeField (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _t
                           forMWithErrors (map snd params) $ mapType $ follow
                             ctx
                             tctx
-                        let tctx' =
-                              tctx { tctxSelf = Just $ TypeInstance tp params }
-                        let accessible = case tctxSelf tctx' of
+                        tctx <- return
+                          $ tctx { tctxSelf = Just $ TypeInstance tp params }
+                        let accessible = case tctxSelf tctx of
                               Just (TypeInstance tp2 params2) | tp2 == tp ->
                                 True
                               _ -> bindingIsPublic binding
                         when (not accessible) failNotPublic
-                        x <- typeVarBinding ctx tctx' binding pos
-                        f <- mapType (follow ctx tctx') $ inferredType x
+                        x <- typeVarBinding ctx tctx binding pos
+                        f <- mapType (follow ctx tctx) $ inferredType x
                         -- when calling an instance method statically, remove MethodTarget
                         f <- return $ case f of
                           TypeFunction rt ((name, MethodTarget t) : args) varargs params
@@ -101,21 +101,18 @@ typeField (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _t
                             ++ s_unpack (showTypePath tp)
                             )
                             pos
-                        let
-                          tctx' =
-                            (addTypeParams
-                                tctx
-                                [ (traitSubPath traitDef $ paramName param, val)
-                                | (param, val) <- zip (traitAllParams traitDef)
-                                                      params
-                                ]
-                              )
-                              { tctxSelf = Just t
-                              }
+                        tctx <- addTypeParams
+                          ctx
+                          (tctx { tctxSelf = Just t })
+                          [ (traitSubPath traitDef $ paramName param, val)
+                          | (param, val) <- zip (traitAllParams traitDef) params
+                          ]
+                          pos
+
                         method <- lookupBinding ctx $ subPath tp fieldName
                         case method of
                           Just binding -> do
-                            x <- typeVarBinding ctx tctx' binding pos
+                            x <- typeVarBinding ctx tctx binding pos
                             let
                               typed = makeExprTyped
                                 (Field
@@ -127,8 +124,8 @@ typeField (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _t
                                 )
                                 (inferredType x)
                                 (pos)
-                            -- trait <- followTrait ctx tctx' (modPath mod) traitDef
-                            t <- mapType (follow ctx tctx') (inferredType x)
+                            -- trait <- followTrait ctx tctx (modPath mod) traitDef
+                            t <- mapType (follow ctx tctx) (inferredType x)
                             return $ typed
                               { tImplicits   = [ makeExprTyped
                                                    (BoxedValue r1)
@@ -187,17 +184,14 @@ typeField (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _t
 
                   TypeInstance tp params -> do
                     templateDef <- getTypeDefinition ctx tp
-                    let
-                      tctx' =
-                        (addTypeParams
-                            tctx
-                            [ (typeSubPath templateDef $ paramName param, val)
-                            | (param, val) <- zip (typeParams templateDef) params
-                            ]
-                          )
-                          { tctxSelf = Just t
-                          }
-                    def <- followType ctx tctx' templateDef
+                    tctx        <- addTypeParams
+                      ctx
+                      (tctx { tctxSelf = Just t })
+                      [ (typeSubPath templateDef $ paramName param, val)
+                      | (param, val) <- zip (typeParams templateDef) params
+                      ]
+                      (typePos templateDef)
+                    def <- followType ctx tctx templateDef
                     let subtype = typeSubtype def
                     binding <- lookupBinding ctx $ subPath tp fieldName
                     case binding of
@@ -208,8 +202,8 @@ typeField (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _t
                               _ -> bindingIsPublic x
                         when (not accessible) failNotPublic
                         -- this is a local method
-                        typed' <- typeVarBinding ctx tctx' x pos
-                        t <- mapType (follow ctx tctx') (inferredType typed')
+                        typed' <- typeVarBinding ctx tctx x pos
+                        t <- mapType (follow ctx tctx) (inferredType typed')
                         let typed = typed' { inferredType = t }
                         -- this may be a template; replace `this` with the actual
                         -- type to guarantee the implicit pass will work
@@ -246,7 +240,7 @@ typeField (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _t
                         StructUnion { structUnionFields = fields, isStruct = isStruct }
                           -> do
                             result <- typeStructUnionFieldAccess ctx
-                                                                 tctx'
+                                                                 tctx
                                                                  t
                                                                  fields
                                                                  r1

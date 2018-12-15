@@ -128,11 +128,12 @@ _findUnderlyingType ctx mod pos stack t = do
     TypeInstance tp p -> do
       templateDef <- getTypeDefinition ctx tp
       params      <- forM p (mapType $ follow ctx modTctx)
-      let tctx = addTypeParams
-            modTctx
-            [ (typeSubPath templateDef $ paramName param, value)
-            | (param, value) <- zip (typeParams templateDef) params
-            ]
+      tctx        <- addTypeParams
+        ctx
+        modTctx
+        [ (typeSubPath templateDef $ paramName param, value)
+        | (param, value) <- zip (typeParams templateDef) params
+        ] (fromJust pos)
       def <- followType ctx tctx templateDef
       let typeName = monomorphName (typeRealName templateDef) params
       case typeSubtype def of
