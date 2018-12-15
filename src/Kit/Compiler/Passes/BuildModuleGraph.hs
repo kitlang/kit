@@ -269,13 +269,9 @@ findImports ctx mod stmts = do
           ImportSingle ->
             -- eliminate self imports (e.g. from prelude)
             return $ if mod == mp then acc else (mp, p) : acc
-          ImportWildcard -> do
-            results <- findPackageContents ctx mp
+          x | x == ImportWildcard || x == ImportDoubleWildcard -> do
+            results <- findPackageContents ctx mp (x == ImportDoubleWildcard)
             return $ [ (i, p) | i <- results ] ++ acc
-          ImportDoubleWildcard -> do
-            results  <- findPackageContents ctx mp
-            children <- forMWithErrors results $ findPackageContents ctx
-            return $ [ (i, p) | i <- results ++ foldr (++) [] children ] ++ acc
       _ -> return acc
     )
     []
