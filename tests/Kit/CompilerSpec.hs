@@ -29,12 +29,12 @@ readDir d = do
       else return []
   return $ sort $ concat files
 
-testFiles = readDir "tests/compile-src"
+testFiles = readDir "tests/functional"
 sampleFiles = readDir "samples"
 
 spec :: Spec
 spec = parallel $ do
-  describe ("Successful compile tests") $ do
+  describe ("Compiler functional tests") $ do
     testRunsArg <- runIO $ lookupEnv "TEST_RUNS"
     let testRuns = case testRunsArg of
           Just x  -> read x
