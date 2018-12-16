@@ -56,7 +56,8 @@ typeCast (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _ty
                   ++ "; no matching trait implementation found"
                   )
                   pos
-            (x@(TypeInstance tp params), y) -> do
+            (TypeAnonEnum _                     _, TypeInt _) -> cast
+            (x@(          TypeInstance tp params), y        ) -> do
               t' <- unify ctx tctx x y
               case t' of
                 Just x -> cast

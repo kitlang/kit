@@ -474,8 +474,11 @@ findCcache ctx =
 
 getCtxCompilerFlags :: CompileContext -> IO [String]
 getCtxCompilerFlags ctx = do
+  let includeFlags = [ "-I" ++ path | path <- ctxIncludePaths ctx ]
   let ctxFlags =
-        ctxCompilerFlags ctx ++ (if ctxIsLibrary ctx then ["-fPIC"] else [])
+        ctxCompilerFlags ctx
+          ++ (if ctxIsLibrary ctx then ["-fPIC"] else [])
+          ++ includeFlags
   envFlags <- lookupEnv "COMPILER_FLAGS"
   return $ case envFlags of
     -- FIXME

@@ -55,6 +55,8 @@ spec = parallel $ do
                 , ctxMainModule    = [s_pack $ takeFileName path -<.> ""]
                 , ctxCompilerFlags = ["-Werror"]
                 , ctxLinkerFlags   = ["-lm", "-Werror"]
+                , ctxIncludePaths  = ("tests" </> "functional")
+                  : (ctxIncludePaths ctx)
                 , ctxBuildDir      = tmpDir
                 , ctxOutputPath    = tmpDir </> "test"
                 , ctxVerbose       = -1
