@@ -31,3 +31,5 @@ iterate: 11
 iterate: 22
 iterate: 33
 iterate: 44
+length = 4
+length after clear = 0

@@ -48,5 +48,9 @@ function main() {
         printf("iterate: %i\n", i);
     }
 
+    printf("length = %zu\n", v.length);
+    v.clear();
+    printf("length after clear = %zu\n", v.length);
+
     v.free();
 }

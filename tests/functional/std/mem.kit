@@ -117,4 +117,17 @@ function main() {
     testLinearAllocator();
     testStackAllocator();
     testPoolAllocator();
+
+    var x: Int = 15;
+    var y: Int = 30;
+
+    var xp = &x;
+    var yp = &y;
+
+    copy(x, y);
+    printf("%i %i\n", x, y);
+
+    y = 20;
+    move(y, x);
+    printf("%i %i\n", x, y);
 }
