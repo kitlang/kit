@@ -1,8 +1,8 @@
 include "stdlib.h";
 
-function calloc_alloc(size: Size): Ptr[Void] {
-    printf("calloc_alloc %zu\n", size);
-    return calloc(1, size);
+function specialAlloc(size: Size): Ptr[Void] {
+    printf("special_alloc %zu\n", size);
+    return malloc(size);
 }
 
 struct MyStruct {
@@ -16,7 +16,8 @@ struct MyStruct {
 
 function main() {
     var callocator: Box[Allocator] = struct SimpleAllocator {
-        alloc: calloc_alloc,
+        alloc: specialAlloc,
+        calloc: callocWrapper,
         free: free,
     };
 

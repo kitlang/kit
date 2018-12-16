@@ -46,7 +46,8 @@ typeTraitDefinition ctx tctx' mod selfType def = do
   methods <- forM
     (traitMethods def)
     (\method -> do
-      typed <- typeFunctionDefinition ctx tctx mod method
+      typed <- typeFunctionDefinition ctx tctx mod
+        $ method { functionBody = Nothing }
       return typed
     )
   return $ ps (traitPos def) $ TraitDeclaration $ def { traitMethods = methods }
