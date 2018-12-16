@@ -110,7 +110,8 @@ btOrder dependencies memos t = do
         CArray t _              -> do
           depScore <- btOrder dependencies memos t
           return $ depScore + 1
-        _ -> return (-1)
+        CPtr (BasicTypeSimpleEnum tp) -> tpScore tp
+        _                             -> return (-1)
       h_insert memos t score
       return score
 
