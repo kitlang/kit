@@ -1,3 +1,5 @@
+include "test_header1.h";
+
 // we should be mangling the discriminant, and name collision within the same
 // module should be allowed, with the last declaration winning; if either of
 // these fail, the module won't compile
@@ -78,4 +80,8 @@ function main() {
         printf("- %i: ", variant as Int);
         variant.print();
     }
+
+    var x: TestEnum = Var2;
+    var y: Int = x as Int;
+    printf("%i\n", y);
 }
