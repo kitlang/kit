@@ -67,7 +67,8 @@ typeCast (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _ty
                     (tctx { tctxSelf = Just t })
                     [ (typeSubPath templateDef $ paramName param, val)
                     | (param, val) <- zip (typeParams templateDef) params
-                    ] pos
+                    ]
+                    pos
 
                   def <- followType ctx tctx templateDef
                   let subtype = typeSubtype def
@@ -75,7 +76,8 @@ typeCast (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _ty
                     Abstract { abstractUnderlyingType = u } ->
                       -- forward to parent
                       typeCast u
-                    _ -> invalidCast
+                    Enum { enumUnderlyingType = t } -> typeCast t
+                    _                               -> invalidCast
             (x, y) -> do
               t' <- unify ctx tctx x y
               x' <- unify ctx tctx x (typeClassNumeric)

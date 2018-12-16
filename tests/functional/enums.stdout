@@ -5,6 +5,6 @@ Apple2: 1
 Banana2: 5.0, hello
 Strawberry2
 MySimpleEnum variants:
-- apple
-- banana
-- strawberry
+- 0: apple
+- 1: banana
+- 2: strawberry

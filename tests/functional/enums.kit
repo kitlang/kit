@@ -75,7 +75,7 @@ function main() {
 
     puts("MySimpleEnum variants:");
     for variant in MySimpleEnum.variants {
-        printf("- ");
+        printf("- %i: ", variant as Int);
         variant.print();
     }
 }
