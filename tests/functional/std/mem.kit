@@ -130,4 +130,7 @@ function main() {
     y = 20;
     move(y, x);
     printf("%i %i\n", x, y);
+
+    var z: Ptr[Int] = mallocator.calloc(sizeof Int);
+    printf("%i\n", *z);
 }
