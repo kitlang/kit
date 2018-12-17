@@ -7,6 +7,9 @@ struct MyStruct {
 
 trait Greeter {
     public function greet(): Void;
+    public function original(): Ptr[Void] {
+        return &this;
+    }
 }
 
 implement Greeter for Int {
@@ -74,4 +77,7 @@ function main() {
     greet(false);
 
     greet((3_i, 5_i));
+
+    var original = x.original() as Ptr[Int];
+    printf("%i\n", *original);
 }
