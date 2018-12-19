@@ -1,0 +1,45 @@
+import kit.map;
+import kit.array;
+
+trait Component{
+    function type(): CString;
+}
+
+struct PositionComponent{
+    public var x: Int;
+    public var y: Int;
+    public var z: Int;
+}
+
+implement Component for PositionComponent{
+    function type(): CString{
+        return "Position";
+    }
+}
+
+function main() {
+
+    var myMap: Map[CString, Box[Component]] = Map.new(10);
+
+    var myPosStruct = struct PositionComponent{
+        x: 12,
+        y: 12,
+        z: 23
+    };
+
+    var myPosStructBox: Box[Component] = myPosStruct;
+    myMap.put(myPosStructBox.type(), myPosStructBox);
+
+    var keys = myMap.keys();
+    var constructed = CString.alloc("Position".length);
+    var i = 0;
+    for char in "Position" {
+        constructed[i++] = char;
+    }
+    printf("key: %s\n", constructed);
+
+    printf("box.type(): %s\n", if myMap.exists(myPosStructBox.type()) then "true" else "false");
+    printf("keys[0]: %s\n", if myMap.exists(keys[0]) then "true" else "false");
+    printf("literal: %s\n", if myMap.exists("Position") then "true" else "false");
+    printf("buffer: %s\n", if myMap.exists(constructed) then "true" else "false");
+}

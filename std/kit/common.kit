@@ -25,6 +25,7 @@
     rules {
         ($this.length) => strlen($this);
         ($this == ${other: CString}) => strcmp($this, $other) == 0;
+        ($this != ${other: CString}) => strcmp($this, $other) != 0;
         (for $ident in $this {$e}) => {
             var __i: Ptr[Char] = $this;
             while __i != null && (*__i) != 0 {
