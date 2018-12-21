@@ -4,7 +4,9 @@ import Control.Monad
 import Data.IORef
 import Data.List
 import System.FilePath
+import System.Process
 import Language.C
+import Language.C.Analysis.ConstEval
 import Language.C.Data.Ident
 import Language.C.Data.Position
 import Language.C.System.GCC
@@ -56,14 +58,61 @@ includeCHeader ctx cc mod path = do
   case found of
     Just f -> do
       debugLog ctx $ "found header " ++ show path ++ " at " ++ show f
+      parseCMacros ctx cc mod f
       parseCHeader ctx cc mod f
     Nothing -> throwk
       $ IncludeError path [ (dir </> path) | dir <- getIncludePaths ctx cc ]
 
+headerParseFlags ctx cc = do
+  flags <- getCompileFlags ctx cc
+  return $ (filter (\flag -> flag /= "-pedantic") $ flags) ++ ["-w"]
+
+parseCMacros ctx cc mod path = do
+  flags  <- headerParseFlags ctx cc
+  result <- readProcess (ccPath cc) ("-dM" : "-E" : flags ++ [path]) ""
+  forM_ (lines result) $ \line -> do
+    when (isPrefixOf "#define " line) $ do
+      let definition             = drop (length ("#define " :: String)) line
+      let (macroName : macroDef) = words definition
+      -- for now we're ignoring any macros that take arguments
+      unless ((null macroDef) || (elem '(' macroName)) $ do
+        let input = inputStreamFromString $ intercalate " " macroDef
+        let result =
+              execParser expressionP input nopos builtinTypeNames newNameSupply
+        case result of
+          Right ((CVar (Ident name _ _) _), _) -> do
+            -- identifiers
+            tv <- makeTypeVar ctx NoPos
+            veryNoisyDebugLog ctx
+              $  "Creating macro binding for identifier: "
+              ++ macroName
+            h_insert
+              (ctxBindings ctx)
+              ([], s_pack macroName)
+              ( ExprBinding
+              $ makeExprTyped (Identifier (Var ([], s_pack name))) tv NoPos
+              )
+          Right (x, _) -> do
+            -- for now we'll be lazy and only support Int constants...
+            case intValue x of
+              Just x -> do
+                veryNoisyDebugLog ctx
+                  $  "Creating macro binding for int constant: "
+                  ++ macroName
+                h_insert
+                  (ctxBindings ctx)
+                  ([], s_pack macroName)
+                  (ExprBinding $ makeExprTyped
+                    (Identifier (MacroVar (s_pack macroName) $ TypeInt 0))
+                    (TypeInt 0)
+                    NoPos
+                  )
+              Nothing -> return ()
+          _ -> return ()
+
 parseCHeader :: CompileContext -> CCompiler -> Module -> FilePath -> IO ()
 parseCHeader ctx cc mod path = do
-  flags <- getCompileFlags ctx cc
-  flags <- return $ (filter (\flag -> flag /= "-pedantic") $ flags) ++ ["-w"]
+  flags       <- headerParseFlags ctx cc
   parseResult <- parseCFile (newGCC $ ccPath cc) Nothing flags path
   case parseResult of
     Left e -> throwk $ BasicError
