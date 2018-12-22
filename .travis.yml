@@ -7,6 +7,10 @@ addons:
   apt:
     packages:
     - libgmp-dev
+    - gcc
+    - make
+    - ruby
+    - ruby-dev
   homebrew:
     packages:
     - libyaml
@@ -31,14 +35,14 @@ before_install:
 
 install:
 - stack --no-terminal --install-ghc test --only-dependencies
+- gem install fpm
 
 script:
 - "gcc --version"
 - "clang --version"
-- stack build kitlang:kitc
-- stack exec kitc -- -h
-- stack exec kitc -- --env
-- TEST_RUNS=1 stack test --test-arguments '+RTS -N -RTS'
+  #- stack build kitlang:kitc
+  #- stack exec kitc -- -h
+  #- TEST_RUNS=1 stack test --test-arguments '+RTS -N -RTS'
 - "fpm --version"
 
 notifications:
