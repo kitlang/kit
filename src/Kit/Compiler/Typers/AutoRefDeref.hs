@@ -114,9 +114,11 @@ makeBox
   -> TypedExpr
   -> IO (Maybe TypedExpr)
 makeBox ctx tctx tp params ex = do
-  let ref = addRef ex
+  let (t, ref) = case inferredType ex of
+        TypePtr t -> (t, ex)
+        t         -> (t, addRef ex)
   traitDef <- getTraitDefinition ctx tp
-  impl     <- getTraitImpl ctx tctx (tp, params) (inferredType ex)
+  impl     <- getTraitImpl ctx tctx (tp, params) t
   case impl of
     Just impl -> do
       params <- makeGeneric ctx tp (tPos ex) params
