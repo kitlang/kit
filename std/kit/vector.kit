@@ -54,7 +54,7 @@ struct Vector[T] {
         this.length = 0;
     }
 
-    function ensureSize(n: Size): Void {
+    public function ensureSize(n: Size): Void {
         if this.data.length < n {
             var l = this.length;
             if l == 0 {
@@ -73,10 +73,14 @@ struct Vector[T] {
         }
     }
 
+    public function ref(): Ptr[T] {
+        return this.data.data;
+    }
+
     rules {
-        ($this :: (other: Self)) => (concat(other));
+        ($this :: ${other: Self}) => $this.concat(other);
         // FIXME: implement term rewriting for casts
-        ($this as Array) => ($this.data);
+        ($this as Slice[T]) => struct Slice[T] {length: $this.length, data: $this.ref()};
 
         /**
          * Returns the first element in the Vector, or None if the Vector is empty.
@@ -91,6 +95,8 @@ struct Vector[T] {
         ($this.unsafeLast) => $this[$this.length - 1];
 
         ($this[$i]) => $this.data[$i];
+
+        ($this.capacity) => $this.data.length;
 
         // optimize Vector iteration at compile time when the type is known
         (for $ident in $this {$e}) => {
