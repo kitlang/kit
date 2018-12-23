@@ -184,6 +184,9 @@ convertExpr ctx tctx mod params e = do
       return $ m (Implicit t') t'
     Null -> do
       return $ m Null $ TypePtr TypeVoid
+    Undefined -> do
+      t <- mtv
+      return $ m Undefined t
     Empty -> do
       t <- mtv
       return $ m Empty t

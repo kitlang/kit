@@ -27,7 +27,16 @@ generateDeclIr ctx mod t = do
         def =
           def' { typeName = monomorphName (typeName def') (typeMonomorph def') }
       let name = typeName def
-
+      def <- case typeSubtype def of
+        s@(StructUnion { structUnionFields = fields }) -> do
+          return $ def
+            { typeSubtype = s
+              { structUnionFields = [ field { varDefault = Nothing }
+                                    | field <- fields
+                                    ]
+              }
+            }
+        _ -> return def
       debugLog ctx $ "generating IR for type " ++ (s_unpack $ showTypePath name)
       converted <- convertTypeDefinition paramConverter $ def { typeRules = [] }
       staticFields <- forM (typeStaticFields def)
@@ -277,8 +286,9 @@ generateDeclIr ctx mod t = do
           $ \x -> generateDeclIr ctx mod $ functionDecl x
 
         return
-          [ foldr (\b acc -> mergeBundles acc b)
-                  (IrBundle (implName i) ((map snd methods) ++ [varDecl impl]))
+          [ foldr
+                (\b acc -> mergeBundles acc b)
+                (IrBundle (implName i) ((map snd methods) ++ [varDecl impl]))
               $ foldr (++) [] staticMethods
           ]
 

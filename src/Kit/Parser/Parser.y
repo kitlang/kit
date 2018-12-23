@@ -79,6 +79,7 @@ import Kit.Str
   tokens {(KeywordTokens,_)}
   trait {(KeywordTrait,_)}
   typedef {(KeywordTypedef,_)}
+  undefined {(KeywordUndefined,_)}
   union {(KeywordUnion,_)}
   unsafe {(KeywordUnsafe,_)}
   using {(KeywordUsing,_)}
@@ -471,10 +472,12 @@ VarBlock :: {[VarDefinition Expr (Maybe TypeSpec)]}
 
 OptionalStandaloneDefault :: {(Maybe Expr, Span)}
   : ';' {(Nothing, snd $1)}
+  | '=' undefined ';' {(Just $ pe (snd $1) Undefined, snd $1)}
   | '=' StandaloneExpr {(Just $2, snd $1 <+> pos $2)}
 
 OptionalDefault :: {Maybe Expr}
   : {Nothing}
+  | '=' undefined {Just $ pe (snd $1) Undefined}
   | '=' Expr {Just $2}
 
 EnumVariant :: {EnumVariant Expr (Maybe TypeSpec)}

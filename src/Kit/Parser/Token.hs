@@ -72,6 +72,7 @@ data TokenClass
   | KeywordTokens
   | KeywordTrait
   | KeywordTypedef
+  | KeywordUndefined
   | KeywordUnion
   | KeywordUnsafe
   | KeywordUsing
@@ -172,6 +173,7 @@ instance Show TokenClass where
     KeywordTokens -> "tokens"
     KeywordTrait -> "trait"
     KeywordTypedef -> "typedef"
+    KeywordUndefined -> "undefined"
     KeywordUnion -> "union"
     KeywordUnsafe -> "unsafe"
     KeywordUsing -> "using"

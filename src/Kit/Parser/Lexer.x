@@ -84,6 +84,7 @@ tokens :-
   tokens { tok KeywordTokens }
   trait { tok KeywordTrait }
   typedef { tok KeywordTypedef }
+  undefined { tok KeywordUndefined }
   union { tok KeywordUnion }
   unsafe { tok KeywordUnsafe }
   using { tok KeywordUsing }
