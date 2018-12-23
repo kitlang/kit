@@ -161,6 +161,7 @@ unifyBase ctx tctx strict a' b'         = do
     (TypeArray t1 _, TypePtr t2) -> r t1 t2
     (a, b) | (typeIsIntegral a) && (typeIsIntegral b) -> return $ Just []
     (TypeFloat _, b) | typeIsIntegral b -> return $ Just []
+    (TypeFloat _, TypeFloat _) -> return $ Just []
     (TypeInstance tp1 params1, TypeInstance tp2 params2) ->
       if (tp1 == tp2) && (length params1 == length params2)
         then do
