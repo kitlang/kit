@@ -35,6 +35,7 @@ library:
   dependencies:
   - ansi-terminal
   - array
+  - async
   - base16-bytestring
   - bytestring
   - cryptohash-md5

@@ -1,14 +1,18 @@
 module Kit.Compiler.Passes.CompileCode where
 
+import Control.Concurrent.Async
 import Control.Monad
+import Data.Either
 import Data.List
 import System.Directory
+import System.Exit
 import System.FilePath
 import System.Process
 import Kit.Ast
 import Kit.Compiler.CCompiler
 import Kit.Compiler.Context
 import Kit.Compiler.Utils
+import Kit.Error
 import Kit.Log
 import Kit.Str
 
@@ -20,12 +24,22 @@ compileCode ctx cc names = do
   ccache        <- findCcache ctx
   compilerFlags <- getCompileFlags ctx cc
   linkerFlags   <- getCtxLinkerFlags ctx
-  createDirectoryIfMissing True  (buildDir ctx)
-  forM_                    names (compileBundle ctx ccache cc compilerFlags)
+  createDirectoryIfMissing True (buildDir ctx)
+  results <- forConcurrently names (compileBundle ctx ccache cc compilerFlags)
+  errs    <- foldM
+    (\acc out -> case out of
+      Left  err -> return $ (BasicError err Nothing) : acc
+      Right s   -> do
+        putStr s
+        return acc
+    )
+    []
+    results
+  when (not $ null errs) $ throwk $ KitErrors $ reverse $ map KitError errs
   if ctxNoLink ctx
     then return Nothing
     else do
-      binPath <- link ctx cc linkerFlags names
+      binPath <- linkBundles ctx cc linkerFlags names
       return $ Just binPath
 
 compileBundle
@@ -34,7 +48,7 @@ compileBundle
   -> CCompiler
   -> [String]
   -> TypePath
-  -> IO ()
+  -> IO (Either String String)
 compileBundle ctx ccache cc args name = do
   let objFilePath = objPath ctx name
   createDirectoryIfMissing True (takeDirectory objFilePath)
@@ -47,10 +61,15 @@ compileBundle ctx ccache cc args name = do
     Just x  -> (x, ccPath cc : args)
     Nothing -> (ccPath cc, args)
   debugLog ctx $ showCommandForUser ccPath args
-  callProcess ccPath args
+  (status, _, stderr) <- readCreateProcessWithExitCode (proc ccPath args)
+                                                            ""
+  if status == ExitSuccess
+    then return $ Right stderr
+    else return $ Left stderr
 
-link :: CompileContext -> CCompiler -> [String] -> [TypePath] -> IO FilePath
-link ctx cc args names = do
+linkBundles
+  :: CompileContext -> CCompiler -> [String] -> [TypePath] -> IO FilePath
+linkBundles ctx cc args names = do
   let outName = ctxOutputPath ctx
   let args' =
         [ objPath ctx name | name <- names ]
