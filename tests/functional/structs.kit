@@ -4,7 +4,7 @@ struct MyStruct {
     var a: Int = 1;
     var b: CString = "hello";
     var c = 5;
-    var d: Bool;
+    var d: Bool = undefined;
     var e: Ptr[Float];
 }
 
@@ -42,4 +42,9 @@ function main() {
         printf("- ");
         puts(field);
     }
+
+    // reassign with default values
+    printf("%i %s\n", a.c, if a.d then "true" else "false");
+    a = struct MyStruct {d: false};
+    printf("%i %s\n", a.c, if a.d then "true" else "false");
 }

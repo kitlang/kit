@@ -89,6 +89,7 @@ data ExprType a b
   | Temp a
   | Null
   | Empty
+  | Undefined
   | InlineCExpr Str b
   | VarArg Str
   | StaticExpr a
@@ -149,6 +150,7 @@ exprDiscriminant et = case et of
   StaticExpr _                -> 46
   Yield      _                -> 47
   Tokens     _                -> 48
+  Undefined                   -> 49
   x -> throwk $ InternalError "Expression has no discriminant!" Nothing
 
 exprChildren :: ExprType a b -> [a]

@@ -463,16 +463,18 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
         return $ IrSizeOf t
       (Null ) -> return IrNull
       (Empty) -> do
-        t' <- findUnderlyingType ctx mod (Just pos) t
-        case t' of
+        t <- findUnderlyingType ctx mod (Just pos) t
+        case t of
           CArray              _ _ -> return ()
           BasicTypeAnonStruct _ _ -> return ()
           BasicTypeStruct      _  -> return ()
           BasicTypeComplexEnum _  -> return ()
           _                       -> throwk $ TypingError
-            ("`empty` isn't a valid value of type " ++ show t')
+            ("`empty` isn't a valid value of type " ++ show t)
             pos
-        return $ IrEmpty t'
+        return $ IrEmpty t
+      (Undefined) ->
+        throwk $ TypingError "`undefined` isn't a valid runtime value" pos
       (VarArg x) -> do
         return $ IrCall (IrIdentifier ([], "va_arg"))
                         [IrIdentifier ([], x), IrType f]
