@@ -6,20 +6,34 @@ abstract Char: Void {
             return this;
         }
     }
+
+    public static function minValue(): Self {
+        return ${SCHAR_MIN: Self};
+    }
+    public static function maxValue(): Self {
+        return ${SCHAR_MAX: Self};
+    }
 }
-abstract Size: Void;
+abstract Size: Void {
+    public static function minValue(): Self {
+        return 0;
+    }
+    public static function maxValue(): Self {
+        return ${SIZE_MAX: Self};
+    }
+}
 
 abstract Int[$W = 0]: Void {
     public static function minValue(): Self {
         static if W == 0 {
-            return ${INT_MIN: Int};
+            return ${INT_MIN: Self};
         } else {
             return ~(Self.maxValue());
         }
     }
     public static function maxValue(): Self {
         static if W == 0 {
-            return ${INT_MAX: Int};
+            return ${INT_MAX: Self};
         } else {
             return ~(0 as Self) & ~((1 as Self << (W - 1)) as Self);
         }
@@ -32,14 +46,34 @@ abstract Uint[$W = 0]: Void {
     }
     public static function maxValue(): Self {
         static if W == 0 {
-            return ${UINT_MAX: Uint};
+            return ${UINT_MAX: Self};
          } else {
              return (1 as Self << (W - 1) as Self) | ~(1 as Self << (W - 1) as Self);
          }
     }
 }
 
-abstract Float[$W = 32]: Void;
+#[demote] abstract Float[$W = 32]: Void {
+    public static function minValue(): Self {
+        static if W == 32 {
+            return ${FLT_MIN: Self};
+        } else if W == 64 {
+            return ${DBL_MIN: Self};
+        } else {
+            panic("invalid float width!");
+        }
+    }
+
+    public static function maxValue(): Self {
+        static if W == 32 {
+            return ${FLT_MAX: Self};
+        } else if W == 64 {
+            return ${DBL_MAX: Self};
+        } else {
+            panic("invalid float width!");
+        }
+    }
+}
 
 typedef Int8 = Int[8];
 typedef Int16 = Int[16];
