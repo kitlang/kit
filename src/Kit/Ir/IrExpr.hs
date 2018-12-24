@@ -28,6 +28,7 @@ data IrExpr
   | IrCArrLiteral [IrExpr] BasicType
   | IrVarDeclaration Str BasicType (Maybe IrExpr)
   | IrStructInit BasicType [(Str, IrExpr)]
+  | IrUnionInit BasicType (Str, IrExpr)
   | IrEnumInit BasicType TypePath [(Str, IrExpr)]
   | IrTupleInit BasicType [IrExpr]
   | IrSizeOf BasicType

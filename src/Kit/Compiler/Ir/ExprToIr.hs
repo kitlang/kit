@@ -391,6 +391,9 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
             return (name, r1)
           )
         return $ IrStructInit f resolvedFields
+      (UnionInit t (name, e)) -> do
+        resolved <- r e
+        return $ IrUnionInit f (name, resolved)
       (EnumInit (TypeInstance tp p) discriminant args) -> do
         tctx           <- modTypeContext ctx mod
         resolvedParams <- forM p $ mapType $ follow ctx tctx

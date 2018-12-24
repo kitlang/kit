@@ -113,3 +113,35 @@ typeStructInit (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolv
 
       result <- findStruct structType tctx
       return $ result { inferredType = structType }
+
+    (UnionInit unionType@(TypeInstance tp p) (name, expr)) -> do
+      let
+        findUnion (TypeInstance tp p) tctx = do
+          params <- makeGeneric ctx tp pos p
+          tctx <- genericTctx ctx tctx pos (TypeInstance tp $ map snd params)
+          params <- forMWithErrors (map snd params) $ mapType $ follow ctx tctx
+          unionDef <- getTypeDefinition ctx tp
+          case typeSubtype unionDef of
+            Abstract { abstractUnderlyingType = parent@(TypeInstance tp p) } ->
+              do
+                parent <- mapType (follow ctx tctx) parent
+                findUnion parent tctx
+
+            StructUnion { structUnionFields = structUnionFields, isStruct = False }
+              -> do
+                expr      <- typeExpr ctx tctx mod expr
+                unionType <- mapType (follow ctx tctx) $ unionType
+                return $ (makeExprTyped (UnionInit unionType (name, expr))
+                                        unionType
+                                        pos
+                         )
+                  { tIsLvalue = True
+                  , tIsLocal  = True
+                  }
+
+            x -> throwk $ TypingError
+              ("Type " ++ s_unpack (showTypePath tp) ++ " isn't a union")
+              pos
+
+      result <- findUnion unionType tctx
+      return $ result { inferredType = unionType }

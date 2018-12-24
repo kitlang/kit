@@ -249,6 +249,7 @@ parseModuleExprs ctx mod fp pos = do
     Just fp -> do
       return fp
     Nothing -> findModule ctx mod pos
+  noisyDebugLog ctx $ "parsing file " ++ show path
   parsed <- parseFile path
   case parsed of
     ParseResult r -> return (path, r)
