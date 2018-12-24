@@ -1,0 +1,17 @@
+struct MyStruct {
+    public var a: Int;
+    public var b: Int;
+}
+
+function main() {
+    var n: Int = 0x1000;
+    var a: Array[MyStruct] = Array.new(n * 2);
+    var v: Vector[Ptr[MyStruct]] = Vector.new(n);
+
+    for i in 0 ... n * 2 {
+        var x: Ptr[MyStruct] = a[i];
+        v.push(x);
+    }
+
+    printf("%zx\n", v.length);
+}
