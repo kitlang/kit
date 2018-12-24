@@ -44,6 +44,7 @@ script:
 - stack build kitlang:kitc
 - stack exec kitc -- -h
 - TEST_RUNS=1 stack test --test-arguments '+RTS -N -RTS'
+- stack install
 - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then fpm -s dir -t deb -n kitlang -v 0.1.0-$CC-latest ~/.local/bin/kitc=/usr/bin/kitc std/=/usr/lib/kit; fi
 
 notifications:
