@@ -8,7 +8,7 @@ fpm -s dir -t deb -n kitlang -v 0.1.0-$CC-latest \
   -d "$CC" \
   ~/.local/bin/kitc=/usr/bin/kitc std/=/usr/lib/kit
 
-curl -vvv -T kitlang_0.1.0-$CC-latest.deb -ukitplummer:$BINTRAY_API_KEY \
+curl -vvv -T kitlang_0.1.0-$CC-latest_amd64.deb -ukitplummer:$BINTRAY_API_KEY \
   -H "X-Bintray-Publish: 1" -H "X-Bintray-Override: 1" \
   -H "X-Bintray-Debian-Distribution: trusty, xenial, bionic" \
   -H "X-Bintray-Debian-Component: universe" \
