@@ -1,6 +1,6 @@
 #!/bin/#!/usr/bin/env bash
 
-sudo pip install fpm
+sudo gem install fpm
 
 fpm -s dir -t deb -n kitlang -v 0.1.0-$CC-latest \
   -d "$CC" \
