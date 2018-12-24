@@ -8,7 +8,7 @@ struct Slice[T] {
     public var length: Size;
     public var data: Ptr[T];
 
-    public function ref() {
+    public function ref(): Ptr[T] {
         return this.data;
     }
 
