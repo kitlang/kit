@@ -5,6 +5,10 @@ gem install fpm
 
 fpm -s dir -t deb -n kitlang -v 0.1.0-$CC-latest \
   --description "Kit is a programming language designed for creating concise, high performance cross-platform applications." \
+  --license "LGPLv3.0,MIT(See Documentation)"
+  --vendor "kitlang.org"
+  --maintainer "kitlang.org"
+  --url "https://kitlang.org"
   -d "$CC" \
   ~/.local/bin/kitc=/usr/bin/kitc std/=/usr/lib/kit
 
