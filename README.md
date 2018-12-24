@@ -98,7 +98,9 @@ Install from package
 
 * Setup Bintray's APT key:
 
-```apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 379CE192D401AB61 ```
+(Debian might need to install dirmngr first - `sudo apt install dirmngr`, and the HTTPS transport for apt - `sudo apt install apt-transport-https`)
+
+```sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 379CE192D401AB61 ```
 
 * Using the command line, add the following to your /etc/apt/sources.list system config file:
 
