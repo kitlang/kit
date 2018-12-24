@@ -243,7 +243,11 @@ public function copy[T](source: Ptr[T], dest: Ptr[T]): Void {
     memcpy(dest, source, sizeof T);
 }
 
+public function clear[T](dest: Ptr[T]): Void {
+    memset(dest, 0, sizeof T);
+}
+
 public function move[T](source: Ptr[T], dest: Ptr[T]): Void {
     copy(source, dest);
-    memset(source, 0, sizeof T);
+    clear(source);
 }

@@ -12,6 +12,10 @@ struct Slice[T] {
         return this.data;
     }
 
+    public function clear() {
+        memset(this.data, 0, sizeof T * this.length);
+    }
+
     // public function contains(value: T): Bool {
     //     for i in 0 ... this.length {
     //         if *(this.data + i) == value {
