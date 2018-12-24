@@ -682,6 +682,7 @@ BaseExpr :: {Expr}
   | empty {pe (snd $1) Empty}
   | struct TypeSpec '{' StructInitFields '}' {pe (snd $1 <+> snd $5) $ StructInit (Just $ fst $2) $4}
   | struct TypeSpec {pe (snd $1 <+> snd $2) $ StructInit (Just $ fst $2) []}
+  | union TypeSpec '{' StructInitField '}' {pe (snd $1 <+> snd $2) $ UnionInit (Just $ fst $2) $4}
   | implicit TypeSpec {pe (snd $1 <+> snd $2) $ Implicit $ Just $ fst $2}
   | inline_c TypeAnnotation {pe (snd $1 <+> snd $2) $ InlineCExpr (extract_inline_c $1) (fst $2)}
   | static Expr {pe (snd $1 <+> pos $2) (StaticExpr $2)}

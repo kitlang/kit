@@ -232,9 +232,10 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
     (LocalVarDeclaration _ _ _ _) -> subTyper typeVarDeclaration
 
-    (StructInit _ _        ) -> subTyper typeStructInit
+    (StructInit _ _             ) -> subTyper typeStructInit
+    (UnionInit  _ _             ) -> subTyper typeStructInit
 
-    (TupleInit slots       ) -> do
+    (TupleInit slots            ) -> do
       slots' <- forMWithErrors slots r
       return $ makeExprTyped (TupleInit slots')
                              (TypeTuple (map inferredType slots'))

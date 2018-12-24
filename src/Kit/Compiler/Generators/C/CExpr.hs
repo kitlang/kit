@@ -215,6 +215,8 @@ initializerExpr (IrStructInit _ fields) =
     $ [ ([u $ CMemberDesig (cIdent name)], initializerExpr value)
       | (name, value) <- fields
       ]
+initializerExpr (IrUnionInit _ (name, value)) =
+  u $ CInitList $ [([u $ CMemberDesig (cIdent name)], initializerExpr value)]
 initializerExpr x = u $ CInitExpr $ transpileExpr x
 
 transpileExpr :: IrExpr -> CExpr
@@ -287,6 +289,9 @@ transpileExpr (IrStructInit t fields) = u $ CCompoundLit
   [ ([u $ CMemberDesig (cIdent name)], u $ CInitExpr (transpileExpr e))
   | (name, e) <- fields
   ]
+transpileExpr (IrUnionInit t (name, e)) = u $ CCompoundLit
+  (cDecl t Nothing Nothing)
+  [([u $ CMemberDesig (cIdent name)], u $ CInitExpr (transpileExpr e))]
 transpileExpr (IrEnumInit (BasicTypeSimpleEnum _) discriminant []) =
   transpileExpr (IrIdentifier discriminant)
 transpileExpr (IrEnumInit (BasicTypeAnonEnum _ _) discriminant []) =
