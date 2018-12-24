@@ -91,6 +91,18 @@ You'll need to point Kit to its standard library (which is the "std" directory i
 
 - Kit is currently known to work with mingw64; anything else is unsupported at this time.
 
+Install from package
+--------------------
+
+## Debian/Ubuntu
+
+* Setup Bintray's APT key:
+```apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 379CE192D401AB61 ```
+
+* Using the command line, add the following to your /etc/apt/sources.list system config file:
+```echo "deb https://dl.bintray.com/kitplummer/kit bionic universe" | sudo tee -a /etc/apt/sources.list```
+Or, add the repository URLs using the "Software Sources" admin UI:
+```deb https://dl.bintray.com/kitplummer/kit bionic universe```
 
 Hello world
 -----------
