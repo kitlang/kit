@@ -79,7 +79,9 @@ ctype (BasicTypeConst t) =
 ctype BasicTypeVoid    = ([CTypeSpec $ u CVoidType], [])
 ctype BasicTypeBool    = ([CTypeSpec $ u CBoolType], [])
 ctype (BasicTypeCChar) = ([CTypeSpec $ u CCharType], [])
-ctype (BasicTypeCInt ) = ([CTypeSpec $ u CIntType], [])
+ctype (BasicTypeCUchar) =
+  ([CTypeSpec $ u $ CTypeDef (internalIdent "unsigned char")], [])
+ctype (BasicTypeCInt) = ([CTypeSpec $ u CIntType], [])
 ctype (BasicTypeCUint) =
   ([CTypeSpec $ u $ CTypeDef (internalIdent "unsigned int")], [])
 ctype (BasicTypeCSize) =

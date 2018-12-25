@@ -258,7 +258,7 @@ _parseDeclSpec modPath (h : t) width signed float = case h of
   (CUnsigType  _           ) -> _parseDeclSpec modPath t width False float
   (CFloatType  _           ) -> _parseDeclSpec modPath t 32 signed True
   (CDoubleType _           ) -> _parseDeclSpec modPath t 64 signed True
-  (CCharType   _           ) -> TypeChar
+  (CCharType   _           ) -> if signed then TypeChar else TypeUChar
   (CIntType    _           ) -> if signed then TypeInt 0 else TypeUint 0
   (CShortType  _           ) -> _parseDeclSpec modPath t 16 signed False
   (CLongType _) -> _parseDeclSpec modPath t (width + 32) signed False

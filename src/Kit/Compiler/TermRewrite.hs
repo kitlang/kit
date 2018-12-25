@@ -2,6 +2,7 @@ module Kit.Compiler.TermRewrite where
 
 import Control.Monad
 import Data.List
+import Data.Maybe
 import Kit.Ast
 import Kit.Compiler.Context
 import Kit.Compiler.Module
@@ -133,6 +134,10 @@ ruleMatch ctx tctx pattern te thisExpr = do
       x <- r a c
       y <- r b d
       combineResults [x, y]
+    (Call f1 [] args1, Call f2 [] args2) | length args1 == length args2 -> do
+      f <- r f1 f2
+      a <- forM (zip args1 args2) $ \(a, b) -> r a b
+      combineResults (f : a)
     (a, b) -> if exprDiscriminant a == exprDiscriminant b
       then
         let (c1, c2) = (exprChildren a, exprChildren b)

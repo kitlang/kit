@@ -7,9 +7,11 @@ addons:
   apt:
     packages:
     - libgmp-dev
+    - libxml2-dev
   homebrew:
     packages:
     - libyaml
+    - libxml2
 
 env:
   matrix:
@@ -37,7 +39,7 @@ script:
 - "clang --version"
 - stack build kitlang:kitc
 - stack exec kitc -- -h
-- TEST_RUNS=1 stack test --test-arguments '+RTS -N -RTS'
+- TEST_RUNS=1 COMPILE_FLAGS=`xml2-config --cflags` stack test --test-arguments '+RTS -N -RTS'
 
 notifications:
   webhooks:

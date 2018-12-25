@@ -1,0 +1,46 @@
+import kit.xml;
+
+function testParse(s: CString) {
+    var xml = Xml.parse(s);
+    if !xml.isSome() {
+        panic("failed to parse XML");
+    }
+    return xml.unwrap();
+}
+
+function main() {
+    var doc1 = testParse("<test/>");
+    doc1.free();
+
+    var doc2 = testParse('<test a="1"><a b="1"></a><b></b>abc</test>');
+    var root = doc2.getRoot();
+    printf("%s\n", root.name);
+    var prop = root.getAttribute("a");
+    match prop {
+        Some(v) => {
+            printf("a=%s\n", v);
+            v.free();
+        }
+        Nothing => {
+            puts("no a attribute");
+        }
+    }
+    prop = root.getAttribute("b");
+    match prop {
+        Nothing => {
+            puts("no b attribute");
+        }
+    }
+    for child in root {
+        match child.type {
+            XML_ELEMENT_NODE => {
+                printf("element child: %s\n", child.name);
+            }
+            XML_TEXT_NODE => {
+                var txt = child.getText().unwrap();
+                printf("text child: %s\n", txt);
+                txt.free();
+            }
+        }
+    }
+}

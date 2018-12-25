@@ -77,6 +77,13 @@ struct Vector[T] {
         return this.data.data;
     }
 
+    public function slice(): Slice[T] {
+        return struct Slice[T] {
+            length: this.length,
+            data: this.ref(),
+        };
+    }
+
     rules {
         ($this :: ${other: Self}) => $this.concat(other);
         // FIXME: implement term rewriting for casts

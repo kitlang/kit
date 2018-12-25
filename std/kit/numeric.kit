@@ -14,6 +14,14 @@ abstract Char: Void {
         return ${SCHAR_MAX: Self};
     }
 }
+abstract UChar: Void {
+    public static function minValue(): Self {
+        return ${CHAR_MIN: Self};
+    }
+    public static function maxValue(): Self {
+        return ${CHAR_MAX: Self};
+    }
+}
 abstract Size: Void {
     public static function minValue(): Self {
         return 0;

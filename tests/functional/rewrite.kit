@@ -8,6 +8,12 @@ rules MyRewriteRules {
     (banana) => strawberry;
 }
 
+rules FRules {
+    (F($a, $b)) => myFunc($a, $b);
+}
+
+using rules FRules;
+
 function a(): Double {
     printf("side effect a\n");
     return 1;
@@ -16,6 +22,10 @@ function a(): Double {
 function b(): Double {
     printf("side effect b\n");
     return 2;
+}
+
+function myFunc(x: Int, y: Int) {
+    return x + y;
 }
 
 rules Reduce {
@@ -87,4 +97,6 @@ function main() {
     for i in box {
         printf("hello\n");
     }
+
+    printf("%i\n", F(5, 10));
 }

@@ -70,6 +70,7 @@ _findUnderlyingType ctx mod pos stack t = do
       return $ CArray t (if s == 0 then Nothing else Just s)
     TypeBool    -> return BasicTypeBool
     TypeChar    -> return BasicTypeCChar
+    TypeUChar   -> return BasicTypeCUchar
     TypeSize    -> return BasicTypeCSize
     TypeInt   0 -> return BasicTypeCInt
     TypeInt   w -> return $ BasicTypeInt w
@@ -133,7 +134,8 @@ _findUnderlyingType ctx mod pos stack t = do
         modTctx
         [ (typeSubPath templateDef $ paramName param, value)
         | (param, value) <- zip (typeParams templateDef) params
-        ] (fromJust pos)
+        ]
+        (fromJust pos)
       def <- followType ctx tctx templateDef
       let typeName = monomorphName (typeRealName templateDef) params
       case typeSubtype def of

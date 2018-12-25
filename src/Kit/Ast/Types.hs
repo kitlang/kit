@@ -117,6 +117,8 @@ pattern TypeBool :: ConcreteType
 pattern TypeBool = TypeInstance (["kit", "common"], "Bool") []
 pattern TypeChar :: ConcreteType
 pattern TypeChar = TypeInstance (["kit", "numeric"], "Char") []
+pattern TypeUChar :: ConcreteType
+pattern TypeUChar = TypeInstance (["kit", "numeric"], "UChar") []
 pattern TypeSize :: ConcreteType
 pattern TypeSize = TypeInstance (["kit", "numeric"], "Size") []
 pattern TypeInt :: Int -> ConcreteType
@@ -131,6 +133,7 @@ pattern TypeCString :: ConcreteType
 pattern TypeCString = TypeInstance (["kit", "common"], "CString") []
 
 isNumericType TypeChar = True
+isNumericType TypeUChar = True
 isNumericType TypeSize = True
 isNumericType (TypeInt _) = True
 isNumericType (TypeUint _) = True

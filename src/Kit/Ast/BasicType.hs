@@ -20,6 +20,7 @@ data BasicType
   | BasicTypeCInt
   | BasicTypeCUint
   | BasicTypeCChar
+  | BasicTypeCUchar
   | BasicTypeCSize
   | BasicTypeVoid
   | BasicTypeBool
@@ -95,6 +96,7 @@ instance Show BasicType where
   show (BasicTypeVoid) = "Void"
   show (BasicTypeBool) = "Bool"
   show (BasicTypeCChar) = "Char"
+  show (BasicTypeCUchar) = "Uchar"
   show (BasicTypeCInt) = "Int"
   show (BasicTypeCUint) = "Uint"
   show (BasicTypeCSize) = "Size"

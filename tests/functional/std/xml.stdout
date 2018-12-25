@@ -1,0 +1,6 @@
+test
+a=1
+no b attribute
+element child: a
+element child: b
+text child: abc

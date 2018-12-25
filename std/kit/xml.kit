@@ -1,0 +1,52 @@
+import kit.sys.file;
+
+include "libxml/xmlreader.h" => "xml2";
+
+abstract Xml: Ptr[xmlDoc] {
+    public static function parse(allocator: Box[Allocator], s: CString): Option[Xml] using implicit allocator {
+        var result: Xml = xmlParseDoc(s as Const[Ptr[xmlChar]]) as Xml;
+        return if result as Ptr[Void] == null then None else Some(result);
+    }
+
+    public static function parseFile(allocator: Box[Allocator], path: Const[CString]): Option[Xml] using implicit allocator {
+        var result: Xml = xmlReadFile(path, null, 0) as Xml;
+        return if result as Ptr[Void] == null then None else Some(result);
+    }
+
+    public function getRoot(): XmlNode {
+        return xmlDocGetRootElement(this) as XmlNode;
+    }
+
+    public function free() {
+        xmlFreeDoc(this);
+    }
+}
+
+abstract XmlNode: Ptr[xmlNode] {
+    public function getAttribute(name: CString): Option[XmlValue] {
+        var result = xmlGetProp(this, name as Ptr[xmlChar]);
+        return if result == null then None else Some(result as XmlValue);
+    }
+
+    public function getText(): Option[XmlValue] {
+        var result = xmlNodeGetContent(this);
+        return if result == null then None else Some(result as XmlValue);
+    }
+
+    rules {
+        (for $child in $this {$e}) => {
+            var node = $this;
+            var $child: XmlNode = node.children as XmlNode;
+            while $child as Ptr[Void] != null {
+                {$e}
+                $child = $child.next as XmlNode;
+            }
+        }
+    }
+}
+
+abstract XmlValue: CString {
+    public function free() {
+        xmlFree(this);
+    }
+}
