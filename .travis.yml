@@ -37,20 +37,15 @@ before_install:
 install:
 - stack --no-terminal --install-ghc test --only-dependencies
 
-jobs:
-  include:
-    - stage: build and test
-      script:
-        - "gcc --version"
-        - "clang --version"
-        - stack build kitlang:kitc
-        - stack exec kitc -- -h
-        - TEST_RUNS=1 stack test --test-arguments '+RTS -N -RTS'
-        - stack install
-    - stage: deploy to bintray
-      script:
-        - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sh ./.packages/linux.sh; fi
-        - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then sh ./.packages/osx.sh; fi
+script:
+- "gcc --version"
+- "clang --version"
+- stack build kitlang:kitc
+- stack exec kitc -- -h
+- TEST_RUNS=1 stack test --test-arguments '+RTS -N -RTS'
+- stack install
+- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sh ./.packages/linux.sh; fi
+- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then sh ./.packages/osx.sh; fi
 
 notifications:
   webhooks:
