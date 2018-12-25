@@ -13,6 +13,6 @@ fpm -s dir -t osxpkg -n kitlang -v $VERSION-latest \
   --url "https://kitlang.org" \
   ~/.local/bin/kitc=/usr/local/bin/kitc std/=/usr/local/lib/kit
 
-curl -vvv -T kitlang_$VERSION-latest.pkg -ukitplummer:$BINTRAY_API_KEY \
+curl -vvv -T kitlang-$VERSION-latest.pkg -ukitplummer:$BINTRAY_API_KEY \
   -H "X-Bintray-Publish: 1" -H "X-Bintray-Override: 1" \
-  https://api.bintray.com/content/kitplummer/kit-macos/kitlang/0.1.0/kitlang_$VERSION-latest.pkg
+  https://api.bintray.com/content/kitplummer/kit-macos/kitlang/0.1.0/kitlang-$VERSION-latest.pkg
