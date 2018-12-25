@@ -5,7 +5,7 @@ gem install fpm
 
 VERSION=`grep -r version: package.yaml | cut -d "'" -f2`
 
-fpm -s dir -t osxpkg -n kitlang -v $VERSION-latest \
+fpm -s dir -t osxpkg -n kitlang -v $VERSION-$CC-latest \
   --description "Kit is a programming language designed for creating concise, high performance cross-platform applications." \
   --license "LGPLv3.0" \
   --vendor "kitlang.org" \
