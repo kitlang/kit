@@ -11,6 +11,7 @@ addons:
     - make
     - ruby
     - ruby-dev
+    - rpm
   homebrew:
     packages:
     - libyaml
