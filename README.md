@@ -116,6 +116,41 @@ Or, add the repository URLs using the "Software Sources" admin UI:
 
 ```sudo apt install kitlang```
 
+### RedHat/CentOS
+
+* Run the following to get a generated .repo file:
+
+```wget https://bintray.com/kitplummer/kit-rpm/rpm -O bintray-kitplummer-kit-rpm.repo```
+
+- or -
+
+* Copy this text into a 'bintray-kitplummer-kit-rpm.repo' file on your Linux machine:
+```#bintraybintray-kitplummer-kit-rpm - packages by kitplummer from Bintray
+[bintraybintray-kitplummer-kit-rpm]
+name=bintray-kitplummer-kit-rpm
+baseurl=https://dl.bintray.com/kitplummer/kit-rpm
+gpgcheck=0
+repo_gpgcheck=0
+enabled=1```
+
+* Then, move the config
+
+```sudo mv bintray-kitplummer-kit-rpm.repo /etc/yum.repos.d/```
+
+* Update yum with:
+
+```sudo yum update```
+
+* Install with yum:
+
+```sudo yum install kitlang```
+
+### macOS
+
+* Download one of the macOS packages from https://bintray.com/kitplummer/kit-macos/kitlang/0.1.0#
+
+* Install the package (NOTE: the installer will complain about 'unidentified developer', have to bypass in System Preferences/Security & Privacy.)
+
 Hello world
 -----------
 
