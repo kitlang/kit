@@ -45,6 +45,7 @@ script:
 - TEST_RUNS=1 stack test --test-arguments '+RTS -N -RTS'
 - stack install
 - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sh ./.packages/linux.sh; fi
+- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then sh ./.packages/osx.sh; fi
 
 notifications:
   webhooks:

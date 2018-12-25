@@ -36,6 +36,6 @@ curl -T kitlang_$VERSION-$CC-latest_amd64.deb -ukitplummer:$BINTRAY_API_KEY \
   https://api.bintray.com/content/kitplummer/kit/kitlang/0.1.0/kitlang_$VERSION-$CC-latest_amd64.deb
 
 ## Deploy the RPM package
-curl -vvv -T kitlang-$VERSION_$CC_latest-$TRAVIS_BUILD_NUMBER.x86_64.rpm \
+curl -vvv -T kitlang-${VERSION}_${CC}_latest-$TRAVIS_BUILD_NUMBER.x86_64.rpm \
   -H "X-Bintray-Publish: 1" -H "X-Bintray-Override: 1" \
-  -ukitplummer:$BINTRAY_API_KEY https://api.bintray.com/content/kitplummer/kit-rpm/kitlang/$VERSION/kitlang-$VERSION_$CC_latest-$TRAVIS_BUILD_NUMBER.x86_64.rpm
+  -ukitplummer:$BINTRAY_API_KEY https://api.bintray.com/content/kitplummer/kit-rpm/kitlang/$VERSION/kitlang-${VERSION}_${CC}_latest-$TRAVIS_BUILD_NUMBER.x86_64.rpm
