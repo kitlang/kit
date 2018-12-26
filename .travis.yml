@@ -19,31 +19,29 @@ addons:
     packages:
     - libyaml
 
+  os:
+    - linux
+    - osx
+
 jobs:
-
-
   matrix:
     fast_finish: true
 
   include:
-    before_install:
-    - mkdir -p ~/.local/bin
-    - export PATH=$HOME/.local/bin:$PATH
-    - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then travis_retry curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; fi
-    - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then travis_retry curl -L https://get.haskellstack.org/stable/osx-x86_64.tar.gz | tar xz --strip-components=1 -C ~/.local/bin '*/stack'; fi
-
-    install:
-    - stack --no-terminal --install-ghc test --only-dependencies
-
     - stage: build
-      os:
-        - linux
-        - osx
       env:
         matrix:
           - CC=gcc
           - CC=clang
 
+      before_install:
+      - mkdir -p ~/.local/bin
+      - export PATH=$HOME/.local/bin:$PATH
+      - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then travis_retry curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; fi
+      - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then travis_retry curl -L https://get.haskellstack.org/stable/osx-x86_64.tar.gz | tar xz --strip-components=1 -C ~/.local/bin '*/stack'; fi
+
+      install:
+      - stack --no-terminal --install-ghc test --only-dependencies
 
       script:
       - "gcc --version"
@@ -52,9 +50,6 @@ jobs:
       - stack exec kitc -- -h
 
     - stage: test
-      os:
-        - linux
-        - osx
       env:
         matrix:
           - CC=gcc
@@ -63,16 +58,10 @@ jobs:
         - TEST_RUNS=1 stack test --test-arguments '+RTS -N -RTS'
         - stack install
 
-    - stage: deploy linux packages
-      os: linux
+    - stage: deploy
       env: CC=gcc
       script:
         - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then bash ./.packages/linux.sh; fi
-        
-    - stage: deploy mac package
-      os: osx
-      env: CC=gcc
-      script:
         - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then bash ./.packages/osx.sh; fi
 
 notifications:
