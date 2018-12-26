@@ -4,9 +4,7 @@ cache:
   directories:
   - $HOME/.stack
 
-os:
-  - linux
-  - osx
+
 
 addons:
   apt:
@@ -22,24 +20,30 @@ addons:
     - libyaml
 
 jobs:
-  env:
-    matrix:
-      - CC=gcc
-      - CC=clang
+
 
   matrix:
     fast_finish: true
 
   include:
-    - stage: build
-      before_install:
-      - mkdir -p ~/.local/bin
-      - export PATH=$HOME/.local/bin:$PATH
-      - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then travis_retry curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; fi
-      - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then travis_retry curl -L https://get.haskellstack.org/stable/osx-x86_64.tar.gz | tar xz --strip-components=1 -C ~/.local/bin '*/stack'; fi
+    before_install:
+    - mkdir -p ~/.local/bin
+    - export PATH=$HOME/.local/bin:$PATH
+    - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then travis_retry curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; fi
+    - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then travis_retry curl -L https://get.haskellstack.org/stable/osx-x86_64.tar.gz | tar xz --strip-components=1 -C ~/.local/bin '*/stack'; fi
 
-      install:
-      - stack --no-terminal --install-ghc test --only-dependencies
+    install:
+    - stack --no-terminal --install-ghc test --only-dependencies
+
+    - stage: build
+      os:
+        - linux
+        - osx
+      env:
+        matrix:
+          - CC=gcc
+          - CC=clang
+
 
       script:
       - "gcc --version"
@@ -48,6 +52,13 @@ jobs:
       - stack exec kitc -- -h
 
     - stage: test
+      os:
+        - linux
+        - osx
+      env:
+        matrix:
+          - CC=gcc
+          - CC=clang
       script:
         - TEST_RUNS=1 stack test --test-arguments '+RTS -N -RTS'
         - stack install
@@ -57,6 +68,7 @@ jobs:
       env: CC=gcc
       script:
         - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then bash ./.packages/linux.sh; fi
+        
     - stage: deploy mac package
       os: osx
       env: CC=gcc
