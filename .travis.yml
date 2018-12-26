@@ -8,13 +8,6 @@ os:
   - linux
   - osx
 
-language:
-  - haskell
-
-compiler:
-  - clang
-  - gcc
-
 addons:
   apt:
     packages:
@@ -28,20 +21,16 @@ addons:
     packages:
     - libyaml
 
-env:
-  matrix:
-    - CC=gcc
-    - CC=clang
-
-matrix:
-  fast_finish: true
-
-
-
-
-
 jobs:
   include:
+    env:
+      matrix:
+        - CC=gcc
+        - CC=clang
+
+    matrix:
+      fast_finish: true
+
     - stage: build
       before_install:
       - mkdir -p ~/.local/bin
