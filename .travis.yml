@@ -22,15 +22,15 @@ addons:
     - libyaml
 
 jobs:
-  include:
-    env:
-      matrix:
-        - CC=gcc
-        - CC=clang
-
+  env:
     matrix:
-      fast_finish: true
+      - CC=gcc
+      - CC=clang
 
+  matrix:
+    fast_finish: true
+
+  include:
     - stage: build
       before_install:
       - mkdir -p ~/.local/bin
