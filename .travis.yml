@@ -47,8 +47,6 @@ script:
   - stack exec kitc -- -h
   - TEST_RUNS=1 stack test --test-arguments '+RTS -N -RTS'
   - stack install
-
-deploy:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then bash ./.packages/linux.sh; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then bash ./.packages/osx.sh; fi
 
