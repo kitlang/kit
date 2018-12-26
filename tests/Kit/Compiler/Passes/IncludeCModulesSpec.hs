@@ -51,21 +51,8 @@ spec = do
       (\t -> it ("Parses C specifiers into " ++ show t) $ do
         ctx <- newCompileContext
         mod <- newMod [] ""
-        t'  <- findUnderlyingType ctx mod Nothing $ parseType
-          []
-          (fst
-            (let (a, b) = ctype t
-             in  ( catMaybes $ map
-                   (\x -> case x of
-                     CTypeSpec x -> Just x
-                     _           -> Nothing
-                   )
-                   a
-                 , b
-                 )
-            )
-          )
-          []
+        t'  <- findUnderlyingType ctx mod Nothing
+          $ parseType [] (fst $ ctype t) []
         t' `shouldBe` t
       )
 
@@ -82,9 +69,8 @@ spec = do
       True `shouldBe` True
 
     forM_
-      [ let (n, t) = ("var1", (TypeInt 16))
-        in  ("Parses var declarations", "var1", t)
-      , ("Parses var definitions", "var2", (TypeChar))
+      [ ("Parses var declarations", "var1", (TypeInt 16))
+      , ("Parses var definitions" , "var2", (TypeChar))
       , ( "Parses var definitions with multiple type specifiers"
         , "var3"
         , (TypeUint 32)
@@ -151,6 +137,15 @@ spec = do
           []
         )
       , ("Parses 'unsigned' by itself", "just_unsigned", (TypeUint 0))
+      , ( "Parses pointer to const char"
+        , "const_char"
+        , TypePtr (TypeConst (TypeChar))
+        )
+      -- , ("Parses const pointer", "const_ptr", TypeConst (TypePtr (TypeInt 0)))
+      , ( "Parses function pointer typedef"
+        , "func_pointah"
+        , TypeFunction (TypeTypedef "fp_typedef") [("arg3", TypeInt 0)] Nothing []
+        )
       ]
       (\(label, name, ct) -> it label $ do
         (ctx, header) <- testHeader

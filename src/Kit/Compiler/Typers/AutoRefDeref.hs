@@ -53,6 +53,8 @@ _autoRefDeref ctx tctx toType fromType ex = do
   case result of
     Just _ -> return $ Just ex
     _      -> case (toType, fromType) of
+      (TypePtr f1@(TypeFunction _ _ _ _), f2@(TypeFunction _ _ _ _)) ->
+        r f1 f2 ex
       (MethodTarget a   , _             ) -> return Nothing
       (_                , MethodTarget b) -> return Nothing
       (TypeBox tp params, b             ) -> do
