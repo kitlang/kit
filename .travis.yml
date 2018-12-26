@@ -19,9 +19,9 @@ addons:
     packages:
       - libyaml
 
-  os:
-    - linux
-    - osx
+os:
+  - linux
+  - osx
 
 matrix:
   fast_finish: true
