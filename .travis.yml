@@ -47,7 +47,7 @@ script:
 - TEST_RUNS=1 stack test --test-arguments '+RTS -N -RTS'
 - stack install
 
-job:
+jobs:
   include:
     - stage: deploy
       env: CC=gcc
