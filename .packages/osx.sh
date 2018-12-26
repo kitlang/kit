@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
 set -e
 
-gem install fpm
+gem install fpm --no-ri --no-rdoc
 
 VERSION=`grep -r version: package.yaml | cut -d "'" -f2`
 
-if [ "$TRAVIS_BRANCH" == "dev" ] then
-  FILE_VERSION="$VERSION-$CC-rc-$TRAVIS_BUILD_NUMBER"
+if [ "$TRAVIS_BRANCH" == "dev" ]
+then
+  FILE_VERSION=$VERSION-prerelease-$TRAVIS_BUILD_NUMBER
 fi
 
-if [ "$TRAVIS_BRANCH" == "master" ] then
-  FILE_VERSION="$VERSION-$CC"
+if [ "$TRAVIS_BRANCH" == "master" ]
+then
+  FILE_VERSION=$VERSION-$TRAVIS_BUILD_NUMBER
 fi
 
 fpm -s dir -t osxpkg -n kitlang -v $FILE_VERSION \

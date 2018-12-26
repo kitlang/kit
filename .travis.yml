@@ -3,6 +3,11 @@ language: generic
 cache:
   directories:
   - $HOME/.stack
+
+os:
+  - linux
+  - osx
+
 addons:
   apt:
     packages:
@@ -21,31 +26,40 @@ env:
     - CC=gcc
     - CC=clang
 
-os:
-  - linux
-  - osx
 
 matrix:
   fast_finish: true
 
-before_install:
-- mkdir -p ~/.local/bin
-- export PATH=$HOME/.local/bin:$PATH
-- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then travis_retry curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; fi
-- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then travis_retry curl -L https://get.haskellstack.org/stable/osx-x86_64.tar.gz | tar xz --strip-components=1 -C ~/.local/bin '*/stack'; fi
+job:
+  include:
+    - stage: build and test
+      before_install:
+      - mkdir -p ~/.local/bin
+      - export PATH=$HOME/.local/bin:$PATH
+      - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then travis_retry curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; fi
+      - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then travis_retry curl -L https://get.haskellstack.org/stable/osx-x86_64.tar.gz | tar xz --strip-components=1 -C ~/.local/bin '*/stack'; fi
 
-install:
-- stack --no-terminal --install-ghc test --only-dependencies
+      install:
+      - stack --no-terminal --install-ghc test --only-dependencies
 
-script:
-- "gcc --version"
-- "clang --version"
-- stack build kitlang:kitc
-- stack exec kitc -- -h
-- TEST_RUNS=1 stack test --test-arguments '+RTS -N -RTS'
-- stack install
-- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sh ./.packages/linux.sh; fi
-- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then sh ./.packages/osx.sh; fi
+      script:
+      - "gcc --version"
+      - "clang --version"
+      - stack build kitlang:kitc
+      - stack exec kitc -- -h
+      - TEST_RUNS=1 stack test --test-arguments '+RTS -N -RTS'
+      - stack install
+
+    - stage: deploy
+      matrix:
+        exclude:
+          - os: linux
+            env: CC=clang
+          - os: mac
+            env: CC=clang
+      script:
+        - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then bash ./.packages/linux.sh; fi
+        - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then bash ./.packages/osx.sh; fi
 
 notifications:
   webhooks:
