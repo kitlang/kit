@@ -1,7 +1,7 @@
 module Kit.Compiler.Generators.C.GenerateCHeader where
 
 import Control.Monad
-import Data.IORef
+import Data.Mutable
 import Data.List
 import Data.Maybe
 import Data.Ord
@@ -29,7 +29,7 @@ generateProjectHeader ctx ir = do
   createDirectoryIfMissing True $ takeDirectory $ headerFilePath
   handle   <- openFile headerFilePath WriteMode
   -- include native dependencies
-  includes <- readIORef $ ctxIncludes ctx
+  includes <- readRef $ ctxIncludes ctx
   forM_ (reverse $ nub includes) $ \filepath -> do
     hPutStrLn handle $ "#include \"" ++ filepath ++ "\""
   let flatDecls = foldr

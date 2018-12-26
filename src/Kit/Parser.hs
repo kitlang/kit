@@ -8,6 +8,7 @@ module Kit.Parser(
   parseFile
 ) where
 
+import qualified Data.ByteString.Lazy.Char8 as BL
 import Kit.Ast
 import Kit.Parser.Base
 import Kit.Parser.Lexer
@@ -16,10 +17,10 @@ import Kit.Ast.Span
 import Kit.Parser.Token
 import Kit.Str
 
-parseString :: Str -> Parser [SyntacticStatement]
-parseString s = parseTokens (scanTokens "" s)
+parseString :: BL.ByteString -> Parser [SyntacticStatement]
+parseString s = parseTokens $ scanTokens "" s
 
 parseFile :: FilePath -> IO (Parser [SyntacticStatement])
 parseFile f = do
-  contents <- s_readFile f
-  return $ parseTokens (scanTokens f contents)
+  contents <- BL.readFile f
+  return $ parseTokens $ scanTokens f contents

@@ -1,4 +1,4 @@
-module Kit.Compiler.Typers.TypeExpression.TypeField where
+module Kit.Compiler.Typers.TypeExpression.TypeField (typeField) where
 
 import Control.Exception
 import Control.Monad
@@ -54,7 +54,7 @@ typeField (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _t
                                               pos
                                               (TypeTypeOf tp $ map snd params)
                         params <-
-                          forMWithErrors (map snd params) $ mapType $ follow
+                          forMWithErrors (map snd params) $ follow
                             ctx
                             tctx
                         tctx <- return
@@ -65,7 +65,7 @@ typeField (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _t
                               _ -> bindingIsPublic binding
                         when (not accessible) failNotPublic
                         x <- typeVarBinding ctx tctx binding pos
-                        f <- mapType (follow ctx tctx) $ inferredType x
+                        f <- follow ctx tctx $ inferredType x
                         -- when calling an instance method statically, remove MethodTarget
                         f <- return $ case f of
                           TypeFunction rt ((name, MethodTarget t) : args) varargs params
@@ -125,7 +125,7 @@ typeField (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _t
                                 (inferredType x)
                                 (pos)
                             -- trait <- followTrait ctx tctx (modPath mod) traitDef
-                            t <- mapType (follow ctx tctx) (inferredType x)
+                            t <- follow ctx tctx (inferredType x)
                             return $ typed
                               { tImplicits   = [ makeExprTyped
                                                    (BoxedValue r1)
@@ -156,7 +156,7 @@ typeField (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _t
                                             pos
                                             (TypeTraitConstraint (tp, params))
                         result <- typeVarBinding ctx tctx binding pos
-                        t <- mapType (follow ctx tctx) $ inferredType result
+                        t <- follow ctx tctx $ inferredType result
                         return
                           $ (makeExprTyped (Field r1 $ Var ([], fieldName))
                                            t
@@ -203,7 +203,7 @@ typeField (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _t
                         when (not accessible) failNotPublic
                         -- this is a local method
                         typed' <- typeVarBinding ctx tctx x pos
-                        t <- mapType (follow ctx tctx) (inferredType typed')
+                        t <- follow ctx tctx (inferredType typed')
                         let typed = typed' { inferredType = t }
                         -- this may be a template; replace `this` with the actual
                         -- type to guarantee the implicit pass will work

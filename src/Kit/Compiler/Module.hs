@@ -1,7 +1,7 @@
 module Kit.Compiler.Module where
 
 import Control.Monad
-import Data.IORef
+import Data.Mutable
 import Data.Maybe
 import Kit.Ast
 import Kit.Compiler.TypedExpr
@@ -35,9 +35,9 @@ instance Show Module where
 
 newMod :: ModulePath -> FilePath -> IO Module
 newMod path fp = do
-  defaults <- newIORef []
-  includes <- newIORef []
-  using    <- newIORef []
+  defaults <- newRef []
+  includes <- newRef []
+  using    <- newRef []
   return $ Module
     { modPath       = path
     , modSourcePath = fp
@@ -63,7 +63,7 @@ newCMod = do
 
 modImplicits :: Module -> IO [TypedExpr]
 modImplicits mod = do
-  usings <- readIORef $ modUsing mod
+  usings <- readRef $ modUsing mod
   return $ catMaybes
     [ case u of
         UsingImplicit i -> Just i

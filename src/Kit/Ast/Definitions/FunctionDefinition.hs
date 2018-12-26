@@ -1,6 +1,16 @@
 {-# LANGUAGE DeriveGeneric #-}
 
-module Kit.Ast.Definitions.FunctionDefinition where
+module Kit.Ast.Definitions.FunctionDefinition (
+  FunctionDefinition (..),
+  functionSubPath,
+  newFunctionDefinition,
+  convertFunctionDefinition,
+  ArgSpec (..),
+  newArgSpec,
+  convertArgSpec,
+  implicitifyMethod,
+  functionRealName
+) where
 
 import Control.Monad
 import Data.Hashable

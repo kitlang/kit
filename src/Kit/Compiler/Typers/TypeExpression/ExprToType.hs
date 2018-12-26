@@ -1,4 +1,4 @@
-module Kit.Compiler.Typers.TypeExpression.ExprToType where
+module Kit.Compiler.Typers.TypeExpression.ExprToType(exprToType) where
 
 import Control.Monad
 import Kit.Ast

@@ -1,9 +1,9 @@
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 
-module Kit.Compiler.Passes.GenerateIr where
+module Kit.Compiler.Passes.GenerateIr (generateIr) where
 
 import Control.Monad
-import Data.IORef
+import Data.Mutable
 import Data.List
 import Kit.Ast
 import Kit.Compiler.Context
@@ -21,7 +21,7 @@ generateIr
   :: CompileContext -> [(Module, [TypedStmt])] -> IO [(Module, [IrBundle])]
 generateIr ctx modContent = do
   modContent     <- forM modContent (generateModuleIr ctx)
-  concreteTuples <- readIORef $ ctxTuples ctx
+  concreteTuples <- readRef $ ctxTuples ctx
   basicTuples    <- forM concreteTuples $ \(mod, t) -> do
     mod <- getMod ctx mod
     t   <- findUnderlyingType ctx mod Nothing t

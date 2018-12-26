@@ -1,4 +1,4 @@
-module Kit.Compiler.Typers.TypeExpression.TypeVarBinding where
+module Kit.Compiler.Typers.TypeExpression.TypeVarBinding (typeVarBinding) where
 
 import Control.Monad
 import Kit.Ast
@@ -60,7 +60,7 @@ typeVarBinding ctx tctx binding pos = do
   -- TODO: allow specifying explicit function params
           params <- makeGeneric ctx tp pos []
           tctx   <- addTypeParams ctx tctx params (functionPos def)
-          t      <- mapType (follow ctx tctx) t
+          t      <- follow ctx tctx t
           let ft = case t of
                 TypeFunction rt args varargs _ ->
                   TypeFunction rt args varargs (map snd params)

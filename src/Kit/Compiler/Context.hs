@@ -2,7 +2,7 @@ module Kit.Compiler.Context where
 
 import Control.Exception
 import Control.Monad
-import Data.IORef
+import Data.Mutable
 import Data.List
 import Data.Maybe
 import System.Directory
@@ -111,23 +111,23 @@ newCtxState = do
   mods               <- h_new
   failed             <- h_new
   preludes           <- h_new
-  includes           <- newIORef []
-  linkedLibs         <- newIORef []
-  lastTypeVar        <- newIORef 0
-  lastTemplateVar    <- newIORef 0
+  includes           <- newRef []
+  linkedLibs         <- newRef []
+  lastTypeVar        <- newRef 0
+  lastTemplateVar    <- newRef 0
   defaults           <- h_new
   impls              <- h_new
   typedefs           <- h_new
-  tuples             <- newIORef []
+  tuples             <- newRef []
   -- make these big so we're less likely to have to resize later
   typeVars           <- h_newSized 4096
   templateVars       <- h_newSized 2048
   types              <- h_newSized 256
   bindings           <- h_newSized 4096
-  pendingGenerics    <- newIORef []
+  pendingGenerics    <- newRef []
   completeGenerics   <- h_new
-  unresolved         <- newIORef []
-  unresolvedTemplate <- newIORef []
+  unresolved         <- newRef []
+  unresolvedTemplate <- newRef []
   return $ CompileContextState
     { ctxStateIncludes               = includes
     , ctxStateLinkedLibs             = linkedLibs
@@ -211,11 +211,11 @@ makeTypeVar :: CompileContext -> Span -> IO ConcreteType
 --   ("Attempt to make type variable with no position data")
 --   Nothing
 makeTypeVar ctx pos = do
-  last <- readIORef (ctxLastTypeVar ctx)
+  last <- readRef (ctxLastTypeVar ctx)
   let next = last + 1
-  writeIORef (ctxLastTypeVar ctx) next
+  writeRef (ctxLastTypeVar ctx) next
   h_insert (ctxTypeVariables ctx) next (newTypeVarInfo next pos)
-  modifyIORef (ctxUnresolvedTypeVars ctx) (\existing -> next : existing)
+  modifyRef (ctxUnresolvedTypeVars ctx) (\existing -> next : existing)
   when (ctxVerbose ctx > 1)
     $  logMsg (Just Debug)
     $  "made type var: "
@@ -226,9 +226,9 @@ makeTypeVar ctx pos = do
 
 makeTemplateVar :: CompileContext -> [TypePath] -> Span -> IO ConcreteType
 makeTemplateVar ctx requiredParams pos = do
-  last <- readIORef (ctxLastTemplateVar ctx)
+  last <- readRef (ctxLastTemplateVar ctx)
   let next = last + 1
-  writeIORef (ctxLastTemplateVar ctx) next
+  writeRef (ctxLastTemplateVar ctx) next
   vals <- h_new
   h_insert (ctxTemplateVariables ctx) next vals
   when (ctxVerbose ctx > 1)
@@ -257,7 +257,7 @@ templateVarToTypeVar ctx tv params pos = do
     Nothing -> do
       -- create a new type var for this monomorph
       (TypeTypeVar i) <- makeTypeVar ctx pos
-      modifyIORef (ctxUnresolvedTemplateVars ctx)
+      modifyRef (ctxUnresolvedTemplateVars ctx)
                   (\existing -> (tv, params, pos) : existing)
       h_insert vals key i
       return i
@@ -336,7 +336,7 @@ makeGeneric ctx tp@(modPath, name) pos existing = do
             )
             (map snd params)
           )
-        $ modifyIORef (ctxPendingGenerics ctx) (\acc -> (tp, paramTypes) : acc)
+        $ modifyRef (ctxPendingGenerics ctx) (\acc -> (tp, paramTypes) : acc)
       return params
 
 makeGenericConcrete :: CompileContext -> Span -> ConcreteType -> IO ConcreteType
@@ -487,7 +487,7 @@ getCtxCompilerFlags ctx = do
 
 getCtxLinkerFlags :: CompileContext -> IO [String]
 getCtxLinkerFlags ctx = do
-  linkedLibs <- readIORef $ ctxLinkedLibs ctx
+  linkedLibs <- readRef $ ctxLinkedLibs ctx
   let ctxFlags =
         [ "-l" ++ s_unpack lib | lib <- nub linkedLibs ] ++ ctxLinkerFlags ctx
   envFlags <- lookupEnv "LINKER_FLAGS"
@@ -577,7 +577,7 @@ addStmtToModuleInterface ctx mod s = do
       return [s { stmt = RuleSetDeclaration r }]
 
     TraitDefault a b -> do
-      modifyIORef (modDefaults mod) (\l -> ((a, b), stmtPos s) : l)
+      modifyRef (modDefaults mod) (\l -> ((a, b), stmtPos s) : l)
       return []
 
     Implement i -> do

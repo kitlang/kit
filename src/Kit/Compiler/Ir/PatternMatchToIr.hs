@@ -31,7 +31,7 @@ patternMatch ctx mod typer pattern t ex = do
   case tExpr pattern of
     EnumInit (TypeInstance tp params) discriminant args -> do
       tctx           <- modTypeContext ctx mod
-      resolvedParams <- forM params $ mapType $ follow ctx tctx
+      resolvedParams <- forM params $ follow ctx tctx
       let
         enumDiscriminant = case t of
           BasicTypeSimpleEnum _  -> ex
@@ -64,7 +64,7 @@ patternMatch ctx mod typer pattern t ex = do
                         [ (typeSubPath def $ paramName param, value)
                         | (param, value) <- zip (typeParams def) resolvedParams
                         ] (typePos def)
-                      t  <- mapType (follow ctx tctx) $ argType arg
+                      t  <- follow ctx tctx $ argType arg
                       at <- findUnderlyingType ctx mod (Just $ tPos pattern) t
                       patternMatch ctx
                                    mod

@@ -1,6 +1,13 @@
 {-# LANGUAGE DeriveGeneric #-}
 
-module Kit.Ast.Definitions.RewriteRule where
+module Kit.Ast.Definitions.RewriteRule (
+  RewriteRule (..),
+  newRewriteRule,
+  convertRewriteRule,
+  RuleSet (..),
+  newRuleSet,
+  convertRuleSet
+) where
 
 import Control.Monad
 import Data.Hashable

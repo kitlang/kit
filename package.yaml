@@ -7,7 +7,7 @@ dependencies:
 - base >=4.7
 default-extensions:
 - OverloadedStrings
-ghc-options: -O -optc-O3 -fexcess-precision -optc-ffast-math +RTS -A1024M -RTS -fmax-pmcheck-iterations=10000000
+ghc-options: -O2 -optc-O3 -fexcess-precision -optc-ffast-math +RTS -A1024M -RTS -fmax-pmcheck-iterations=10000000 -rtsopts
 extra-source-files:
 - "**/*.h"
 
@@ -44,6 +44,7 @@ library:
   - hashable
   - hashtables
   - language-c
+  - mutable-containers
   - pretty
   - process
   - regex-posix
@@ -70,11 +71,13 @@ tests:
     - alex
     - happy
     dependencies:
+    - bytestring
     - directory
     - filepath
     - hspec
     - kitlang
     - language-c
+    - mutable-containers
     - pretty
     - process
     - QuickCheck

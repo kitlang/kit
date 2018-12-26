@@ -1,4 +1,4 @@
-module Kit.Compiler.Generators.C.CFun where
+module Kit.Compiler.Generators.C.CFun (cfunDecl, cfunDef) where
 
 import Data.Maybe
 import Language.C

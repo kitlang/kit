@@ -51,7 +51,7 @@ getAbstractParents ctx tctx t = do
             | (param, value) <- zip (typeParams def) params
             ]
             (typePos def)
-          t       <- mapType (follow ctx tctx) t'
+          t       <- follow ctx tctx t'
           parents <- getAbstractParents ctx tctx t
           return $ t : parents
         _ -> return []
@@ -83,8 +83,8 @@ unifyBase ctx tctx strict a' b'         = do
         )
         (Just [])
         x
-  a <- mapType (follow ctx tctx) a'
-  b <- mapType (follow ctx tctx) b'
+  a <- follow ctx tctx a'
+  b <- follow ctx tctx b'
   case (a, b) of
     (MethodTarget a, MethodTarget b) -> r a b
     -- FIXME: this shouldn't be necessary, but MethodTarget sometimes bleeds through type inference
@@ -280,7 +280,7 @@ resolveConstraintOrThrow ctx tctx t@(TypeEq a' b' reason pos) = do
 resolveTraitConstraint
   :: CompileContext -> TypeContext -> TraitConstraint -> ConcreteType -> IO Bool
 resolveTraitConstraint ctx tctx (tp, params) ct = do
-  params <- forM params $ mapType $ follow ctx tctx
+  params <- forM params $ follow ctx tctx
   impl   <- getTraitImpl ctx tctx (tp, params) ct
   return $ impl /= Nothing
 

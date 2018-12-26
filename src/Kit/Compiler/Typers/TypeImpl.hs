@@ -32,7 +32,7 @@ typeImpl ctx tctx' mod def = do
                               tctx'
                               (implPos def)
                               (TypeTraitConstraint (tp, map snd params))
-      params <- forMWithErrors (map snd params) $ mapType $ follow ctx tctx
+      params <- forMWithErrors (map snd params) $ follow ctx tctx
       return (traitDef, params, tctx { tctxThis = Just $ implFor def })
     _ -> throwk $ TypingError
       ("Couldn't find trait " ++ show (implTrait def))

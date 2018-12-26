@@ -1,6 +1,14 @@
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 
-module Kit.Compiler.Generators.C.CExpr where
+module Kit.Compiler.Generators.C.CExpr (
+  cDecl,
+  ctype,
+  cIdent,
+  u,
+  transpileExpr,
+  transpileStmt,
+  initializerExpr
+) where
 
 import Data.List
 import Numeric

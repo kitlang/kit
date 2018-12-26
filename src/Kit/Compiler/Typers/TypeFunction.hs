@@ -83,7 +83,7 @@ typeFunctionDefinition ctx tctx' mod f = do
         (ExprBinding $ makeExprTyped (VarArg x) (TypeAny $ functionPos f) (functionPos f))
     Nothing -> return ()
   veryNoisyDebugLog ctx $ "TypeFunction: follow function type"
-  returnType <- mapType (follow ctx tctx) $ functionType f
+  returnType <- follow ctx tctx $ functionType f
   let ftctx =
         (tctx { tctxScopes     = functionScope : (tctxScopes tctx)
               , tctxReturnType = Just returnType

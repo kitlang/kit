@@ -1,4 +1,4 @@
-module Kit.Compiler.Typers.TypeExpression.TypeCall where
+module Kit.Compiler.Typers.TypeExpression.TypeCall (typeCall, findImplicit) where
 
 import Control.Exception
 import Control.Monad
@@ -27,7 +27,7 @@ typeCall (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _ty
         modImp           <- modImplicits mod
         let untypedImplicits = tImplicits r1 ++ tctxImplicits tctx ++ modImp
         implicits <- forM untypedImplicits $ \i -> do
-          t <- mapType (follow ctx tctx) $ inferredType i
+          t <- follow ctx tctx $ inferredType i
           return $ i { inferredType = t }
         tryRewrite (makeExprTyped (Call r1 [] typedArgs) (inferredType ex) pos)
           $ do

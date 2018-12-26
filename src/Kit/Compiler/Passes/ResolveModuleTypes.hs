@@ -1,7 +1,7 @@
-module Kit.Compiler.Passes.ResolveModuleTypes where
+module Kit.Compiler.Passes.ResolveModuleTypes (resolveModuleTypes) where
 
 import Control.Monad
-import Data.IORef
+import Data.Mutable
 import Data.List
 import Data.Maybe
 import Kit.Ast
@@ -142,7 +142,7 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
 
   when (pass == ResolveImpls) $ do
     -- resolve defaults here
-    specs <- readIORef (modDefaults mod)
+    specs <- readRef (modDefaults mod)
     forMWithErrors_ specs (addDefault ctx mod)
 
   let varConverter = converter (convertExpr ctx tctx mod [])
@@ -279,16 +279,16 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
           ref      <- case existing of
             Just x  -> return x
             Nothing -> do
-              new <- newIORef []
+              new <- newRef []
               h_insert extensions tp new
               return new
-          modifyIORef ref (\x -> x ++ stmts)
+          modifyRef ref (\x -> x ++ stmts)
           return Nothing
 
         (ResolveTypes, TypeDeclaration t) -> do
           extensions <- h_lookup extensions $ typeName t
           extensions <- case extensions of
-            Just x  -> readIORef x
+            Just x  -> readRef x
             Nothing -> return []
           t <- return $ foldr addTypeExtension t extensions
           let params' =
@@ -394,7 +394,7 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
         (ResolveTypes, TraitDeclaration t) -> do
           extensions <- h_lookup extensions $ traitName t
           extensions <- case extensions of
-            Just x  -> readIORef x
+            Just x  -> readRef x
             Nothing -> return []
           t <- return $ foldr addTraitExtension t extensions
           let
@@ -497,7 +497,7 @@ addModUsing ctx tctx mod pos using = do
     (converter (convertExpr ctx tctx mod []) (resolveMaybeType ctx tctx mod []))
     pos
     using
-  modifyIORef (modUsing mod) (\l -> converted : l)
+  modifyRef (modUsing mod) (\l -> converted : l)
 
 addToInterface
   :: CompileContext

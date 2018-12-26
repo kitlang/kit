@@ -1,6 +1,6 @@
 module Kit.Compiler.Scope where
 
-import Data.IORef
+import Data.Mutable
 import Kit.HashTable
 import Kit.Str
 
@@ -14,7 +14,7 @@ data Scope a = Scope {
 newScope :: IO (Scope a)
 newScope = do
   bindings <- h_new
-  tmp      <- newIORef 0
+  tmp      <- newRef 0
   return $ Scope {scopeBindings = bindings, lastTmpVar = tmp}
 
 -- Add a new binding to this scope.
@@ -33,9 +33,9 @@ scopeGet scope s = h_get (scopeBindings scope) s
 
 makeTmpVar :: Scope a -> IO Str
 makeTmpVar scope = do
-  last <- readIORef (lastTmpVar scope)
+  last <- readRef (lastTmpVar scope)
   let next = last + 1
-  writeIORef (lastTmpVar scope) next
+  writeRef (lastTmpVar scope) next
   return $ s_concat ["__tmp", s_pack $ show next]
 
 {-

@@ -1,8 +1,9 @@
-module Kit.Compiler.Passes.ExpandMacros where
+module Kit.Compiler.Passes.ExpandMacros (expandMacros) where
 
 import Control.Exception
 import Control.Monad
-import Data.IORef
+import qualified Data.ByteString.Lazy.Char8 as B
+import Data.Mutable
 import Data.List
 import System.Directory
 import System.FilePath
@@ -88,7 +89,7 @@ findInvocations ctx macros stmts = do
       invocationData <- case invocationData of
         Just x  -> return x
         Nothing -> do
-          count   <- newIORef 0
+          count   <- newRef 0
           args    <- h_new
           results <- h_new
           let invocation = MacroData
@@ -104,8 +105,8 @@ findInvocations ctx macros stmts = do
       case existing of
         Just _  -> return ()
         Nothing -> do
-          modifyIORef (macroArgCount invocationData) ((+) 1)
-          index <- readIORef (macroArgCount invocationData)
+          modifyRef (macroArgCount invocationData) ((+) 1)
+          index <- readRef (macroArgCount invocationData)
           h_insert (macroArgs invocationData) args index
     _ -> return ()
   return invocations
@@ -116,7 +117,7 @@ callMacros ctx cc compile invocations = do
     let def = macroDef invocation
     printLogIf ctx $ "expanding macro: " ++ s_unpack
       (showTypePath $ functionName def)
-    result     <- newIORef ""
+    result     <- (newRef "") :: IO (IORef String)
     -- FIXME: should be able to reuse already parsed modules
     macroState <- newCtxState
     args       <- h_toList $ macroArgs invocation
@@ -148,7 +149,7 @@ callMacros ctx cc compile invocations = do
                   ++ s_unpack (showTypePath $ functionName def)
                   ++ ")"
                   )
-              $ s_pack result
+              $ B.pack result
       case parseResult of
         ParseResult r -> h_insert (macroResults invocation) index r
         Err         e -> throw e

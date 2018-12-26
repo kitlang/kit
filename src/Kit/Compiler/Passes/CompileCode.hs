@@ -1,4 +1,4 @@
-module Kit.Compiler.Passes.CompileCode where
+module Kit.Compiler.Passes.CompileCode (compileCode) where
 
 import Control.Concurrent.Async
 import Control.Monad

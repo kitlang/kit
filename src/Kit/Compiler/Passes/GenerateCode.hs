@@ -1,4 +1,4 @@
-module Kit.Compiler.Passes.GenerateCode where
+module Kit.Compiler.Passes.GenerateCode (generateCode) where
 
 import Control.Monad
 import Data.List

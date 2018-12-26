@@ -1,8 +1,8 @@
-module Kit.Compiler.Passes.BuildModuleGraph where
+module Kit.Compiler.Passes.BuildModuleGraph (buildModuleGraph, findImports) where
 
 import Control.Exception
 import Control.Monad
-import Data.IORef
+import Data.Mutable
 import Data.List
 import System.Directory
 import System.FilePath
@@ -126,11 +126,11 @@ loadModule ctx mod pos = do
                )
           else
             return ()
-          includes <- readIORef (modIncludes m)
+          includes <- readRef (modIncludes m)
           forM_
             includes
             (\(mod', _) ->
-              modifyIORef (ctxIncludes ctx) (\current -> mod' : current)
+              modifyRef (ctxIncludes ctx) (\current -> mod' : current)
             )
           imports <- forMWithErrors (modImports m) (_loadImportedModule ctx)
           let (errs, results) = foldr
@@ -212,9 +212,9 @@ _loadModule ctx mod pos = do
   imports <- findImports ctx mod stmts
   let includes   = findIncludes stmts
   let linkedLibs = findLibs stmts
-  modifyIORef (ctxLinkedLibs ctx) (\x -> linkedLibs ++ x)
+  modifyRef (ctxLinkedLibs ctx) (\x -> linkedLibs ++ x)
   let createdMod = m { modImports = imports }
-  writeIORef     (modIncludes createdMod) includes
+  writeRef     (modIncludes createdMod) includes
   addModuleTypes ctx                      (modulePathToTypePath mod)
   decls <- forMWithErrors stmts (addStmtToModuleInterface ctx m)
   return (createdMod, foldr (++) [] decls)

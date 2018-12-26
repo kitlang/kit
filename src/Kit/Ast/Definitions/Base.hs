@@ -1,16 +1,13 @@
-module Kit.Ast.Definitions.Base where
+module Kit.Ast.Definitions.Base (
+  Converter (..),
+  ParameterizedConverter (..),
+  converter,
+  maybeConvert
+) where
 
 import Control.Monad
 import Kit.Ast.TypePath
 import Kit.Ast.Span
-
-maybeConvert :: (Monad m) => (a -> m b) -> Maybe a -> m (Maybe b)
-maybeConvert converter val = do
-  case val of
-    Just v -> do
-      converted <- converter v
-      return $ Just converted
-    Nothing -> return Nothing
 
 {-
   Converts AST structures from m X (a b) to m X (c d), where a/c are
@@ -29,3 +26,11 @@ data Converter m a b c d = Converter {
 type ParameterizedConverter m a b c d = [TypePath] -> m (Converter m a b c d)
 
 converter e t = Converter {exprConverter = e, typeConverter = t}
+
+maybeConvert :: (Monad m) => (a -> m b) -> Maybe a -> m (Maybe b)
+maybeConvert converter val = do
+  case val of
+    Just v -> do
+      converted <- converter v
+      return $ Just converted
+    Nothing -> return Nothing

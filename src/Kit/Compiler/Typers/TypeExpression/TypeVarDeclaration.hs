@@ -1,4 +1,4 @@
-module Kit.Compiler.Typers.TypeExpression.TypeVarDeclaration where
+module Kit.Compiler.Typers.TypeExpression.TypeVarDeclaration (typeVarDeclaration) where
 
 import Control.Applicative
 import Control.Exception

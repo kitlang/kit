@@ -4,7 +4,7 @@ function main() {
     printf("Size: %zu\n", myMap.length);
     printf("Key Exists 'test1': %s\n", if myMap.exists("test1") then "true" else "false");
 
-    printf("First value added: %d\n", myMap.put("test1", 1));
+    printf("First value added: %d\n", *myMap.put("test1", 1));
     printf("Size: %zu\n", myMap.length);
     printf("Key Exists 'test1': %s\n", if myMap.exists("test1") then "true" else "false");
 
@@ -12,11 +12,11 @@ function main() {
     printf("Size after removing single element: %zu\n", myMap.length);
     printf("Key Exists 'test1': %s\n", if myMap.exists("test1") then "true" else "false");
 
-    printf("Value added: %d\n", myMap.put("test2", 3));
-    printf("Value added: %d\n", myMap.put("test3", 4));
-    printf("Value added: %d\n", myMap.put("test4", 5));
+    printf("Value added: %d\n", *myMap.put("test2", 3));
+    printf("Value added: %d\n", *myMap.put("test3", 4));
+    printf("Value added: %d\n", *myMap.put("test4", 5));
     printf("Size after adding three elements: %zu\n", myMap.length);
-    printf("Value added: %d\n", myMap.put("test4", 6));
+    printf("Value added: %d\n", *myMap.put("test4", 6));
     printf("Size after adding duplicate element: %zu\n", myMap.length);
 
     printf("Key Exists 'test2': %s\n", if myMap.exists("test2") then "true" else "false");

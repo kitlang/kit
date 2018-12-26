@@ -1,4 +1,8 @@
-module Kit.Compiler.Generators.C.CTypeDecl where
+module Kit.Compiler.Generators.C.CTypeDecl (
+  cTypeDecl,
+  cTupleDecl,
+  enumDiscriminant
+) where
 
 import Data.List
 import Language.C

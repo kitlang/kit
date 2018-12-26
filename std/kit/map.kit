@@ -25,20 +25,27 @@ struct Map[K: Hashable, V] {
         };
     }
 
-    public function put(key: K, value: V): V {
+    public function put(key: K, value: V): Ptr[V] {
+        var ref = this.putRef(key);
+        *ref = value;
+        return ref;
+    }
+
+    public function putRef(key: K): Ptr[V] {
         var alreadyExists = this.exists(key);
         if ((this.length as Float) / this.internalArray.length) >= Self.internalArrayThreshold {
             this.resize();
         }
-        this.internalArray[this.findLocation(key)] = struct KeyValuePair[K, V] {
+        var index = this.findLocation(key);
+        this.internalArray[index] = struct KeyValuePair[K, V] {
             key: key,
-            value: value,
+            // value: value,
             isActive: true,
         };
         if !alreadyExists {
             ++this.length;
         }
-        return value;
+        return &this.internalArray[index].value;
     }
 
     public function get(key: K): Option[V] {

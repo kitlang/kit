@@ -1,6 +1,15 @@
 {-# LANGUAGE DeriveGeneric #-}
 
-module Kit.Ast.Definitions.TraitDefinition where
+module Kit.Ast.Definitions.TraitDefinition (
+  TraitDefinition (..),
+  newTraitDefinition,
+  convertTraitDefinition,
+  valuePointerName,
+  vtablePointerName,
+  traitSubPath,
+  traitAllParams,
+  traitExplicitParams
+) where
 
 import Control.Monad
 import Data.Hashable
@@ -102,5 +111,6 @@ convertTraitDefinition paramConverter t = do
 
 valuePointerName :: Str
 valuePointerName = "__this"
+
 vtablePointerName :: Str
 vtablePointerName = "__vtable"
