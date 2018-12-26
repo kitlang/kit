@@ -2,67 +2,55 @@ sudo: false
 language: generic
 cache:
   directories:
-  - $HOME/.stack
+    - $HOME/.stack
 
 
 
 addons:
   apt:
     packages:
-    - libgmp-dev
-    - gcc
-    - make
-    - ruby
-    - ruby-dev
-    - rpm
+      - libgmp-dev
+      - gcc
+      - make
+      - ruby
+      - ruby-dev
+      - rpm
   homebrew:
     packages:
-    - libyaml
+      - libyaml
 
   os:
     - linux
     - osx
 
-jobs:
+matrix:
+  fast_finish: true
+
+env:
   matrix:
-    fast_finish: true
+    - CC=gcc
+    - CC=clang
 
-  include:
-    - stage: build
-      env:
-        matrix:
-          - CC=gcc
-          - CC=clang
+before_install:
+  - mkdir -p ~/.local/bin
+  - export PATH=$HOME/.local/bin:$PATH
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then travis_retry curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then travis_retry curl -L https://get.haskellstack.org/stable/osx-x86_64.tar.gz | tar xz --strip-components=1 -C ~/.local/bin '*/stack'; fi
 
-      before_install:
-      - mkdir -p ~/.local/bin
-      - export PATH=$HOME/.local/bin:$PATH
-      - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then travis_retry curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; fi
-      - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then travis_retry curl -L https://get.haskellstack.org/stable/osx-x86_64.tar.gz | tar xz --strip-components=1 -C ~/.local/bin '*/stack'; fi
+install:
+  - stack --no-terminal --install-ghc test --only-dependencies
 
-      install:
-      - stack --no-terminal --install-ghc test --only-dependencies
+script:
+  - "gcc --version"
+  - "clang --version"
+  - stack build kitlang:kitc
+  - stack exec kitc -- -h
+  - TEST_RUNS=1 stack test --test-arguments '+RTS -N -RTS'
+  - stack install
 
-      script:
-      - "gcc --version"
-      - "clang --version"
-      - stack build kitlang:kitc
-      - stack exec kitc -- -h
-
-    - stage: test
-      env:
-        matrix:
-          - CC=gcc
-          - CC=clang
-      script:
-        - TEST_RUNS=1 stack test --test-arguments '+RTS -N -RTS'
-        - stack install
-
-    - stage: deploy
-      env: CC=gcc
-      script:
-        - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then bash ./.packages/linux.sh; fi
-        - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then bash ./.packages/osx.sh; fi
+deploy:
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then bash ./.packages/linux.sh; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then bash ./.packages/osx.sh; fi
 
 notifications:
   webhooks:
