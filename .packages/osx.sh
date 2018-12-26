@@ -4,7 +4,7 @@ set -e
 ## Only deploy gcc matrix item
 if [ "$CC" == "gcc" ]; then
 
-  gem install fpm --no-ri --no-rdoc
+  gem install fpm
 
   VERSION=`grep -r version: package.yaml | cut -d "'" -f2`
 

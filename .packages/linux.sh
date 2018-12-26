@@ -5,7 +5,7 @@ set -e
 if [ "$CC" == "gcc" ]; then
 
   # We need FPM
-  gem install fpm --no-ri --no-rdoc
+  gem install fpm
 
   ## Grab the version from package.yml
   VERSION=`grep -r version: package.yaml | cut -d "'" -f2`
