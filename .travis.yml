@@ -30,33 +30,27 @@ env:
 matrix:
   fast_finish: true
 
+before_install:
+- mkdir -p ~/.local/bin
+- export PATH=$HOME/.local/bin:$PATH
+- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then travis_retry curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; fi
+- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then travis_retry curl -L https://get.haskellstack.org/stable/osx-x86_64.tar.gz | tar xz --strip-components=1 -C ~/.local/bin '*/stack'; fi
+
+install:
+- stack --no-terminal --install-ghc test --only-dependencies
+
+script:
+- "gcc --version"
+- "clang --version"
+- stack build kitlang:kitc
+- stack exec kitc -- -h
+- TEST_RUNS=1 stack test --test-arguments '+RTS -N -RTS'
+- stack install
+
 job:
   include:
-    - stage: build and test
-      before_install:
-      - mkdir -p ~/.local/bin
-      - export PATH=$HOME/.local/bin:$PATH
-      - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then travis_retry curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; fi
-      - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then travis_retry curl -L https://get.haskellstack.org/stable/osx-x86_64.tar.gz | tar xz --strip-components=1 -C ~/.local/bin '*/stack'; fi
-
-      install:
-      - stack --no-terminal --install-ghc test --only-dependencies
-
-      script:
-      - "gcc --version"
-      - "clang --version"
-      - stack build kitlang:kitc
-      - stack exec kitc -- -h
-      - TEST_RUNS=1 stack test --test-arguments '+RTS -N -RTS'
-      - stack install
-
     - stage: deploy
-      matrix:
-        exclude:
-          - os: linux
-            env: CC=clang
-          - os: mac
-            env: CC=clang
+      env: CC=gcc
       script:
         - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then bash ./.packages/linux.sh; fi
         - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then bash ./.packages/osx.sh; fi
