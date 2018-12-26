@@ -1,7 +1,7 @@
-module Kit.Compiler.Ir.FindUnderlyingType where
+module Kit.Compiler.Ir.FindUnderlyingType (findUnderlyingType) where
 
 import Control.Monad
-import Data.IORef
+import Data.Mutable
 import Data.List
 import Data.Maybe
 import Kit.Ast
@@ -15,9 +15,10 @@ import Kit.HashTable
 import Kit.Parser
 import Kit.Str
 
+recordTuples :: CompileContext -> Module -> ConcreteType -> IO ()
 recordTuples ctx mod t = do
   case t of
-    TypeTuple _ -> modifyIORef (ctxTuples ctx) $ \x -> (modPath mod, t) : x
+    TypeTuple _ -> modifyRef (ctxTuples ctx) $ \x -> (modPath mod, t) : x
     _           -> return ()
 
 {-
@@ -29,7 +30,7 @@ findUnderlyingType ctx mod pos t = _findUnderlyingType ctx mod pos [] t
 _findUnderlyingType ctx mod pos stack t = do
   tctx <- newTypeContext []
   recordTuples ctx mod t
-  t <- mapType (follow ctx tctx) t
+  t <- follow ctx tctx t
   let r x = _findUnderlyingType ctx mod pos (x : stack) x
   when (length stack > 256) $ throwk $ InternalError
     ("Maximum recursion depth in findUnderlyingType exceeded; " ++ show stack)
@@ -113,7 +114,7 @@ _findUnderlyingType ctx mod pos stack t = do
         )
       return $ BasicTypeFunction rt' args' $ isJust var
     TypeBox tp params -> do
-      params <- forM params $ mapType $ follow ctx modTctx
+      params <- forM params $ follow ctx modTctx
       return $ BasicTypeStruct $ subPath (monomorphName tp params) "box"
     TypeTypeParam t -> do
       throwk $ InternalError
@@ -127,7 +128,7 @@ _findUnderlyingType ctx mod pos stack t = do
       throwk $ InternalError "Modules can't be used as runtime values" pos
     TypeInstance tp p -> do
       templateDef <- getTypeDefinition ctx tp
-      params      <- forM p (mapType $ follow ctx modTctx)
+      params      <- forM p (follow ctx modTctx)
       tctx        <- addTypeParams
         ctx
         modTctx

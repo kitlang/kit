@@ -1,9 +1,9 @@
-module Kit.Compiler.Passes.GenerateMonomorphs where
+module Kit.Compiler.Passes.GenerateMonomorphs (generateMonomorphs) where
 
 import Control.Monad
 import Data.Either
 import Data.Function
-import Data.IORef
+import Data.Mutable
 import Data.List
 import Data.Maybe
 import Kit.Ast
@@ -19,12 +19,12 @@ import Kit.Parser
 
 generateMonomorphs :: CompileContext -> IO [(Module, TypedStmtWithContext)]
 generateMonomorphs ctx = do
-  pendingGenerics <- readIORef (ctxPendingGenerics ctx)
+  pendingGenerics <- readRef (ctxPendingGenerics ctx)
   results <- forM (reverse pendingGenerics) $ \(tp@(modPath, name), params') ->
     do
       mod    <- getMod ctx modPath
       tctx   <- modTypeContext ctx mod
-      params <- forM params' (mapType $ follow ctx tctx)
+      params <- forM params' (follow ctx tctx)
       let unresolved = map typeUnresolved params
       if or unresolved
         -- don't try to generate a monomorph if the params contain unresolved
@@ -106,5 +106,5 @@ generateMonomorphs ctx = do
   let unresolved  = lefts realResults
   let decls       = rights realResults
 
-  writeIORef (ctxPendingGenerics ctx) unresolved
+  writeRef (ctxPendingGenerics ctx) unresolved
   return decls

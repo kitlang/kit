@@ -60,7 +60,7 @@ typeTypeDefinition ctx tctx mod selfType def@(TypeDefinition { typeName = name }
           f
           (\field -> do
             tctx      <- genericTctx ctx tctx (varPos field) (varType field)
-            fieldType <- mapType (follow ctx tctx) $ varType field
+            fieldType <- follow ctx tctx $ varType field
             if isStruct
               then case varDefault field of
                 Just x -> do
@@ -85,7 +85,7 @@ typeTypeDefinition ctx tctx mod selfType def@(TypeDefinition { typeName = name }
         return $ s { structUnionFields = fields }
       -- Enum { enumVariants = variants } -> do
       --   variants <- forM variants $ \variant -> convertEnumVariant
-      --     (converter (typeExpr ctx tctx mod) (\_ -> mapType $ follow ctx tctx))
+      --     (converter (typeExpr ctx tctx mod) (\_ -> follow ctx tctx))
       --     variant
       --   return $ s { enumVariants = variants }
       _ -> return $ typeSubtype def

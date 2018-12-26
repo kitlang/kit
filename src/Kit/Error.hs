@@ -85,7 +85,9 @@ logErrorTitle err = do
     [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
   hPutStrLn stderr $ take 40 (repeat '-')
   case errPos err of
-    Just pos@Span { file = f, startLine = start } -> do
+    Just pos -> do
+      let f     = file pos
+      let start = startLine pos
       hSetSGR
         stderr
         [SetColor Foreground Vivid Red, SetConsoleIntensity BoldIntensity]

@@ -232,7 +232,7 @@ generateDeclIr ctx mod t = do
     Implement i'@(TraitImplementation { implTrait = TypeTraitConstraint (traitName, traitParams), implFor = ct })
       -> do
         tctx        <- modTypeContext ctx mod
-        traitParams <- forM traitParams $ mapType (follow ctx tctx)
+        traitParams <- forM traitParams $ follow ctx tctx
         let
           i = i'
             { implName = monomorphName (monomorphName traitName traitParams)

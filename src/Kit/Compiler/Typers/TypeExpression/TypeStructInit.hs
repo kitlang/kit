@@ -1,4 +1,4 @@
-module Kit.Compiler.Typers.TypeExpression.TypeStructInit where
+module Kit.Compiler.Typers.TypeExpression.TypeStructInit (typeStructInit) where
 
 import Control.Applicative
 import Control.Exception
@@ -29,12 +29,12 @@ typeStructInit (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolv
         findStruct (TypeInstance tp p) tctx = do
           params <- makeGeneric ctx tp pos p
           tctx <- genericTctx ctx tctx pos (TypeInstance tp $ map snd params)
-          params <- forMWithErrors (map snd params) $ mapType $ follow ctx tctx
+          params <- forMWithErrors (map snd params) $ follow ctx tctx
           structDef <- getTypeDefinition ctx tp
           case typeSubtype structDef of
             Abstract { abstractUnderlyingType = parent@(TypeInstance tp p) } ->
               do
-                parent <- mapType (follow ctx tctx) parent
+                parent <- follow ctx tctx parent
                 findStruct parent tctx
 
             StructUnion { structUnionFields = structUnionFields, isStruct = True }
@@ -60,7 +60,7 @@ typeStructInit (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolv
                 typedFields <- forMWithErrors
                   (structUnionFields)
                   (\field -> do
-                    fieldType <- mapType (follow ctx tctx) $ varType field
+                    fieldType <- follow ctx tctx $ varType field
                     let
                       provided = find
                         (\(name, _) -> name == tpName (varName field))
@@ -98,7 +98,7 @@ typeStructInit (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolv
                       (tPos r1)
                     return (name, converted)
                   )
-                structType <- mapType (follow ctx tctx) $ structType
+                structType <- follow ctx tctx $ structType
                 return $ (makeExprTyped (StructInit structType typedFields)
                                         structType
                                         pos
@@ -119,18 +119,18 @@ typeStructInit (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolv
         findUnion (TypeInstance tp p) tctx = do
           params <- makeGeneric ctx tp pos p
           tctx <- genericTctx ctx tctx pos (TypeInstance tp $ map snd params)
-          params <- forMWithErrors (map snd params) $ mapType $ follow ctx tctx
+          params <- forMWithErrors (map snd params) $ follow ctx tctx
           unionDef <- getTypeDefinition ctx tp
           case typeSubtype unionDef of
             Abstract { abstractUnderlyingType = parent@(TypeInstance tp p) } ->
               do
-                parent <- mapType (follow ctx tctx) parent
+                parent <- follow ctx tctx parent
                 findUnion parent tctx
 
             StructUnion { structUnionFields = structUnionFields, isStruct = False }
               -> do
                 expr      <- typeExpr ctx tctx mod expr
-                unionType <- mapType (follow ctx tctx) $ unionType
+                unionType <- follow ctx tctx $ unionType
                 return $ (makeExprTyped (UnionInit unionType (name, expr))
                                         unionType
                                         pos

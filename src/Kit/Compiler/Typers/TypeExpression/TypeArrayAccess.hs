@@ -1,4 +1,4 @@
-module Kit.Compiler.Typers.TypeExpression.TypeArrayAccess where
+module Kit.Compiler.Typers.TypeExpression.TypeArrayAccess (typeArrayAccess) where
 
 import Control.Exception
 import Control.Monad

@@ -2,7 +2,7 @@ module Kit.Compiler.TypeContext where
 
 import Control.Exception
 import Control.Monad
-import Data.IORef
+import Data.Mutable
 import Kit.Ast
 import Kit.Compiler.Binding
 import Kit.Compiler.Context
@@ -183,7 +183,7 @@ resolveType ctx tctx mod t = do
                           -- if this is a type instance, create a new generic
                           ct   <- makeGenericConcrete ctx (position t) ct
                           tctx <- genericTctx ctx tctx (position t) ct
-                          mapType (follow ctx tctx) ct
+                          follow ctx tctx ct
                         Nothing ->
                           unknownType (s_unpack $ showTypePath (m, s)) pos
             m -> do
@@ -315,13 +315,13 @@ _follow ctx tctx stack t = do
     _ -> return t
 
 followType ctx tctx = convertTypeDefinition
-  (\_ -> return $ converter return (\_ -> mapType $ follow ctx tctx))
+  (\_ -> return $ converter return (\_ -> follow ctx tctx))
 followFunction ctx tctx = convertFunctionDefinition
-  (\_ -> return $ converter return (\_ -> mapType $ follow ctx tctx))
+  (\_ -> return $ converter return (\_ -> follow ctx tctx))
 followTrait ctx tctx = convertTraitDefinition
-  (\_ -> return $ converter return (\_ -> mapType $ follow ctx tctx))
+  (\_ -> return $ converter return (\_ -> follow ctx tctx))
 followVariant ctx tctx =
-  convertEnumVariant (converter return (\_ -> mapType $ follow ctx tctx))
+  convertEnumVariant (converter return (\_ -> follow ctx tctx))
 
 addUsing
   :: CompileContext
@@ -372,7 +372,7 @@ addTypeParams ctx tctx params pos = do
 modTypeContext :: CompileContext -> Module -> IO TypeContext
 modTypeContext ctx mod = do
   tctx  <- newTypeContext []
-  using <- readIORef (modUsing mod)
+  using <- readRef (modUsing mod)
   foldM (\tctx using -> addUsing ctx tctx using) tctx using
 
 builtinToConcreteType
@@ -396,7 +396,7 @@ getTraitImpl
   -> IO (Maybe (TraitImplementation TypedExpr ConcreteType))
 getTraitImpl ctx tctx trait@(traitTp, params) ct = do
   traitDef <- getTraitDefinition ctx traitTp
-  ct       <- mapType (follow ctx tctx) ct
+  ct       <- follow ctx tctx ct
   let explicitParams = traitExplicitParams traitDef params
   traitImpls <- h_lookup (ctxImpls ctx) (traitTp, explicitParams)
   result     <- case traitImpls of
@@ -438,12 +438,12 @@ functionConcrete f = TypeFunction
 genericTctx
   :: CompileContext -> TypeContext -> Span -> ConcreteType -> IO TypeContext
 genericTctx ctx tctx pos t = do
-  t <- mapType (follow ctx tctx) t
+  t <- follow ctx tctx t
   case t of
     TypeTypeOf tp params   -> genericTctx ctx tctx pos (TypeInstance tp params)
     TypePtr t              -> genericTctx ctx tctx pos t
     TypeInstance tp params -> do
-      params  <- forMWithErrors params $ mapType $ follow ctx tctx
+      params  <- forMWithErrors params $ follow ctx tctx
       tctx    <- foldM (\tctx t -> genericTctx ctx tctx pos t) tctx params
       params  <- makeGeneric ctx tp pos params
       tctx    <- addTypeParams ctx tctx params pos
@@ -467,7 +467,7 @@ genericTctx ctx tctx pos t = do
               genericTctx ctx tctx pos parent
             _ -> return tctx
     TypeTraitConstraint (tp, params) -> do
-      params <- forMWithErrors params $ mapType $ follow ctx tctx
+      params <- forMWithErrors params $ follow ctx tctx
       tctx   <- foldM (\tctx t -> genericTctx ctx tctx pos t) tctx params
       params <- makeGeneric ctx tp pos params
       addTypeParams ctx tctx params pos

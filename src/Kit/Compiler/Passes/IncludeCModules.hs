@@ -1,7 +1,11 @@
-module Kit.Compiler.Passes.IncludeCModules where
+module Kit.Compiler.Passes.IncludeCModules (
+  includeCModules,
+  parseCHeader,
+  parseType
+) where
 
 import Control.Monad
-import Data.IORef
+import Data.Mutable
 import Data.List
 import System.FilePath
 import System.Process
@@ -41,7 +45,7 @@ instance Errable IncludeError where
 -}
 includeCModules :: CompileContext -> CCompiler -> IO ()
 includeCModules ctx cc = do
-  includes <- readIORef (ctxIncludes ctx)
+  includes <- readRef (ctxIncludes ctx)
   existing <- h_lookup (ctxModules ctx) externModPath
   mod      <- case existing of
     Just x  -> return x

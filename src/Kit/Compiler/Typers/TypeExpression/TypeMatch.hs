@@ -1,4 +1,4 @@
-module Kit.Compiler.Typers.TypeExpression.TypeMatch where
+module Kit.Compiler.Typers.TypeExpression.TypeMatch (typeMatch) where
 
 import Control.Applicative
 import Control.Exception

@@ -1,4 +1,11 @@
-module Kit.Ast.Definitions.EnumVariant where
+module Kit.Ast.Definitions.EnumVariant (
+  EnumVariant (..),
+  newEnumVariant,
+  convertEnumVariant,
+  discriminantFieldName,
+  variantFieldName,
+  variantIsSimple
+) where
 
 import Control.Monad
 import Kit.Ast.Definitions.Base

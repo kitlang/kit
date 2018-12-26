@@ -37,16 +37,13 @@ findSourceFile f (h : t) = do
   if exists then return $ Just f' else findSourceFile f t
 
 debugLog :: CompileContext -> String -> IO ()
-debugLog ctx msg = do
-  when (ctxVerbose ctx > 0) $ logMsg (Just Debug) msg
+debugLog ctx msg = when (ctxVerbose ctx > 0) $ logMsg (Just Debug) msg
 
 noisyDebugLog :: CompileContext -> String -> IO ()
-noisyDebugLog ctx msg = do
-  when (ctxVerbose ctx > 1) $ logMsg (Just Debug) msg
+noisyDebugLog ctx msg = when (ctxVerbose ctx > 1) $ logMsg (Just Debug) msg
 
 veryNoisyDebugLog :: CompileContext -> String -> IO ()
-veryNoisyDebugLog ctx msg = do
-  when (ctxVerbose ctx > 2) $ logMsg (Just Debug) msg
+veryNoisyDebugLog ctx msg = when (ctxVerbose ctx > 2) $ logMsg (Just Debug) msg
 
 findSourceModule
   :: ModulePath -> [(FilePath, ModulePath)] -> IO (Maybe FilePath)

@@ -1,6 +1,11 @@
 {-# LANGUAGE DeriveGeneric #-}
 
-module Kit.Ast.Span where
+module Kit.Ast.Span (
+  Span (..),
+  Positioned (..),
+  sp,
+  (<+>)
+) where
 
 import Data.Hashable
 import GHC.Generics

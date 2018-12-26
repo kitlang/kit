@@ -1,4 +1,4 @@
-module Kit.Compiler.Typers.TypeExpression.TypeCast where
+module Kit.Compiler.Typers.TypeExpression.TypeCast (typeCast) where
 
 import Control.Exception
 import Control.Monad
@@ -24,7 +24,7 @@ typeCast :: SubTyper
 typeCast (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _typeExpr = typeExpr }) ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos })
   = case et of
     (Cast e1 t) -> do
-      t  <- mapType (follow ctx tctx) t
+      t  <- follow ctx tctx t
       t  <- makeGenericConcrete ctx pos t
       r1 <- r e1
       tryRewrite (makeExprTyped (Cast r1 t) t pos) $ do

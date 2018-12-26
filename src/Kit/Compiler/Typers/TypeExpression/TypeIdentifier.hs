@@ -1,4 +1,4 @@
-module Kit.Compiler.Typers.TypeExpression.TypeIdentifier where
+module Kit.Compiler.Typers.TypeExpression.TypeIdentifier (typeIdentifier) where
 
 import Control.Applicative
 import Control.Exception

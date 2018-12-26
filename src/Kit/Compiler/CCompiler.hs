@@ -2,7 +2,7 @@ module Kit.Compiler.CCompiler where
 
 import Control.Exception
 import Control.Monad
-import Data.IORef
+import Data.Mutable
 import Data.List
 import Data.Maybe
 import System.Directory

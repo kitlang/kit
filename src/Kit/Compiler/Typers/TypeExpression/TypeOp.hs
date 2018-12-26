@@ -1,4 +1,4 @@
-module Kit.Compiler.Typers.TypeExpression.TypeOp where
+module Kit.Compiler.Typers.TypeExpression.TypeOp (typeOp) where
 
 import Control.Monad
 import Kit.Ast

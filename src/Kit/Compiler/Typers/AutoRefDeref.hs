@@ -1,4 +1,10 @@
-module Kit.Compiler.Typers.AutoRefDeref where
+module Kit.Compiler.Typers.AutoRefDeref (
+  autoRefDeref,
+  tryAutoRefDeref,
+  makeLvalue,
+  addRef,
+  addDeref
+) where
 
 import Control.Monad
 import Data.List
@@ -47,8 +53,8 @@ _autoRefDeref ctx tctx (MethodTarget a) (MethodTarget b) ex = do
     Nothing -> Nothing
 _autoRefDeref ctx tctx toType fromType ex = do
   let r = _autoRefDeref ctx tctx
-  toType   <- mapType (follow ctx tctx) toType
-  fromType <- mapType (follow ctx tctx) fromType
+  toType   <- follow ctx tctx toType
+  fromType <- follow ctx tctx fromType
   result   <- unifyStrict ctx tctx toType fromType
   case result of
     Just _ -> return $ Just ex
@@ -125,7 +131,7 @@ makeBox ctx tctx tp params ex = do
     Just impl -> do
       params <- makeGeneric ctx tp (tPos ex) params
       useImpl ctx tctx (tPos ex) traitDef impl (map snd params)
-      t' <- mapType (follow ctx tctx) $ TypeBox tp $ map snd $ params
+      t' <- follow ctx tctx $ TypeBox tp $ map snd $ params
       return $ Just $ ex
         { tExpr        = Box
           (impl { implTrait = TypeTraitConstraint (tp, map snd params) })

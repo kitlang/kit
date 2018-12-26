@@ -1,4 +1,4 @@
-module Kit.Compiler.Typers.TypeExpression.TypeLiteral where
+module Kit.Compiler.Typers.TypeExpression.TypeLiteral (literalConstraints) where
 
 import Data.List
 import Kit.Ast

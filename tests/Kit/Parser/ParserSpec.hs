@@ -1,6 +1,6 @@
 module Kit.Parser.ParserSpec where
 
-import Kit.Str
+import qualified Data.ByteString.Lazy.Char8 as B
 import Test.Hspec
 import Test.QuickCheck
 import Kit.Ast
@@ -16,7 +16,7 @@ unwrapParsed x = case x of
   ParseResult r -> r
   Err         e -> error $ show e
 
-testParseType :: Str -> TypeDefinition Expr (Maybe TypeSpec)
+testParseType :: B.ByteString -> TypeDefinition Expr (Maybe TypeSpec)
 testParseType s =
   let (t : e) = unwrapParsed $ parseTokens (scanTokens "" s)
   in  foldr

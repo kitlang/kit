@@ -1,4 +1,4 @@
-module Kit.Compiler.Typers.TypeExpression.TypeControl where
+module Kit.Compiler.Typers.TypeExpression.TypeControl (typeControl) where
 
 import Control.Exception
 import Control.Monad

@@ -3,6 +3,7 @@
 
 module Kit.Parser.Lexer where
 
+import qualified Data.ByteString.Lazy.Char8 as B
 import Data.Char
 import Numeric
 import System.Exit
@@ -95,22 +96,22 @@ tokens :-
   -- literals
   "true" { tok $ LiteralBool True }
   "false" { tok $ LiteralBool False }
-  [\"] (\\.|[^\"\\])* [\"] { tok' $ \s -> LiteralString $ processStringLiteral $ s_take (s_length s - 2) $ s_drop 1 s }
-  "'" (\\.|[^\'\\])* "'" { tok' $ \s -> LiteralString $ processStringLiteral $ s_take (s_length s - 2) $ s_drop 1 s }
-  [\"]{3} ([^\"]|\"[^\"]|\"\"[^\"]|\n)* [\"]{3} { tok' $ \s -> LiteralString $ processStringLiteral $ s_take (s_length s - 6) $ s_drop 3 s }
-  "c'" ([^\\']|\\.) "'" { tok' $ \s -> LiteralChar $ ord $ s_head $ processStringLiteral $ s_drop 2 s }
+  [\"] (\\.|[^\"\\])* [\"] { tok' $ \s -> LiteralString $ processStringLiteral $ B.take (B.length s - 2) $ B.drop 1 s }
+  "'" (\\.|[^\'\\])* "'" { tok' $ \s -> LiteralString $ processStringLiteral $ B.take (B.length s - 2) $ B.drop 1 s }
+  [\"]{3} ([^\"]|\"[^\"]|\"\"[^\"]|\n)* [\"]{3} { tok' $ \s -> LiteralString $ processStringLiteral $ B.take (B.length s - 6) $ B.drop 3 s }
+  "c'" ([^\\']|\\.) "'" { tok' $ \s -> LiteralChar $ ord $ s_head $ processStringLiteral $ B.drop 2 s }
 
-  \-?[0-9]+ "." [0-9]* "_" (f(32|64)) { tok' (\s -> let [p1, p2] = s_split '_' s in LiteralFloat p1 (Just $ parseNumSuffix $ s_unpack p2)) }
-  "0x" [0-9a-fA-F]+ "_" ([ui](8|16|32|64)|f(32|64)|[cis]) { tok' (\s -> let [p1, p2] = map s_unpack (s_split '_' s) in LiteralInt (parseInt readHex $ drop 2 $ p1) (Just $ parseNumSuffix p2)) }
-  "0o" [0-7]+ "_" ([ui](8|16|32|64)|f(32|64)|[cis]) { tok' (\s -> let [p1, p2] = map s_unpack (s_split '_' s) in LiteralInt (parseInt readOct $ drop 2 $ p1) (Just $ parseNumSuffix p2)) }
-  "0b" [01]+ "_" ([ui](8|16|32|64)|f(32|64)|[cis]) { tok' (\s -> let [p1, p2] = map s_unpack (s_split '_' s) in LiteralInt (parseInt readBin $ drop 2 $ p1) (Just $ parseNumSuffix p2)) }
-  \-?(0|[1-9][0-9]*) "_" ([ui](8|16|32|64)|f(32|64)|[cis]) { tok' (\s -> let [p1, p2] = map s_unpack (s_split '_' s) in LiteralInt (parseInt readDec $ p1) (Just $ parseNumSuffix p2)) }
+  \-?[0-9]+ "." [0-9]* "_" (f(32|64)) { tok' (\s -> let [p1, p2] = B.split '_' s in LiteralFloat (l2s p1) (Just $ parseNumSuffix $ B.unpack p2)) }
+  "0x" [0-9a-fA-F]+ "_" ([ui](8|16|32|64)|f(32|64)|[cis]) { tok' (\s -> let [p1, p2] = map B.unpack (B.split '_' s) in LiteralInt (parseInt readHex $ drop 2 $ p1) (Just $ parseNumSuffix p2)) }
+  "0o" [0-7]+ "_" ([ui](8|16|32|64)|f(32|64)|[cis]) { tok' (\s -> let [p1, p2] = map B.unpack (B.split '_' s) in LiteralInt (parseInt readOct $ drop 2 $ p1) (Just $ parseNumSuffix p2)) }
+  "0b" [01]+ "_" ([ui](8|16|32|64)|f(32|64)|[cis]) { tok' (\s -> let [p1, p2] = map B.unpack (B.split '_' s) in LiteralInt (parseInt readBin $ drop 2 $ p1) (Just $ parseNumSuffix p2)) }
+  \-?(0|[1-9][0-9]*) "_" ([ui](8|16|32|64)|f(32|64)|[cis]) { tok' (\s -> let [p1, p2] = map B.unpack (B.split '_' s) in LiteralInt (parseInt readDec $ p1) (Just $ parseNumSuffix p2)) }
 
-  \-?[0-9]+ "." [0-9]* { tok' (\s -> LiteralFloat s Nothing) }
-  "0x" [0-9a-fA-F]+ { tok' (\s -> LiteralInt (parseInt readHex $ drop 2 $ s_unpack s) Nothing) }
-  "0o" [0-7]+ { tok' (\s -> LiteralInt (parseInt readOct $ drop 2 $ s_unpack s) Nothing) }
-  "0b" [01]+ { tok' (\s -> LiteralInt (parseInt readBin $ drop 2 $ s_unpack s) Nothing) }
-  \-?(0|[1-9][0-9]*) { tok' (\s -> LiteralInt (parseInt readDec $ s_unpack s) Nothing) }
+  \-?[0-9]+ "." [0-9]* { tok' (\s -> LiteralFloat (l2s s) Nothing) }
+  "0x" [0-9a-fA-F]+ { tok' (\s -> LiteralInt (parseInt readHex $ drop 2 $ B.unpack s) Nothing) }
+  "0o" [0-7]+ { tok' (\s -> LiteralInt (parseInt readOct $ drop 2 $ B.unpack s) Nothing) }
+  "0b" [01]+ { tok' (\s -> LiteralInt (parseInt readBin $ drop 2 $ B.unpack s) Nothing) }
+  \-?(0|[1-9][0-9]*) { tok' (\s -> LiteralInt (parseInt readDec $ B.unpack s) Nothing) }
 
   -- operators
   "+=" { tok $ Op $ AssignOp Add }
@@ -149,34 +150,34 @@ tokens :-
   "!" { tok $ Op Invert }
   "~" { tok $ Op InvertBits }
   "::" { tok $ Op Cons }
-  [\*\/\+\-\^\=\<\>\!\&\%\~\@\?\:\.]+ { tok' (\s -> Op $ Custom s) }
+  [\*\/\+\-\^\=\<\>\!\&\%\~\@\?\:\.]+ { tok' (\s -> Op $ Custom $ l2s s) }
 
   -- identifiers
-  [_]*[a-z][a-zA-Z0-9_]* "!" { tok' (\s -> Lex $ s_take (s_length s - 1) s) }
+  [_]*[a-z][a-zA-Z0-9_]* "!" { tok' (\s -> Lex $ l2s $ B.take (B.length s - 1) s) }
   [_]*[a-z][a-zA-Z0-9_]* { tokString LowerIdentifier }
-  [@][a-z][a-zA-Z0-9_]* { tok' $ \s -> LowerIdentifier $ s_drop 1 s }
-  "`" [^`]+ "`" { tok' (\s -> LowerIdentifier $ s_take (s_length s - 2) $ s_drop 1 s) }
+  [@][a-z][a-zA-Z0-9_]* { tok' $ \s -> LowerIdentifier $ l2s $ B.drop 1 s }
+  "`" [^`]+ "`" { tok' (\s -> LowerIdentifier $ l2s $ B.take (B.length s - 2) $ B.drop 1 s) }
   [_]*[A-Z][a-zA-Z0-9_]* { tokString UpperIdentifier }
-  "``" ([^`]|\`[^`])+ "``" { tok' (\s -> UpperIdentifier $ s_take (s_length s - 4) $ s_drop 2 s) }
-  "$" [A-Za-z_][a-zA-Z0-9_]* { tok' (\s -> MacroIdentifier $ s_drop 1 s) }
-  "${" [A-Za-z_][a-zA-Z0-9_]* "}" { tok' (\s -> MacroIdentifier $ s_take (s_length s - 3) $ s_drop 2 s) }
-  "```" ([^`]|\`[^`]|\`\`[^`]|\n)* "```" { tok' (\s -> InlineC $ s_take (s_length s - 6) $ s_drop 3 s) }
+  "``" ([^`]|\`[^`])+ "``" { tok' (\s -> UpperIdentifier $ l2s $ B.take (B.length s - 4) $ B.drop 2 s) }
+  "$" [A-Za-z_][a-zA-Z0-9_]* { tok' (\s -> MacroIdentifier $ l2s $ B.drop 1 s) }
+  "${" [A-Za-z_][a-zA-Z0-9_]* "}" { tok' (\s -> MacroIdentifier $ l2s $ B.take (B.length s - 3) $ B.drop 2 s) }
+  "```" ([^`]|\`[^`]|\`\`[^`]|\n)* "```" { tok' (\s -> InlineC $ l2s $ B.take (B.length s - 6) $ B.drop 3 s) }
 
   "_" _+ { tokString LowerIdentifier }
   "_" { tok Underscore }
 
 {
 -- determine the end of a span containing this ByteString and beginning at (line, col)
-posnOffset :: (Int, Int) -> Str -> (Int, Int)
+posnOffset :: (Int, Int) -> B.ByteString -> (Int, Int)
 posnOffset (line, col) s = (line + length indices, if length indices == 0 then col + l - 1 else (l - 1 - (fromIntegral $ last indices)))
-                           where indices = s_findIndices ((==) '\n') s
-                                 l = (fromIntegral $ s_length s)
+                           where indices = B.findIndices ((==) '\n') s
+                                 l = (fromIntegral $ B.length s)
 
 -- wrapper to convert an Alex position to a Span
 pos2span (AlexPn _ line col) s = (line, col, endLine, endCol) where (endLine, endCol) = posnOffset (line, col) s
 
-processStringLiteral :: Str -> Str
-processStringLiteral s = s_pack (_processString (s_unpack s) False) -- FIXME: better way?
+processStringLiteral :: B.ByteString -> Str
+processStringLiteral s = s_pack (_processString (B.unpack s) False) -- FIXME: better way?
 _processString ('\\':t) False = _processString t True
 _processString (h:t) False = h : (_processString t False)
 _processString ('a':t) True = '\a' : (_processString t False)
@@ -210,7 +211,7 @@ parseNumSuffix "f64" = Float64
 -- token helpers
 tok' f p s = (f s, pos2span p s)
 tok x = tok' (\s -> x)
-tokString x = tok' (\s -> x s)
+tokString x = tok' (\s -> x $ l2s s)
 whitespace :: Char -> Bool
 whitespace s = s == ' ' || s == '\n' || s == '\t' || s == '\r'
 
@@ -220,6 +221,7 @@ token_pos (_, p) = p
 token_type :: Token -> TokenClass
 token_type (t, _) = t
 
+scanTokens :: FilePath -> B.ByteString -> [Token]
 scanTokens f str = go (alexStartPos,'\n',str,0)
   where go inp@(pos,_,str,n) =
           case alexScan inp 0 of
@@ -228,6 +230,6 @@ scanTokens f str = go (alexStartPos,'\n',str,0)
             AlexSkip  inp' len     -> go inp'
             AlexToken inp'@(_,_,_,n') _ act ->
               (a, b) : go inp'
-              where (a', (b1, b2, b3, b4)) = act pos (ByteString.take (n'-n) str)
+              where (a', (b1, b2, b3, b4)) = act pos (B.take (fromIntegral $ n'-n) str)
                     (a, b) = (a', sp f b1 b2 b3 b4)
 }

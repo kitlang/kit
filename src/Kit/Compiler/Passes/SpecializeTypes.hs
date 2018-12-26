@@ -1,7 +1,7 @@
-module Kit.Compiler.Passes.SpecializeTypes where
+module Kit.Compiler.Passes.SpecializeTypes (specializeTypes) where
 
 import Control.Monad
-import Data.IORef
+import Data.Mutable
 import Data.List
 import Data.Maybe
 import Kit.Ast
@@ -32,7 +32,7 @@ specializeTypes ctx = do
   shouldn't cause a failure.
 -}
 specializeTypeVars ctx = do
-  unresolved          <- readIORef (ctxUnresolvedTypeVars ctx)
+  unresolved          <- readRef (ctxUnresolvedTypeVars ctx)
   (result, remaining) <- foldM
     (\(result, remaining) id -> do
       -- for type variables with constraints and no value, try to specialize
@@ -51,7 +51,7 @@ specializeTypeVars ctx = do
     )
     (False, [])
     unresolved
-  writeIORef (ctxUnresolvedTypeVars ctx) remaining
+  writeRef (ctxUnresolvedTypeVars ctx) remaining
   return result
 
 findDefaultType :: CompileContext -> Int -> IO (Maybe ConcreteType)
@@ -126,13 +126,13 @@ findDefaultType ctx id = do
 -}
 unifyTemplateVars :: CompileContext -> IO Bool
 unifyTemplateVars ctx = do
-  unresolved          <- readIORef (ctxUnresolvedTemplateVars ctx)
+  unresolved          <- readRef (ctxUnresolvedTemplateVars ctx)
   (result, remaining) <- foldM
     (\(result, remaining) (id, params, pos) -> do
       -- if we can fully resolve these type parameters, unify with the fully
       -- resolved version of the monomorph
       tctx           <- newTypeContext []
-      resolvedParams <- forM params $ mapType $ follow ctx tctx
+      resolvedParams <- forM params $ follow ctx tctx
       let unresolved = map typeUnresolved resolvedParams
       if or unresolved
         then return (result, (id, params, pos) : remaining)
@@ -159,5 +159,5 @@ unifyTemplateVars ctx = do
     )
     (False, [])
     unresolved
-  writeIORef (ctxUnresolvedTemplateVars ctx) remaining
+  writeRef (ctxUnresolvedTemplateVars ctx) remaining
   return $ result || (not $ null remaining)

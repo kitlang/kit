@@ -1,4 +1,4 @@
-module Kit.Compiler.Typers.ConvertExpr where
+module Kit.Compiler.Typers.ConvertExpr (convertExpr) where
 
 import Control.Monad
 import Data.List
