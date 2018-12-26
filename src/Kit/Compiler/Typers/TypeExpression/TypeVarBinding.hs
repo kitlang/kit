@@ -54,7 +54,8 @@ typeVarBinding ctx tctx binding pos = do
       let t  = functionConcrete def
       let tp = functionRealName def
       if null $ functionParams def
-        then return $ makeExprTyped (Identifier $ Var tp) t pos
+        then return
+          $ (makeExprTyped (Identifier $ Var tp) t pos) { tIsLvalue = True }
         else do
   -- TODO: allow specifying explicit function params
           params <- makeGeneric ctx tp pos []
@@ -63,7 +64,8 @@ typeVarBinding ctx tctx binding pos = do
           let ft = case t of
                 TypeFunction rt args varargs _ ->
                   TypeFunction rt args varargs (map snd params)
-          return $ makeExprTyped (Identifier $ Var tp) ft pos
+          return $ (makeExprTyped (Identifier $ Var tp) ft pos) { tIsLvalue = True
+                                                                }
     -- TODO: these are invalid runtime values; don't abuse Identifier for them
     TypeBinding  t -> returnTypeBinding (typeName t) []
     TraitBinding t -> returnTraitBinding (traitName t) []

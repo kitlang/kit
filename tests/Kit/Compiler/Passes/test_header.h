@@ -36,6 +36,8 @@ short **pointer_var2;
 short (*pointer_var3)(short arg1);
 void (*func_pointer)(void);
 unsigned just_unsigned;
+const char * const_char;
+int * const const_ptr;
 
 // functions
 
@@ -47,3 +49,6 @@ float * pointer_func(int *arg1);
 void varargs_func(short a, ...);
 long void_func(void);
 int fake_atexit (void (*__func) (void));
+
+typedef void (*fp_typedef) (void *arg1, int arg2);
+fp_typedef func_pointah(int arg3);
