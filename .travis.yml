@@ -49,10 +49,15 @@ script:
 
 jobs:
   include:
-    - stage: deploy
+    - stage: deploy linux packages
+      os: linux
       env: CC=gcc
       script:
         - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then bash ./.packages/linux.sh; fi
+    - stage: deploy mac package
+      os: osx
+      env: CC=gcc
+      script:
         - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then bash ./.packages/osx.sh; fi
 
 notifications:
