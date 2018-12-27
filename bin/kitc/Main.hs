@@ -20,7 +20,6 @@ import Kit.Str
 
 data Options = Options {
   optMainModule :: String,
-  optShowVersion :: Bool,
   optVerbose :: Int,
   optQuiet :: Bool,
   optTarget :: String,
@@ -50,7 +49,6 @@ options =
           <> help
                "module or file containing the main() function (for binaries) or compilation entry point for libraries"
           )
-    <*> switch (long "version" <> help "show the version number and exit")
     <*> (length <$> many
           (flag'
             ()
@@ -142,17 +140,20 @@ helper' :: Parser (a -> a)
 helper' = abortOption ShowHelpText $ mconcat
   [long "help", short 'h', help "show this help text and exit", hidden]
 
-p = prefs (showHelpOnError)
+version' :: Parser (a -> a)
+version' = abortOption (InfoMsg $ "kitc v" ++ version)
+  $ mconcat [long "version", help "show version and exit"]
+
+p = prefs (showHelpOnEmpty)
 
 main :: IO ()
 main = do
-  argv <- getArgs
-  let args = if length argv == 0 then ["--help"] else argv
+  args <- getArgs
 
   opts <- handleParseResult $ execParserPure
     p
     (info
-      (options <**> helper')
+      (options <**> helper' <**> version')
       (  fullDesc
       <> progDesc
            "This is the Kit compiler. It is generally used via the 'kit' build tool."
@@ -161,49 +162,46 @@ main = do
     )
     args
 
-  if optShowVersion opts
-    then putStrLn $ "kitc v" ++ version
+  stdPath     <- findStd
+  cc          <- getCompiler $ optCompilerPath opts
+  baseContext <- newCompileContext
+  let (mainModule, sourcePaths) = decideModuleAndSourcePaths
+        (s_pack $ optMainModule opts)
+        (optSourcePaths opts)
+      ctx = baseContext
+        { ctxMainModule    = parseModulePath $ mainModule
+        , ctxIsLibrary     = optIsLibrary opts
+        , ctxBuildDir      = optBuildDir opts
+        , ctxOutputPath    = optOutputPath opts
+        , ctxIncludePaths  = optIncludePaths opts
+        , ctxSourcePaths   = map parseSourcePath $ sourcePaths ++ stdPath
+        , ctxDefines       = map
+          (\s -> (takeWhile (/= '=') s, drop 1 $ dropWhile (/= '=') s))
+          (optDefines opts)
+        , ctxVerbose       = if optQuiet opts then -1 else optVerbose opts
+        , ctxNoCompile     = optNoCompile opts
+        , ctxNoLink        = optNoLink opts
+        , ctxDumpAst       = optDumpAst opts
+        , ctxNoCcache      = optNoCcache opts
+        , ctxRun           = optRun opts
+        , ctxNameMangling  = not $ optNoMangle opts
+        , ctxCompilerFlags = optCompilerFlags opts
+        , ctxLinkerFlags   = optLinkerFlags opts
+        }
+
+  result <- tryCompile ctx cc
+  errors <- case result of
+    Left e -> do
+      let errs = flattenErrors e
+      mapM_ logError $ errs
+      return $ length errs
+    Right () -> return 0
+
+  if errors == 0
+    then return ()
     else do
-      stdPath     <- findStd
-      cc          <- getCompiler $ optCompilerPath opts
-      baseContext <- newCompileContext
-      let (mainModule, sourcePaths) = decideModuleAndSourcePaths
-            (s_pack $ optMainModule opts)
-            (optSourcePaths opts)
-          ctx = baseContext
-            { ctxMainModule   = parseModulePath $ mainModule
-            , ctxIsLibrary    = optIsLibrary opts
-            , ctxBuildDir     = optBuildDir opts
-            , ctxOutputPath   = optOutputPath opts
-            , ctxIncludePaths = optIncludePaths opts
-            , ctxSourcePaths  = map parseSourcePath $ sourcePaths ++ stdPath
-            , ctxDefines      = map
-              (\s -> (takeWhile (/= '=') s, drop 1 $ dropWhile (/= '=') s))
-              (optDefines opts)
-            , ctxVerbose      = if optQuiet opts then -1 else optVerbose opts
-            , ctxNoCompile     = optNoCompile opts
-            , ctxNoLink        = optNoLink opts
-            , ctxDumpAst       = optDumpAst opts
-            , ctxNoCcache      = optNoCcache opts
-            , ctxRun           = optRun opts
-            , ctxNameMangling  = not $ optNoMangle opts
-            , ctxCompilerFlags = optCompilerFlags opts
-            , ctxLinkerFlags   = optLinkerFlags opts
-            }
-
-      result <- tryCompile ctx cc
-      errors <- case result of
-        Left e -> do
-          let errs = flattenErrors e
-          mapM_ logError $ errs
-          return $ length errs
-        Right () -> return 0
-
-      if errors == 0
-        then return ()
-        else do
-          errorLog $ "compilation failed (" ++ show errors ++ " errors)"
-          exitWith $ ExitFailure 1
+      errorLog $ "compilation failed (" ++ show errors ++ " errors)"
+      exitWith $ ExitFailure 1
 
 parseSourcePath :: String -> (FilePath, ModulePath)
 parseSourcePath (':' : ':' : t) = ("", parseModulePath $ s_pack t)
