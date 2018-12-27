@@ -54,6 +54,8 @@ jobs:
       os: linux
       env:
         - CC: gcc
+      before_install: skip
+      install: skip
       script: bash ./.packages/install_test.sh
 
 notifications:
