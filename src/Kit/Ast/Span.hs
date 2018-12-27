@@ -1,32 +1,31 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE PatternSynonyms #-}
 
-module Kit.Ast.Span (
-  Span (..),
-  Positioned (..),
-  sp,
-  (<+>)
-) where
+module Kit.Ast.Span where
 
 import Data.Hashable
 import GHC.Generics
 import Control.Applicative
 
-data Span
-  = Span {file :: FilePath, startLine :: Int, startCol :: Int, endLine :: Int, endCol :: Int, rewrittenFrom :: Maybe Span}
-  | FilePos FilePath
-  | NoPos
-  deriving (Generic)
+data Span = Span
+  { file :: FilePath
+  , startLine :: Int
+  , startCol :: Int
+  , endLine :: Int
+  , endCol :: Int
+  , rewrittenFrom :: Maybe Span
+  } deriving (Generic)
+
+pattern NoPos :: Span
+pattern NoPos = Span {file = "", startLine = 0, startCol = 0, endLine = 0, endCol = 0, rewrittenFrom = Nothing}
 
 instance Eq Span where
   (==) NoPos _ = True
   (==) _ NoPos = True
-  (==) (FilePos a) (FilePos b) = a == b
   (==) (a@Span {}) (b@Span {}) = (file a == file b) && (startLine a == startLine b) && (startCol a == startCol b) && (endLine a == endLine b) && (endCol a == endCol b)
-  (==) _ _ = False
 
 instance Show Span where
   show NoPos = "@(???)"
-  show (FilePos f) = show f
   show span = "@" ++ file span ++
               ":" ++ (show $ startLine span) ++ ":" ++ (show $ startCol span) ++
               (if (startCol span /= endCol span) || (startLine span /= endLine span)
