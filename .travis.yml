@@ -4,8 +4,6 @@ cache:
   directories:
     - $HOME/.stack
 
-
-
 addons:
   apt:
     packages:
@@ -57,7 +55,6 @@ jobs:
       env:
         - CC: gcc
       script: bash ./.packages/install_test.sh
-
 
 notifications:
   webhooks:
