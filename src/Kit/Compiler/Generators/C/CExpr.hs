@@ -217,12 +217,12 @@ intFlags f = foldr (\f acc -> setFlag f acc) noFlags f
 initializerExpr :: IrExpr -> CInit
 initializerExpr (IrCArrLiteral values _) =
   u $ CInitList $ [ ([], x) | x <- map initializerExpr values ]
-initializerExpr (IrStructInit _ fields) =
-  u
-    $ CInitList
-    $ [ ([u $ CMemberDesig (cIdent name)], initializerExpr value)
-      | (name, value) <- fields
-      ]
+initializerExpr (IrStructInit _ []) =
+  u $ CInitList [([], initializerExpr (IrLiteral (IntValue 0) BasicTypeCInt))]
+initializerExpr (IrStructInit _ fields) = u $ CInitList
+  [ ([u $ CMemberDesig (cIdent name)], initializerExpr value)
+  | (name, value) <- fields
+  ]
 initializerExpr (IrUnionInit _ (name, value)) =
   u $ CInitList $ [([u $ CMemberDesig (cIdent name)], initializerExpr value)]
 initializerExpr x = u $ CInitExpr $ transpileExpr x
@@ -292,6 +292,9 @@ transpileExpr (IrCArrLiteral values x) = u $ CCompoundLit
    where
     (typeSpec, derivedDeclr) = arrT
     cdeclr                   = u $ CDeclr Nothing derivedDeclr Nothing []
+transpileExpr (IrStructInit t []) = u $ CCompoundLit
+  (cDecl t Nothing Nothing)
+  [([], u $ CInitExpr (transpileExpr $ IrLiteral (IntValue 0) BasicTypeCInt))]
 transpileExpr (IrStructInit t fields) = u $ CCompoundLit
   (cDecl t Nothing Nothing)
   [ ([u $ CMemberDesig (cIdent name)], u $ CInitExpr (transpileExpr e))
