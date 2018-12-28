@@ -8,7 +8,8 @@ module Kit.Compiler (
   module Kit.Compiler.Passes,
   module Kit.Compiler.Scope,
   module Kit.Compiler.TypeContext,
-  module Kit.Compiler.Unify
+  module Kit.Compiler.Unify,
+  module Kit.Compiler.Utils
 ) where
 
 import Control.Exception
@@ -174,7 +175,7 @@ compilerSanityChecks ctx = do
         (Either KitError (TraitDefinition TypedExpr ConcreteType))
     case result of
       Left _ -> throwk $ InternalError
-        ("Sanity check failed: couldn't required trait "
+        ("Sanity check failed: couldn't find required trait "
         ++ s_unpack (showTypePath t)
         ++ ", which should be provided by the standard library; check your kitc installation"
         )
@@ -187,7 +188,7 @@ compilerSanityChecks ctx = do
           (Either KitError (TypeDefinition TypedExpr ConcreteType))
       case result of
         Left _ -> throwk $ InternalError
-          ("Sanity check failed: couldn't required type "
+          ("Sanity check failed: couldn't find required type "
           ++ s_unpack (showTypePath t)
           ++ ", which should be provided by the standard library; check your kitc installation"
           )

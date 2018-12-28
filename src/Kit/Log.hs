@@ -38,7 +38,7 @@ logMsg lv msg = do
   ePutStr "["
   hSetSGR stderr [color Cyan, normal]
   t <- getZonedTime
-  ePutStr $ formatTime defaultTimeLocale "%F %T.%6q" t
+  ePutStr $ formatTime defaultTimeLocale "%F %T.%4q" t
   hSetSGR stderr [color Yellow, normal]
   ePutStr "]"
   hSetSGR stderr [Reset]
@@ -57,6 +57,7 @@ logMsg lv msg = do
 
 traceLog = logMsg Nothing
 printLog = logMsg (Just Notice)
+printDebugLog = logMsg (Just Debug)
 warningLog = logMsg (Just Warning)
 errorLog = logMsg (Just Error)
 

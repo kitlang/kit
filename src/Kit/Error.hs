@@ -204,3 +204,8 @@ forMWithErrors_ l f = do
   unless (null $ results) $ throwk $ KitErrors $ reverse results
 
 mapMWithErrors_ f l = forMWithErrors_ l f
+
+showErrs e = do
+  let errs = flattenErrors e
+  mapM_ logError $ errs
+  return $ length errs

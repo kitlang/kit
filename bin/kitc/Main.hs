@@ -2,11 +2,13 @@
 
 module Main where
 
+import Control.Exception
 import Control.Monad
 import Data.List
 import Data.Time
 import System.Environment
 import System.Exit
+import System.Info
 import System.IO
 import Options.Applicative
 import Data.Semigroup ((<>))
@@ -37,7 +39,8 @@ data Options = Options {
   optDumpAst :: Bool,
   optNoCcache :: Bool,
   optRun :: Bool,
-  optNoMangle :: Bool
+  optNoMangle :: Bool,
+  optShowEnv :: Bool
 } deriving (Eq, Show)
 
 options :: Parser Options
@@ -48,6 +51,7 @@ options =
           (  metavar "MODULE"
           <> help
                "module or file containing the main() function (for binaries) or compilation entry point for libraries"
+          <> value ""
           )
     <*> (length <$> many
           (flag'
@@ -114,6 +118,9 @@ options =
     <*> switch
           (long "run" <> help "run the program after successful compilation")
     <*> switch (long "no-mangle" <> help "disables name mangling")
+    <*> switch
+          (long "env" <> help "show environment info and exit without compiling"
+          )
 
 compilerFlagParser = strOption
   (long "compile-flag" <> short 'c' <> metavar "FLAG" <> help
@@ -149,18 +156,19 @@ p = prefs (showHelpOnEmpty)
 main :: IO ()
 main = do
   args <- getArgs
-
-  opts <- handleParseResult $ execParserPure
-    p
-    (info
-      (options <**> helper' <**> version')
-      (  fullDesc
-      <> progDesc
-           "This is the Kit compiler. It is generally used via the 'kit' build tool."
-      <> header ("kitc v" ++ version)
+  let
+    parseOpts args = handleParseResult $ execParserPure
+      p
+      (info
+        (options <**> helper' <**> version')
+        (  fullDesc
+        <> progDesc
+             "This is the Kit compiler. It is generally used via the 'kit' build tool."
+        <> header ("kitc v" ++ version)
+        )
       )
-    )
-    args
+      args
+  opts        <- parseOpts args
 
   stdPath     <- findStd
   cc          <- getCompiler $ optCompilerPath opts
@@ -189,19 +197,53 @@ main = do
         , ctxLinkerFlags   = optLinkerFlags opts
         }
 
-  result <- tryCompile ctx cc
-  errors <- case result of
-    Left e -> do
-      let errs = flattenErrors e
-      mapM_ logError $ errs
-      return $ length errs
-    Right () -> return 0
-
-  if errors == 0
-    then return ()
+  if optShowEnv opts
+    then do
+      printLog "kitc version"
+      printDebugLog version
+      printLog "OS"
+      printDebugLog os
+      printLog "Compiler"
+      printDebugLog $ ccPath cc
+      printLog "Include paths"
+      printDebugLog $ show (ccIncludePaths cc)
+      printLog "Compiler flags"
+      cFlags <- getCompileFlags ctx cc
+      printDebugLog $ show cFlags
+      printLog "Linker flags"
+      lFlags <- getCtxLinkerFlags ctx
+      printDebugLog $ show lFlags
+      printLog "Source paths"
+      printDebugLog $ show
+        [ path
+            ++ (if null anchor
+                 then ""
+                 else (":" ++ s_unpack (showModulePath anchor))
+               )
+        | (path, anchor) <- ctxSourcePaths ctx
+        ]
+      printLog "Standard prelude location"
+      preludePath <-
+        (try (findModule ctx ["prelude"] Nothing)) :: IO
+          (Either KitError FilePath)
+      case preludePath of
+        Left  e -> showErrs e >> return ()
+        Right f -> printDebugLog f
     else do
-      errorLog $ "compilation failed (" ++ show errors ++ " errors)"
-      exitWith $ ExitFailure 1
+      when (null $ optMainModule opts) $ do
+        errorLog $ "no main module specified"
+        parseOpts ["--help"]
+        exitWith $ ExitFailure 1
+      result <- tryCompile ctx cc
+      errors <- case result of
+        Left  e  -> showErrs e
+        Right () -> return 0
+
+      if errors == 0
+        then return ()
+        else do
+          errorLog $ "compilation failed (" ++ show errors ++ " errors)"
+          exitWith $ ExitFailure 1
 
 parseSourcePath :: String -> (FilePath, ModulePath)
 parseSourcePath (':' : ':' : t) = ("", parseModulePath $ s_pack t)
