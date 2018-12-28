@@ -79,13 +79,17 @@ To install:
 
 This will copy the `kitc` binary to Stack's binary install directory (~/.local/bin on Linux); make sure this directory is part of your executable paths.
 
-You'll need to point Kit to its standard library; you have a few options:
+You'll need to point Kit to its standard library (which is the "std" directory in the repo's root directory); you have a few options:
 
 - Set an environment variable, KIT_STD_PATH
 - Put the kitc binary next to its standard library
 - Put the standard library in an OS-specific default location:
     - Linux: "/usr/lib/kit"
     - Mac: "/usr/local/lib/kit"
+
+### Windows setup
+
+- Kit is currently known to work with mingw64; anything else is unsupported at this time.
 
 
 Hello world

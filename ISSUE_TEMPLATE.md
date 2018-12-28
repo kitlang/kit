@@ -1,6 +1,3 @@
-- **Kit version:** X.Y.Z
-- **OS/Platform:** (Windows|Mac|Linux)
-
 ### **Describe the problem. What did you see? What did you expect to see?**
 
 Describe the problem here.
@@ -10,3 +7,7 @@ Describe the problem here.
 ```kit
 // put your code here
 ```
+
+### **Environment**
+
+*To help with troubleshooting, please run your Kit command with an additional `--env` flag, and paste the output here*
