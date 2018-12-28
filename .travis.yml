@@ -51,13 +51,15 @@ script:
 jobs:
   include:
     - stage: install
-      if: branch IN (master, dev)
+      if:
+        - branch IN (master, dev)
+        - type != pull_request
       os: linux
       env:
         - CC: gcc
       before_install: skip
       install: skip
-      script: 'if [ "$TRAVIS_PULL_REQUEST" == "false" ]; bash ./.packages/install_test.sh; fi'
+      script: bash ./.packages/install_test.sh
 
 notifications:
   webhooks:
