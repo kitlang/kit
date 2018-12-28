@@ -45,8 +45,8 @@ script:
   - stack exec kitc -- -h
   - TEST_RUNS=1 stack test --test-arguments '+RTS -N -RTS'
   - stack install
-  - if [ "$TRAVIS_OS_NAME" == "linux" ] && [ "$TRAVIS_PULL_REQUEST" = "false" ]; then bash ./.packages/linux.sh; fi
-  - if [ "$TRAVIS_OS_NAME" == "osx" ]] && [ "$TRAVIS_PULL_REQUEST" = "false" ]; then bash ./.packages/osx.sh; fi
+  - if [ "$TRAVIS_OS_NAME" == "linux" ] && [ "$TRAVIS_PULL_REQUEST" == "false" ]; then bash ./.packages/linux.sh; fi
+  - if [ "$TRAVIS_OS_NAME" == "osx" ]] && [ "$TRAVIS_PULL_REQUEST" == "false" ]; then bash ./.packages/osx.sh; fi
 
 jobs:
   include:
@@ -57,7 +57,7 @@ jobs:
         - CC: gcc
       before_install: skip
       install: skip
-      script: if [ "$TRAVIS_PULL_REQUEST" = "false" ]; bash ./.packages/install_test.sh
+      script: if [ "$TRAVIS_PULL_REQUEST" == "false" ]; bash ./.packages/install_test.sh
 
 notifications:
   webhooks:
