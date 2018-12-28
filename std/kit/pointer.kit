@@ -39,11 +39,31 @@ abstract Shared[T]: Ptr[T] {
         if meta.count == 0 {
             return true;
         } else if --meta.count == 0 {
-            meta.allocator.free(meta);
+            this.free();
             return true;
         } else {
             return false;
         }
+    }
+
+    /**
+     * Decrement the reference count, but don't free. If this function returns
+     * true, the user is responsible to free.
+     */
+    public function decrement(): Bool {
+        var meta = this.metadata();
+        if meta.count == 0 {
+            return true;
+        } else if --meta.count == 0 {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    public function free() {
+        var meta = this.metadata();
+        meta.allocator.free(meta);
     }
 
     public function active(): Bool {
