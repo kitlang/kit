@@ -1,0 +1,23 @@
+struct MyStruct[T] {
+    var m: Map[Int, T];
+}
+
+function main() {
+    var m: Map = Map.new(16);
+    m.put(16, "hello");
+    var s = m[16];
+    puts(s);
+
+    var m2: Map;
+    m2 = Map.new(4);
+    m2.put(true, 1);
+    m2.put(false, 2);
+    var i = m2[true];
+    printf("%i\n", i);
+
+    var st = struct MyStruct {
+        m: Map.new(4)
+    };
+    st.m.put(1, 5);
+    printf("%i\n", st.m[1]);
+}
