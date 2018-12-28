@@ -57,7 +57,7 @@ jobs:
         - CC: gcc
       before_install: skip
       install: skip
-      script: 'if [ "$TRAVIS_PULL_REQUEST" == "false" ]; bash ./.packages/install_test.sh'
+      script: 'if [ "$TRAVIS_PULL_REQUEST" == "false" ]; bash ./.packages/install_test.sh; fi'
 
 notifications:
   webhooks:
