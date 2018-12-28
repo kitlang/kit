@@ -51,8 +51,7 @@ script:
 jobs:
   include:
     - stage: install
-      if:
-        - branch IN (master, dev)
+      if: branch IN (master, dev)
       os: linux
       env:
         - CC: gcc
