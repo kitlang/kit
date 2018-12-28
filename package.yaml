@@ -60,6 +60,7 @@ executables:
     - ansi-terminal
     - kitlang
     - optparse-applicative ==0.14.2.0
+    - process
     - time
 
 tests:

@@ -10,6 +10,7 @@ import System.Environment
 import System.Exit
 import System.Info
 import System.IO
+import System.Process
 import Options.Applicative
 import Data.Semigroup ((<>))
 import Kit
@@ -205,6 +206,10 @@ main = do
       printDebugLog os
       printLog "Compiler"
       printDebugLog $ ccPath cc
+      ccVersionResult <- (try $ readProcess (ccPath cc) ["--version"] "") :: IO (Either IOError String)
+      case ccVersionResult of
+        Left err -> errorLog $ "Error getting compiler version:\n\n" ++ show err
+        Right s -> putStr s
       printLog "Include paths"
       printDebugLog $ show (ccIncludePaths cc)
       printLog "Compiler flags"
