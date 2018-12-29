@@ -30,7 +30,7 @@ data TypeVarInfo = TypeVarInfo
   { typeVarId :: Int
   , typeVarValue :: Maybe ConcreteType
   , typeVarConstraints :: [(TraitConstraint, (String, Span))]
-  , typeVarPositions :: [Span]
+  , typeVarPosition :: Span
   } deriving (Eq)
 
 instance Show TypeVarInfo where
@@ -46,10 +46,8 @@ newTypeVarInfo id p = TypeVarInfo
   { typeVarId          = id
   , typeVarValue       = Nothing
   , typeVarConstraints = []
-  , typeVarPositions   = [p]
+  , typeVarPosition   = p
   }
-addTypeVarPosition info p =
-  info { typeVarPositions = p : typeVarPositions info }
 addTypeVarConstraints info c reason pos = info
   { typeVarConstraints = nubBy (\(c1, _) (c2, _) -> c1 == c2)
                                ((c, (reason, pos)) : typeVarConstraints info)

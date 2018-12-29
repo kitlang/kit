@@ -128,8 +128,6 @@ resolveTypesForMod
   -> (Module, [SyntacticStatement])
   -> IO (Module, [TypedStmtWithContext])
 resolveTypesForMod pass ctx extensions (mod, contents) = do
-  debugLog ctx $ show pass
-
   -- handle module using statements before creating final TypeContext
   tctx <- if pass > ResolveRules
     then modTypeContext ctx mod

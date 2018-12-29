@@ -3,6 +3,7 @@ module Kit.Compiler.Unify where
 import Control.Exception
 import Control.Monad
 import Data.List
+import Data.Maybe
 import Kit.Ast
 import Kit.Compiler.Context
 import Kit.Compiler.TypeContext
@@ -10,7 +11,7 @@ import Kit.Compiler.TypedExpr
 import Kit.Error
 import Kit.HashTable
 import Kit.Log
-import Kit.Ast.Span
+import Kit.Str
 
 data UnificationError = UnificationError CompileContext TypeConstraint
 instance Errable UnificationError where
@@ -20,7 +21,7 @@ instance Errable UnificationError where
                                 TypeTypeVar i -> do
                                   info <- getTypeVar ctx i
                                   ePutStrLn $ show info
-                                  let varPos = head $ typeVarPositions info
+                                  let varPos = typeVarPosition info
                                   displayFileSnippet varPos
                                 _ -> ePutStrLn $ show x
     ePutStr $ "    Expected type:  "
@@ -247,6 +248,13 @@ resolveConstraint ctx tctx constraint@(TypeEq a b reason pos) = do
         h_insert (ctxTypeVariables ctx)
                  (typeVarId info2)
                  (info2 { typeVarConstraints = constraints })
+        -- when (isNothing $ typeVarValue info2)
+        --   $  markProgress ctx
+        --   $  s_pack
+        --   $  "type var "
+        --   ++ show a
+        --   ++ " learned "
+        --   ++ show (typeVarPosition info1)
     TypeVarIs id x -> do
       info <- getTypeVar ctx id
       let constraints = typeVarConstraints info
@@ -258,6 +266,13 @@ resolveConstraint ctx tctx constraint@(TypeEq a b reason pos) = do
           (TypeEq x (TypeTraitConstraint constraint) reason' pos')
         )
       info <- getTypeVar ctx id
+      -- when (isNothing $ typeVarValue info)
+      --   $  markProgress ctx
+      --   $  s_pack
+      --   $  "type var "
+      --   ++ show id
+      --   ++ " learned "
+      --   ++ show (typeVarPosition info)
       h_insert (ctxTypeVariables ctx)
                (typeVarId info)
                (info { typeVarValue = Just x })
@@ -266,6 +281,14 @@ resolveConstraint ctx tctx constraint@(TypeEq a b reason pos) = do
       h_insert (ctxTypeVariables ctx)
                (typeVarId info)
                (addTypeVarConstraints info constraint reason pos)
+      -- markProgress ctx
+      --   $  s_pack
+      --   $  "type var "
+      --   ++ show id
+      --   ++ " learned constraint "
+      --   ++ show constraint
+      --   ++ " "
+      --   ++ show (typeVarPosition info)
 
 resolveConstraintOrThrow
   :: CompileContext -> TypeContext -> TypeConstraint -> IO [TypeInformation]

@@ -99,7 +99,7 @@ _findUnderlyingType ctx mod pos stack t = do
             ++ show id
             ++ ".\n\nTry adding a type annotation: `expression: Type`"
             )
-            (Just $ head $ typeVarPositions info)
+            (Just $ typeVarPosition info)
         _ -> r known
     TypeTuple t -> do
       slots <- forM t (r)

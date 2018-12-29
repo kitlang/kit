@@ -201,7 +201,8 @@ convertExpr ctx tctx mod params e = do
       return $ m (InlineCExpr s t) t
     StaticExpr x -> do
       x <- r x
-      return $ m (StaticExpr x) TypeVoid
+      t <- mtv
+      return $ m (StaticExpr x) t
     _ -> throwk $ InternalError
       ("Can't convert expression: " ++ show (expr e))
       (Just pos')

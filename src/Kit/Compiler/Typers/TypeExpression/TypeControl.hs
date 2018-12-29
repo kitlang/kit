@@ -111,7 +111,6 @@ typeControl (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, 
       [r2, r3] <- forMWithErrors [e2, e3] $ \e -> do
         scope <- newScope
         typeExpr ctx (tctx { tctxScopes = scope : (tctxScopes tctx) }) mod e
-      tv <- makeTypeVar ctx pos
       resolve $ TypeEq (inferredType r1)
                        (TypeBool)
                        "An if condition must be a Bool"
@@ -122,10 +121,10 @@ typeControl (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, 
         "In an if expression with an else clause, both clauses must have the same type"
         pos
       resolve $ TypeEq (inferredType r2)
-                       (tv)
+                       (inferredType r3)
                        "The type of an if expression must match its clauses"
                        (tPos r2)
-      return $ makeExprTyped (If r1 r2 (Just r3)) (tv) pos
+      return $ makeExprTyped (If r1 r2 (Just r3)) (inferredType r2) pos
 
     (If e1 e2 Nothing) -> do
       r1    <- r e1

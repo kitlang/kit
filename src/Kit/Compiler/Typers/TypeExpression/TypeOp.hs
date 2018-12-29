@@ -134,7 +134,7 @@ typeOp (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _type
                 | i <- x
                 ]
               Nothing -> False
-        tv <- makeTypeVar ctx pos
+        let tv = inferredType ex
         case
             binopTypes op
                        (inferredType r1)

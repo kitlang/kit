@@ -7,7 +7,7 @@ import qualified Data.HashTable.IO as H
   This typedef + methods are here to make it easier to swap out hash table
   implementations if necessary.
 -}
-type HashTable k v = H.CuckooHashTable k v
+type HashTable k v = H.LinearHashTable k v
 
 -- defaulting a bit larger so we don't have to resize as frequently
 h_new :: (Eq k, Hashable k) => IO (HashTable k v)

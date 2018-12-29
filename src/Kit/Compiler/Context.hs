@@ -59,8 +59,6 @@ data CompileContext = CompileContext {
 
 data CompileContextState = CompileContextState {
   ctxStateModules :: HashTable ModulePath Module,
-  ctxStateFailedModules :: HashTable ModulePath (),
-  ctxStatePreludes :: HashTable ModulePath [SyntacticStatement],
   ctxStateIncludes :: IORef [FilePath],
   ctxStateLinkedLibs :: IORef [Str],
   ctxStateLastTypeVar :: IORef Int,
@@ -77,7 +75,9 @@ data CompileContextState = CompileContextState {
   ctxStatePendingGenerics :: IORef [(TypePath, [ConcreteType])],
   ctxStateCompleteGenerics :: HashTable TypePath (HashTable [ConcreteType] ()),
   ctxStateUnresolvedTypeVars :: IORef [Int],
-  ctxStateUnresolvedTemplateVars :: IORef [(Int, [ConcreteType], Span)]
+  ctxStateUnresolvedTemplateVars :: IORef [(Int, [ConcreteType], Span)],
+  ctxStateConstantParamTypes :: HashTable TypePath ConcreteType,
+  ctxStateMadeProgress :: IORef Bool
 }
 
 newCompileContext :: IO CompileContext
@@ -109,8 +109,6 @@ newCompileContext = do
 
 newCtxState = do
   mods               <- h_new
-  failed             <- h_new
-  preludes           <- h_new
   includes           <- newRef []
   linkedLibs         <- newRef []
   lastTypeVar        <- newRef 0
@@ -128,6 +126,8 @@ newCtxState = do
   completeGenerics   <- h_new
   unresolved         <- newRef []
   unresolvedTemplate <- newRef []
+  prog               <- newRef False
+  constTypes         <- h_new
   return $ CompileContextState
     { ctxStateIncludes               = includes
     , ctxStateLinkedLibs             = linkedLibs
@@ -146,13 +146,11 @@ newCtxState = do
     , ctxStatePendingGenerics        = pendingGenerics
     , ctxStateCompleteGenerics       = completeGenerics
     , ctxStateModules                = mods
-    , ctxStateFailedModules          = failed
-    , ctxStatePreludes               = preludes
+    , ctxStateConstantParamTypes     = constTypes
+    , ctxStateMadeProgress           = prog
     }
 
 ctxModules = ctxStateModules . ctxState
-ctxFailedModules = ctxStateFailedModules . ctxState
-ctxPreludes = ctxStatePreludes . ctxState
 ctxIncludes = ctxStateIncludes . ctxState
 ctxLinkedLibs = ctxStateLinkedLibs . ctxState
 ctxLastTypeVar = ctxStateLastTypeVar . ctxState
@@ -169,6 +167,8 @@ ctxPendingGenerics = ctxStatePendingGenerics . ctxState
 ctxCompleteGenerics = ctxStateCompleteGenerics . ctxState
 ctxUnresolvedTypeVars = ctxStateUnresolvedTypeVars . ctxState
 ctxUnresolvedTemplateVars = ctxStateUnresolvedTemplateVars . ctxState
+ctxConstantParamTypes = ctxStateConstantParamTypes . ctxState
+ctxMadeProgress = ctxStateMadeProgress . ctxState
 
 ctxSourceModules :: CompileContext -> IO [Module]
 ctxSourceModules ctx = do
@@ -256,9 +256,10 @@ templateVarToTypeVar ctx tv params pos = do
     Just i  -> return i
     Nothing -> do
       -- create a new type var for this monomorph
-      (TypeTypeVar i) <- makeTypeVar ctx pos
+      (TypeTypeVar i) <- do
+        makeTypeVar ctx pos
       modifyRef (ctxUnresolvedTemplateVars ctx)
-                  (\existing -> (tv, params, pos) : existing)
+                (\existing -> (tv, params, pos) : existing)
       h_insert vals key i
       return i
 
@@ -288,11 +289,8 @@ makeGeneric
   -> [ConcreteType]
   -> IO [(TypePath, ConcreteType)]
 makeGeneric ctx tp@(modPath, name) pos existing = do
-  when (ctxVerbose ctx > 2)
-    $  logMsg (Just Debug)
-    $  "make generic: "
-    ++ s_unpack (showTypePath tp)
-    ++ show existing
+  when (ctxVerbose ctx > 2) $ logMsg (Just Debug) $ "make generic: " ++ s_unpack
+    (showTypePath tp)
   params <- do
     binding <- h_lookup (ctxBindings ctx) tp
     case binding of
@@ -594,10 +592,8 @@ addStmtToModuleInterface ctx mod s = do
 
     ModuleUsing _ -> do
       return [s]
-
     ExtendDefinition _ _ -> do
       return [s]
-
     MacroDeclaration _ -> do
       return [s]
     MacroCall _ _ -> do
@@ -615,3 +611,8 @@ addStmtToModuleInterface ctx mod s = do
                                                   (bindingPos b)
                                                   (stmtPos s)
       _ -> return ()
+
+markProgress :: CompileContext -> Str -> IO ()
+markProgress ctx reason = do
+  when (ctxVerbose ctx > 0) $ logMsg (Just Debug) $ s_unpack reason
+  writeRef (ctxMadeProgress ctx) True

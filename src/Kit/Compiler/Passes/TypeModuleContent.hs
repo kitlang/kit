@@ -33,6 +33,7 @@ typeContent ctx modContent = do
     ctx
     [ (mod, decl) | (mod, decls) <- modContent, decl <- decls ]
     []
+    []
     (ctxRecursionLimit ctx)
   return results
 
@@ -58,14 +59,15 @@ typeIterative
   :: CompileContext
   -> [(Module, TypedStmtWithContext)]
   -> [(Module, TypedStmt)]
+  -> [KitError]
   -> Int
   -> IO [(Module, TypedStmt)]
-typeIterative ctx input output limit = do
+typeIterative ctx input output lastErrors limit = do
   noisyDebugLog ctx
     $  "Beginning new typing pass; "
     ++ show limit
     ++ " remaining"
-  results <- forM input $ \(mod, (d, tctx)) -> do
+  results <- forMWithErrors input $ \(mod, (d, tctx)) -> do
     let singleResult x = do
           x <- x
           return (Just (mod, x), [])
@@ -139,11 +141,12 @@ typeIterative ctx input output limit = do
       ) :: IO
         (Either KitError (Maybe (Module, TypedStmt), [TypedStmtWithContext]))
     case result of
-      Left e -> do
-        noisyDebugLog ctx $ "typing failed"
-        return [Incomplete mod (d, tctx) (Just e)]
-      Right (Nothing, x) -> return [ Incomplete mod xi Nothing | xi <- x ]
-      Right (Just d, x) ->
+      Left  e            -> return [Incomplete mod (d, tctx) (Just e)]
+      Right (Nothing, x) -> do
+        markProgress ctx "completed typing"
+        return [ Incomplete mod xi Nothing | xi <- x ]
+      Right (Just d, x) -> do
+        markProgress ctx "completed typing"
         return $ (Complete d) : [ Incomplete mod xi Nothing | xi <- x ]
 
   let collapsedResults = foldr (++) [] results
@@ -185,7 +188,9 @@ typeIterative ctx input output limit = do
       )
     : (reverse errors)
 
-  if (map fst (decls incomplete) == map fst (decls input)) || (null incomplete)
+  madeProgress <- readRef (ctxMadeProgress ctx)
+  writeRef (ctxMadeProgress ctx) False
+  if (null incomplete) || madeProgress || (madeProgress || errors /= lastErrors)
     then do
       newMonomorphs <- generateMonomorphs ctx
       specialized   <- specializeTypes ctx
@@ -193,8 +198,9 @@ typeIterative ctx input output limit = do
         then typeIterative ctx
                            (incomplete ++ newMonomorphs)
                            complete
+                           errors
                            (limit - 1)
         else if null incomplete
           then return complete
           else throwk $ KitErrors $ reverse errors
-    else typeIterative ctx incomplete complete (limit - 1)
+    else throwk $ KitErrors $ reverse errors

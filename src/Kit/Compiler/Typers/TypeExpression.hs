@@ -287,9 +287,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       x <- r x
       let val = tCompileTimeValue x
       case val of
-        Just value -> do
-          tv <- makeTypeVar ctx pos
-          r $ makeExprTyped (Literal value tv) tv pos
+        Just value -> r $ makeExprTyped (Literal value (inferredType ex)) (inferredType ex) pos
         Nothing -> throwk $ TypingError
           ("static expression couldn't be evaluated at compile time")
           (tPos x)

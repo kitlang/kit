@@ -143,7 +143,7 @@ resolveType ctx tctx mod t = do
   veryNoisyDebugLog ctx $ "resolve type: " ++ show t
   case t of
     ConcreteType ct        -> follow ctx tctx ct
-    ConstantTypeSpec v _   -> return $ ConstantType v
+    ConstantTypeSpec v pos -> return $ ConstantType v
     TupleTypeSpec    t pos -> do
       slots <- forM t (resolveType ctx tctx mod)
       return $ TypeTuple slots
@@ -353,7 +353,13 @@ addTypeParams ctx tctx params pos = do
   forM_ params $ \(param, pt) -> do
     case pt of
       ConstantType v -> do
-        tv <- makeTypeVar ctx pos
+        t  <- h_lookup (ctxConstantParamTypes ctx) param
+        tv <- case t of
+          Just x  -> return x
+          Nothing -> do
+            tv <- makeTypeVar ctx pos
+            h_insert (ctxConstantParamTypes ctx) param tv
+            return tv
         bindToScope scope (tpName param)
           $ ExprBinding
           $ (makeExprTyped (Literal v tv) tv pos) { tIsConst          = True
@@ -419,7 +425,8 @@ getTraitImpl ctx tctx trait@(traitTp, params) ct = do
                 tctx
                 [ (typeSubPath def (paramName param), value)
                 | (param, value) <- zip (typeParams def) params
-                ] (typePos def)
+                ]
+                (typePos def)
               getTraitImpl ctx tctx trait u
             _ -> return Nothing
         _ -> return Nothing

@@ -18,6 +18,17 @@ import Kit.Log
 import Kit.Parser
 import Kit.Str
 
+data ParseContext = ParseContext {
+  pctxPreludes :: HashTable ModulePath [SyntacticStatement],
+  pctxFailedModules :: HashTable ModulePath ()
+  }
+
+newParseContext :: IO ParseContext
+newParseContext = do
+  failed <- h_new
+  pre    <- h_new
+  return $ ParseContext {pctxPreludes = pre, pctxFailedModules = failed}
+
 {-
   Starting from the compilation entry point ("main" module), recursively trace
   all imports and includes to discover the full set of modules and C modules
@@ -29,7 +40,8 @@ import Kit.Str
 -}
 buildModuleGraph :: CompileContext -> IO [(Module, [SyntacticStatement])]
 buildModuleGraph ctx = do
-  results <- loadModule ctx (ctxMainModule ctx) Nothing
+  pctx    <- newParseContext
+  results <- loadModule ctx pctx (ctxMainModule ctx) Nothing
   case ctxMacro ctx of
     Just (f, argSets) -> forM results $ \(mod, stmts) -> do
       if modPath mod == ctxMainModule ctx
@@ -95,15 +107,16 @@ buildModuleGraph ctx = do
 -}
 loadModule
   :: CompileContext
+  -> ParseContext
   -> ModulePath
   -> Maybe Span
   -> IO [(Module, [SyntacticStatement])]
-loadModule ctx mod pos = do
+loadModule ctx pctx mod pos = do
   existing <- h_lookup (ctxModules ctx) mod
   case existing of
     Just x  -> return []
     Nothing -> do
-      broken <- h_lookup (ctxFailedModules ctx) mod
+      broken <- h_lookup (pctxFailedModules pctx) mod
       case broken of
         Just x -> do
           noisyDebugLog ctx
@@ -112,7 +125,7 @@ loadModule ctx mod pos = do
             ++ ">"
           throwk $ KitErrors []
         Nothing -> do
-          (m, decls) <- _loadModule ctx mod pos
+          (m, decls) <- _loadModule ctx pctx mod pos
           h_insert (ctxModules ctx) mod m
           if modImports m /= []
           then
@@ -132,7 +145,7 @@ loadModule ctx mod pos = do
             (\(mod', _) ->
               modifyRef (ctxIncludes ctx) (\current -> mod' : current)
             )
-          imports <- forMWithErrors (modImports m) (_loadImportedModule ctx)
+          imports <- forMWithErrors (modImports m) $ _loadImportedModule ctx pctx
           let (errs, results) = foldr
                 (\result (errs, results) -> case result of
                   Left  errs'    -> (errs ++ [errs'], results)
@@ -160,20 +173,22 @@ loadModule ctx mod pos = do
   and appends the contents of any of these modules that exist in reverse
   order.
 -}
-_loadPreludes :: CompileContext -> ModulePath -> IO [SyntacticStatement]
-_loadPreludes ctx mod = do
-  preludes <- _loadPrelude ctx mod
+_loadPreludes
+  :: CompileContext -> ParseContext -> ModulePath -> IO [SyntacticStatement]
+_loadPreludes ctx pctx mod = do
+  preludes <- _loadPrelude ctx pctx mod
   if mod == []
     then return preludes
     else do
-      _parents <- _loadPreludes ctx (take (length mod - 1) mod)
+      _parents <- _loadPreludes ctx pctx (take (length mod - 1) mod)
       return $ _parents ++ preludes
 
 -- Look for a single package prelude. Caches the result.
-_loadPrelude :: CompileContext -> ModulePath -> IO [SyntacticStatement]
-_loadPrelude ctx mod = do
+_loadPrelude
+  :: CompileContext -> ParseContext -> ModulePath -> IO [SyntacticStatement]
+_loadPrelude ctx pctx mod = do
   -- look for a possible prelude module for this package
-  existing <- h_lookup (ctxPreludes ctx) mod
+  existing <- h_lookup (pctxPreludes pctx) mod
   case existing of
     Just x  -> return x
     Nothing -> do
@@ -182,7 +197,7 @@ _loadPrelude ctx mod = do
         $  "checking for prelude <"
         ++ s_unpack (showModulePath preludePath)
         ++ ">"
-      broken <- h_exists (ctxFailedModules ctx) mod
+      broken <- h_exists (pctxFailedModules pctx) mod
       if broken
         then return []
         else do
@@ -193,20 +208,21 @@ _loadPrelude ctx mod = do
             Left _ -> do
               return []
             Right fp -> do
-              (path, preludes) <- parseModuleExprs ctx mod (Just fp) Nothing
-              h_insert (ctxPreludes ctx) mod preludes
+              (path, preludes) <- parseModuleExprs ctx pctx mod (Just fp) Nothing
+              h_insert (pctxPreludes pctx) mod preludes
               return preludes
 
 _loadModule
   :: CompileContext
+  -> ParseContext
   -> ModulePath
   -> Maybe Span
   -> IO (Module, [SyntacticStatement])
-_loadModule ctx mod pos = do
-  (fp, exprs) <- parseModuleExprs ctx mod Nothing pos
+_loadModule ctx pctx mod pos = do
+  (fp, exprs) <- parseModuleExprs ctx pctx mod Nothing pos
   prelude     <- if last mod == "prelude"
     then return []
-    else _loadPreludes ctx (take (length mod - 1) mod)
+    else _loadPreludes ctx pctx (take (length mod - 1) mod)
   let stmts = prelude ++ exprs
   m       <- newMod mod fp
   imports <- findImports ctx mod stmts
@@ -214,7 +230,7 @@ _loadModule ctx mod pos = do
   let linkedLibs = findLibs stmts
   modifyRef (ctxLinkedLibs ctx) (\x -> linkedLibs ++ x)
   let createdMod = m { modImports = imports }
-  writeRef     (modIncludes createdMod) includes
+  writeRef       (modIncludes createdMod) includes
   addModuleTypes ctx                      (modulePathToTypePath mod)
   decls <- forMWithErrors stmts (addStmtToModuleInterface ctx m)
   return (createdMod, foldr (++) [] decls)
@@ -234,17 +250,19 @@ addModuleTypes ctx tp = do
 
 _loadImportedModule
   :: CompileContext
+  -> ParseContext
   -> (ModulePath, Span)
   -> IO (Either KitError [(Module, [SyntacticStatement])])
-_loadImportedModule ctx (mod, pos) = try $ loadModule ctx mod (Just pos)
+_loadImportedModule ctx pctx (mod, pos) = try $ loadModule ctx pctx mod (Just pos)
 
 parseModuleExprs
   :: CompileContext
+  -> ParseContext
   -> ModulePath
   -> Maybe FilePath
   -> Maybe Span
   -> IO (FilePath, [SyntacticStatement])
-parseModuleExprs ctx mod fp pos = do
+parseModuleExprs ctx pctx mod fp pos = do
   path <- case fp of
     Just fp -> do
       return fp
@@ -254,7 +272,7 @@ parseModuleExprs ctx mod fp pos = do
   case parsed of
     ParseResult r -> return (path, r)
     Err         e -> do
-      h_insert (ctxFailedModules ctx) mod ()
+      h_insert (pctxFailedModules pctx) mod ()
       throwk e
 
 findImports

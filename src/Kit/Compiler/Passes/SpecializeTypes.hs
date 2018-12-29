@@ -68,7 +68,7 @@ findDefaultType ctx id = do
           defaults <- mapM (h_lookup (ctxTraitDefaults ctx))
                            (map (fst . fst) constraints)
           defaults <- return $ catMaybes defaults
-          def <- foldM
+          def      <- foldM
             -- FIXME: we should be storing defaults as ConcreteTypes, not TypeSpecs
             (\acc (ct, _) -> do
               case acc of
@@ -97,10 +97,9 @@ findDefaultType ctx id = do
             Nothing
             defaults
           case def of
-            Just t -> do
-              return $ Just t
-            _ -> throwk $ BasicError
-              ("This expression has constraints: \n\n"
+            Just t -> return $ Just t
+            _      -> throwk $ BasicError
+              (  "This expression has constraints: \n\n"
               ++ (intercalate
                    "\n"
                    [ "  - "
@@ -111,9 +110,14 @@ findDefaultType ctx id = do
                    | ((c, _), (reason, _)) <- constraints
                    ]
                  )
+              ++ "\n\nwhich have default types:\n\n"
+              ++ (intercalate
+                   "\n"
+                   [ "  - " ++ show def | def <- defaults ]
+                 )
               ++ "\n\nbut no default type for one of these traits satisfies all of them, so no concrete type can be determined.\n\nTry adding a type annotation: `(myExpression: Type)`"
               )
-              (Just $ head $ typeVarPositions info)
+              (Just $ typeVarPosition info)
 
 {-
   Template variables generate a new type variable for each combination of
