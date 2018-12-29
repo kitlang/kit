@@ -104,11 +104,17 @@ Install from package
 
 * Using the command line, add the following to your /etc/apt/sources.list system config file:
 
-```echo "deb https://dl.bintray.com/kitplummer/kit bionic universe" | sudo tee -a /etc/apt/sources.list```
+For prereleases:
+
+```echo "deb https://dl.bintray.com/kitplummer/kitlang-prerelease-ubuntu bionic universe" | sudo tee -a /etc/apt/sources.list.d/kitlang-prerelease.list```
+
+For stable releases:
+
+```echo "deb https://dl.bintray.com/kitplummer/kitlang-stable-ubuntu bionic universe" | sudo tee -a /etc/apt/sources.list.d/kitlang-stable.list```
 
 Or, add the repository URLs using the "Software Sources" admin UI:
 
-```deb https://dl.bintray.com/kitplummer/kit bionic universe```
+```deb https://dl.bintray.com/kitplummer/kitlang-prerelease bionic universe```
 
 * Update apt and install:
 
@@ -120,17 +126,23 @@ Or, add the repository URLs using the "Software Sources" admin UI:
 
 * Run the following to get a generated .repo file:
 
-```wget https://bintray.com/kitplummer/kit-rpm/rpm -O bintray-kitplummer-kit-rpm.repo```
+For prereleases:
+
+```wget https://bintray.com/kitplummer/kitlang-prerelease-redhat/rpm -O bintray-kitlang-prerelease-redhat.repo```
+
+For stable releases:
+
+```wget https://bintray.com/kitplummer/kitlang-stable-redhat/rpm -O bintray-kitlang-stable-redhat.repo```
 
 \- or -
 
-* Copy this text into a 'bintray-kitplummer-kit-rpm.repo' file on your Linux machine:
+* Copy this text into a 'bintray-kitlang-prerelease-redhat.repo' file on your Linux machine:
 
 ```
-## bintraybintray-kitplummer-kit-rpm - packages by kitplummer from Bintray
-[bintraybintray-kitplummer-kit-rpm]
-name=bintray-kitplummer-kit-rpm
-baseurl=https://dl.bintray.com/kitplummer/kit-rpm
+#bintraybintray-kitplummer-kitlang-prerelease-redhat - packages by kitplummer from Bintray
+[bintraybintray-kitplummer-kitlang-prerelease-redhat]
+name=bintray-kitplummer-kitlang-prerelease-redhat
+baseurl=https://dl.bintray.com/kitplummer/kitlang-prerelease-redhat
 gpgcheck=0
 repo_gpgcheck=0
 enabled=1
