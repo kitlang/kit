@@ -46,7 +46,7 @@ script:
   - TEST_RUNS=1 stack test --test-arguments '+RTS -N -RTS'
   - stack install
   - if [ "$TRAVIS_OS_NAME" == "linux" ] && [ "$TRAVIS_PULL_REQUEST" == "false" ]; then bash ./.packages/linux.sh; fi
-  - if [ "$TRAVIS_OS_NAME" == "osx" ]] && [ "$TRAVIS_PULL_REQUEST" == "false" ]; then bash ./.packages/osx.sh; fi
+  - if [ "$TRAVIS_OS_NAME" == "osx" ] && [ "$TRAVIS_PULL_REQUEST" == "false" ]; then bash ./.packages/osx.sh; fi
 
 jobs:
   include:

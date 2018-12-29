@@ -47,7 +47,7 @@ if [ "$CC" == "gcc" ]; then
       -H "X-Bintray-Debian-Distribution: trusty,xenial,bionic" \
       -H "X-Bintray-Debian-Component: universe" \
       -H "X-Bintray-Debian-Architecture: amd64" \
-      https://api.bintray.com/content/kitplummer/$REPO_NAME-ubuntu/$VERSION/kitlang_${FILE_VERSION}-${TRAVIS_BUILD_NUMBER}_amd64.deb
+      https://api.bintray.com/content/kitplummer/$REPO_NAME-ubuntu/kitlang/$VERSION/kitlang_${FILE_VERSION}-${TRAVIS_BUILD_NUMBER}_amd64.deb
 
     ## Deploy the RPM package
     curl -vvv -T kitlang-${FILE_VERSION}-$TRAVIS_BUILD_NUMBER.x86_64.rpm \
