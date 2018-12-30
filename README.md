@@ -106,15 +106,15 @@ Install from package
 
 For prereleases:
 
-```echo "deb https://dl.bintray.com/kitplummer/kitlang-prerelease-ubuntu bionic universe" | sudo tee -a /etc/apt/sources.list.d/kitlang-prerelease.list```
+```echo "deb https://dl.bintray.com/kitlang/kitlang-prerelease-ubuntu bionic universe" | sudo tee -a /etc/apt/sources.list.d/kitlang-prerelease.list```
 
 For stable releases:
 
-```echo "deb https://dl.bintray.com/kitplummer/kitlang-stable-ubuntu bionic universe" | sudo tee -a /etc/apt/sources.list.d/kitlang-stable.list```
+```echo "deb https://dl.bintray.com/kitlang/kitlang-stable-ubuntu bionic universe" | sudo tee -a /etc/apt/sources.list.d/kitlang-stable.list```
 
 Or, add the repository URLs using the "Software Sources" admin UI:
 
-```deb https://dl.bintray.com/kitplummer/kitlang-prerelease bionic universe```
+```deb https://dl.bintray.com/kitlang/kitlang-prerelease bionic universe```
 
 * Update apt and install:
 
@@ -128,11 +128,11 @@ Or, add the repository URLs using the "Software Sources" admin UI:
 
 For prereleases:
 
-```wget https://bintray.com/kitplummer/kitlang-prerelease-redhat/rpm -O bintray-kitlang-prerelease-redhat.repo```
+```wget https://bintray.com/kitlang/kitlang-prerelease-redhat/rpm -O bintray-kitlang-prerelease-redhat.repo```
 
 For stable releases:
 
-```wget https://bintray.com/kitplummer/kitlang-stable-redhat/rpm -O bintray-kitlang-stable-redhat.repo```
+```wget https://bintray.com/kitlang/kitlang-stable-redhat/rpm -O bintray-kitlang-stable-redhat.repo```
 
 \- or -
 
@@ -142,7 +142,7 @@ For stable releases:
 #bintraybintray-kitplummer-kitlang-prerelease-redhat - packages by kitplummer from Bintray
 [bintraybintray-kitplummer-kitlang-prerelease-redhat]
 name=bintray-kitplummer-kitlang-prerelease-redhat
-baseurl=https://dl.bintray.com/kitplummer/kitlang-prerelease-redhat
+baseurl=https://dl.bintray.com/kitlang/kitlang-prerelease-redhat
 gpgcheck=0
 repo_gpgcheck=0
 enabled=1
@@ -150,7 +150,7 @@ enabled=1
 
 * Then, move the config
 
-```sudo mv bintray-kitplummer-kit-rpm.repo /etc/yum.repos.d/```
+```sudo mv bintray-kitlang-rpm.repo /etc/yum.repos.d/```
 
 * Update yum with:
 
@@ -162,7 +162,7 @@ enabled=1
 
 ### macOS
 
-* Download one of the macOS packages from https://bintray.com/kitplummer/kit-macos/kitlang/0.1.0#
+* Download one of the macOS packages from https://bintray.com/kitlang/kitlang-macos/kitlang/0.1.0#
 
 * Install the package (NOTE: the installer will complain about 'unidentified developer', have to bypass in System Preferences/Security & Privacy.)
 
