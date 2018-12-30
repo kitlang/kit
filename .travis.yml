@@ -43,6 +43,7 @@ script:
   - "clang --version"
   - stack build kitlang:kitc
   - stack exec kitc -- -h
+  - stack exec kitc -- --env
   - TEST_RUNS=1 stack test --test-arguments '+RTS -N -RTS'
   - stack install
   - if [ "$TRAVIS_OS_NAME" == "linux" ] && [ "$TRAVIS_PULL_REQUEST" == "false" ]; then bash ./.packages/linux.sh; fi
