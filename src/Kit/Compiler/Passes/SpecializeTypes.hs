@@ -45,7 +45,7 @@ specializeTypeVars ctx = do
             ++ " as "
             ++ show x
           info <- getTypeVar ctx id
-          h_insert (ctxTypeVariables ctx) id (info { typeVarValue = Just x })
+          updateTypeVar ctx id (info { typeVarValue = Just x })
           return (True, remaining)
         _ -> return (result, id : remaining)
     )
@@ -111,10 +111,7 @@ findDefaultType ctx id = do
                    ]
                  )
               ++ "\n\nwhich have default types:\n\n"
-              ++ (intercalate
-                   "\n"
-                   [ "  - " ++ show def | def <- defaults ]
-                 )
+              ++ (intercalate "\n" [ "  - " ++ show def | def <- defaults ])
               ++ "\n\nbut no default type for one of these traits satisfies all of them, so no concrete type can be determined.\n\nTry adding a type annotation: `(myExpression: Type)`"
               )
               (Just $ typeVarPosition info)
@@ -146,9 +143,8 @@ unifyTemplateVars ctx = do
           if oldKey == newKey
             then return (result, remaining)
             else do
-              monos   <- h_get (ctxTemplateVariables ctx) id
-              oldMono <- h_get monos oldKey
-              newMono <- h_lookup monos newKey
+              oldMono <- h_get (ctxTemplateVariables ctx) (id, oldKey)
+              newMono <- h_lookup (ctxTemplateVariables ctx) (id, newKey)
               case newMono of
                 Just newMono -> resolveConstraint
                   ctx
@@ -158,7 +154,7 @@ unifyTemplateVars ctx = do
                           "Inferred types of equivalent monomorphs must match"
                           (pos)
                   )
-                Nothing -> h_insert monos newKey oldMono
+                Nothing -> h_insert (ctxTemplateVariables ctx) (id, newKey) oldMono
               return (True, remaining)
     )
     (False, [])

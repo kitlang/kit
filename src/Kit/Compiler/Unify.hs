@@ -242,12 +242,10 @@ resolveConstraint ctx tctx constraint@(TypeEq a b reason pos) = do
       when ((typeVarId info1) /= (typeVarId info2)) $ do
         let constraints =
               nub $ (typeVarConstraints info1) ++ (typeVarConstraints info2)
-        h_insert (ctxTypeVariables ctx)
-                 (typeVarId info1)
-                 (info1 { typeVarValue = Just x })
-        h_insert (ctxTypeVariables ctx)
-                 (typeVarId info2)
-                 (info2 { typeVarConstraints = constraints })
+        updateTypeVar ctx (typeVarId info1) (info1 { typeVarValue = Just x })
+        updateTypeVar ctx
+                      (typeVarId info2)
+                      (info2 { typeVarConstraints = constraints })
         -- when (isNothing $ typeVarValue info2)
         --   $  markProgress ctx
         --   $  s_pack
@@ -273,14 +271,12 @@ resolveConstraint ctx tctx constraint@(TypeEq a b reason pos) = do
       --   ++ show id
       --   ++ " learned "
       --   ++ show (typeVarPosition info)
-      h_insert (ctxTypeVariables ctx)
-               (typeVarId info)
-               (info { typeVarValue = Just x })
+      updateTypeVar ctx (typeVarId info) (info { typeVarValue = Just x })
     TypeVarConstraint id constraint -> do
       info <- getTypeVar ctx id
-      h_insert (ctxTypeVariables ctx)
-               (typeVarId info)
-               (addTypeVarConstraints info constraint reason pos)
+      updateTypeVar ctx
+                    (typeVarId info)
+                    (addTypeVarConstraints info constraint reason pos)
       -- markProgress ctx
       --   $  s_pack
       --   $  "type var "

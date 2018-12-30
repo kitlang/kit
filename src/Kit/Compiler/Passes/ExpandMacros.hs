@@ -112,37 +112,38 @@ findInvocations ctx macros stmts = do
   return invocations
 
 callMacros ctx cc compile invocations = do
-  macros <- h_toList invocations
-  forM_ macros $ \(tp, invocation) -> do
-    let def = macroDef invocation
-    printLogIf ctx $ "expanding macro: " ++ s_unpack
-      (showTypePath $ functionName def)
-    result     <- (newRef "") :: IO (IORef String)
-    -- FIXME: should be able to reuse already parsed modules
-    macroState <- newCtxState
-    args       <- h_toList $ macroArgs invocation
-    let mod = tpNamespace $ functionName def
-    let buildDir =
-          ctxBuildDir ctx
-            </>  "macro"
-            </>  (moduleFilePath mod)
-            -<.> ""
-            </>  (s_unpack $ tpName $ functionName def)
-    let macroCtx = ctx { ctxMainModule = mod
-                       , ctxMacro      = Just (def, [ (a, b) | (b, a) <- args ])
-                       , ctxRun        = False
-                       , ctxState      = macroState
-                       , ctxVerbose    = ctxVerbose ctx - 1
-                       , ctxBuildDir   = buildDir
-                       , ctxOutputPath = buildDir </> "macro"
-                       }
-    compile macroCtx cc
-    let outName = ctxOutputPath macroCtx
-    binPath <- canonicalizePath outName
-    forM_ args $ \(_, index) -> do
-      result <- readCreateProcess (proc binPath [show index]) ""
-      debugLog ctx result
-      let parseResult =
+  h_mapM_
+    (\(tp, invocation) -> do
+      let def = macroDef invocation
+      printLogIf ctx $ "expanding macro: " ++ s_unpack
+        (showTypePath $ functionName def)
+      result     <- (newRef "") :: IO (IORef String)
+      -- FIXME: should be able to reuse already parsed modules
+      macroState <- newCtxState
+      args       <- h_toList $ macroArgs invocation
+      let mod = tpNamespace $ functionName def
+      let buildDir =
+            ctxBuildDir ctx
+              </>  "macro"
+              </>  (moduleFilePath mod)
+              -<.> ""
+              </>  (s_unpack $ tpName $ functionName def)
+      let macroCtx = ctx { ctxMainModule = mod
+                         , ctxMacro = Just (def, [ (a, b) | (b, a) <- args ])
+                         , ctxRun        = False
+                         , ctxState      = macroState
+                         , ctxVerbose    = ctxVerbose ctx - 1
+                         , ctxBuildDir   = buildDir
+                         , ctxOutputPath = buildDir </> "macro"
+                         }
+      compile macroCtx cc
+      let outName = ctxOutputPath macroCtx
+      binPath <- canonicalizePath outName
+      forM_ args $ \(_, index) -> do
+        result <- readCreateProcess (proc binPath [show index]) ""
+        debugLog ctx result
+        let
+          parseResult =
             parseTokens
               $ scanTokens
                   (  "(macro "
@@ -150,9 +151,11 @@ callMacros ctx cc compile invocations = do
                   ++ ")"
                   )
               $ B.pack result
-      case parseResult of
-        ParseResult r -> h_insert (macroResults invocation) index r
-        Err         e -> throw e
+        case parseResult of
+          ParseResult r -> h_insert (macroResults invocation) index r
+          Err         e -> throw e
+    )
+    invocations
 
 expandMacrosInMod
   :: CompileContext

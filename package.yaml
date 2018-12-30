@@ -7,7 +7,7 @@ dependencies:
 - base >=4.7
 default-extensions:
 - OverloadedStrings
-ghc-options: -O2 -optc-O3 -fexcess-precision -optc-ffast-math +RTS -A1024M -RTS -fmax-pmcheck-iterations=10000000
+ghc-options: -O2 -optc-O3 -funfolding-use-threshold=16 -fexcess-precision -optc-ffast-math +RTS -A1024M -RTS -fmax-pmcheck-iterations=10000000
 extra-source-files:
 - "**/*.h"
 
@@ -51,9 +51,11 @@ library:
   - text
   - time
   - transformers
+  - vector
 
 executables:
   kitc:
+    ghc-options: -rtsopts
     main: Main.hs
     source-dirs: bin/kitc
     dependencies:
