@@ -166,6 +166,11 @@ displayFileSnippet span  = do
                 ePutStrLn
                   (take ((this_endCol) - (this_startCol) + 1) $ repeat '^')
     hSetSGR stderr [Reset]
+    case rewrittenFrom span of
+      Just x -> do
+        hPutStrLn stderr "    ... rewritten from ..."
+        displayFileSnippet x
+      Nothing -> hPutStrLn stderr ""
 
 forMWithErrors :: [a] -> (a -> IO b) -> IO [b]
 forMWithErrors l f = do

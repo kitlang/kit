@@ -2,7 +2,6 @@ module Kit.HashTable where
 
 import Data.Hashable
 import qualified Data.HashTable.IO as H
-import Data.Maybe
 
 {-
   This typedef + methods are here to make it easier to swap out hash table
@@ -36,15 +35,9 @@ h_exists m k = do
 h_get :: (Eq k, Hashable k, Show k) => HashTable k v -> k -> IO v
 h_get m k = do
   val <- h_lookup m k
-  return
-    $ maybe (error $ "Unexpected missing HashTable key: " ++ show k) id
-    $ val
+  case val of
+    Just x  -> return x
+    Nothing -> error $ "Unexpected missing HashTable key: " ++ show k
 
 h_toList :: (Eq k, Hashable k) => HashTable k v -> IO [(k, v)]
 h_toList = H.toList
-
-h_foldM :: (Eq k, Hashable k) => (a -> (k, v) -> IO a) -> a -> HashTable k v -> IO a
-h_foldM = H.foldM
-
-h_mapM_ :: (Eq k, Hashable k) => ((k, v) -> IO b) -> HashTable k v -> IO ()
-h_mapM_ = H.mapM_

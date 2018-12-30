@@ -148,8 +148,7 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
   let paramConverter pos params = do
         tctx <- addTypeParams ctx
                               tctx
-                              [ (p, TypeTypeParam p) | p <- params ]
-                              pos
+                              [ (p, TypeTypeParam p) | p <- params ] pos
         return $ converter (convertExpr ctx tctx mod params)
                            (resolveMaybeType ctx tctx mod params)
 
@@ -174,8 +173,7 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
                   [ let p = traitSubPath def $ paramName param
                     in  (p, TypeTypeParam $ p)
                   | param <- traitAllParams def
-                  ]
-                  (implPos i)
+                  ] (implPos i)
                 ct <- resolveType ctx paramTctx mod iFor
                 let selfTctx = paramTctx { tctxSelf = Just ct }
                 impl <- convertTraitImplementation
@@ -300,13 +298,12 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
             { tctxTypeParams = params' ++ tctxTypeParams tctx
             , tctxSelf = Just (TypeInstance (typeName t) (map snd params'))
             }
-          let paramConverter params = do
-                tctx <- addTypeParams ctx
-                                      tctx
-                                      [ (p, TypeTypeParam p) | p <- params ]
-                                      (typePos t)
-                return $ converter (convertExpr ctx tctx mod params)
-                                   (resolveMaybeType ctx tctx mod params)
+          let
+            paramConverter params = do
+              tctx <-
+                addTypeParams ctx tctx [ (p, TypeTypeParam p) | p <- params ] (typePos t)
+              return $ converter (convertExpr ctx tctx mod params)
+                                 (resolveMaybeType ctx tctx mod params)
           converted <- do
             c <- convertTypeDefinition paramConverter t
             let thisType = TypeSelf

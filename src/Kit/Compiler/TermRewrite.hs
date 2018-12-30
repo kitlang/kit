@@ -58,7 +58,9 @@ rewriteExpr ctx tctx mod rule te typer = do
                 )
                 (snd firstRule)
       t <- typer tctx body
-      return $ Just $ t { rewrittenBy = Just rule, tPos = tPos te }
+      return $ Just $ t { rewrittenBy = Just rule
+                        , tPos = (tPos t) { rewrittenFrom = Just $ tPos te }
+                        }
     _ -> return Nothing
 
 {-

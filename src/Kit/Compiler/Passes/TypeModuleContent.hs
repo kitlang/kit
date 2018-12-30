@@ -150,7 +150,22 @@ typeIterative ctx input output lastErrors limit = do
         return $ (Complete d) : [ Incomplete mod xi Nothing | xi <- x ]
 
   let collapsedResults = foldr (++) [] results
-  let (incomplete, complete) = splitComplete collapsedResults [] []
+
+  let incomplete = catMaybes
+        [ case result of
+            Complete _         -> Nothing
+            Incomplete mod d _ -> Just (mod, d)
+        | result <- collapsedResults
+        ]
+  let complete =
+        output
+          ++ (catMaybes
+               [ case result of
+                   Complete d -> Just d
+                   _          -> Nothing
+               | result <- collapsedResults
+               ]
+             )
 
   let errors =
         (foldr
@@ -189,9 +204,3 @@ typeIterative ctx input output lastErrors limit = do
           then return complete
           else throwk $ KitErrors $ reverse errors
     else throwk $ KitErrors $ reverse errors
-
-splitComplete [] incomplete complete = (incomplete, complete)
-splitComplete (h: t) incomplete complete =
-  case h of
-    Complete d -> splitComplete t incomplete (d: complete)
-    Incomplete mod d _ -> splitComplete t ((mod, d) : incomplete) complete

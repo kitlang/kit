@@ -13,10 +13,11 @@ data Span = Span
   , startCol :: Int
   , endLine :: Int
   , endCol :: Int
+  , rewrittenFrom :: Maybe Span
   } deriving (Generic)
 
 pattern NoPos :: Span
-pattern NoPos = Span {file = "", startLine = 0, startCol = 0, endLine = 0, endCol = 0}
+pattern NoPos = Span {file = "", startLine = 0, startCol = 0, endLine = 0, endCol = 0, rewrittenFrom = Nothing}
 
 instance Eq Span where
   (==) NoPos _ = True
@@ -29,7 +30,7 @@ instance Show Span where
               ":" ++ (show $ startLine span) ++ ":" ++ (show $ startCol span) ++
               (if (startCol span /= endCol span) || (startLine span /= endLine span)
                 then "-" ++ (if startLine span /= endLine span then (show $ endLine span) ++ ":" else "") ++ (show $ endCol span)
-                else "")
+                else "") ++ (case rewrittenFrom span of {Just x -> " <= " ++ show x; Nothing -> ""})
 
 instance Hashable Span
 
@@ -43,6 +44,7 @@ sp f a b c d = Span
   , startCol      = b
   , endLine       = c
   , endCol        = d
+  , rewrittenFrom = Nothing
   }
 
 (<+>) span1 NoPos = span1
@@ -53,6 +55,7 @@ sp f a b c d = Span
   , startCol      = snd min
   , endLine       = fst max
   , endCol        = snd max
+  , rewrittenFrom = rewrittenFrom span1 <|> rewrittenFrom span2
   }
  where
   a1  = (startLine span1, startCol span1)

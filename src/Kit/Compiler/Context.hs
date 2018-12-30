@@ -2,10 +2,9 @@ module Kit.Compiler.Context where
 
 import Control.Exception
 import Control.Monad
+import Data.Mutable
 import Data.List
 import Data.Maybe
-import Data.Mutable
-import qualified Data.Vector.Mutable as MV
 import System.Directory
 import System.Environment
 import System.FilePath
@@ -64,8 +63,8 @@ data CompileContextState = CompileContextState {
   ctxStateLinkedLibs :: IORef [Str],
   ctxStateLastTypeVar :: IORef Int,
   ctxStateLastTemplateVar :: IORef Int,
-  ctxStateTypeVariables :: IORef (MV.IOVector TypeVarInfo),
-  ctxStateTemplateVariables :: HashTable (Int, Str) Int,
+  ctxStateTypeVariables :: HashTable Int TypeVarInfo,
+  ctxStateTemplateVariables :: HashTable Int (HashTable Str Int),
   ctxStateTraitDefaults :: HashTable TypePath (ConcreteType, Span),
   ctxStateImpls :: HashTable TraitConstraint (HashTable ConcreteType (TraitImplementation TypedExpr ConcreteType)),
   -- ctxStateGenericImpls :: HashTable
@@ -74,7 +73,7 @@ data CompileContextState = CompileContextState {
   ctxStateTypedefs :: HashTable Str ConcreteType,
   ctxStateTuples :: IORef [(ModulePath, ConcreteType)],
   ctxStatePendingGenerics :: IORef [(TypePath, [ConcreteType])],
-  ctxStateCompleteGenerics :: HashTable (TypePath, [ConcreteType]) (),
+  ctxStateCompleteGenerics :: HashTable TypePath (HashTable [ConcreteType] ()),
   ctxStateUnresolvedTypeVars :: IORef [Int],
   ctxStateUnresolvedTemplateVars :: IORef [(Int, [ConcreteType], Span)],
   ctxStateConstantParamTypes :: HashTable TypePath ConcreteType,
@@ -109,27 +108,26 @@ newCompileContext = do
     }
 
 newCtxState = do
-  -- make hash tables big so we're less likely to have to resize later
-  mods               <- h_newSized 256
+  mods               <- h_new
   includes           <- newRef []
   linkedLibs         <- newRef []
-  lastTypeVar        <- newRef (-1)
-  lastTemplateVar    <- newRef (-1)
-  defaults           <- h_newSized 256
-  impls              <- h_newSized 256
-  typedefs           <- h_newSized 256
+  lastTypeVar        <- newRef 0
+  lastTemplateVar    <- newRef 0
+  defaults           <- h_new
+  impls              <- h_new
+  typedefs           <- h_new
   tuples             <- newRef []
-  typeVars'          <- MV.new 0x100000
-  typeVars           <- newRef typeVars'
-  templateVars       <- h_newSized 1024
+  -- make these big so we're less likely to have to resize later
+  typeVars           <- h_newSized 4096
+  templateVars       <- h_newSized 2048
   types              <- h_newSized 256
   bindings           <- h_newSized 4096
   pendingGenerics    <- newRef []
-  completeGenerics   <- h_newSized 256
+  completeGenerics   <- h_new
   unresolved         <- newRef []
   unresolvedTemplate <- newRef []
   prog               <- newRef False
-  constTypes         <- h_newSized 128
+  constTypes         <- h_new
   return $ CompileContextState
     { ctxStateIncludes               = includes
     , ctxStateLinkedLibs             = linkedLibs
@@ -174,9 +172,8 @@ ctxMadeProgress = ctxStateMadeProgress . ctxState
 
 ctxSourceModules :: CompileContext -> IO [Module]
 ctxSourceModules ctx = do
-  h_foldM (\a (_, m) -> return $ if modIsCModule m then a else (m : a))
-          []
-          (ctxModules ctx)
+  mods <- (h_toList (ctxModules ctx))
+  return $ filter (\m -> not (modIsCModule m)) (map snd mods)
 
 addBinding :: CompileContext -> TypePath -> TypedBinding -> IO ()
 addBinding ctx tp b = h_insert (ctxBindings ctx) tp b
@@ -217,15 +214,7 @@ makeTypeVar ctx pos = do
   last <- readRef (ctxLastTypeVar ctx)
   let next = last + 1
   writeRef (ctxLastTypeVar ctx) next
-  vars <- readRef $ ctxTypeVariables ctx
-  let len = MV.length vars
-  vars <- if len <= next
-    then do
-      vars <- MV.grow vars (len * 2)
-      writeRef (ctxTypeVariables ctx) vars
-      return vars
-    else return vars
-  MV.write vars next (newTypeVarInfo next pos)
+  h_insert (ctxTypeVariables ctx) next (newTypeVarInfo next pos)
   modifyRef (ctxUnresolvedTypeVars ctx) (\existing -> next : existing)
   when (ctxVerbose ctx > 1)
     $  logMsg (Just Debug)
@@ -235,16 +224,13 @@ makeTypeVar ctx pos = do
     ++ show pos
   return $ TypeTypeVar next
 
-updateTypeVar :: CompileContext -> Int -> TypeVarInfo -> IO ()
-updateTypeVar ctx index tv = do
-  vars <- readRef $ ctxTypeVariables ctx
-  MV.write vars index tv
-
 makeTemplateVar :: CompileContext -> [TypePath] -> Span -> IO ConcreteType
 makeTemplateVar ctx requiredParams pos = do
   last <- readRef (ctxLastTemplateVar ctx)
   let next = last + 1
   writeRef (ctxLastTemplateVar ctx) next
+  vals <- h_new
+  h_insert (ctxTemplateVariables ctx) next vals
   when (ctxVerbose ctx > 1)
     $  logMsg (Just Debug)
     $  "made template var: "
@@ -255,8 +241,7 @@ makeTemplateVar ctx requiredParams pos = do
 
 getTypeVar :: CompileContext -> Int -> IO TypeVarInfo
 getTypeVar ctx tv = do
-  vars <- readRef $ ctxTypeVariables ctx
-  info <- MV.read vars tv
+  info <- h_get (ctxTypeVariables ctx) tv
   case typeVarValue info of
     Just (TypeTypeVar tv') -> getTypeVar ctx tv'
     _                      -> return info
@@ -265,7 +250,8 @@ templateVarToTypeVar
   :: CompileContext -> Int -> [ConcreteType] -> Span -> IO Int
 templateVarToTypeVar ctx tv params pos = do
   let key = hashParams params
-  val <- h_lookup (ctxTemplateVariables ctx) (tv, key)
+  vals <- h_get (ctxTemplateVariables ctx) tv
+  val  <- h_lookup vals key
   case val of
     Just i  -> return i
     Nothing -> do
@@ -274,7 +260,7 @@ templateVarToTypeVar ctx tv params pos = do
         makeTypeVar ctx pos
       modifyRef (ctxUnresolvedTemplateVars ctx)
                 (\existing -> (tv, params, pos) : existing)
-      h_insert (ctxTemplateVariables ctx) (tv, key) i
+      h_insert vals key i
       return i
 
 resolveVar
