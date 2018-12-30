@@ -149,35 +149,8 @@ typeIterative ctx input output lastErrors limit = do
         markProgress ctx "completed typing"
         return $ (Complete d) : [ Incomplete mod xi Nothing | xi <- x ]
 
-  let collapsedResults = foldr (++) [] results
-
-  let incomplete = catMaybes
-        [ case result of
-            Complete _         -> Nothing
-            Incomplete mod d _ -> Just (mod, d)
-        | result <- collapsedResults
-        ]
-  let complete =
-        output
-          ++ (catMaybes
-               [ case result of
-                   Complete d -> Just d
-                   _          -> Nothing
-               | result <- collapsedResults
-               ]
-             )
-
-  let errors =
-        (foldr
-          (\x acc -> case x of
-            Incomplete _ _ (Just e) -> e : acc
-            _                       -> acc
-          )
-          []
-          (reverse collapsedResults)
-        )
-
-  let decls = map snd
+  let collapsedResults               = foldr (++) [] results
+  let (incomplete, complete, errors) = splitComplete collapsedResults [] [] []
 
   when (limit <= 0)
     $ throwk
@@ -197,10 +170,17 @@ typeIterative ctx input output lastErrors limit = do
       if (not $ null newMonomorphs) || specialized
         then typeIterative ctx
                            (incomplete ++ newMonomorphs)
-                           complete
+                           (complete ++ output)
                            errors
                            (limit - 1)
         else if null incomplete
-          then return complete
+          then return $ complete ++ output
           else throwk $ KitErrors $ reverse errors
     else throwk $ KitErrors $ reverse errors
+
+splitComplete [] incomplete complete errors = (incomplete, complete, errors)
+splitComplete (h : t) incomplete complete errors = case h of
+  Complete d -> splitComplete t incomplete (d : complete) errors
+  Incomplete mod d (Just e) ->
+    splitComplete t ((mod, d) : incomplete) complete (e : errors)
+  Incomplete mod d _ -> splitComplete t ((mod, d) : incomplete) complete errors

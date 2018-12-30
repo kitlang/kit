@@ -31,15 +31,15 @@ spec = do
       ctx <- newCompileContext
       a   <- makeTypeVar ctx (sp "" 1 1 1 1)
       b   <- makeTypeVar ctx (sp "" 1 1 1 1)
-      testUnify ctx a b (Just [TypeVarIs 1 b])
+      testUnify ctx a b (Just [TypeVarIs 0 b])
       testUnify ctx
                 a
                 (TypeInstance (["a", "b"], "mytype") [])
-                (Just [TypeVarIs 1 (TypeInstance (["a", "b"], "mytype") [])])
+                (Just [TypeVarIs 0 (TypeInstance (["a", "b"], "mytype") [])])
       testUnify ctx
                 (TypeInstance (["a", "b"], "mytype") [])
                 a
-                (Just [TypeVarIs 1 (TypeInstance (["a", "b"], "mytype") [])])
+                (Just [TypeVarIs 0 (TypeInstance (["a", "b"], "mytype") [])])
   -- describe "Numeric unifiation" $ do
   --   it "unifies numeric types" $ do
   --     ctx <- newCompileContext
