@@ -14,8 +14,12 @@ import Kit.Ast.Types
 type SyntacticStatement = Statement Expr (Maybe TypeSpec)
 type SyntacticExprType = ExprType Expr (Maybe TypeSpec)
 
-data Expr = Expr {expr :: SyntacticExprType, pos :: Span} deriving (Eq, Show, Generic)
-instance Hashable Expr
+data Expr = Expr {expr :: SyntacticExprType, pos :: Span} deriving (Show, Generic)
+instance Eq Expr where
+  (==) a b = (expr a) == (expr b)
+instance Hashable Expr where
+  hashWithSalt = hashUsing expr
+
 ePos = pos
 
 e :: SyntacticExprType -> Expr

@@ -27,7 +27,7 @@ data IrTempInfo = IrTempInfo {
 }
 
 data IrContext = IrContext {
-  ictxTemps :: HashTable TypedExpr Str,
+  ictxTemps :: HashTable (TypedExpr, Span) Str,
   ictxTempInfo :: HashTable Int IrTempInfo,
   ictxNextTempId :: IORef Int,
   ictxChildNo :: Int,
@@ -110,7 +110,7 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
         -- interleave temp decls with block children
         return $ IrBlock $ allChildren
       (Temp x) -> do
-        existing <- h_lookup (ictxTemps ictx) x
+        existing <- h_lookup (ictxTemps ictx) (x, tPos x)
         case existing of
           Just s  -> return $ IrIdentifier ([], s)
           Nothing -> do
@@ -122,7 +122,7 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
               else do
                 r x
                 nextId <- makeIrTempVar ictx
-                h_insert (ictxTemps ictx) x (irTempName nextId)
+                h_insert (ictxTemps ictx) (x, tPos x) (irTempName nextId)
                 h_insert (ictxTempInfo ictx) nextId $ IrTempInfo
                   { irTempType  = t
                   , irTempExpr  = Just x
