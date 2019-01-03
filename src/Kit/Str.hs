@@ -24,7 +24,7 @@ s_readFile = B.readFile
 s_concat = B.concat
 s_split = B.split
 s_join = B.intercalate
-s_hash s = s_take 16 $ encode $ hash $ s
+s_hash s = s_take 24 $ encode $ hash $ s
 s_isSuffixOf = B.isSuffixOf
 s_isPrefixOf = B.isPrefixOf
 

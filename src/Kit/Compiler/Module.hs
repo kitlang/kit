@@ -21,13 +21,13 @@ instance Errable DuplicateDeclarationError where
   errPos (DuplicateDeclarationError _ _ pos _) = Just pos
 
 data Module = Module {
-  modPath :: ModulePath,
+  modPath :: !ModulePath,
   modSourcePath :: FilePath,
-  modImports :: [(ModulePath, Span)],
+  modImports :: ![(ModulePath, Span)],
   modIncludes :: IORef [(FilePath, Span)],
   modDefaults :: IORef [((TypeSpec, TypeSpec), Span)],
   modUsing :: IORef [UsingType TypedExpr ConcreteType],
-  modIsCModule :: Bool
+  modIsCModule :: !Bool
 }
 
 instance Show Module where

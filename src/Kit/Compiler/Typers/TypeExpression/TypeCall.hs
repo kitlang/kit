@@ -1,22 +1,26 @@
-module Kit.Compiler.Typers.TypeExpression.TypeCall (typeCall, findImplicit) where
+module Kit.Compiler.Typers.TypeExpression.TypeCall
+  ( typeCall
+  , findImplicit
+  )
+where
 
-import Control.Exception
-import Control.Monad
-import Data.List
-import Data.Maybe
-import Kit.Ast
-import Kit.Compiler.Binding
-import Kit.Compiler.Context
-import Kit.Compiler.Module
-import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedExpr
-import Kit.Compiler.Typers.AutoRefDeref
-import Kit.Compiler.Typers.ExprTyper
-import Kit.Compiler.Typers.TypeExpression.TypeVarBinding
-import Kit.Compiler.Unify
-import Kit.Compiler.Utils
-import Kit.Error
-import Kit.Str
+import           Control.Exception
+import           Control.Monad
+import           Data.List
+import           Data.Maybe
+import           Kit.Ast
+import           Kit.Compiler.Binding
+import           Kit.Compiler.Context
+import           Kit.Compiler.Module
+import           Kit.Compiler.TypeContext
+import           Kit.Compiler.TypedExpr
+import           Kit.Compiler.Typers.AutoRefDeref
+import           Kit.Compiler.Typers.ExprTyper
+import           Kit.Compiler.Typers.TypeExpression.TypeVarBinding
+import           Kit.Compiler.Unify
+import           Kit.Compiler.Utils
+import           Kit.Error
+import           Kit.Str
 
 typeCall :: SubTyper
 typeCall (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _typeExpr = typeExpr }) ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos })
@@ -34,52 +38,51 @@ typeCall (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _ty
               let
                 fail t = throwk
                   $ TypingError ("Type " ++ show t ++ " is not callable") pos
-              let
-                typeCall t = case t of
-                  TypePtr t@(TypeFunction _ _ _ _) ->
-                    -- function pointer call
-                                                      typeFunctionCall
-                    ctx
-                    tctx
-                    mod
-                    (r1 { inferredType = t })
-                    implicits
-                    typedArgs
-                  TypeFunction _ _ _ _ -> typeFunctionCall
-                    ctx
-                    tctx
-                    mod
-                    (r1 { inferredType = t })
-                    implicits
-                    typedArgs
-                  TypeEnumConstructor tp discriminant argTypes params -> do
-                    typeEnumConstructorCall ctx
-                                            tctx
-                                            mod
-                                            (r1 { inferredType = t })
-                                            typedArgs
-                                            tp
-                                            discriminant
-                                            argTypes
-                                            params
-                  TypeInstance tp params -> do
-                    templateDef <- getTypeDefinition ctx tp
-                    tctx        <- addTypeParams
+              let typeCall t = case t of
+                    TypePtr t@(TypeFunction _ _ _ _) ->
+                      -- function pointer call
+                                                        typeFunctionCall
                       ctx
-                      (tctx { tctxSelf = Just t })
-                      [ (typeSubPath templateDef $ paramName param, val)
-                      | (param, val) <- zip (typeParams templateDef) params
-                      ]
-                      pos
+                      tctx
+                      mod
+                      (r1 { inferredType = t })
+                      implicits
+                      typedArgs
+                    TypeFunction _ _ _ _ -> typeFunctionCall
+                      ctx
+                      tctx
+                      mod
+                      (r1 { inferredType = t })
+                      implicits
+                      typedArgs
+                    TypeEnumConstructor tp discriminant argTypes params -> do
+                      typeEnumConstructorCall ctx
+                                              tctx
+                                              mod
+                                              (r1 { inferredType = t })
+                                              typedArgs
+                                              tp
+                                              discriminant
+                                              argTypes
+                                              params
+                    TypeInstance tp params -> do
+                      templateDef <- getTypeDefinition ctx tp
+                      tctx        <- addTypeParams
+                        ctx
+                        (tctx { tctxSelf = Just t })
+                        [ (typeSubPath templateDef $ paramName param, val)
+                        | (param, val) <- zip (typeParams templateDef) params
+                        ]
+                        pos
 
-                    def <- followType ctx tctx templateDef
-                    let subtype = typeSubtype def
-                    case subtype of
-                      Abstract { abstractUnderlyingType = u } ->
-                        -- forward to parent
-                        typeCall u
-                      _ -> fail t
-                  _ -> fail t
+                      def <- followType ctx tctx templateDef
+                      let subtype = typeSubtype def
+                      case subtype of
+                        Abstract { abstractUnderlyingType = u } ->
+                          -- forward to parent
+                          typeCall u
+                        _ -> fail t
+                    _ -> fail t
 
               typeCall $ inferredType r1
 
@@ -205,7 +208,7 @@ typeFunctionCall
   -> [TypedExpr]
   -> [TypedExpr]
   -> IO TypedExpr
-typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = ft@(TypeFunction rt argTypes isVariadic params), tPos = pos }) implicits args
+typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = ft@(TypeFunction rt (ConcreteArgs argTypes) isVariadic params), tPos = pos }) implicits args
   = do
     aligned <- alignCallArgs ctx
                              tctx
@@ -279,8 +282,8 @@ typeEnumConstructorCall
   -> ConcreteArgs
   -> [ConcreteType]
   -> IO TypedExpr
-typeEnumConstructorCall ctx tctx mod e args tp discriminant argTypes params =
-  do
+typeEnumConstructorCall ctx tctx mod e args tp discriminant (ConcreteArgs argTypes) params
+  = do
     when (length args < length argTypes) $ throwk $ TypingError
       (  "Expected "
       ++ (show $ length argTypes)

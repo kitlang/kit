@@ -9,11 +9,13 @@ struct Vector[T] {
     var data: Array[T];
 
     public static function new(allocator: Box[Allocator], capacity: Size): Vector[T] using implicit allocator {
-        var data: Array[T] = Array.new(capacity);
+        if capacity < 1 {
+            capacity = 1;
+        }
         return struct Self {
             allocator,
             length: 0,
-            data,
+            data: Array.new(capacity),
         };
     }
 
@@ -55,14 +57,14 @@ struct Vector[T] {
     }
 
     public function ensureSize(n: Size): Void {
-        if this.data.length < n {
-            var l = this.length;
-            if l == 0 {
+        var l = this.data.length;
+        if l < n {
+            if l < 1 {
                 l = 1;
             }
-            while l < n {
+            do {
                 l <<= 1;
-            }
+            } while l < n;
             // resize and swap the underlying data of the vector
             var newData: Ptr[T] = this.allocator.alloc(l * sizeof T);
             var oldData = this.data.data;

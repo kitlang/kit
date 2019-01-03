@@ -67,8 +67,18 @@ instance Eq TypeSpec where
 
 instance Hashable TypeSpec
 
-type ConcreteArgs = [(Str, ConcreteType)]
 type TraitConstraint = (TypePath, [ConcreteType])
+
+newtype ConcreteArgs = ConcreteArgs [(Str, ConcreteType)] deriving (Generic)
+
+concreteArgs (ConcreteArgs x) = x
+concreteArgNames (ConcreteArgs x) = map fst x
+concreteArgTypes (ConcreteArgs x) = map snd x
+
+instance Eq ConcreteArgs where
+  (==) a b = (concreteArgTypes a) == (concreteArgTypes b)
+instance Hashable ConcreteArgs where
+  hashWithSalt = hashUsing concreteArgTypes
 
 {-
   A ConcreteType is either a specific compile-time type, or something like a
@@ -147,7 +157,7 @@ instance Show ConcreteType where
   show (TypeAnonUnion (Just x) f) = "union typedef " ++ s_unpack x
   show (TypeAnonUnion _ f) = "(anon union)"
   show (TypeTypedef name) = "typedef " ++ s_unpack name
-  show (TypeFunction rt args var params) = "function (" ++ (intercalate ", " [show t | (_, t) <- args]) ++ (case var of {Just x -> ", " ++ s_unpack x ++ "..."; Nothing -> ""}) ++ ") -> " ++ show rt
+  show (TypeFunction rt (ConcreteArgs args) var params) = "function (" ++ (intercalate ", " [show t | (_, t) <- args]) ++ (case var of {Just x -> ", " ++ s_unpack x ++ "..."; Nothing -> ""}) ++ ") -> " ++ show rt
   show (TypeBasicType t) = show t
   show (TypeEnumConstructor tp d _ params) = "enum " ++ (s_unpack $ showTypePath tp) ++ " constructor " ++ (s_unpack $ showTypePath d) ++ "[" ++ (intercalate ", " (map show params)) ++ "]"
   show (TypeRange) = "range"
@@ -213,17 +223,17 @@ mapType f (TypeAnonUnion x fields) = do
   f $ TypeAnonUnion x fields'
 mapType f (TypeFunction rt args varargs p) = do
   rt'   <- f rt
-  args' <- forM args $ \(n, t) -> do
+  args' <- forM (concreteArgs args) $ \(n, t) -> do
     t' <- f t
     return (n, t')
   p' <- mapM f p
-  f $ TypeFunction rt' args' varargs p'
+  f $ TypeFunction rt' (ConcreteArgs args') varargs p'
 mapType f (TypeEnumConstructor tp s args p) = do
-  args' <- forM args $ \(n, t) -> do
+  args' <- forM (concreteArgs args) $ \(n, t) -> do
     t' <- f t
     return (n, t')
   p' <- mapM f p
-  f $ TypeEnumConstructor tp s args' p'
+  f $ TypeEnumConstructor tp s (ConcreteArgs args') p'
 mapType f (TypeTuple p) = do
   p' <- mapM f p
   f $ TypeTuple p'
@@ -243,8 +253,8 @@ foldType
 foldType f v t@(TypeInstance tp p) = foldr f v (t : p)
 foldType f v t@(TypeAnonStruct x fields) = foldr f v (t : (map snd fields))
 foldType f v t@(TypeAnonUnion x fields) = foldr f v (t : (map snd fields))
-foldType f v t@(TypeFunction rt args varargs p) = foldr f v (rt : (map snd args) ++ p)
-foldType f v t@(TypeEnumConstructor tp s args p) = foldr f v (t : (map snd args) ++ p)
+foldType f v t@(TypeFunction rt args varargs p) = foldr f v (rt : (concreteArgTypes args) ++ p)
+foldType f v t@(TypeEnumConstructor tp s args p) = foldr f v (t : (concreteArgTypes args) ++ p)
 foldType f v t@(TypeTuple c) = foldr f v (t : c)
 foldType f v t@(TypeTraitConstraint (tp, p)) = foldr f v (t : p)
 foldType f v t@(MethodTarget t2) = foldr f v [t, t2]

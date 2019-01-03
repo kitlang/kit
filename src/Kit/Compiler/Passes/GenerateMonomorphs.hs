@@ -25,8 +25,8 @@ generateMonomorphs ctx = do
       mod    <- getMod ctx modPath
       tctx   <- modTypeContext ctx mod
       params <- forM params' (follow ctx tctx)
-      let unresolved = map typeUnresolved params
-      if or unresolved
+      let unresolved = map (mapType_ typeUnresolved) params
+      if or (foldr (++) [] unresolved)
         -- don't try to generate a monomorph if the params contain unresolved
         -- type variables; if we needed this monomorph and don't know its param
         -- values, it'll blow up elsewhere

@@ -251,7 +251,7 @@ dumpCt ctx t = case t of
   TypeTuple t -> do
     parts <- forM t $ dumpCt ctx
     return $ "(" ++ intercalate ", " parts ++ ")"
-  TypeFunction rt args var params -> do
+  TypeFunction rt (ConcreteArgs args) var params -> do
     args <- forM args $ \(name, t) -> do
       t' <- dumpCt ctx t
       return (name, t')

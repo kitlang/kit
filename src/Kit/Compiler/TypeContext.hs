@@ -1,20 +1,20 @@
 module Kit.Compiler.TypeContext where
 
-import Control.Exception
-import Control.Monad
-import Data.Mutable
-import Kit.Ast
-import Kit.Compiler.Binding
-import Kit.Compiler.Context
-import Kit.Compiler.Module
-import Kit.Compiler.Scope
-import Kit.Compiler.TypedStmt
-import Kit.Compiler.TypedExpr
-import Kit.Compiler.Utils
-import Kit.Error
-import Kit.HashTable
-import Kit.Parser
-import Kit.Str
+import           Control.Exception
+import           Control.Monad
+import           Data.Mutable
+import           Kit.Ast
+import           Kit.Compiler.Binding
+import           Kit.Compiler.Context
+import           Kit.Compiler.Module
+import           Kit.Compiler.Scope
+import           Kit.Compiler.TypedStmt
+import           Kit.Compiler.TypedExpr
+import           Kit.Compiler.Utils
+import           Kit.Error
+import           Kit.HashTable
+import           Kit.Parser
+import           Kit.Str
 
 data TypingError = TypingError String Span deriving (Eq, Show)
 instance Errable TypingError where
@@ -24,18 +24,18 @@ instance Errable TypingError where
 type TypedStmtWithContext = (TypedStmt, TypeContext)
 
 data TypeContext = TypeContext {
-  tctxScopes :: [Scope TypedBinding],
-  tctxMacroVars :: [(Str, TypedExpr)],
+  tctxScopes :: ![Scope TypedBinding],
+  tctxMacroVars :: ![(Str, TypedExpr)],
   tctxRules :: [RuleSet TypedExpr ConcreteType],
   tctxActiveRules :: [(RewriteRule TypedExpr ConcreteType, Span)],
   tctxReturnType :: Maybe ConcreteType,
   tctxVarargsParameter :: Maybe Str,
   tctxThis :: Maybe ConcreteType,
   tctxSelf :: Maybe ConcreteType,
-  tctxImplicits :: [TypedExpr],
-  tctxTypeParams :: [(TypePath, ConcreteType)],
-  tctxLoopCount :: Int,
-  tctxRewriteRecursionDepth :: Int,
+  tctxImplicits :: ![TypedExpr],
+  tctxTypeParams :: ![(TypePath, ConcreteType)],
+  tctxLoopCount :: !Int,
+  tctxRewriteRecursionDepth :: !Int,
   tctxState :: TypeContextState
 }
 
@@ -46,21 +46,20 @@ data TypeContextState
 
 newTypeContext :: [Scope TypedBinding] -> IO TypeContext
 newTypeContext scopes = do
-  return $ TypeContext
-    { tctxScopes                = scopes
-    , tctxRules                 = []
-    , tctxActiveRules           = []
-    , tctxMacroVars             = []
-    , tctxReturnType            = Nothing
-    , tctxThis                  = Nothing
-    , tctxSelf                  = Nothing
-    , tctxImplicits             = []
-    , tctxTypeParams            = []
-    , tctxLoopCount             = 0
-    , tctxRewriteRecursionDepth = 0
-    , tctxState                 = TypingExpression
-    , tctxVarargsParameter      = Nothing
-    }
+  return $ TypeContext { tctxScopes                = scopes
+                       , tctxRules                 = []
+                       , tctxActiveRules           = []
+                       , tctxMacroVars             = []
+                       , tctxReturnType            = Nothing
+                       , tctxThis                  = Nothing
+                       , tctxSelf                  = Nothing
+                       , tctxImplicits             = []
+                       , tctxTypeParams            = []
+                       , tctxLoopCount             = 0
+                       , tctxRewriteRecursionDepth = 0
+                       , tctxState                 = TypingExpression
+                       , tctxVarargsParameter      = Nothing
+                       }
 
 unknownType t pos = do
   throw $ KitError $ TypingError ("Unknown type: " ++ (show t)) pos
@@ -204,7 +203,7 @@ resolveType ctx tctx mod t = do
           t <- resolveType ctx tctx mod arg
           return ("_", t)
         )
-      return $ TypeFunction rt' args' isVariadic []
+      return $ TypeFunction rt' (ConcreteArgs args') isVariadic []
 
 resolveMaybeType
   :: CompileContext
@@ -276,7 +275,7 @@ _follow ctx tctx stack t = do
     TypePtr t -> do
       t <- r t
       return $ TypePtr t
-    TypeFunction t args varargs params -> do
+    TypeFunction t (ConcreteArgs args) varargs params -> do
       resolved     <- r t
       resolvedArgs <- forM
         args
@@ -285,8 +284,11 @@ _follow ctx tctx stack t = do
           return (name, resolvedArg)
         )
       resolvedParams <- forM params (r)
-      return $ TypeFunction resolved resolvedArgs varargs resolvedParams
-    TypeEnumConstructor tp d args params -> do
+      return $ TypeFunction resolved
+                            (ConcreteArgs resolvedArgs)
+                            varargs
+                            resolvedParams
+    TypeEnumConstructor tp d (ConcreteArgs args) params -> do
       resolvedArgs <- forM
         args
         (\(name, t) -> do
@@ -294,7 +296,8 @@ _follow ctx tctx stack t = do
           return (name, resolvedArg)
         )
       resolvedParams <- forM params (r)
-      return $ TypeEnumConstructor tp d resolvedArgs resolvedParams
+      return
+        $ TypeEnumConstructor tp d (ConcreteArgs resolvedArgs) resolvedParams
     TypeTypedef name -> do
       typedef <- h_lookup (ctxTypedefs ctx) name
       case typedef of
@@ -433,7 +436,7 @@ getTraitImpl ctx tctx trait@(traitTp, params) ct = do
 
 functionConcrete f = TypeFunction
   (functionType f)
-  [ (argName arg, argType arg) | arg <- functionArgs f ]
+  (ConcreteArgs [ (argName arg, argType arg) | arg <- functionArgs f ])
   (functionVararg f)
   []
 

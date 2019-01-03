@@ -38,7 +38,7 @@ typeVarBinding ctx tctx binding pos = do
         else do
           return $ makeExprTyped
             (Identifier $ Var discriminant)
-            (TypeEnumConstructor parentTp discriminant args (map snd params))
+            (TypeEnumConstructor parentTp discriminant (ConcreteArgs args) (map snd params))
             pos
     VarBinding v ->
       return $ (makeExprTyped (Identifier $ Var $ varRealName v) (varType v) pos

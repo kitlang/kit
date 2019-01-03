@@ -1,29 +1,30 @@
 module Kit.Compiler.Unify where
 
-import Control.Exception
-import Control.Monad
-import Data.List
-import Data.Maybe
-import Kit.Ast
-import Kit.Compiler.Context
-import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedExpr
-import Kit.Error
-import Kit.HashTable
-import Kit.Log
-import Kit.Str
+import           Control.Exception
+import           Control.Monad
+import           Data.List
+import           Data.Maybe
+import           Kit.Ast
+import           Kit.Compiler.Context
+import           Kit.Compiler.TypeContext
+import           Kit.Compiler.TypedExpr
+import           Kit.Error
+import           Kit.HashTable
+import           Kit.Log
+import           Kit.Str
 
 data UnificationError = UnificationError CompileContext TypeConstraint
 instance Errable UnificationError where
   logError err@(UnificationError ctx (TypeEq a b reason pos)) = do
     logErrorBasic err $ reason ++ ":"
-    let showConstraint x = do case x of
-                                TypeTypeVar i -> do
-                                  info <- getTypeVar ctx i
-                                  ePutStrLn $ show info
-                                  let varPos = typeVarPosition info
-                                  displayFileSnippet varPos
-                                _ -> ePutStrLn $ show x
+    let showConstraint x = do
+          case x of
+            TypeTypeVar i -> do
+              info <- getTypeVar ctx i
+              ePutStrLn $ show info
+              let varPos = typeVarPosition info
+              displayFileSnippet varPos
+            _ -> ePutStrLn $ show x
     ePutStr $ "    Expected type:  "
     showConstraint a
     ePutStr $ "      Actual type:  "
@@ -73,8 +74,8 @@ unifyBase
   -> ConcreteType
   -> ConcreteType
   -> IO (Maybe [TypeInformation])
-unifyBase _   _    _      a  b | a == b = return $ Just []
-unifyBase ctx tctx strict a' b'         = do
+unifyBase _ _ _ a b | a == b    = return $ Just []
+unifyBase ctx tctx strict a' b' = do
   let checkResults x = foldr
         (\result acc -> case acc of
           Just x -> case result of
@@ -143,14 +144,16 @@ unifyBase ctx tctx strict a' b'         = do
       return $ Just []
     (TypeFunction _ _ _ _, TypePtr (TypeBasicType BasicTypeVoid)) ->
       return $ Just []
-    (TypePtr   a, TypePtr b  )                        -> r a b
+    (TypePtr a, TypePtr b)                            -> r a b
     (TypeTuple a, TypeTuple b) | length a == length b -> do
       vals <- forM (zip a b) (\(a, b) -> r a b)
       return $ checkResults vals
-    (TypeFunction rt1 args1 v1 _, TypeFunction rt2 args2 v2 _) | v1 == v2 -> do
-      rt   <- r rt1 rt2
-      args <- forM (zip args1 args2) (\((_, a), (_, b)) -> r a b)
-      return $ checkResults $ rt : args
+    (TypeFunction rt1 (ConcreteArgs args1) v1 _, TypeFunction rt2 (ConcreteArgs args2) v2 _)
+      | v1 == v2
+      -> do
+        rt   <- r rt1 rt2
+        args <- forM (zip args1 args2) (\((_, a), (_, b)) -> r a b)
+        return $ checkResults $ rt : args
     (TypePtr f1@(TypeFunction _ _ _ _), f2@(TypeFunction _ _ _ _)) -> r f1 f2
     (TypeEnumConstructor tp1 d1 _ params1, TypeEnumConstructor tp2 d2 _ params2)
       -> if (tp1 == tp2) && (d1 == d2) && (length params1 == length params2)
@@ -165,11 +168,11 @@ unifyBase ctx tctx strict a' b'         = do
           return $ checkResults paramMatch
         else return Nothing
     (TypeArray t1 s1, TypeArray t2 s2) | (s1 > 0) && (s1 == s2) -> r t1 t2
-    (TypeArray t1 0, TypeArray t2 _) -> r t1 t2
-    (TypeArray t1 _, TypePtr t2) -> r t1 t2
+    (TypeArray t1 0, TypeArray t2 _)                  -> r t1 t2
+    (TypeArray t1 _, TypePtr t2    )                  -> r t1 t2
     (a, b) | (typeIsIntegral a) && (typeIsIntegral b) -> return $ Just []
-    (TypeFloat _, b) | typeIsIntegral b -> return $ Just []
-    (TypeFloat _, TypeFloat _) -> return $ Just []
+    (TypeFloat _, b) | typeIsIntegral b               -> return $ Just []
+    (TypeFloat _, TypeFloat _)                        -> return $ Just []
     (TypeInstance tp1 params1, TypeInstance tp2 params2) ->
       if (tp1 == tp2) && (length params1 == length params2)
         then do
@@ -222,12 +225,12 @@ unifyBase ctx tctx strict a' b'         = do
         _ -> return Nothing
 
 unifyBasic :: BasicType -> BasicType -> Maybe [TypeInformation]
-unifyBasic (BasicTypeUnknown) (_)             = Nothing
-unifyBasic a                  b | a == b      = Just []
-unifyBasic (BasicTypeVoid)    _               = Nothing
-unifyBasic _                  (BasicTypeVoid) = Nothing
-unifyBasic (CPtr a)           (CPtr b       ) = unifyBasic a b
-unifyBasic a                  b               = Nothing
+unifyBasic (BasicTypeUnknown) (_)          = Nothing
+unifyBasic a b | a == b                    = Just []
+unifyBasic (BasicTypeVoid) _               = Nothing
+unifyBasic _               (BasicTypeVoid) = Nothing
+unifyBasic (CPtr a)        (CPtr b       ) = unifyBasic a b
+unifyBasic a               b               = Nothing
 
 resolveConstraint :: CompileContext -> TypeContext -> TypeConstraint -> IO ()
 resolveConstraint ctx tctx constraint@(TypeEq a b reason pos) = do

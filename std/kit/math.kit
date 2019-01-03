@@ -1,1 +1,9 @@
 var PI = ${M_PI: Double};
+
+function max[T: Numeric](x: T, y: T): T {
+    return if y > x then y else x;
+}
+
+function min[T: Numeric](x: T, y: T): T {
+    return if y < x then y else x;
+}

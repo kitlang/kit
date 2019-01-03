@@ -1,17 +1,17 @@
 module Kit.Compiler.Passes.IncludeCModulesSpec where
 
-import Control.Monad
-import Data.Maybe
-import Language.C
-import Test.Hspec
-import Test.QuickCheck
-import Kit.Ast
-import Kit.Compiler
-import Kit.Compiler.Generators.C
-import Kit.Compiler.Ir
-import Kit.Compiler.Passes
-import Kit.HashTable
-import Kit.Ir
+import           Control.Monad
+import           Data.Maybe
+import           Language.C
+import           Test.Hspec
+import           Test.QuickCheck
+import           Kit.Ast
+import           Kit.Compiler
+import           Kit.Compiler.Generators.C
+import           Kit.Compiler.Ir
+import           Kit.Compiler.Passes
+import           Kit.HashTable
+import           Kit.Ir
 
 testHeader :: IO (CompileContext, Module)
 testHeader = do
@@ -84,55 +84,66 @@ spec = do
         )
       , ( "Parses function pointer vars"
         , "pointer_var3"
-        , (TypePtr (TypeFunction (TypeInt 16) [("arg1", TypeInt 16)] Nothing [])
+        , (TypePtr
+            (TypeFunction (TypeInt 16)
+                          (ConcreteArgs [("arg1", TypeInt 16)])
+                          Nothing
+                          []
+            )
           )
         )
       , ( "Parses void function pointers"
         , "func_pointer"
-        , (TypePtr $ TypeFunction TypeVoid [] Nothing [])
+        , (TypePtr $ TypeFunction TypeVoid (ConcreteArgs []) Nothing [])
         )
       , ( "Parses void functions"
         , "void_func1"
-        , TypeFunction TypeVoid [] Nothing []
+        , TypeFunction TypeVoid (ConcreteArgs []) Nothing []
         )
       , ( "Parses functions with non-void types"
         , "int_func1"
-        , TypeFunction (TypeInt 16) [] Nothing []
+        , TypeFunction (TypeInt 16) (ConcreteArgs []) Nothing []
         )
       , ( "Parses functions with arguments"
         , "func_with_args"
-        , TypeFunction (TypeFloat 32)
-                       [("arg1", TypeInt 16), ("arg2", TypeUint 64)]
-                       Nothing
-                       []
+        , TypeFunction
+          (TypeFloat 32)
+          (ConcreteArgs [("arg1", TypeInt 16), ("arg2", TypeUint 64)])
+          Nothing
+          []
         )
       , ( "Parses functions with struct return value/arguments"
         , "struct_func"
         , TypeFunction (TypeInstance ([], "Struct1") [])
-                       [("a", TypeInstance ([], "Struct2") [])]
+                       (ConcreteArgs [("a", TypeInstance ([], "Struct2") [])])
                        Nothing
                        []
         )
       , ( "Parses functions with pointer return value/arguments"
         , "pointer_func"
         , TypeFunction (TypePtr $ TypeFloat 32)
-                       [("arg1", TypePtr $ TypeInt 0)]
+                       (ConcreteArgs [("arg1", TypePtr $ TypeInt 0)])
                        Nothing
                        []
         )
       , ( "Parses variadic functions"
         , "varargs_func"
-        , TypeFunction TypeVoid [("a", TypeInt 16)] (Just "") []
+        , TypeFunction TypeVoid (ConcreteArgs [("a", TypeInt 16)]) (Just "") []
         )
       , ( "Parses void arg functions"
         , "void_func"
-        , TypeFunction (TypeInt 32) [] Nothing []
+        , TypeFunction (TypeInt 32) (ConcreteArgs []) Nothing []
         )
       , ( "Parses atexit"
         , "fake_atexit"
         , TypeFunction
           (TypeInt 0)
-          [("__func", TypePtr $ TypeFunction TypeVoid [] Nothing [])]
+          (ConcreteArgs
+            [ ( "__func"
+              , TypePtr $ TypeFunction TypeVoid (ConcreteArgs []) Nothing []
+              )
+            ]
+          )
           Nothing
           []
         )
@@ -144,7 +155,10 @@ spec = do
       -- , ("Parses const pointer", "const_ptr", TypeConst (TypePtr (TypeInt 0)))
       , ( "Parses function pointer typedef"
         , "func_pointah"
-        , TypeFunction (TypeTypedef "fp_typedef") [("arg3", TypeInt 0)] Nothing []
+        , TypeFunction (TypeTypedef "fp_typedef")
+                       (ConcreteArgs [("arg3", TypeInt 0)])
+                       Nothing
+                       []
         )
       ]
       (\(label, name, ct) -> it label $ do
@@ -165,19 +179,19 @@ spec = do
         $ typeDecl
         $ (newTypeDefinition :: TypeDefinition Expr (Maybe TypeSpec))
             { typeName    = ([], "Struct1")
-            , typeSubtype = StructUnion
-              { structUnionFields = [ newVarDefinition
-                                      { varName = ([], "field1")
-                                      , varType = Just $ ConcreteType $ TypeChar
-                                      }
-                                    , newVarDefinition
-                                      { varName = ([], "field2")
-                                      , varType = Just $ ConcreteType $ TypeUint
-                                        16
-                                      }
-                                    ]
-              , isStruct          = True
-              }
+            , typeSubtype =
+              StructUnion
+                { structUnionFields =
+                  [ newVarDefinition { varName = ([], "field1")
+                                     , varType = Just $ ConcreteType $ TypeChar
+                                     }
+                  , newVarDefinition
+                    { varName = ([], "field2")
+                    , varType = Just $ ConcreteType $ TypeUint 16
+                    }
+                  ]
+                , isStruct          = True
+                }
             }
         )
       , ( "Parses anonymous struct typedefs"
@@ -193,10 +207,9 @@ spec = do
         $ typeDecl
         $ (newTypeDefinition :: TypeDefinition Expr (Maybe TypeSpec))
             { typeName    = ([], "Struct3")
-            , typeSubtype = StructUnion
-              { structUnionFields = []
-              , isStruct          = True
-              }
+            , typeSubtype = StructUnion { structUnionFields = []
+                                        , isStruct          = True
+                                        }
             }
         )
       , ( "Parses enum definitions"
@@ -206,16 +219,15 @@ spec = do
         $ typeDecl
         $ (newTypeDefinition :: TypeDefinition Expr (Maybe TypeSpec))
             { typeName    = ([], "Enum1")
-            , typeSubtype = Enum
-              { enumVariants = [ newEnumVariant { variantName = ([], "apple")
-                                                }
-                               , newEnumVariant { variantName = ([], "banana")
-                                                }
-                               , newEnumVariant { variantName = ([], "cherry")
-                                                }
-                               ]
-              , enumUnderlyingType = Nothing
-              }
+            , typeSubtype =
+              Enum
+                { enumVariants       =
+                  [ newEnumVariant { variantName = ([], "apple") }
+                  , newEnumVariant { variantName = ([], "banana") }
+                  , newEnumVariant { variantName = ([], "cherry") }
+                  ]
+                , enumUnderlyingType = Nothing
+                }
             }
         )
       , ( "Parses anonymous enum typedefs"

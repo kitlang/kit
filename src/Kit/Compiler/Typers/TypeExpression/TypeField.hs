@@ -1,19 +1,22 @@
-module Kit.Compiler.Typers.TypeExpression.TypeField (typeField) where
+module Kit.Compiler.Typers.TypeExpression.TypeField
+  ( typeField
+  )
+where
 
-import Control.Exception
-import Control.Monad
-import Data.List
-import Kit.Ast
-import Kit.Compiler.Binding
-import Kit.Compiler.Context
-import Kit.Compiler.Module
-import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedExpr
-import Kit.Compiler.Typers.AutoRefDeref
-import Kit.Compiler.Typers.ExprTyper
-import Kit.Compiler.Typers.TypeExpression.TypeVarBinding
-import Kit.Error
-import Kit.Str
+import           Control.Exception
+import           Control.Monad
+import           Data.List
+import           Kit.Ast
+import           Kit.Compiler.Binding
+import           Kit.Compiler.Context
+import           Kit.Compiler.Module
+import           Kit.Compiler.TypeContext
+import           Kit.Compiler.TypedExpr
+import           Kit.Compiler.Typers.AutoRefDeref
+import           Kit.Compiler.Typers.ExprTyper
+import           Kit.Compiler.Typers.TypeExpression.TypeVarBinding
+import           Kit.Error
+import           Kit.Str
 
 typeField :: SubTyper
 typeField (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _typeExpr = typeExpr }) ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos })
@@ -53,10 +56,8 @@ typeField (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _t
                                               tctx
                                               pos
                                               (TypeTypeOf tp $ map snd params)
-                        params <-
-                          forMWithErrors (map snd params) $ follow
-                            ctx
-                            tctx
+                        params <- forMWithErrors (map snd params)
+                          $ follow ctx tctx
                         tctx <- return
                           $ tctx { tctxSelf = Just $ TypeInstance tp params }
                         let accessible = case tctxSelf tctx of
@@ -68,18 +69,31 @@ typeField (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _t
                         f <- follow ctx tctx $ inferredType x
                         -- when calling an instance method statically, remove MethodTarget
                         f <- return $ case f of
-                          TypeFunction rt ((name, MethodTarget t) : args) varargs params
-                            -> TypeFunction rt ((name, t) : args) varargs params
+                          TypeFunction rt (ConcreteArgs ((name, MethodTarget t) : args)) varargs params
+                            -> TypeFunction rt
+                                            (ConcreteArgs ((name, t) : args))
+                                            varargs
+                                            params
                           _ -> f
                         case binding of
-                          FunctionBinding _ -> return $ makeExprTyped
-                            ((StaticMember tp params) fieldName)
-                            f
-                            pos
-                          VarBinding _ -> return $ makeExprTyped
-                            ((StaticMember tp params) fieldName)
-                            f
-                            pos
+                          FunctionBinding _ ->
+                            return
+                              $ (makeExprTyped
+                                  ((StaticMember tp params) fieldName)
+                                  f
+                                  pos
+                                )
+                                  { tIsLvalue = True
+                                  }
+                          VarBinding _ ->
+                            return
+                              $ (makeExprTyped
+                                  ((StaticMember tp params) fieldName)
+                                  f
+                                  pos
+                                )
+                                  { tIsLvalue = True
+                                  }
                           _ -> return $ x { inferredType = f }
                       Nothing -> throwk $ TypingError
                         (  "Type "
@@ -127,13 +141,12 @@ typeField (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _t
                             -- trait <- followTrait ctx tctx (modPath mod) traitDef
                             t <- follow ctx tctx (inferredType x)
                             return $ typed
-                              { tImplicits   = [ makeExprTyped
-                                                   (BoxedValue r1)
-                                                   ( MethodTarget
-                                                   $ TypePtr TypeVoid
-                                                   )
-                                                   pos
-                                               ]
+                              { tImplicits   =
+                                [ makeExprTyped
+                                    (BoxedValue r1)
+                                    (MethodTarget $ TypePtr TypeVoid)
+                                    pos
+                                ]
                               , inferredType = t
                               }
                           Nothing -> throwk $ TypingError
@@ -156,23 +169,23 @@ typeField (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _t
                                             pos
                                             (TypeTraitConstraint (tp, params))
                         result <- typeVarBinding ctx tctx binding pos
-                        t <- follow ctx tctx $ inferredType result
+                        t      <- follow ctx tctx $ inferredType result
                         return
                           $ (makeExprTyped (Field r1 $ Var ([], fieldName))
                                            t
                                            pos
                             )
-                              { tImplicits = if null $ tImplicits r1
-                                             then
-                                               [ ref
-                                                   { inferredType = (MethodTarget
-                                                                    $ TypePtr
-                                                                    $ TypeVoid
-                                                                    )
-                                                   }
-                                               ]
-                                             else
-                                               tImplicits r1
+                              { tImplicits =
+                                if null $ tImplicits r1
+                                  then
+                                    [ ref
+                                        { inferredType = ( MethodTarget
+                                                         $ TypePtr
+                                                         $ TypeVoid
+                                                         )
+                                        }
+                                    ]
+                                  else tImplicits r1
                               }
                       _ -> throwk $ TypingError
                         (  "Trait "
@@ -203,23 +216,27 @@ typeField (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _t
                         when (not accessible) failNotPublic
                         -- this is a local method
                         typed' <- typeVarBinding ctx tctx x pos
-                        t <- follow ctx tctx (inferredType typed')
+                        t      <- follow ctx tctx (inferredType typed')
                         let typed = typed' { inferredType = t }
                         -- this may be a template; replace `this` with the actual
                         -- type to guarantee the implicit pass will work
                         let
                           f = case inferredType typed of
-                            TypeFunction rt args varargs _ -> TypeFunction
-                              rt
-                              ( (let (name, _) = (head args)
-                                 in  ( name
-                                     , MethodTarget $ TypePtr $ inferredType r1
-                                     )
+                            TypeFunction rt (ConcreteArgs args) varargs _ ->
+                              TypeFunction
+                                rt
+                                (ConcreteArgs
+                                  ( (let (name, _) = (head args)
+                                     in  ( name
+                                         , MethodTarget $ TypePtr $ inferredType
+                                           r1
+                                         )
+                                    )
+                                  : (tail args)
+                                  )
                                 )
-                              : (tail args)
-                              )
-                              varargs
-                              params
+                                varargs
+                                params
                             _ -> throwk $ TypingError
                               "Static fields and methods can't be accessed from individual values"
                               pos
@@ -228,12 +245,13 @@ typeField (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _t
                                            f
                                            pos
                             )
-                              { tImplicits = (r1
-                                               { inferredType = MethodTarget
-                                                 (inferredType r1)
-                                               }
-                                             )
-                                : tImplicits typed
+                              { tImplicits =
+                                (r1
+                                    { inferredType = MethodTarget
+                                                       (inferredType r1)
+                                    }
+                                  )
+                                  : tImplicits typed
                               }
 
                       _ -> case subtype of
@@ -335,18 +353,18 @@ typeField (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _t
             case result of
               Right r   -> return r
               Left  err -> do
-                let
-                  fail = do
-                    case inferredType r1 of
-                      TypePtr x ->
-                        -- try to auto-dereference
-                                   r $ makeExprTyped
-                        (Field (makeExprTyped (PreUnop Deref r1) x (tPos r1))
-                               (Var ([], tpName fieldName))
-                        )
-                        (inferredType ex)
-                        pos
-                      _ -> throw err
+                let fail = do
+                      case inferredType r1 of
+                        TypePtr x ->
+                          -- try to auto-dereference
+                                     r $ makeExprTyped
+                          (Field
+                            (makeExprTyped (PreUnop Deref r1) x (tPos r1))
+                            (Var ([], tpName fieldName))
+                          )
+                          (inferredType ex)
+                          pos
+                        _ -> throw err
                 -- UFCS: check for a function that takes the LHS as its first argument
                 binding <- resolveVar ctx
                                       (tctxScopes tctx)
@@ -355,12 +373,8 @@ typeField (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _t
                 let
                   fn tp ct =
                     ((makeExprTyped (Identifier (Var tp)) ct pos)
-                      { tImplicits = [ r1
-                                         { inferredType = ( MethodTarget
-                                                          $ inferredType r1
-                                                          )
-                                         }
-                                     ]
+                      { tImplicits =
+                        [r1 { inferredType = (MethodTarget $ inferredType r1) }]
                       }
                     )
                 case binding of
@@ -368,11 +382,12 @@ typeField (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _t
                     -> return $ (fn (varName v) ct) { tIsConst = varIsConst v }
                   Just (FunctionBinding f) -> do
                     return $ fn (functionName f) $ case functionConcrete f of
-                      TypeFunction rt ((name, t) : args) varargs params ->
-                        TypeFunction rt
-                                     ((name, MethodTarget t) : args)
-                                     varargs
-                                     params
+                      TypeFunction rt (ConcreteArgs ((name, t) : args)) varargs params
+                        -> TypeFunction
+                          rt
+                          (ConcreteArgs ((name, MethodTarget t) : args))
+                          varargs
+                          params
                       t -> t
                   Just (TraitBinding t) -> do
                     -- static trait dispatch: get a trait implementation for this type
@@ -392,17 +407,15 @@ typeField (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _t
                                   (TypeTraitConstraint (traitName t, []))
                                   pos
                                 )
-                                  { tImplicits = if isStatic
-                                                 then
-                                                   []
-                                                 else
-                                                   [ (addRef ex)
-                                                       { inferredType = (MethodTarget
-                                                                        $ TypePtr
-                                                                            TypeVoid
-                                                                        )
-                                                       }
-                                                   ]
+                                  { tImplicits =
+                                    if isStatic
+                                      then []
+                                      else
+                                        [ (addRef ex)
+                                            { inferredType =
+                                              (MethodTarget $ TypePtr TypeVoid)
+                                            }
+                                        ]
                                   , tIsLvalue  = True
                                   }
                           Nothing -> case addDeref ex of

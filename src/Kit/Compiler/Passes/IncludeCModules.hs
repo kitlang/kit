@@ -1,43 +1,42 @@
-module Kit.Compiler.Passes.IncludeCModules (
-  includeCModules,
-  parseCHeader,
-  parseType
-) where
+module Kit.Compiler.Passes.IncludeCModules
+  ( includeCModules
+  , parseCHeader
+  , parseType
+  )
+where
 
-import Control.Monad
-import Data.Mutable
-import Data.List
-import System.FilePath
-import System.Process
-import Language.C
-import Language.C.Analysis.ConstEval
-import Language.C.Data.Ident
-import Language.C.Data.Position
-import Language.C.System.GCC
-import Kit.Ast
-import Kit.Compiler.Binding
-import Kit.Compiler.CCompiler
-import Kit.Compiler.Context
-import Kit.Compiler.Module
-import Kit.Compiler.TypedExpr
-import Kit.Compiler.Utils
-import Kit.Error
-import Kit.HashTable
-import Kit.Log
-import Kit.Parser
-import Kit.Str
+import           Control.Monad
+import           Data.Mutable
+import           Data.List
+import           System.FilePath
+import           System.Process
+import           Language.C
+import           Language.C.Analysis.ConstEval
+import           Language.C.Data.Ident
+import           Language.C.Data.Position
+import           Language.C.System.GCC
+import           Kit.Ast
+import           Kit.Compiler.Binding
+import           Kit.Compiler.CCompiler
+import           Kit.Compiler.Context
+import           Kit.Compiler.Module
+import           Kit.Compiler.TypedExpr
+import           Kit.Compiler.Utils
+import           Kit.Error
+import           Kit.HashTable
+import           Kit.Log
+import           Kit.Parser
+import           Kit.Str
 
 data IncludeError = IncludeError FilePath [FilePath] deriving (Eq, Show)
 instance Errable IncludeError where
   logError e@(IncludeError fp searchPaths) =
-    logErrorBasic e $ (  "Couldn't find C header <"
-                                ++ fp
-                                ++ ">; tried searching the following locations: \n\n"
-                                ++ (intercalate
-                                    "\n"
-                                    [ "  - " ++ s | s <- searchPaths]
-                                  )
-                                )
+    logErrorBasic e
+      $ (  "Couldn't find C header <"
+        ++ fp
+        ++ ">; tried searching the following locations: \n\n"
+        ++ (intercalate "\n" [ "  - " ++ s | s <- searchPaths ])
+        )
 
 {-
   For each C header discovered during the BuildModuleGraph pass, parse the
@@ -226,29 +225,28 @@ parseType m typeSpec declr =
   parseDerivedType m (reverse declr) (parseDeclSpec m typeSpec)
 parseDerivedType m (h' : t') ct =
   let p = parseDerivedType m t'
-  in
-    case h' of
-      (CPtrDeclr _ _) -> p $ if ct == (TypeBasicType BasicTypeCChar)
-        then TypeInstance (["kit", "common"], "CString") []
-        else (TypePtr ct)
-      (CArrDeclr _ (CNoArrSize _) _) -> p (TypeArray ct 0)
-      (CArrDeclr _ (CArrSize _ _) _) -> p (TypeArray ct 0) -- FIXME
-      (CFunDeclr (Right (params, varargs)) _ _) -> p
-        (TypeFunction
-          ct
-          (filter
-            (\(_, t) -> t /= TypeBasicType BasicTypeVoid)
-            [ let (declSpec', init) = decomposeCDecl p
-              in  let (name, derivedSpec') =
-                        if null init then ("_", []) else (head init)
-                  in  (name, parseType m declSpec' derivedSpec')
-            | p <- params
-            ]
+  in  case h' of
+        (CPtrDeclr _ _) -> p $ if ct == (TypeBasicType BasicTypeCChar)
+          then TypeInstance (["kit", "common"], "CString") []
+          else (TypePtr ct)
+        (CArrDeclr _ (CNoArrSize _) _) -> p (TypeArray ct 0)
+        (CArrDeclr _ (CArrSize _ _) _) -> p (TypeArray ct 0) -- FIXME
+        (CFunDeclr (Right (params, varargs)) _ _) -> p
+          (TypeFunction
+            ct
+            (ConcreteArgs $ filter
+              (\(_, t) -> t /= TypeBasicType BasicTypeVoid)
+              [ let (declSpec', init) = decomposeCDecl p
+                in  let (name, derivedSpec') =
+                          if null init then ("_", []) else (head init)
+                    in  (name, parseType m declSpec' derivedSpec')
+              | p <- params
+              ]
+            )
+            (if varargs then Just "" else Nothing)
+            []
           )
-          (if varargs then Just "" else Nothing)
-          []
-        )
-      _ -> p ct
+        _ -> p ct
 parseDerivedType m [] ct = ct
 
 -- Parse CTypeSpecs to find the type of a function/variable declaration
@@ -314,7 +312,7 @@ _parseDeclSpec modPath [] width signed float = if float
 addCDecl :: CompileContext -> Module -> Str -> ConcreteType -> Span -> IO ()
 addCDecl ctx mod name t pos = do
   let bindingData = case t of
-        TypeFunction t argTypes isVariadic _ -> FunctionBinding
+        TypeFunction t (ConcreteArgs argTypes) isVariadic _ -> FunctionBinding
           (newFunctionDefinition
             { functionName   = ([], name)
             , functionMeta   = [meta metaExtern]
@@ -342,7 +340,7 @@ addCDecl ctx mod name t pos = do
 
 isTypedef :: [CDeclSpec] -> Bool
 isTypedef ((CStorageSpec (CTypedef _)) : _) = True
-isTypedef (h                           : t) = isTypedef t
+isTypedef (h : t) = isTypedef t
 isTypedef [] = False
 
 defineNamedStructsEnumsUnions
@@ -368,10 +366,9 @@ defineNamedStructsEnumsUnions ctx mod pos (h : t) = do
               ((newTypeDefinition)
                 { typeName    = ([], s_pack name)
                 , typeMeta    = [meta metaExtern]
-                , typeSubtype = StructUnion
-                  { structUnionFields = fields
-                  , isStruct          = tag == CStructTag
-                  }
+                , typeSubtype = StructUnion { structUnionFields = fields
+                                            , isStruct = tag == CStructTag
+                                            }
                 }
               )
         addBinding ctx ([], s_pack name) (TypeBinding typeDef)
@@ -381,11 +378,12 @@ defineNamedStructsEnumsUnions ctx mod pos (h : t) = do
               Just v  -> v
               Nothing -> []
         let
-          typeDef
-            = (((newTypeDefinition) :: TypeDefinition TypedExpr ConcreteType)
-                { typeName    = ([], s_pack name)
-                , typeMeta    = [meta metaExtern]
-                , typeSubtype = Enum
+          typeDef =
+            (((newTypeDefinition) :: TypeDefinition TypedExpr ConcreteType)
+              { typeName    = ([], s_pack name)
+              , typeMeta    = [meta metaExtern]
+              , typeSubtype =
+                Enum
                   { enumUnderlyingType = TypeBasicType BasicTypeVoid
                   , enumVariants = [ newEnumVariant
                                        { variantName = ([], s_pack variantName)
@@ -395,8 +393,8 @@ defineNamedStructsEnumsUnions ctx mod pos (h : t) = do
                                    | (Ident variantName _ _, _) <- variants'
                                    ]
                   }
-                }
-              )
+              }
+            )
         let ct = (TypeInstance ([], s_pack name) [])
         addBinding ctx ([], s_pack name) (TypeBinding typeDef)
         veryNoisyDebugLog ctx $ "define enum " ++ name
