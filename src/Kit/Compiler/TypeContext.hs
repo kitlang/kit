@@ -180,9 +180,7 @@ resolveType ctx tctx mod t = do
                       case ct of
                         Just ct -> do
                           -- if this is a type instance, create a new generic
-                          ct   <- makeGenericConcrete ctx (position t) ct
-                          tctx <- genericTctx ctx tctx (position t) ct
-                          follow ctx tctx ct
+                          makeGenericConcrete ctx (position t) ct
                         Nothing ->
                           unknownType (s_unpack $ showTypePath (m, s)) pos
             m -> do
@@ -223,11 +221,11 @@ resolveMaybeType ctx tctx mod params pos t = do
 follow :: CompileContext -> TypeContext -> ConcreteType -> IO ConcreteType
 follow ctx tctx t = do
   veryNoisyDebugLog ctx $ "follow started"
-  _follow ctx tctx [] t
-_follow ctx tctx stack t = do
-  let r x = _follow ctx tctx (x : stack) x
-  when (length stack > 256) $ throwk $ InternalError
-    ("Maximum recursion depth in follow exceeded; " ++ show stack)
+  _follow ctx tctx 256 t
+_follow ctx tctx count t = do
+  let r x = _follow ctx tctx (count - 1) x
+  when (count < 1) $ throwk $ InternalError
+    ("Maximum recursion depth in follow exceeded; last input: " ++ show t)
     Nothing
   veryNoisyDebugLog ctx $ "follow " ++ show t
   case t of
@@ -450,22 +448,21 @@ genericTctx
 genericTctx ctx tctx pos t = do
   t <- follow ctx tctx t
   case t of
-    TypeTypeOf tp params   -> genericTctx ctx tctx pos (TypeInstance tp params)
-    TypePtr t              -> genericTctx ctx tctx pos t
+    TypeTypeOf tp params -> genericTctx ctx tctx pos (TypeInstance tp params)
+    TypePtr t            -> genericTctx ctx tctx pos t
+    TypeBox tp params    -> genericTctx ctx tctx pos (TypeTraitConstraint (tp, params))
     TypeInstance tp params -> do
       params  <- forMWithErrors params $ follow ctx tctx
-      tctx    <- foldM (\tctx t -> genericTctx ctx tctx pos t) tctx params
       params  <- makeGeneric ctx tp pos params
       tctx    <- addTypeParams ctx tctx params pos
       binding <- lookupBinding ctx tp
       -- if this is an abstract, make a generic instance of its parent;
       -- since we might call this before all type definitions are available,
       -- fall back to checking ctxTypes
-      case (fst tp) of
-        [] -> do
-          (TypeBinding def) <- h_get (ctxBindings ctx) tp
+      case binding of
+        Just (TypeBinding def) -> do
           case typeSubtype def of
-            Abstract { abstractUnderlyingType = parent } -> do
+            Abstract { abstractUnderlyingType = parent } ->
               genericTctx ctx tctx pos parent
             _ -> return tctx
         _ -> do
@@ -478,8 +475,9 @@ genericTctx ctx tctx pos t = do
             _ -> return tctx
     TypeTraitConstraint (tp, params) -> do
       params <- forMWithErrors params $ follow ctx tctx
-      tctx   <- foldM (\tctx t -> genericTctx ctx tctx pos t) tctx params
       params <- makeGeneric ctx tp pos params
       addTypeParams ctx tctx params pos
-    TypeTuple t -> foldM (\tctx -> genericTctx ctx tctx pos) tctx t
+    TypeTuple t -> do
+      foldM_ (\tctx -> genericTctx ctx tctx pos) tctx t
+      return tctx
     _           -> return tctx

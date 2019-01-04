@@ -185,10 +185,7 @@ addTypeBinding :: CompileContext -> TypePath -> SyntacticBinding -> IO ()
 addTypeBinding ctx tp b = h_insert (ctxTypes ctx) tp b
 
 lookupBinding :: CompileContext -> TypePath -> IO (Maybe TypedBinding)
-lookupBinding ctx tp = do
-  result <- h_lookup (ctxBindings ctx) tp
-  case result of
-    _ -> return result
+lookupBinding ctx tp = h_lookup (ctxBindings ctx) tp
 
 getBinding :: CompileContext -> TypePath -> IO TypedBinding
 getBinding ctx tp = do

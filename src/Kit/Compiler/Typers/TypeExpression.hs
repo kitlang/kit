@@ -1,37 +1,37 @@
 module Kit.Compiler.Typers.TypeExpression where
 
-import Control.Applicative
-import Control.Exception
-import Control.Monad
-import Data.List
-import Data.Maybe
-import Kit.Ast
-import Kit.Compiler.Binding
-import Kit.Compiler.Context
-import Kit.Compiler.Module
-import Kit.Compiler.Scope
-import Kit.Compiler.TermRewrite
-import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedExpr
-import Kit.Compiler.Typers.AutoRefDeref
-import Kit.Compiler.Typers.ExprTyper
-import Kit.Compiler.Typers.TypeExpression.TypeArrayAccess
-import Kit.Compiler.Typers.TypeExpression.TypeCall
-import Kit.Compiler.Typers.TypeExpression.TypeCast
-import Kit.Compiler.Typers.TypeExpression.TypeControl
-import Kit.Compiler.Typers.TypeExpression.TypeField
-import Kit.Compiler.Typers.TypeExpression.TypeIdentifier
-import Kit.Compiler.Typers.TypeExpression.TypeLiteral
-import Kit.Compiler.Typers.TypeExpression.TypeMatch
-import Kit.Compiler.Typers.TypeExpression.TypeOp
-import Kit.Compiler.Typers.TypeExpression.TypeStructInit
-import Kit.Compiler.Typers.TypeExpression.TypeVarBinding
-import Kit.Compiler.Typers.TypeExpression.TypeVarDeclaration
-import Kit.Compiler.Unify
-import Kit.Compiler.Utils
-import Kit.Error
-import Kit.Parser
-import Kit.Str
+import           Control.Applicative
+import           Control.Exception
+import           Control.Monad
+import           Data.List
+import           Data.Maybe
+import           Kit.Ast
+import           Kit.Compiler.Binding
+import           Kit.Compiler.Context
+import           Kit.Compiler.Module
+import           Kit.Compiler.Scope
+import           Kit.Compiler.TermRewrite
+import           Kit.Compiler.TypeContext
+import           Kit.Compiler.TypedExpr
+import           Kit.Compiler.Typers.AutoRefDeref
+import           Kit.Compiler.Typers.ExprTyper
+import           Kit.Compiler.Typers.TypeExpression.TypeArrayAccess
+import           Kit.Compiler.Typers.TypeExpression.TypeCall
+import           Kit.Compiler.Typers.TypeExpression.TypeCast
+import           Kit.Compiler.Typers.TypeExpression.TypeControl
+import           Kit.Compiler.Typers.TypeExpression.TypeField
+import           Kit.Compiler.Typers.TypeExpression.TypeIdentifier
+import           Kit.Compiler.Typers.TypeExpression.TypeLiteral
+import           Kit.Compiler.Typers.TypeExpression.TypeMatch
+import           Kit.Compiler.Typers.TypeExpression.TypeOp
+import           Kit.Compiler.Typers.TypeExpression.TypeStructInit
+import           Kit.Compiler.Typers.TypeExpression.TypeVarBinding
+import           Kit.Compiler.Typers.TypeExpression.TypeVarDeclaration
+import           Kit.Compiler.Unify
+import           Kit.Compiler.Utils
+import           Kit.Error
+import           Kit.Parser
+import           Kit.Str
 
 typeMaybeExpr
   :: CompileContext
@@ -77,13 +77,13 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
               ++ (foldr (++) [] $ map tImplicitRules $ exprChildren $ tExpr x)
       result <- foldM
         (\acc rule -> do
-          let thisType = case ruleThis rule of
-                Just x  -> inferredType x
-                Nothing -> TypeBasicType BasicTypeUnknown
-          tctx <- genericTctx ctx tctx (tPos x) thisType
           case acc of
             Just x  -> return $ Just x
             Nothing -> do
+              let thisType = case ruleThis rule of
+                    Just x  -> inferredType x
+                    Nothing -> TypeBasicType BasicTypeUnknown
+              tctx   <- genericTctx ctx tctx (tPos x) thisType
               result <- rewriteExpr ctx
                                     tctx
                                     mod
@@ -102,13 +102,12 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         Just (x, tctx) -> r x
         Nothing        -> y
 
-  let utils = TyperUtils
-        { _r          = r
-        , _maybeR     = maybeR
-        , _tryRewrite = tryRewrite
-        , _resolve    = resolve
-        , _typeExpr   = typeExpr
-        }
+  let utils = TyperUtils { _r          = r
+                         , _maybeR     = maybeR
+                         , _tryRewrite = tryRewrite
+                         , _resolve    = resolve
+                         , _typeExpr   = typeExpr
+                         }
 
   let subTyper f = f utils ctx tctx mod ex
 
@@ -287,7 +286,9 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
       x <- r x
       let val = tCompileTimeValue x
       case val of
-        Just value -> r $ makeExprTyped (Literal value (inferredType ex)) (inferredType ex) pos
+        Just value -> r $ makeExprTyped (Literal value (inferredType ex))
+                                        (inferredType ex)
+                                        pos
         Nothing -> throwk $ TypingError
           ("static expression couldn't be evaluated at compile time")
           (tPos x)

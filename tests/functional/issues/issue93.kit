@@ -1,0 +1,21 @@
+function main() {
+    var array: Array[Array[Int]] = Array.new(4);
+    array[0] = Array.new(4);
+    array[0][0] = 7;
+    printf("%i\n", array[0][0]);
+
+    var array2: Vector[Array[Array[Array[Int]]]] = Vector.new(4);
+    array2[0] = Array.new(2);
+    array2[0][1] = Array.new(3);
+    array2[0][1][2] = Array.new(4);
+    array2[0][1][2][3] = 11;
+    printf("%i\n", array2[0][1][2][3]);
+
+    var m3: Map[CString, Array[Int]];
+    m3 = Map.new(8);
+    var a = Array.new(8);
+    a[0] = 15;
+    m3.put("abc", a);
+    var a2 = m3["abc"];
+    printf("%i\n", a2[0]);
+}

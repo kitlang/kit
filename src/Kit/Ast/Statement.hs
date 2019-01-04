@@ -11,9 +11,7 @@ import Kit.Str
 
 data ImportType = ImportSingle | ImportWildcard | ImportDoubleWildcard deriving (Eq, Show)
 
-data Statement a b = Statement {stmt :: StatementType a b, stmtPos :: Span} deriving (Show)
-instance (Eq a, Eq b) => Eq (Statement a b) where
-  (==) a b = (stmt a) == (stmt b) && (stmtPos a == stmtPos b || stmtPos a == NoPos || stmtPos b == NoPos)
+data Statement a b = Statement {stmt :: StatementType a b, stmtPos :: Span} deriving (Eq, Show)
 
 data StatementType a b
   = VarDeclaration (VarDefinition a b)

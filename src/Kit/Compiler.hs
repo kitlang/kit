@@ -52,19 +52,19 @@ compile ctx cc = do
     and map them to type variables.
   -}
   printLogIf ctx "parsing and building module graph"
-  declarations <- buildModuleGraph ctx
+  declarations <- {-# SCC "compile_pass.build_module_graph" #-} buildModuleGraph ctx
 
   {-
     Generate C modules for all includes found during buildModuleGraph.
   -}
   printLogIf      ctx "processing C includes"
-  includeCModules ctx cc
+  {-# SCC "compile_pass.include_C_modules" #-} includeCModules ctx cc
 
   {-
     Find and execute statement-level macros.
   -}
   printLogIf      ctx "expanding macros"
-  declarations <- expandMacros ctx cc compile declarations
+  declarations <- {-# SCC "compile_pass.expand_macros" #-} expandMacros ctx cc compile declarations
 
   {-
     This step utilizes the module interfaces from buildModuleGraph to convert
@@ -74,7 +74,7 @@ compile ctx cc = do
     which will be unified later.
   -}
   printLogIf ctx "resolving module types"
-  resolved <- resolveModuleTypes ctx declarations
+  resolved <- {-# SCC "compile_pass.resolve_module_types" #-} resolveModuleTypes ctx declarations
 
   compilerSanityChecks ctx
 
@@ -89,7 +89,7 @@ compile ctx cc = do
     exception on failure.
   -}
   printLogIf ctx "typing module content"
-  typedRaw <- typeContent ctx resolved
+  typedRaw <- {-# SCC "compile_pass.type_module_content" #-} typeContent ctx resolved
   let
     typed =
       [ (fst $ head x, map snd x)
@@ -107,7 +107,7 @@ compile ctx cc = do
     Convert typed AST to IR.
   -}
   printLogIf ctx "generating intermediate representation"
-  irRaw <- generateIr ctx typed
+  irRaw <- {-# SCC "compile_pass.generate_IR" #-} generateIr ctx typed
   let ir =
         [ (fst $ head x, [foldr mergeBundles (snd $ head x) (map snd $ tail x)])
         | x <- groupBy
@@ -127,7 +127,7 @@ compile ctx cc = do
     Generate header and code files from IR.
   -}
   printLogIf ctx "generating code"
-  generated <- generateCode ctx ir
+  generated <- {-# SCC "compile_pass.generate_code" #-} generateCode ctx ir
 
   {-
     Compile the generated code.
