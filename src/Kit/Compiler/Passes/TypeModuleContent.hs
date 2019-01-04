@@ -63,6 +63,15 @@ typeIterative
   -> Int
   -> IO [(Module, TypedStmt)]
 typeIterative ctx input output lastErrors limit = do
+  when (limit <= 0)
+    $ throwk
+    $ KitErrors
+    $ (KitError $ BasicError
+        ("Maximum number of compile passes exceeded while typing")
+        Nothing
+      )
+    : (reverse lastErrors)
+
   noisyDebugLog ctx
     $  "Beginning new typing pass; "
     ++ show limit
@@ -151,15 +160,6 @@ typeIterative ctx input output lastErrors limit = do
 
   let collapsedResults               = foldr (++) [] results
   let (incomplete, complete, errors) = splitComplete collapsedResults [] [] []
-
-  when (limit <= 0)
-    $ throwk
-    $ KitErrors
-    $ (KitError $ BasicError
-        ("Maximum number of compile passes exceeded while typing")
-        Nothing
-      )
-    : (reverse errors)
 
   madeProgress <- readRef (ctxMadeProgress ctx)
   writeRef (ctxMadeProgress ctx) False

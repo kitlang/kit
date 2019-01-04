@@ -8,7 +8,9 @@ where
 import           Control.Monad
 import           Data.Mutable
 import           Data.List
+import           System.Directory
 import           System.FilePath
+import           System.IO
 import           System.Process
 import           Language.C
 import           Language.C.Analysis.ConstEval
@@ -28,16 +30,6 @@ import           Kit.Log
 import           Kit.Parser
 import           Kit.Str
 
-data IncludeError = IncludeError FilePath [FilePath] deriving (Eq, Show)
-instance Errable IncludeError where
-  logError e@(IncludeError fp searchPaths) =
-    logErrorBasic e
-      $ (  "Couldn't find C header <"
-        ++ fp
-        ++ ">; tried searching the following locations: \n\n"
-        ++ (intercalate "\n" [ "  - " ++ s | s <- searchPaths ])
-        )
-
 {-
   For each C header discovered during the BuildModuleGraph pass, parse the
   header to discover all declarations, and make these available from Kit.
@@ -52,19 +44,21 @@ includeCModules ctx cc = do
       mod <- newCMod
       h_insert (ctxModules ctx) externModPath mod
       return mod
-  forM_ (nub includes) $ includeCHeader ctx cc mod
+  -- to speed things up, create just one header that includes all others
+  let clibPath = (takeDirectory $ includePath ctx) </> "__clibs.h"
+  createDirectoryIfMissing True $ takeDirectory clibPath
+  handle <- openFile clibPath WriteMode
+  forM_ (nub includes)
+    $ \include -> hPutStrLn handle $ "#include \"" ++ include ++ "\""
+  hClose handle
+  -- include our combined header
+  includeCHeader ctx cc mod clibPath
   return ()
 
 includeCHeader :: CompileContext -> CCompiler -> Module -> FilePath -> IO ()
 includeCHeader ctx cc mod path = do
-  found <- findSourceFile path (getIncludePaths ctx cc)
-  case found of
-    Just f -> do
-      debugLog ctx $ "found header " ++ show path ++ " at " ++ show f
-      parseCMacros ctx cc mod f
-      parseCHeader ctx cc mod f
-    Nothing -> throwk
-      $ IncludeError path [ (dir </> path) | dir <- getIncludePaths ctx cc ]
+  parseCMacros ctx cc mod path
+  parseCHeader ctx cc mod path
 
 headerParseFlags ctx cc = do
   flags <- getCompileFlags ctx cc
