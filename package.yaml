@@ -7,7 +7,7 @@ dependencies:
 - base >=4.7
 default-extensions:
 - OverloadedStrings
-ghc-options: -O2 -optc-O3 -funfolding-use-threshold=16 -funbox-strict-fields -fexcess-precision -optc-ffast-math +RTS -A1024M -RTS -fmax-pmcheck-iterations=10000000
+ghc-options: -O2 -optc-O3 -funfolding-use-threshold=16 -funbox-strict-fields -fexcess-precision -optc-ffast-math -with-rtsopts=-A1G -fmax-pmcheck-iterations=10000000
 extra-source-files:
 - "**/*.h"
 
