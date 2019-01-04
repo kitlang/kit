@@ -42,7 +42,7 @@ if [ "$CC" == "gcc" ]; then
       ~/.local/bin/kitc=/usr/bin/kitc std/=/usr/lib/kit
 
     ## Deploy the Apt package
-    curl -T kitlang_${FILE_VERSION}-${TRAVIS_BUILD_NUMBER}_amd64.deb -ukitplummer:$BINTRAY_API_KEY \
+    curl --show-error --fail -T kitlang_${FILE_VERSION}-${TRAVIS_BUILD_NUMBER}_amd64.deb -ukitplummer:$BINTRAY_API_KEY \
       -H "X-Bintray-Publish: 1" \
       -H "X-Bintray-Debian-Distribution: trusty,xenial,bionic" \
       -H "X-Bintray-Debian-Component: universe" \
@@ -50,7 +50,7 @@ if [ "$CC" == "gcc" ]; then
       https://api.bintray.com/content/kitlang/$REPO_NAME-ubuntu/kitlang/$VERSION/kitlang_${FILE_VERSION}-${TRAVIS_BUILD_NUMBER}_amd64.deb
 
     ## Deploy the RPM package
-    curl -vvv -T kitlang-${FILE_VERSION}-$TRAVIS_BUILD_NUMBER.x86_64.rpm \
+    curl --show-error --fail -vvv -T kitlang-${FILE_VERSION}-$TRAVIS_BUILD_NUMBER.x86_64.rpm \
       -H "X-Bintray-Publish: 1" \
       -ukitplummer:$BINTRAY_API_KEY https://api.bintray.com/content/kitlang/$REPO_NAME-redhat/kitlang/$VERSION/kitlang-${FILE_VERSION}-$TRAVIS_BUILD_NUMBER.x86_64.rpm
   fi
