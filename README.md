@@ -91,6 +91,80 @@ You'll need to point Kit to its standard library (which is the "std" directory i
 
 - Kit is currently known to work with mingw64; anything else is unsupported at this time.
 
+Install from package
+--------------------
+
+### Debian/Ubuntu
+
+* Setup Bintray's APT key:
+
+(Debian might need to install dirmngr first - `sudo apt install dirmngr`, and the HTTPS transport for apt - `sudo apt install apt-transport-https`)
+
+```sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 379CE192D401AB61 ```
+
+* Using the command line, add the following to your /etc/apt/sources.list system config file:
+
+For prereleases:
+
+```echo "deb https://dl.bintray.com/kitlang/kitlang-prerelease-ubuntu bionic universe" | sudo tee -a /etc/apt/sources.list.d/kitlang-prerelease.list```
+
+For stable releases:
+
+```echo "deb https://dl.bintray.com/kitlang/kitlang-stable-ubuntu bionic universe" | sudo tee -a /etc/apt/sources.list.d/kitlang-stable.list```
+
+Or, add the repository URLs using the "Software Sources" admin UI:
+
+```deb https://dl.bintray.com/kitlang/kitlang-prerelease bionic universe```
+
+* Update apt and install:
+
+```sudo apt update```
+
+```sudo apt install kitlang```
+
+### RedHat/CentOS
+
+* Run the following to get a generated .repo file:
+
+For prereleases:
+
+```wget https://bintray.com/kitlang/kitlang-prerelease-redhat/rpm -O bintray-kitlang-prerelease-redhat.repo```
+
+For stable releases:
+
+```wget https://bintray.com/kitlang/kitlang-stable-redhat/rpm -O bintray-kitlang-stable-redhat.repo```
+
+\- or -
+
+* Copy this text into a 'bintray-kitlang-prerelease-redhat.repo' file on your Linux machine:
+
+```
+#bintraybintray-kitplummer-kitlang-prerelease-redhat - packages by kitplummer from Bintray
+[bintraybintray-kitplummer-kitlang-prerelease-redhat]
+name=bintray-kitplummer-kitlang-prerelease-redhat
+baseurl=https://dl.bintray.com/kitlang/kitlang-prerelease-redhat
+gpgcheck=0
+repo_gpgcheck=0
+enabled=1
+```
+
+* Then, move the config
+
+```sudo mv bintray-kitlang-rpm.repo /etc/yum.repos.d/```
+
+* Update yum with:
+
+```sudo yum update```
+
+* Install with yum:
+
+```sudo yum install kitlang```
+
+### macOS
+
+* Download one of the macOS packages from https://bintray.com/kitlang/kitlang-macos/kitlang/0.1.0#
+
+* Install the package (NOTE: the installer will complain about 'unidentified developer', have to bypass in System Preferences/Security & Privacy.)
 
 Hello world
 -----------
