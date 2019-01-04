@@ -26,7 +26,7 @@ if [ "$CC" == "gcc" ]; then
       --url "https://kitlang.org" \
       ~/.local/bin/kitc=/usr/local/bin/kitc std/=/usr/local/lib/kit
 
-    curl --show-error --fail -vvv -T kitlang-$FILE_VERSION.pkg -ukitplummer:$BINTRAY_API_KEY \
+    curl --show-error --fail -vvv -T kitlang-$FILE_VERSION.pkg -ubendmorris:$BINTRAY_API_KEY \
       -H "X-Bintray-Publish: 1" -H "X-Bintray-Override: 1" \
       https://api.bintray.com/content/kitlang/kitlang-macos/kitlang/$VERSION/kitlang-$FILE_VERSION.pkg
   fi
