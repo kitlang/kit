@@ -135,9 +135,8 @@ _findUnderlyingType ctx mod pos stack t = do
         [ (typeSubPath templateDef $ paramName param, value)
         | (param, value) <- zip (typeParams templateDef) params
         ] (fromJust pos)
-      def <- followType ctx tctx templateDef
       let typeName = monomorphName (typeRealName templateDef) params
-      case typeSubtype def of
+      case typeSubtype templateDef of
         StructUnion { structUnionFields = fields, isStruct = isStruct } -> do
           return
             $ (if isStruct then BasicTypeStruct else BasicTypeUnion) typeName
@@ -145,7 +144,9 @@ _findUnderlyingType ctx mod pos stack t = do
           return $ if enumIsSimple enum
             then BasicTypeSimpleEnum typeName
             else BasicTypeComplexEnum typeName
-        Abstract { abstractUnderlyingType = u } -> r u
+        Abstract { abstractUnderlyingType = u } -> do
+          TypeDefinition {typeSubtype = Abstract {abstractUnderlyingType = u}} <- followType ctx tctx templateDef
+          r u
 
     TypeTraitConstraint (tp, p) -> do
       return $ BasicTypeStruct $ subPath (monomorphName tp p) "vtable"
