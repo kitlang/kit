@@ -28,6 +28,7 @@ struct Slice[T] {
     rules {
         ($this[$i ... $j]) => struct Self {length: $j - $i, data: &$this.data[$i]};
         ($this[$i]) => $this.data[$i];
+        ($this.unsafeLast) => $this[$this.length - 1];
 
         // optimize Slice iteration at compile time when the type is known
         (for $ident in $this {$e}) => {

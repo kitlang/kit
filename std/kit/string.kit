@@ -2,8 +2,6 @@
  * A String is a length-prefixed and zero-terminated collection of Chars.
  */
 abstract String: Slice[Char] {
-    rule ($this.chars) => $this.data;
-
     public static function fromCString(allocator: Box[Allocator], source: CString): String {
         var length = source.length;
         var data: CString = allocator.alloc(length + 1);
@@ -14,9 +12,24 @@ abstract String: Slice[Char] {
         };
     }
 
+    public function compare(other: Self): Bool {
+        if this.length != other.length {
+            return false;
+        }
+        for i in 0 ... this.length {
+            if this[i] != other[i] {
+                return false;
+            }
+        }
+        return true;
+    }
+
     rules {
         (this as CString) => (this.chars as CString);
         (${s: CString} as String) => String.fromCString($s);
+        ($this.chars) => $this.data;
+        ($this == $other) => $this.compare($other);
+        ($this != $other) => !$this.compare($other);
     }
 }
 

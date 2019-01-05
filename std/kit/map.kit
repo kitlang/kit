@@ -211,6 +211,16 @@ implement Hashable for Char {
     }
 }
 
+implement Hashable for String {
+    function hash(): Int {
+        var hash = 5381;
+        for char in this {
+            hash = (hash << 5) + hash + char;
+        }
+        return hash;
+    }
+}
+
 // implement Hashable for Integral {
 //     function hash(): Int {
 //         return this;

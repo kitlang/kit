@@ -222,6 +222,7 @@ follow :: CompileContext -> TypeContext -> ConcreteType -> IO ConcreteType
 follow ctx tctx t = do
   veryNoisyDebugLog ctx $ "follow started"
   _follow ctx tctx 256 t
+_follow :: CompileContext -> TypeContext -> Int -> ConcreteType -> IO ConcreteType
 _follow ctx tctx count t = do
   let r x = _follow ctx tctx (count - 1) x
   when (count < 1) $ throwk $ InternalError

@@ -38,51 +38,52 @@ typeCall (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _ty
               let
                 fail t = throwk
                   $ TypingError ("Type " ++ show t ++ " is not callable") pos
-              let typeCall t = case t of
-                    TypePtr t@(TypeFunction _ _ _ _) ->
-                      -- function pointer call
-                                                        typeFunctionCall
+              let
+                typeCall t = case t of
+                  TypePtr t@(TypeFunction _ _ _ _) ->
+                    -- function pointer call
+                                                      typeFunctionCall
+                    ctx
+                    tctx
+                    mod
+                    (r1 { inferredType = t })
+                    implicits
+                    typedArgs
+                  TypeFunction _ _ _ _ -> typeFunctionCall
+                    ctx
+                    tctx
+                    mod
+                    (r1 { inferredType = t })
+                    implicits
+                    typedArgs
+                  TypeEnumConstructor tp discriminant argTypes params -> do
+                    typeEnumConstructorCall ctx
+                                            tctx
+                                            mod
+                                            (r1 { inferredType = t })
+                                            typedArgs
+                                            tp
+                                            discriminant
+                                            argTypes
+                                            params
+                  TypeInstance tp params -> do
+                    templateDef <- getTypeDefinition ctx tp
+                    tctx        <- addTypeParams
                       ctx
-                      tctx
-                      mod
-                      (r1 { inferredType = t })
-                      implicits
-                      typedArgs
-                    TypeFunction _ _ _ _ -> typeFunctionCall
-                      ctx
-                      tctx
-                      mod
-                      (r1 { inferredType = t })
-                      implicits
-                      typedArgs
-                    TypeEnumConstructor tp discriminant argTypes params -> do
-                      typeEnumConstructorCall ctx
-                                              tctx
-                                              mod
-                                              (r1 { inferredType = t })
-                                              typedArgs
-                                              tp
-                                              discriminant
-                                              argTypes
-                                              params
-                    TypeInstance tp params -> do
-                      templateDef <- getTypeDefinition ctx tp
-                      tctx        <- addTypeParams
-                        ctx
-                        (tctx { tctxSelf = Just t })
-                        [ (typeSubPath templateDef $ paramName param, val)
-                        | (param, val) <- zip (typeParams templateDef) params
-                        ]
-                        pos
+                      (tctx { tctxSelf = Just t })
+                      [ (typeSubPath templateDef $ paramName param, val)
+                      | (param, val) <- zip (typeParams templateDef) params
+                      ]
+                      pos
 
-                      def <- followType ctx tctx templateDef
-                      let subtype = typeSubtype def
-                      case subtype of
-                        Abstract { abstractUnderlyingType = u } ->
-                          -- forward to parent
-                          typeCall u
-                        _ -> fail t
-                    _ -> fail t
+                    def <- followType ctx tctx templateDef
+                    let subtype = typeSubtype def
+                    case subtype of
+                      Abstract { abstractUnderlyingType = u } ->
+                        -- forward to parent
+                        typeCall u
+                      _ -> fail t
+                  _ -> fail t
 
               typeCall $ inferredType r1
 
@@ -132,8 +133,6 @@ typeCall (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _ty
           return $ makeExprTyped (Return Nothing) TypeVoid pos
         (Nothing, _) ->
           throwk $ TypingError "Can't `return` outside of a function" pos
-
-
 
 alignCallArgs
   :: CompileContext
