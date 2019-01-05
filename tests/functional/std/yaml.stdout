@@ -19,3 +19,9 @@ array_of_objects:
   -
     name: second_object
     value: 2
+hello!
+child_key: 4
+no nested_key3
+2
+false
+null

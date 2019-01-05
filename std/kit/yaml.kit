@@ -106,4 +106,34 @@ enum Yaml {
             }
         }
     }
+
+    public function getMapKey(key: CString): Option[Ptr[Yaml]] {
+        match this {
+            YamlMap(pairs) => {
+                for i in 0 ... pairs.length {
+                    if pairs[i][0] == key {
+                        return Some(&pairs[i][1]);
+                    }
+                }
+            }
+        }
+        return None;
+    }
+
+    public function getValue(): Option[CString] {
+        match this {
+            YamlScalar(s) => return Some(s);
+        }
+        return None;
+    }
+
+    rules {
+        ($this[$key]) => $this.getMapKey($key);
+        (for $ident in $this {$e}) => {
+            var __node = $this;
+            match __node {
+                YamlSequence(__values) => for $ident in __values {{$e}}
+            }
+        }
+    }
 }

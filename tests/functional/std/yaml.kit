@@ -70,5 +70,14 @@ array_of_objects:
 
     var yaml = result.unwrap();
     print_yaml(yaml, 0);
+
+    puts(yaml['str_key'].unwrap().getValue().unwrap());
+    print_yaml(yaml['nested_key2'].unwrap(), 0);
+    puts(if yaml['nested_key3'].isSome() then "nested_key3" else "no nested_key3");
+    var array: Yaml = yaml['array_key'].unwrap();
+    for item in array {
+        print_yaml(item, 0);
+    }
+
     yaml.free();
 }
