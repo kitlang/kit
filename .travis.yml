@@ -63,6 +63,7 @@ jobs:
 notifications:
   webhooks:
     urls:
+    - https://discordapp.com/api/webhooks/531220869075435520/8jqea-tWQhozjCKAWVFnZ7LwWyirOH3tzMKWxnbymIflVUYWrMJ2NhgbUYMUAA2hQcyJ
     - https://webhooks.gitter.im/e/527960c420198d3dc02a
     on_success: change
     on_failure: always
