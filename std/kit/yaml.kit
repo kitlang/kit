@@ -120,6 +120,18 @@ enum Yaml {
         return None;
     }
 
+    public function getSequenceItem(index: Int): Option[Ptr[Yaml]] {
+        match this {
+            YamlSequence(items) => {
+                if index >= items.length {
+                    return None;
+                }
+                return Some(&items[index]);
+            }
+        }
+        return None;
+    }
+
     public function getValue(): Option[CString] {
         match this {
             YamlScalar(s) => return Some(s);
@@ -128,7 +140,9 @@ enum Yaml {
     }
 
     rules {
-        ($this[$key]) => $this.getMapKey($key);
+        ($this[${key: CString}]) => $this.getMapKey($key);
+        // FIXME: should only match when $index is Integral
+        ($this[$index]) => $this.getSequenceItem($index);
         (for $ident in $this {$e}) => {
             var __node = $this;
             match __node {

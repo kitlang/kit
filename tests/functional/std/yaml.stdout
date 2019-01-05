@@ -22,6 +22,8 @@ array_of_objects:
 hello!
 child_key: 4
 no nested_key3
+4
+false
 2
 false
 null
