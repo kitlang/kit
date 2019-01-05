@@ -107,12 +107,12 @@ enum Yaml {
         }
     }
 
-    public function getMapKey(key: CString): Option[Ptr[Yaml]] {
+    public function getMapKey(key: CString): Option[Yaml] {
         match this {
             YamlMap(pairs) => {
-                for i in 0 ... pairs.length {
-                    if pairs[i][0] == key {
-                        return Some(&pairs[i][1]);
+                for pair in pairs {
+                    if pair[0] == key {
+                        return Some(pair[1]);
                     }
                 }
             }
@@ -120,13 +120,13 @@ enum Yaml {
         return None;
     }
 
-    public function getSequenceItem(index: Int): Option[Ptr[Yaml]] {
+    public function getSequenceItem(index: Int): Option[Yaml] {
         match this {
             YamlSequence(items) => {
                 if index >= items.length {
                     return None;
                 }
-                return Some(&items[index]);
+                return Some(items[index]);
             }
         }
         return None;

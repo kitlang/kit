@@ -74,7 +74,7 @@ array_of_objects:
     puts(yaml['str_key'].unwrap().getValue().unwrap());
     print_yaml(yaml['nested_key2'].unwrap(), 0);
     puts(if yaml['nested_key3'].isSome() then "nested_key3" else "no nested_key3");
-    puts((*yaml['nested_key2'].unwrap())['child_key'].unwrap().getValue().unwrap());
+    puts(yaml['nested_key2'].unwrap()['child_key'].unwrap().getValue().unwrap());
     var array: Yaml = yaml['array_key'].unwrap();
     puts(array[1].unwrap().getValue().unwrap());
     for item in array {
