@@ -1,6 +1,6 @@
 [![Build Status](https://img.shields.io/travis/kitlang/kit/master.svg?style=flat)](https://travis-ci.org/kitlang/kit)
 [![License: LGPL v3](https://img.shields.io/badge/license-LGPL%20v3-202020.svg)](https://www.gnu.org/licenses/lgpl-3.0)
-[![Discord Chat](https://img.shields.io/discord/531195968129990657.svg)](https://discord.gg/3va8Us9)  
+[![Discord Chat](https://img.shields.io/discord/531195968129990657.svg)](https://discord.gg/3va8Us9)
 [![roadmap on_trello](https://img.shields.io/badge/roadmap-on%20trello-0079bf.svg)](https://trello.com/b/Bn9H0fzk/kit)
 [![Website URL: https://www.kitlang.org](https://img.shields.io/badge/web-kitlang.org-3fa5bf.svg)](https://www.kitlang.org)
 
