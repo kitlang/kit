@@ -24,10 +24,10 @@ import Kit.Str
 
 data DuplicateGlobalNameError = DuplicateGlobalNameError ModulePath Str Span Span deriving (Eq, Show)
 instance Errable DuplicateGlobalNameError where
-  logError e@(DuplicateGlobalNameError mod name pos1 pos2) = do
-    logErrorBasic e $ "Duplicate declaration for global name `" ++ s_unpack name ++ "` in " ++ s_unpack (showModulePath mod) ++ "; \n\nFirst declaration:"
+  logError reader e@(DuplicateGlobalNameError mod name pos1 pos2) = do
+    logErrorBasic reader e $ "Duplicate declaration for global name `" ++ s_unpack name ++ "` in " ++ s_unpack (showModulePath mod) ++ "; \n\nFirst declaration:"
     ePutStrLn "\nSecond declaration:"
-    displayFileSnippet pos2
+    displayFileSnippet reader pos2
     ePutStrLn "\n#[extern] declarations and declarations from included C headers must have globally unique names."
   errPos (DuplicateGlobalNameError _ _ pos _) = Just pos
 
@@ -78,7 +78,8 @@ data CompileContextState = CompileContextState {
   ctxStateUnresolvedTypeVars :: IORef [Int],
   ctxStateUnresolvedTemplateVars :: IORef [(Int, [ConcreteType], Span)],
   ctxStateConstantParamTypes :: HashTable TypePath ConcreteType,
-  ctxStateMadeProgress :: IORef Bool
+  ctxStateMadeProgress :: IORef Bool,
+  ctxStateMacroOutput :: HashTable (TypePath, Int) Str
 }
 
 newCompileContext :: IO CompileContext
@@ -130,6 +131,7 @@ newCtxState = do
   unresolvedTemplate <- newRef []
   prog               <- newRef False
   constTypes         <- h_newSized 128
+  macroOut           <- h_new
   return $ CompileContextState
     { ctxStateIncludes               = includes
     , ctxStateLinkedLibs             = linkedLibs
@@ -150,6 +152,7 @@ newCtxState = do
     , ctxStateModules                = mods
     , ctxStateConstantParamTypes     = constTypes
     , ctxStateMadeProgress           = prog
+    , ctxStateMacroOutput            = macroOut
     }
 
 ctxModules = ctxStateModules . ctxState
@@ -171,6 +174,7 @@ ctxUnresolvedTypeVars = ctxStateUnresolvedTypeVars . ctxState
 ctxUnresolvedTemplateVars = ctxStateUnresolvedTemplateVars . ctxState
 ctxConstantParamTypes = ctxStateConstantParamTypes . ctxState
 ctxMadeProgress = ctxStateMadeProgress . ctxState
+ctxMacroOutput = ctxStateMacroOutput . ctxState
 
 ctxSourceModules :: CompileContext -> IO [Module]
 ctxSourceModules ctx = do

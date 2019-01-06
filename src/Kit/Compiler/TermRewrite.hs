@@ -18,9 +18,9 @@ data TermRewriteError
   = TermRewriteError String [(String, RewriteRule TypedExpr ConcreteType)] Span
   deriving (Eq, Show)
 instance Errable TermRewriteError where
-  logError e@(TermRewriteError msg rules pos) = do
-    logErrorBasic e $ msg
-    forM_ rules (\(msg, rule) -> do ePutStrLn msg; displayFileSnippet (rulePos rule))
+  logError reader e@(TermRewriteError msg rules pos) = do
+    logErrorBasic reader e $ msg
+    forM_ rules (\(msg, rule) -> do ePutStrLn msg; displayFileSnippet reader (rulePos rule))
 
   errPos (TermRewriteError _ _ pos) = Just pos
 

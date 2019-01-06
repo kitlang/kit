@@ -137,7 +137,7 @@ dumpAst ctx indent e@(TypedExpr { tExpr = texpr, inferredType = t, tPos = pos })
       indented =
         (++)
           (  (take (indent * 2) $ repeat ' ')
-          ++ (show $ (pos { file = "" }))
+          ++ (show $ (pos { file = FileSpan "" }))
           ++ ": "
           )
     let f x =
