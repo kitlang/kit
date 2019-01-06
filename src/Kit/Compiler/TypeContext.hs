@@ -392,7 +392,6 @@ builtinToConcreteType
   -> IO (Maybe ConcreteType)
 builtinToConcreteType ctx tctx mod s pos = do
   case s of
-    "FILE" -> return $ Just $ TypeBasicType $ BasicTypeCFile
     "Void" -> return $ Just $ TypeBasicType BasicTypeVoid
     _      -> return Nothing
 

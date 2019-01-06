@@ -42,7 +42,6 @@ data BasicType
   | BasicTypeComplexEnum TypePath
   | BasicTypeFunction BasicType BasicArgs Bool
   | BasicTypeTuple Str [BasicType]
-  | BasicTypeCFile
   -- If for some reason we can't parse type specifiers into a meaningful
   -- BasicType, the value isn't usable from Kit without casting.
   | BasicTypeTypedef Str
@@ -119,7 +118,6 @@ instance Show BasicType where
   show (BasicTypeComplexEnum name) = "enum " ++ (s_unpack $ showTypePath name)
   show (BasicTypeFunction t args varargs) = "function (" ++ (intercalate ", " [s_unpack name ++ ": " ++ show argType | (name, argType) <- args]) ++ (if varargs then ", ..." else "") ++ "): " ++ show t
   show (BasicTypeTuple _ t) = "tuple (" ++ intercalate ", " (map show t) ++ ")"
-  show (BasicTypeCFile) = "FILE"
   show (BasicTypeTypedef s) = s_unpack s
   show (BasicTypeUnknown) = "???"
 
