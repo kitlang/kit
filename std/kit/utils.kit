@@ -15,7 +15,8 @@
     // println(s.toString());
 // }
 
-#[noreturn] function panic(msg: Const[CString]) {
-    fprintf(stderr, "%s\n", msg);
+#[noreturn] function panic(msg: Const[CString], args...) {
+    vfprintf(stderr, msg, (args...));
+    fputs("", stderr);
     exit(1);
 }

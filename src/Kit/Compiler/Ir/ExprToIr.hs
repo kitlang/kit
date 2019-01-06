@@ -481,6 +481,7 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
       (VarArg x) -> do
         return $ IrCall (IrIdentifier ([], "va_arg"))
                         [IrIdentifier ([], x), IrType f]
+      (VarArgListCopy x) -> return $ IrIdentifier ([], x)
       InlineCExpr s t -> return $ IrInlineC s
       t               -> do
         throwk $ InternalError

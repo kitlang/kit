@@ -203,6 +203,8 @@ convertExpr ctx tctx mod params e = do
       x <- r x
       t <- mtv
       return $ m (StaticExpr x) t
+    VarArgListCopy s -> do
+      return $ m (VarArgListCopy s) TypeVaList
     _ -> throwk $ InternalError
       ("Can't convert expression: " ++ show (expr e))
       (Just pos')
