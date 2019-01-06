@@ -30,9 +30,8 @@ data MacroData = MacroData {
   macroDef :: FunctionDefinition Expr (Maybe TypeSpec),
   macroTypePath :: TypePath,
   macroArgCount :: IORef Int,
-  macroArgs :: HashTable [Expr] Int,
-  macroResults :: HashTable Int [SyntacticStatement],
-  macroPos :: Span
+  macroArgs :: HashTable [Expr] (Int, Span),
+  macroResults :: HashTable Int [SyntacticStatement]
 }
 
 type CompileFunc = CompileContext -> CCompiler -> IO ()
@@ -100,7 +99,6 @@ findInvocations ctx macros stmts = do
                 , macroArgCount = count
                 , macroArgs     = args
                 , macroResults  = results
-                , macroPos      = stmtPos s
                 }
           h_insert invocations tp invocation
           return invocation
@@ -110,7 +108,7 @@ findInvocations ctx macros stmts = do
         Nothing -> do
           modifyRef (macroArgCount invocationData) ((+) 1)
           index <- readRef (macroArgCount invocationData)
-          h_insert (macroArgs invocationData) args index
+          h_insert (macroArgs invocationData) args (index, stmtPos s)
     _ -> return ()
   return invocations
 
@@ -132,7 +130,7 @@ callMacros ctx cc compile invocations = do
               -<.> ""
               </>  (s_unpack $ tpName $ functionName def)
       let macroCtx = ctx { ctxMainModule = mod
-                         , ctxMacro = Just (def, [ (a, b) | (b, a) <- args ])
+                         , ctxMacro = Just (def, [ (a, b) | (b, (a, _)) <- args ])
                          , ctxRun        = False
                          , ctxState      = macroState
                          , ctxVerbose    = ctxVerbose ctx - 1
@@ -142,7 +140,7 @@ callMacros ctx cc compile invocations = do
       compile macroCtx cc
       let outName = ctxOutputPath macroCtx
       binPath <- canonicalizePath outName
-      forM_ args $ \(_, index) -> do
+      forM_ args $ \(_, (index, pos)) -> do
         (exitcode, result, stderr) <- readCreateProcessWithExitCode
           (proc binPath [show index])
           ""
@@ -170,7 +168,7 @@ callMacros ctx cc compile invocations = do
               ++ show code
               ++ (if null stderr then "" else ("):\n\n" ++ stderr))
               )
-              (Just $ macroPos invocation)
+              (Just pos)
     )
     invocations
 
@@ -196,7 +194,7 @@ expandMacrosInStmt ctx mod macros invocations s = case stmt s of
     macro      <- findMacro ctx mod macros tp $ stmtPos s
     tp         <- return $ functionName macro
     invocation <- h_get invocations tp
-    index      <- h_get (macroArgs invocation) args
+    (index, _) <- h_get (macroArgs invocation) args
     result     <- h_get (macroResults invocation) index
     results    <- forM result $ addStmtToModuleInterface ctx mod
     return $ foldr (++) [] results
