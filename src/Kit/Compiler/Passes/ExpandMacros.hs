@@ -6,6 +6,7 @@ import qualified Data.ByteString.Lazy.Char8 as B
 import Data.Mutable
 import Data.List
 import System.Directory
+import System.Exit
 import System.FilePath
 import System.Process
 import Language.C
@@ -30,7 +31,8 @@ data MacroData = MacroData {
   macroTypePath :: TypePath,
   macroArgCount :: IORef Int,
   macroArgs :: HashTable [Expr] Int,
-  macroResults :: HashTable Int [SyntacticStatement]
+  macroResults :: HashTable Int [SyntacticStatement],
+  macroPos :: Span
 }
 
 type CompileFunc = CompileContext -> CCompiler -> IO ()
@@ -98,6 +100,7 @@ findInvocations ctx macros stmts = do
                 , macroArgCount = count
                 , macroArgs     = args
                 , macroResults  = results
+                , macroPos      = stmtPos s
                 }
           h_insert invocations tp invocation
           return invocation
@@ -140,20 +143,34 @@ callMacros ctx cc compile invocations = do
       let outName = ctxOutputPath macroCtx
       binPath <- canonicalizePath outName
       forM_ args $ \(_, index) -> do
-        result <- readCreateProcess (proc binPath [show index]) ""
-        debugLog ctx result
-        let
-          parseResult =
-            parseTokens
-              $ scanTokens
-                  (  "(macro "
-                  ++ s_unpack (showTypePath $ functionName def)
-                  ++ ")"
-                  )
-              $ B.pack result
-        case parseResult of
-          ParseResult r -> h_insert (macroResults invocation) index r
-          Err         e -> throw e
+        (exitcode, result, stderr) <- readCreateProcessWithExitCode
+          (proc binPath [show index])
+          ""
+        case exitcode of
+          ExitSuccess -> do
+            when (not $ null stderr) $ traceLog stderr
+            debugLog ctx result
+            let
+              parseResult =
+                parseTokens
+                  $ scanTokens
+                      (  "(macro "
+                      ++ s_unpack (showTypePath $ functionName def)
+                      ++ ")"
+                      )
+                  $ B.pack result
+            case parseResult of
+              ParseResult r -> h_insert (macroResults invocation) index r
+              Err         e -> throw e
+          ExitFailure code -> do
+            throwk $ BasicError
+              (  "Macro "
+              ++ s_unpack (showTypePath $ functionName def)
+              ++ " failed (exit status "
+              ++ show code
+              ++ (if null stderr then "" else ("):\n\n" ++ stderr))
+              )
+              (Just $ macroPos invocation)
     )
     invocations
 

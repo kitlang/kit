@@ -16,6 +16,6 @@
 // }
 
 #[noreturn] function panic(msg: Const[CString]) {
-    printf("%s\n", msg);
+    fprintf(stderr, "%s\n", msg);
     exit(1);
 }

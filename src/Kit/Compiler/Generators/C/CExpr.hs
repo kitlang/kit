@@ -175,8 +175,6 @@ ctype (BasicTypeFunction rt args var) =
         )
       : rtb
       )
-ctype (BasicTypeCFile) =
-  ([CTypeSpec $ u $ CTypeDef (internalIdent $ "FILE")], [])
 ctype (BasicTypeAnonEnum Nothing variants)
   = ( [ CTypeSpec $ u $ CEnumType $ u $ CEnum
           Nothing
