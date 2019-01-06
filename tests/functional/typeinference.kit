@@ -11,7 +11,7 @@ function numFunc1() {
     return 1;
 }
 
-function numFunc2() {
+function numFunc2(): _ {
     return 1 + 2;
 }
 
@@ -27,6 +27,7 @@ function main() {
     var a = numFunc1();
     var b = numFunc2();
     var c = numFunc3();
+    var d: _ = numFunc2();
 
-    printf("%.2f\n", a + b + c);
+    printf("%.2f\n", a + b + c + d);
 }

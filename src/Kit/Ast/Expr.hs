@@ -11,8 +11,8 @@ import Kit.Ast.Span
 import Kit.Ast.Statement
 import Kit.Ast.Types
 
-type SyntacticStatement = Statement Expr (Maybe TypeSpec)
-type SyntacticExprType = ExprType Expr (Maybe TypeSpec)
+type SyntacticStatement = Statement Expr TypeSpec
+type SyntacticExprType = ExprType Expr TypeSpec
 
 data Expr = Expr {expr :: SyntacticExprType, pos :: Span} deriving (Show, Generic)
 instance Eq Expr where

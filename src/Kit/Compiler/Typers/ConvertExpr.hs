@@ -24,7 +24,7 @@ convertExpr
 convertExpr ctx tctx mod params e = do
   let pos'          = pos e
   -- "make type variable"
-  let mtv           = resolveMaybeType ctx tctx mod params pos' Nothing
+  let mtv = resolveMaybeType ctx tctx mod params pos' (InferredType pos')
   -- "resolve" - shortcut to recursively call this function on children
   let r             = convertExpr ctx tctx mod params
   -- return a ConcreteType, either the annotated type or a type var if none
@@ -83,8 +83,8 @@ convertExpr ctx tctx mod params e = do
     Identifier (Var id       ) -> container0 (Identifier (Var id))
     Identifier (MacroVar id t) -> do
       t <- case t of
-        Just x  -> resolveType ctx tctx mod x
-        Nothing -> return $ TypeBasicType BasicTypeUnknown
+        InferredType _ -> return $ TypeBasicType BasicTypeUnknown
+        _              -> resolveType ctx tctx mod t
       return $ m (Identifier (MacroVar id t)) t
     TypeAnnotation e1 t -> do
       t  <- typeOrTypeVar t
@@ -180,12 +180,12 @@ convertExpr ctx tctx mod params e = do
     --         TypeTraitConstraint (tp, params) -> (tp, params)
     --   r1 <- r e1
     --   return $ m (Box impl' r1) (TypeBox tp params)
-    SizeOf (Just t) -> do
+    SizeOf (InferredType _) -> do
+      throwk $ BasicError "sizeof keyword requires a type" (Just pos')
+    SizeOf t -> do
       t' <- resolveType ctx tctx mod t
       return $ m (SizeOf t') (TypeSize)
-    SizeOf Nothing -> do
-      throwk $ BasicError "sizeof keyword requires a type" (Just pos')
-    Implicit (Just t) -> do
+    Implicit t -> do
       t' <- resolveType ctx tctx mod t
       return $ m (Implicit t') t'
     Null -> do

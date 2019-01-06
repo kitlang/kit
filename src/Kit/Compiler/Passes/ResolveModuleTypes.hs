@@ -124,7 +124,7 @@ validateMain ctx = do
 resolveTypesForMod
   :: ResolveTypesPass
   -> CompileContext
-  -> HashTable TypePath (IORef [DefStatement Expr (Maybe TypeSpec)])
+  -> HashTable TypePath (IORef [DefStatement Expr TypeSpec])
   -> (Module, [SyntacticStatement])
   -> IO (Module, [TypedStmtWithContext])
 resolveTypesForMod pass ctx extensions (mod, contents) = do
@@ -158,7 +158,7 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
     (\decl -> do
       noisyDebugLog ctx $ "resolving types for " ++ (show $ stmt decl)
       case (pass, stmt decl) of
-        (ResolveImpls, Implement (i@TraitImplementation { implFor = Just iFor, implTrait = Just trait }))
+        (ResolveImpls, Implement (i@TraitImplementation { implFor = iFor, implTrait = trait }))
           -> do
             traitCt <- resolveType ctx tctx mod trait
             case traitCt of
@@ -266,8 +266,8 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
 
         (ResolveExtensions, ExtendDefinition t stmts) -> do
           let pos = case t of
-                Just t  -> position t
-                Nothing -> NoPos
+                InferredType pos -> pos
+                _                -> position t
           ct <- resolveMaybeType ctx tctx mod [] pos t
           let tp = case ct of
                 TypeInstance tp _           -> tp
@@ -491,7 +491,7 @@ addModUsing
   -> TypeContext
   -> Module
   -> Span
-  -> UsingType Expr (Maybe TypeSpec)
+  -> UsingType Expr TypeSpec
   -> IO ()
 addModUsing ctx tctx mod pos using = do
   converted <- convertUsingType

@@ -17,7 +17,7 @@ data SpanLocation
 
 instance Hashable SpanLocation
 instance Show SpanLocation where
-  show (FileSpan fp) = show fp
+  show (FileSpan fp) = fp
   show (MacroSpan (tp, _)) = "(macro " ++ s_unpack (showTypePath tp) ++ ")"
 
 data Span = Span

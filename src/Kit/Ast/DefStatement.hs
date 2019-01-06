@@ -18,7 +18,7 @@ data DefStatement a b
   | DefVariant (EnumVariant a b)
   deriving (Eq, Show)
 
--- instance Positioned (DefStatement Expr (Maybe TypeSpec)) where
+-- instance Positioned (DefStatement Expr TypeSpec where
 --   position (DefField v) = varPos v
 --   position (DefMethod f) = functionPos f
 --   position (DefRule r) = rulePos r

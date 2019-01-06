@@ -38,5 +38,5 @@ bindingIsPublic binding = case binding of
   FunctionBinding f -> isPublic (functionModifiers f)
   _                 -> True
 
-type SyntacticBinding = Binding Expr (Maybe TypeSpec)
+type SyntacticBinding = Binding Expr TypeSpec
 type TypedBinding = Binding TypedExpr ConcreteType

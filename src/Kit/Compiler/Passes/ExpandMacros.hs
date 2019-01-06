@@ -27,7 +27,7 @@ import Kit.Parser
 import Kit.Str
 
 data MacroData = MacroData {
-  macroDef :: FunctionDefinition Expr (Maybe TypeSpec),
+  macroDef :: FunctionDefinition Expr TypeSpec,
   macroTypePath :: TypePath,
   macroArgCount :: IORef Int,
   macroArgs :: HashTable [Expr] (Int, Span),
@@ -35,7 +35,7 @@ data MacroData = MacroData {
 }
 
 type CompileFunc = CompileContext -> CCompiler -> IO ()
-type MacroMap = HashTable TypePath (FunctionDefinition Expr (Maybe TypeSpec))
+type MacroMap = HashTable TypePath (FunctionDefinition Expr TypeSpec)
 type MacroInvocationMap = HashTable TypePath MacroData
 type ModuleStatements = (Module, [SyntacticStatement])
 
@@ -205,7 +205,7 @@ findMacro
   -> MacroMap
   -> TypePath
   -> Span
-  -> IO (FunctionDefinition Expr (Maybe TypeSpec))
+  -> IO (FunctionDefinition Expr TypeSpec)
 findMacro ctx mod macros name pos = do
   result <- case name of
     ([], s) -> do

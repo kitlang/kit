@@ -10,13 +10,15 @@ import Kit.Str
 
 testParse s = unwrapParsed $ parseTokens (scanTokens (FileSpan "") s)
 testParseExpr s = unwrapParsed $ parseExpr (scanTokens (FileSpan "") s)
-testParseTopLevel s = unwrapParsed $ parseTopLevelExpr (scanTokens (FileSpan "") s)
-testParseTypeSpec s = fst $ unwrapParsed $ parseTypeSpec (scanTokens (FileSpan "") s)
+testParseTopLevel s =
+  unwrapParsed $ parseTopLevelExpr (scanTokens (FileSpan "") s)
+testParseTypeSpec s =
+  fst $ unwrapParsed $ parseTypeSpec (scanTokens (FileSpan "") s)
 unwrapParsed x = case x of
   ParseResult r -> r
   Err         e -> error $ show e
 
-testParseType :: B.ByteString -> TypeDefinition Expr (Maybe TypeSpec)
+testParseType :: B.ByteString -> TypeDefinition Expr TypeSpec
 testParseType s =
   let (t : e) = unwrapParsed $ parseTokens (scanTokens (FileSpan "") s)
   in  foldr
@@ -94,13 +96,13 @@ spec = parallel $ do
       testParseExpr "x : T"
         `shouldBe` (pe (sp "" 1 1 1 5) $ TypeAnnotation
                      (pe (sp "" 1 1 1 1) $ Identifier $ Var ([], "x"))
-                     (Just $ TypeSpec (([], "T")) [] NoPos)
+                     (TypeSpec (([], "T")) [] NoPos)
                    )
 
       testParseExpr "x : T[A, B, C, D[E]]"
         `shouldBe` (pe (sp "" 1 1 1 20) $ TypeAnnotation
                      (pe (sp "" 1 1 1 1) $ Identifier $ Var ([], "x"))
-                     (Just $ TypeSpec
+                     (TypeSpec
                        (([], "T"))
                        [ TypeSpec (([], "A")) [] NoPos
                        , TypeSpec (([], "B")) [] NoPos
@@ -115,7 +117,9 @@ spec = parallel $ do
 
     it "parses value literals" $ do
       testParseExpr "1"
-        `shouldBe` (pe (sp "" 1 1 1 1) $ Literal (IntValue 1) Nothing)
+        `shouldBe` (pe (sp "" 1 1 1 1) $ Literal (IntValue 1) $ InferredType
+                     NoPos
+                   )
 
     it "parses binops" $ do
       testParseExpr "a = 1 + 2.0 * 'abc def'"
@@ -124,14 +128,12 @@ spec = parallel $ do
                      (e $ Identifier $ Var ([], "a"))
                      (e $ Binop
                        Add
-                       (e $ Literal (IntValue 1) Nothing)
+                       (e $ Literal (IntValue 1) $ InferredType NoPos)
                        (e $ Binop
                          Mul
-                         (e $ Literal (FloatValue "2.0") Nothing)
-                         ( e
-                         $ Literal (StringValue "abc def")
-                         $ Just
-                         $ makeTypeSpec "CString"
+                         (e $ Literal (FloatValue "2.0") $ InferredType NoPos)
+                         (e $ Literal (StringValue "abc def") $ makeTypeSpec
+                           "CString"
                          )
                        )
                      )
@@ -140,14 +142,9 @@ spec = parallel $ do
     it "parses ternary" $ do
       testParseExpr "if true then 1 else 2"
         `shouldBe` (e $ If
-                     ( e
-                     $ Literal (BoolValue True)
-                     $ Just
-                     $ ConcreteType
-                     $ TypeBool
-                     )
-                     (e $ Literal (IntValue 1) Nothing)
-                     (Just $ e $ Literal (IntValue 2) Nothing)
+                     (e $ Literal (BoolValue True) $ ConcreteType $ TypeBool)
+                     (e $ Literal (IntValue 1) $ InferredType NoPos)
+                     (Just $ e $ Literal (IntValue 2) $ InferredType NoPos)
                    )
 
     it "parses vectors" $ do
@@ -155,16 +152,8 @@ spec = parallel $ do
         `shouldBe` (e $ ArrayLiteral
                      [ e This
                      , e Self
-                     , e
-                     $ Literal (BoolValue True)
-                     $ Just
-                     $ ConcreteType
-                     $ TypeBool
-                     , e
-                     $ Literal (BoolValue False)
-                     $ Just
-                     $ ConcreteType
-                     $ TypeBool
+                     , e $ Literal (BoolValue True) $ ConcreteType $ TypeBool
+                     , e $ Literal (BoolValue False) $ ConcreteType $ TypeBool
                      ]
                    )
 
@@ -175,23 +164,19 @@ spec = parallel $ do
       testParseExpr "this as A[B]"
         `shouldBe` (e $ Cast
                      (e This)
-                     (Just $ TypeSpec ([], "A")
-                                      [typeParamToSpec $ makeTypeParam "B"]
-                                      NoPos
+                     (TypeSpec ([], "A")
+                               [typeParamToSpec $ makeTypeParam "B"]
+                               NoPos
                      )
                    )
 
     it "parses inline structs" $ do
       testParseExpr "struct Abc {a: 1, b: true}"
         `shouldBe` (e $ StructInit
-                     (Just $ TypeSpec ([], "Abc") [] (sp "" 1 8 1 10))
-                     [ ("a", e $ Literal (IntValue 1) Nothing)
+                     (TypeSpec ([], "Abc") [] (sp "" 1 8 1 10))
+                     [ ("a", e $ Literal (IntValue 1) $ InferredType NoPos)
                      , ( "b"
-                       , e
-                       $ Literal (BoolValue True)
-                       $ Just
-                       $ ConcreteType
-                       $ TypeBool
+                       , e $ Literal (BoolValue True) $ ConcreteType TypeBool
                        )
                      ]
                    )
@@ -200,14 +185,12 @@ spec = parallel $ do
       testParseExpr "__: (A, B, C)"
         `shouldBe` (pe (sp "" 1 1 1 13) $ TypeAnnotation
                      (pe (sp "" 1 1 1 2) $ Identifier $ Var ([], "__"))
-                     (Just
-                       (TupleTypeSpec
-                         [ TypeSpec ([], "A") [] (sp "" 1 5 1 5)
-                         , TypeSpec ([], "B") [] (sp "" 1 8 1 8)
-                         , TypeSpec ([], "C") [] (sp "" 1 11 1 11)
-                         ]
-                         (sp "" 1 4 1 13)
-                       )
+                     (TupleTypeSpec
+                       [ TypeSpec ([], "A") [] (sp "" 1 5 1 5)
+                       , TypeSpec ([], "B") [] (sp "" 1 8 1 8)
+                       , TypeSpec ([], "C") [] (sp "" 1 11 1 11)
+                       ]
+                       (sp "" 1 4 1 13)
                      )
                    )
 
@@ -215,12 +198,10 @@ spec = parallel $ do
       testParseExpr "__: function () -> A"
         `shouldBe` (e $ TypeAnnotation
                      (e $ Identifier $ Var ([], "__"))
-                     (Just
-                       (FunctionTypeSpec (TypeSpec ([], "A") [] NoPos)
-                                         []
-                                         Nothing
-                                         NoPos
-                       )
+                     (FunctionTypeSpec (TypeSpec ([], "A") [] NoPos)
+                                       []
+                                       Nothing
+                                       NoPos
                      )
                    )
 
@@ -228,12 +209,10 @@ spec = parallel $ do
       testParseExpr "__: function (Int) -> A"
         `shouldBe` (e $ TypeAnnotation
                      (e $ Identifier $ Var ([], "__"))
-                     (Just
-                       (FunctionTypeSpec (TypeSpec ([], "A") [] NoPos)
-                                         [(TypeSpec ([], "Int") [] NoPos)]
-                                         Nothing
-                                         NoPos
-                       )
+                     (FunctionTypeSpec (TypeSpec ([], "A") [] NoPos)
+                                       [(TypeSpec ([], "Int") [] NoPos)]
+                                       Nothing
+                                       NoPos
                      )
                    )
 
@@ -241,15 +220,13 @@ spec = parallel $ do
       testParseExpr "__: function (Int, Float) -> A"
         `shouldBe` (e $ TypeAnnotation
                      (e $ Identifier $ Var ([], "__"))
-                     (Just
-                       (FunctionTypeSpec
-                         (TypeSpec ([], "A") [] NoPos)
-                         [ (TypeSpec ([], "Int") [] NoPos)
-                         , (TypeSpec ([], "Float") [] NoPos)
-                         ]
-                         Nothing
-                         NoPos
-                       )
+                     (FunctionTypeSpec
+                       (TypeSpec ([], "A") [] NoPos)
+                       [ (TypeSpec ([], "Int") [] NoPos)
+                       , (TypeSpec ([], "Float") [] NoPos)
+                       ]
+                       Nothing
+                       NoPos
                      )
                    )
 
@@ -257,22 +234,21 @@ spec = parallel $ do
       testParseExpr "__: function (function (A, B) -> C, Float) -> A"
         `shouldBe` (e $ TypeAnnotation
                      (e $ Identifier $ Var ([], "__"))
-                     (Just
-                       (FunctionTypeSpec
-                         (TypeSpec ([], "A") [] NoPos)
-                         [ (FunctionTypeSpec
-                             (TypeSpec ([], "C") [] NoPos)
-                             [ (TypeSpec ([], "A") [] NoPos)
-                             , (TypeSpec ([], "B") [] NoPos)
-                             ]
-                             Nothing
-                             NoPos
-                           )
-                         , (TypeSpec ([], "Float") [] NoPos)
-                         ]
-                         Nothing
-                         NoPos
-                       )
+
+                     (FunctionTypeSpec
+                       (TypeSpec ([], "A") [] NoPos)
+                       [ (FunctionTypeSpec
+                           (TypeSpec ([], "C") [] NoPos)
+                           [ (TypeSpec ([], "A") [] NoPos)
+                           , (TypeSpec ([], "B") [] NoPos)
+                           ]
+                           Nothing
+                           NoPos
+                         )
+                       , (TypeSpec ([], "Float") [] NoPos)
+                       ]
+                       Nothing
+                       NoPos
                      )
                    )
 
@@ -280,12 +256,11 @@ spec = parallel $ do
       testParseExpr "__: function (Int, x...) -> A"
         `shouldBe` (e $ TypeAnnotation
                      (e $ Identifier $ Var ([], "__"))
-                     (Just
-                       (FunctionTypeSpec (TypeSpec ([], "A") [] NoPos)
-                                         [(TypeSpec ([], "Int") [] NoPos)]
-                                         (Just "x")
-                                         NoPos
-                       )
+
+                     (FunctionTypeSpec (TypeSpec ([], "A") [] NoPos)
+                                       [(TypeSpec ([], "Int") [] NoPos)]
+                                       (Just "x")
+                                       NoPos
                      )
                    )
 
@@ -326,7 +301,7 @@ spec = parallel $ do
                      $ FunctionDeclaration
                      $ (newFunctionDefinition :: FunctionDefinition
                            Expr
-                           (Maybe TypeSpec)
+                           TypeSpec
                        )
                          { functionName      = ([], "abc")
                          , functionMeta      = [ Metadata
@@ -337,41 +312,35 @@ spec = parallel $ do
                          , functionModifiers = [Inline]
                          , functionParams    = [ makeTypeParam "A"
                                                , (makeTypeParam "B")
-                                                 { constraints = [ Just
-                                                                     $ makeTypeSpec
-                                                                         "Int"
+                                                 { constraints = [ makeTypeSpec
+                                                                     "Int"
                                                                  ]
                                                  }
                                                , (makeTypeParam "C")
-                                                 { constraints = [ Just
-                                                                   $ makeTypeSpec
-                                                                       "ToString"
-                                                                 , Just
-                                                                   $ makeTypeSpec
-                                                                       "ToInt"
+                                                 { constraints = [ makeTypeSpec
+                                                                   "ToString"
+                                                                 , makeTypeSpec
+                                                                   "ToInt"
                                                                  ]
                                                  }
                                                ]
                          , functionArgs      = [ newArgSpec
                                                  { argName = "a"
-                                                 , argType = Just
-                                                   $ makeTypeSpec "A"
+                                                 , argType = makeTypeSpec "A"
                                                  }
                                                , newArgSpec
                                                  { argName = "b"
-                                                 , argType = Just
-                                                   $ makeTypeSpec "B"
+                                                 , argType = makeTypeSpec "B"
                                                  , argDefault = Just $ e $ Literal
                                                    (IntValue 2)
-                                                   Nothing
+                                                   (InferredType NoPos)
                                                  }
                                                , newArgSpec
                                                  { argName = "c"
-                                                 , argType = Just
-                                                   $ makeTypeSpec "C"
+                                                 , argType = makeTypeSpec "C"
                                                  }
                                                ]
-                         , functionType      = Just $ makeTypeSpec "Something"
+                         , functionType      = makeTypeSpec "Something"
                          , functionBody      = Just $ e $ Block
                            [ e $ Call (e $ Identifier (Var ([], "print")))
                                       []
@@ -428,7 +397,7 @@ spec = parallel $ do
                      , typeRules     = []
                      , typeParams    = []
                      , typeSubtype   = Enum
-                       { enumUnderlyingType = Just (makeTypeSpec "Int") --Just (makeTypeSpec "Float")
+                       { enumUnderlyingType = (makeTypeSpec "Int") -- (makeTypeSpec "Float")
                        , enumVariants       = [ newEnumVariant
                                                 { variantName = (["MyEnum"], "Apple")
                                                 , variantParent = ([], "MyEnum")
@@ -442,10 +411,9 @@ spec = parallel $ do
                                                 , variantParent = ([], "MyEnum")
                                                 , variantArgs = [ newArgSpec
                                                                     { argName = "i"
-                                                                    , argType = Just
-                                                                      (makeTypeSpec
-                                                                        "Int"
-                                                                      )
+                                                                    , argType = (makeTypeSpec
+                                                                                  "Int"
+                                                                                )
                                                                     }
                                                                 ]
                                                 , variantMeta = []
@@ -485,10 +453,10 @@ spec = parallel $ do
                      , typeParams        = []
                      , typeStaticFields  = [ newVarDefinition
                                                { varName = (["MyStruct"], "ghi")
-                                               , varMeta      = []
+                                               , varMeta = []
                                                , varModifiers = [Static]
-                                               , varType      = Nothing
-                                               , varDefault   = Nothing
+                                               , varType = (InferredType NoPos)
+                                               , varDefault = Nothing
                                                }
                                            ]
                      , typeStaticMethods = [ newFunctionDefinition
@@ -499,7 +467,9 @@ spec = parallel $ do
                                                , functionModifiers = [Static]
                                                , functionParams    = []
                                                , functionArgs      = []
-                                               , functionType      = Nothing
+                                               , functionType = (InferredType
+                                                                  NoPos
+                                                                )
                                                , functionBody      = Just
                                                  (e $ Block [])
                                                , functionVararg    = Nothing
@@ -508,40 +478,39 @@ spec = parallel $ do
                      , typeSubtype       = StructUnion
                        { structUnionFields = [ (newVarDefinition :: VarDefinition
                                                    Expr
-                                                   (Maybe TypeSpec)
+                                                   TypeSpec
                                                )
                                                { varName      = ([], "abc")
                                                , varMeta      = []
                                                , varModifiers = []
-                                               , varType      = Nothing
+                                               , varType = (InferredType NoPos)
                                                , varDefault   = Nothing
                                                }
                                              , (newVarDefinition :: VarDefinition
                                                    Expr
-                                                   (Maybe TypeSpec)
+                                                   TypeSpec
                                                )
                                                { varName      = ([], "def")
                                                , varMeta      = []
                                                , varModifiers = [Public]
-                                               , varType      = Nothing
+                                               , varType = (InferredType NoPos)
                                                , varDefault   = Nothing
                                                }
                                              , (newVarDefinition :: VarDefinition
                                                    Expr
-                                                   (Maybe TypeSpec)
+                                                   TypeSpec
                                                )
-                                               { varName      = ([], "ghi")
-                                               , varMeta      = [ Metadata
-                                                                    { metaName = "meta"
-                                                                    , metaArgs = []
-                                                                    }
-                                                                ]
+                                               { varName = ([], "ghi")
+                                               , varMeta = [ Metadata
+                                                               { metaName = "meta"
+                                                               , metaArgs = []
+                                                               }
+                                                           ]
                                                , varModifiers = []
-                                               , varType      = Just
-                                                 (makeTypeSpec "Int")
+                                               , varType = (makeTypeSpec "Int")
                                                , varDefault = Just $ e $ Literal
                                                  (IntValue 1)
-                                                 Nothing
+                                                 (InferredType NoPos)
                                                }
                                              ]
                        , isStruct = True

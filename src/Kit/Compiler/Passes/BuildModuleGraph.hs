@@ -51,15 +51,14 @@ buildModuleGraph ctx = do
             , (functionDecl f) -- add the macro and a main function to invoke it
             : (functionDecl $ newFunctionDefinition
                 { functionName = ([], "main")
-                , functionType = Nothing
+                , functionType = InferredType (functionPos f)
                 , functionPos  = functionPos f
-                , functionArgs = [ newArgSpec
-                                   { argName = "argc"
-                                   , argType = Just $ makeTypeSpec "Int"
-                                   }
+                , functionArgs = [ newArgSpec { argName = "argc"
+                                              , argType = makeTypeSpec "Int"
+                                              }
                                  , newArgSpec
                                    { argName = "argv"
-                                   , argType = Just $ PointerTypeSpec
+                                   , argType = PointerTypeSpec
                                      (makeTypeSpec "CString")
                                      NoPos
                                    }
@@ -73,16 +72,12 @@ buildModuleGraph ctx = do
                                            []
                                            [ (p $ ArrayAccess
                                                (p $ Identifier (Var $ ([], "argv")))
-                                               (p $ Literal (IntValue 1)
-                                                            (Just $ makeTypeSpec "Int")
-                                               )
+                                               (p $ Literal (IntValue 1) (makeTypeSpec "Int"))
                                              )
                                            ]
                                          )
                                          [ matchCase
-                                             (p $ Literal (IntValue index)
-                                                          (Just $ makeTypeSpec "Int")
-                                             )
+                                             (p $ Literal (IntValue index) (makeTypeSpec "Int"))
                                              (p
                                                (Call (p $ Identifier (Var $ functionName f))
                                                      []
@@ -145,7 +140,8 @@ loadModule ctx pctx mod pos = do
             (\(mod', _) ->
               modifyRef (ctxIncludes ctx) (\current -> mod' : current)
             )
-          imports <- forMWithErrors (modImports m) $ _loadImportedModule ctx pctx
+          imports <- forMWithErrors (modImports m)
+            $ _loadImportedModule ctx pctx
           let (errs, results) = foldr
                 (\result (errs, results) -> case result of
                   Left  errs'    -> (errs ++ [errs'], results)
@@ -208,7 +204,11 @@ _loadPrelude ctx pctx mod = do
             Left _ -> do
               return []
             Right fp -> do
-              (path, preludes) <- parseModuleExprs ctx pctx mod (Just fp) Nothing
+              (path, preludes) <- parseModuleExprs ctx
+                                                   pctx
+                                                   mod
+                                                   (Just fp)
+                                                   Nothing
               h_insert (pctxPreludes pctx) mod preludes
               return preludes
 
@@ -253,7 +253,8 @@ _loadImportedModule
   -> ParseContext
   -> (ModulePath, Span)
   -> IO (Either KitError [(Module, [SyntacticStatement])])
-_loadImportedModule ctx pctx (mod, pos) = try $ loadModule ctx pctx mod (Just pos)
+_loadImportedModule ctx pctx (mod, pos) =
+  try $ loadModule ctx pctx mod (Just pos)
 
 parseModuleExprs
   :: CompileContext

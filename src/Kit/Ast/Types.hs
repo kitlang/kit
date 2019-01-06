@@ -31,14 +31,10 @@ data TypeSpec
     e.g. for C externs.
   -}
   | ConcreteType ConcreteType
+  | InferredType Span
   deriving (Generic)
 
 makeTypeSpec s = TypeSpec ([], s) [] NoPos
-
-typeSpecParams :: TypeSpec -> [TypeSpec]
-typeSpecParams (TypeSpec _ params _     ) = params
-typeSpecParams (FunctionTypeSpec _ _ _ _) = []
-typeSpecParams _                          = []
 
 instance Positioned TypeSpec where
   position (TypeSpec _ _ pos          ) = pos
@@ -47,6 +43,7 @@ instance Positioned TypeSpec where
   position (TupleTypeSpec _ pos       ) = pos
   position (ConcreteType _            ) = NoPos
   position (ConstantTypeSpec _ pos    ) = pos
+  position (InferredType pos          ) = pos
 
 instance Show TypeSpec where
   show (TypeSpec (tp) params _) = (s_unpack $ showTypePath tp) ++ (if params == [] then "" else "[" ++ (intercalate "," [show param | param <- params]) ++ "]")
@@ -55,6 +52,7 @@ instance Show TypeSpec where
   show (TupleTypeSpec t _) = "(" ++ intercalate ", " (map show t) ++ ")"
   show (FunctionTypeSpec t args var _) = "(" ++ intercalate ", " (map show args) ++ (case var of {Just x -> ", " ++ s_unpack x ++ "..."; Nothing -> ""}) ++ ") -> " ++ show t
   show (ConcreteType ct) = show ct
+  show (InferredType pos) = "???"
 
 instance Eq TypeSpec where
   (==) (TypeSpec tp1 params1 _) (TypeSpec tp2 params2 _) = (tp1 == tp2) && (params1 == params2)
@@ -63,6 +61,7 @@ instance Eq TypeSpec where
   (==) (PointerTypeSpec t1 _) (PointerTypeSpec t2 _) = (t1 == t2)
   (==) (FunctionTypeSpec tp1 params1 args1 v1) (FunctionTypeSpec tp2 params2 args2 v2) = (tp1 == tp2) && (params1 == params2) && (args1 == args2) && (v1 == v2)
   (==) (ConcreteType ct1) (ConcreteType ct2) = ct1 == ct2
+  (==) (InferredType a) (InferredType b) = a == b
   (==) a b = False
 
 instance Hashable TypeSpec

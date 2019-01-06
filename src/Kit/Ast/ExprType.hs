@@ -27,12 +27,12 @@ matchCase x y = MatchCase {matchPattern = x, matchBody = y}
   All AST structures use the convention of two type parameters, a and b.
 
   a = recursive expression data type (Expr, TypedExpr)
-  b = type specifier data type (Maybe TypeSpec, ConcreteType)
+  b = type specifier data type (TypeSpec, ConcreteType)
 
   This allows reuse across passes of compilation:
 
-  - Initially, we use `ExprType (Expr) (Maybe TypeSpec)` for expressions with
-    only position info and optional annotations
+  - Initially, we use `ExprType (Expr) (TypeSpec)` for expressions with only
+    position info and optional annotations
   - Typing converts this to `ExprType (TypedExpr) (ConcreteType)`, where each
     expression has a type and all types are resolved to a single compile-time
     type

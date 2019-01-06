@@ -177,17 +177,17 @@ spec = do
         , TypeInstance ([], "Struct1") []
         , Just
         $ typeDecl
-        $ (newTypeDefinition :: TypeDefinition Expr (Maybe TypeSpec))
+        $ (newTypeDefinition :: TypeDefinition Expr TypeSpec)
             { typeName    = ([], "Struct1")
             , typeSubtype =
               StructUnion
                 { structUnionFields =
                   [ newVarDefinition { varName = ([], "field1")
-                                     , varType = Just $ ConcreteType $ TypeChar
+                                     , varType = ConcreteType $ TypeChar
                                      }
                   , newVarDefinition
                     { varName = ([], "field2")
-                    , varType = Just $ ConcreteType $ TypeUint 16
+                    , varType = ConcreteType $ TypeUint 16
                     }
                   ]
                 , isStruct          = True
@@ -205,7 +205,7 @@ spec = do
         , TypeInstance ([], "Struct3") []
         , Just
         $ typeDecl
-        $ (newTypeDefinition :: TypeDefinition Expr (Maybe TypeSpec))
+        $ (newTypeDefinition :: TypeDefinition Expr TypeSpec)
             { typeName    = ([], "Struct3")
             , typeSubtype = StructUnion { structUnionFields = []
                                         , isStruct          = True
@@ -217,7 +217,7 @@ spec = do
         , TypeInstance ([], "Enum1") []
         , Just
         $ typeDecl
-        $ (newTypeDefinition :: TypeDefinition Expr (Maybe TypeSpec))
+        $ (newTypeDefinition :: TypeDefinition Expr TypeSpec)
             { typeName    = ([], "Enum1")
             , typeSubtype =
               Enum
@@ -226,7 +226,7 @@ spec = do
                   , newEnumVariant { variantName = ([], "banana") }
                   , newEnumVariant { variantName = ([], "cherry") }
                   ]
-                , enumUnderlyingType = Nothing
+                , enumUnderlyingType = InferredType NoPos
                 }
             }
         )

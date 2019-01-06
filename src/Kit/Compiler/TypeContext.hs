@@ -46,20 +46,21 @@ data TypeContextState
 
 newTypeContext :: [Scope TypedBinding] -> IO TypeContext
 newTypeContext scopes = do
-  return $ TypeContext { tctxScopes                = scopes
-                       , tctxRules                 = []
-                       , tctxActiveRules           = []
-                       , tctxMacroVars             = []
-                       , tctxReturnType            = Nothing
-                       , tctxThis                  = Nothing
-                       , tctxSelf                  = Nothing
-                       , tctxImplicits             = []
-                       , tctxTypeParams            = []
-                       , tctxLoopCount             = 0
-                       , tctxRewriteRecursionDepth = 0
-                       , tctxState                 = TypingExpression
-                       , tctxVarargsParameter      = Nothing
-                       }
+  return $ TypeContext
+    { tctxScopes                = scopes
+    , tctxRules                 = []
+    , tctxActiveRules           = []
+    , tctxMacroVars             = []
+    , tctxReturnType            = Nothing
+    , tctxThis                  = Nothing
+    , tctxSelf                  = Nothing
+    , tctxImplicits             = []
+    , tctxTypeParams            = []
+    , tctxLoopCount             = 0
+    , tctxRewriteRecursionDepth = 0
+    , tctxState                 = TypingExpression
+    , tctxVarargsParameter      = Nothing
+    }
 
 unknownType t pos = do
   throw $ KitError $ TypingError ("Unknown type: " ++ (show t)) pos
@@ -203,26 +204,30 @@ resolveType ctx tctx mod t = do
         )
       return $ TypeFunction rt' (ConcreteArgs args') isVariadic []
 
+    InferredType pos ->
+      throwk $ BasicError ("Inferred type isn't supported here") (Just pos)
+
 resolveMaybeType
   :: CompileContext
   -> TypeContext
   -> Module
   -> [TypePath]
   -> Span
-  -> Maybe TypeSpec
+  -> TypeSpec
   -> IO ConcreteType
 resolveMaybeType ctx tctx mod params pos t = do
   case t of
-    Just t  -> resolveType ctx tctx mod t
-    Nothing -> if null params
+    InferredType _ -> if null params
       then makeTypeVar ctx pos
       else makeTemplateVar ctx params pos
+    t -> resolveType ctx tctx mod t
 
 follow :: CompileContext -> TypeContext -> ConcreteType -> IO ConcreteType
 follow ctx tctx t = do
   veryNoisyDebugLog ctx $ "follow started"
   _follow ctx tctx 256 t
-_follow :: CompileContext -> TypeContext -> Int -> ConcreteType -> IO ConcreteType
+_follow
+  :: CompileContext -> TypeContext -> Int -> ConcreteType -> IO ConcreteType
 _follow ctx tctx count t = do
   let r x = _follow ctx tctx (count - 1) x
   when (count < 1) $ throwk $ InternalError
@@ -450,7 +455,8 @@ genericTctx ctx tctx pos t = do
   case t of
     TypeTypeOf tp params -> genericTctx ctx tctx pos (TypeInstance tp params)
     TypePtr t            -> genericTctx ctx tctx pos t
-    TypeBox tp params    -> genericTctx ctx tctx pos (TypeTraitConstraint (tp, params))
+    TypeBox tp params ->
+      genericTctx ctx tctx pos (TypeTraitConstraint (tp, params))
     TypeInstance tp params -> do
       params  <- forMWithErrors params $ follow ctx tctx
       params  <- makeGeneric ctx tp pos params
@@ -468,7 +474,7 @@ genericTctx ctx tctx pos t = do
         _ -> do
           (TypeBinding def) <- h_get (ctxTypes ctx) tp
           case typeSubtype def of
-            Abstract { abstractUnderlyingType = Just parent } -> do
+            Abstract { abstractUnderlyingType = parent } -> do
               mod    <- getMod ctx (fst tp)
               parent <- resolveType ctx tctx mod parent
               genericTctx ctx tctx pos parent
@@ -480,4 +486,4 @@ genericTctx ctx tctx pos t = do
     TypeTuple t -> do
       foldM_ (\tctx -> genericTctx ctx tctx pos) tctx t
       return tctx
-    _           -> return tctx
+    _ -> return tctx

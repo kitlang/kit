@@ -19,7 +19,7 @@ import Kit.Error
 
 {-
   Performs type resolution and type checking; converts Expr into TypedExpr and
-  (Maybe TypeSpec) annotations into ConcreteTypes.
+  TypeSpec annotations into ConcreteTypes.
 
   See Kit.Compiler.Typers.* for specific typing implementations.
 -}

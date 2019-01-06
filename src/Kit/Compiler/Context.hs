@@ -55,7 +55,7 @@ data CompileContext = CompileContext {
   ctxRun :: !Bool,
   ctxResultHandler :: Maybe (String -> IO ()),
   ctxNameMangling :: !Bool,
-  ctxMacro :: Maybe (FunctionDefinition Expr (Maybe TypeSpec), [(Int, [Expr])])
+  ctxMacro :: Maybe (FunctionDefinition Expr TypeSpec, [(Int, [Expr])])
 }
 
 data CompileContextState = CompileContextState {
@@ -316,7 +316,7 @@ makeGeneric ctx tp@(modPath, name) pos existing = do
       Nothing -> do
         binding <- h_get (ctxTypes ctx) tp
         let c = converter (\expr -> undefined)
-                          (\_ (Just t) -> return $ UnresolvedType t modPath)
+                          (\_ t -> return $ UnresolvedType t modPath)
         let params = case binding of
               TypeBinding     def -> typeParams def
               FunctionBinding def -> functionParams def
@@ -514,17 +514,18 @@ interfaceTypeConverter
   -> Module
   -> Span
   -> [TypePath]
-  -> Maybe TypeSpec
+  -> TypeSpec
   -> IO ConcreteType
-interfaceTypeConverter ctx mod pos typeParams (Just (ConstantTypeSpec v _)) =
+interfaceTypeConverter ctx mod pos typeParams (InferredType _) =
+  makeTypeVar ctx pos
+interfaceTypeConverter ctx mod pos typeParams (ConstantTypeSpec v _) =
   return $ ConstantType v
-interfaceTypeConverter ctx mod pos (h : t) x@(Just (TypeSpec tp [] _)) =
+interfaceTypeConverter ctx mod pos (h : t) x@(TypeSpec tp [] _) =
   if h == tp || ((null $ fst tp) && tpName tp == tpName h)
     then return $ TypeTypeParam h
     else interfaceTypeConverter ctx mod pos t x
-interfaceTypeConverter ctx mod pos typeParams (Just x) =
+interfaceTypeConverter ctx mod pos typeParams x =
   return $ UnresolvedType x $ modPath mod
-interfaceTypeConverter ctx mod pos typeParams x = makeTypeVar ctx pos
 
 addStmtToModuleInterface
   :: CompileContext -> Module -> SyntacticStatement -> IO [SyntacticStatement]

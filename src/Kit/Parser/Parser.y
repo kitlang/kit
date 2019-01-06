@@ -132,13 +132,13 @@ Statements_ :: {[SyntacticStatement]}
   | Statements_ TypeDefinition DefinitionBody {
     let s = (ps (typePos $2) $ TypeDeclaration $2) in
     case $3 of
-      Just x -> (x $ Just $ TypeSpec (typeName $2)  [] (typePos $2)): s : $1
+      Just x -> (x $ TypeSpec (typeName $2)  [] (typePos $2)): s : $1
       Nothing -> s : $1
   }
   | Statements_ TraitDefinition DefinitionBody {
     let s = (ps (traitPos $2) $ TraitDeclaration $2) in
     case $3 of
-      Just x -> (x $ Just $ TypeSpec (traitName $2) [] (traitPos $2)) : s : $1
+      Just x -> (x $ TypeSpec (traitName $2) [] (traitPos $2)) : s : $1
       Nothing -> s : $1
   }
   | Statements_ TraitImplementation DefinitionBody {
@@ -171,7 +171,7 @@ Statement :: {SyntacticStatement}
   | VarDefinition {ps (varPos $1) $ VarDeclaration $ $1}
   | FunctionDefinition {ps (functionPos $1) $ FunctionDeclaration $1}
   | extend TypePath '{' DefStatements '}' {
-      ps (snd $1 <+> snd $5) $ ExtendDefinition (Just $ TypeSpec (fst $2) [] (snd $2)) $4
+      ps (snd $1 <+> snd $5) $ ExtendDefinition (TypeSpec (fst $2) [] (snd $2)) $4
   }
   | macro FunctionDefinitionBase {ps (snd $1 <+> functionPos $2) $ MacroDeclaration $ $2 {
     functionPos = functionPos $2 <+> snd $1
@@ -180,7 +180,7 @@ Statement :: {SyntacticStatement}
     ps (snd $1 <+> snd $5) $ MacroCall (fst $1) $ reverse $3
   }
 
-TypeDefinition :: {TypeDefinition Expr (Maybe TypeSpec)}
+TypeDefinition :: {TypeDefinition Expr TypeSpec}
   : MetaMods enum upper_identifier TypeParams {
     newTypeDefinition {
       typeName = ns $ extract_upper_identifier $3,
@@ -190,7 +190,8 @@ TypeDefinition :: {TypeDefinition Expr (Maybe TypeSpec)}
       typePos = snd $2 <+> snd $3,
       typeSubtype = Enum {
         enumVariants = [],
-        enumUnderlyingType = Just (TypeSpec ([], "Int") [] NoPos)
+        -- TODO
+        enumUnderlyingType = (TypeSpec ([], "Int") [] NoPos)
       }
     }
   }
@@ -233,7 +234,7 @@ TypeDefinition :: {TypeDefinition Expr (Maybe TypeSpec)}
     }
   }
 
-TraitDefinition :: {TraitDefinition Expr (Maybe TypeSpec)}
+TraitDefinition :: {TraitDefinition Expr TypeSpec}
   : MetaMods trait upper_identifier TypeParams AssocTypeDeclarations {
     newTraitDefinition {
       traitName = ns $ extract_upper_identifier $3,
@@ -245,13 +246,13 @@ TraitDefinition :: {TraitDefinition Expr (Maybe TypeSpec)}
     }
   }
 
-TraitImplementation :: {TraitImplementation Expr (Maybe TypeSpec)}
+TraitImplementation :: {TraitImplementation Expr TypeSpec}
   : implement TypeParams TypeSpec AssocTypes for TypeSpec {
     newTraitImplementation {
-      implTrait = Just $ fst $3,
-      implFor = Just $ fst $6,
+      implTrait = fst $3,
+      implFor = fst $6,
       implParams = fst $2,
-      implAssocTypes = map Just $ reverse $4,
+      implAssocTypes = reverse $4,
       implPos = snd $1 <+> snd $3
     }
   }
@@ -264,7 +265,7 @@ AssocTypes :: {[TypeSpec]}
   : {[]}
   | '(' CommaDelimitedTypes ')' {reverse $2}
 
-AssocTypeDeclarations :: {[TypeParam (Maybe TypeSpec)]}
+AssocTypeDeclarations :: {[TypeParam TypeSpec]}
   : {[]}
   | '(' TypeParams_ ')' {$2}
 
@@ -294,15 +295,15 @@ IfStatement :: {Expr}
   : if BinopTermOr ExprBlock {pe (snd $1 <+> pos $3) $ If $2 $3 (Nothing)}
   | if BinopTermOr ExprBlock else StandaloneExpr {pe (snd $1 <+> pos $5) $ If $2 $3 (Just $5)}
 
-UsingClauses :: {([UsingType Expr (Maybe TypeSpec)], Span)}
+UsingClauses :: {([UsingType Expr TypeSpec], Span)}
   : UsingClause {([fst $1], snd $1)}
   | UsingClauses ',' UsingClause {(fst $3 : fst $1, snd $1 <+> snd $3)}
 
-UsingClause :: {(UsingType Expr (Maybe TypeSpec), Span)}
-  : rules TypePath {(UsingRuleSet $ Just $ TypeSpec (fst $2) [] (snd $2), snd $1 <+> snd $2)}
+UsingClause :: {(UsingType Expr TypeSpec, Span)}
+  : rules TypePath {(UsingRuleSet $ TypeSpec (fst $2) [] (snd $2), snd $1 <+> snd $2)}
   | implicit Expr {(UsingImplicit $ $2, snd $1 <+> pos $2)}
 
-FunctionDefinition :: {FunctionDefinition Expr (Maybe TypeSpec)}
+FunctionDefinition :: {FunctionDefinition Expr TypeSpec}
   : MetaMods function FunctionDefinitionBase {
     $3 {
       functionMeta = reverse $ metas $1,
@@ -311,7 +312,7 @@ FunctionDefinition :: {FunctionDefinition Expr (Maybe TypeSpec)}
     }
   }
 
-FunctionDefinitionBase :: {FunctionDefinition Expr (Maybe TypeSpec)}
+FunctionDefinitionBase :: {FunctionDefinition Expr TypeSpec}
   : identifier TypeParams '(' VarArgs ')' TypeAnnotation OptionalBody {
     newFunctionDefinition {
       functionName = ns $ extract_identifier $1,
@@ -376,17 +377,18 @@ MetaMods :: {(([Metadata], [Modifier]), Span)}
   | MetaMods inline {let (meta, mods) = fst $1 in (((meta, Inline : mods)), snd $1 <+> snd $2)}
   | MetaMods static {let (meta, mods) = fst $1 in (((meta, Static : mods)), snd $1 <+> snd $2)}
 
-TypeAnnotation :: {(Maybe TypeSpec, Span)}
-  : {(Nothing, NoPos)}
-  | ':' TypeSpec {(Just $ fst $2, snd $1 <+> snd $2)}
+TypeAnnotation :: {(TypeSpec, Span)}
+  : {(InferredType NoPos, NoPos)}
+  | ':' TypeSpec {(fst $2, snd $1 <+> snd $2)}
 
 TypeSpec :: {(TypeSpec, Span)}
   : TypePath TypeSpecParams {(if (fst $1) == ([], "Ptr") && length (fst $2) == 1 then PointerTypeSpec (head $ fst $2) (snd $1 <+> snd $2) else TypeSpec (fst $1) (fst $2) (snd $1 <+> snd $2), snd $1 <+> snd $2)}
   | '&' TypeSpec {(PointerTypeSpec (fst $2) (snd $1 <+> snd $2), snd $1 <+> snd $2)}
-  | function FunctionTypeSpec {$2}
+  | function FunctionTypeSpec {(fst $2, snd $2)}
   | '(' TypeSpec ',' CommaDelimitedTypes ')' {let p = snd $1 <+> snd $5 in (TupleTypeSpec ((fst $2) : (reverse $4)) p, p)}
   | Term {(ConstantTypeSpec (fst $ fst $1) (snd $1), snd $1)}
   | Self {(TypeSpec ([], B.pack "Self") [] (snd $1), snd $1)}
+  | '_' {(InferredType $ snd $1, snd $1)}
 
 FunctionTypeSpec :: {(TypeSpec, Span)}
   : '(' ')' "->" TypeSpec {let p = snd $1 <+> snd $4 in (FunctionTypeSpec (fst $4) [] Nothing p, p)}
@@ -406,17 +408,17 @@ OptionalRuleBody :: {Maybe Expr}
   : ';' {Nothing}
   | "=>" StandaloneExpr {Just $2}
 
-TypeParams :: {([TypeParam (Maybe TypeSpec)], Span)}
+TypeParams :: {([TypeParam TypeSpec], Span)}
   : {([], NoPos)}
   | '[' TypeParams_ ']' {(reverse $2, snd $1 <+> snd $3)}
 
-TypeParams_ :: {[TypeParam (Maybe TypeSpec)]}
+TypeParams_ :: {[TypeParam TypeSpec]}
   : TypeParam {[$1]}
   | TypeParams_ ',' TypeParam {$3 : $1}
 
-TypeParam :: {TypeParam (Maybe TypeSpec)}
-  : TypeParam '=' TypeSpec {$1 {typeParamDefault = Just $ Just $ fst $3}}
-  | upper_identifier TypeConstraints {(makeTypeParam (extract_upper_identifier $1)) {constraints = map Just $2, typeParamIsConstant = False, typeParamPos = snd $1}}
+TypeParam :: {TypeParam TypeSpec}
+  : TypeParam '=' TypeSpec {$1 {typeParamDefault = Just $ fst $3}}
+  | upper_identifier TypeConstraints {(makeTypeParam (extract_upper_identifier $1)) {constraints = $2, typeParamIsConstant = False, typeParamPos = snd $1}}
   | macro_identifier {(makeTypeParam (extract_macro_identifier $1)) {constraints = [], typeParamIsConstant = True, typeParamPos = snd $1}}
 
 TypeSpecParams :: {([TypeSpec], Span)}
@@ -448,7 +450,7 @@ ConstOrVar :: {(Bool, Span)}
   : var { (False, snd $1) }
   | const { (True, snd $1) }
 
-VarDefinition :: {VarDefinition Expr (Maybe TypeSpec)}
+VarDefinition :: {VarDefinition Expr TypeSpec}
   : MetaMods ConstOrVar UpperOrLowerIdentifier TypeAnnotation OptionalDefault ';' {
     newVarDefinition {
       varName = ns $ fst $ $3,
@@ -461,11 +463,11 @@ VarDefinition :: {VarDefinition Expr (Maybe TypeSpec)}
     }
   }
 
-VarDefinitions :: {[VarDefinition Expr (Maybe TypeSpec)]}
+VarDefinitions :: {[VarDefinition Expr TypeSpec]}
   : {[]}
   | VarDefinitions VarDefinition {$2 : $1}
 
-VarBlock :: {[VarDefinition Expr (Maybe TypeSpec)]}
+VarBlock :: {[VarDefinition Expr TypeSpec]}
   : MetaMods '{' VarDefinitions '}' {
     [v {varMeta = varMeta v ++ metas $1, varModifiers = varModifiers v ++ mods $1} | v <- $3]
   }
@@ -480,7 +482,7 @@ OptionalDefault :: {Maybe Expr}
   | '=' undefined {Just $ pe (snd $1) Undefined}
   | '=' Expr {Just $2}
 
-EnumVariant :: {EnumVariant Expr (Maybe TypeSpec)}
+EnumVariant :: {EnumVariant Expr TypeSpec}
   : MetaMods upper_identifier ';' {
       newEnumVariant {
         variantName = ([], extract_upper_identifier $2),
@@ -512,16 +514,16 @@ EnumVariant :: {EnumVariant Expr (Maybe TypeSpec)}
       }
     }
 
-VarArgs :: {([ArgSpec Expr (Maybe TypeSpec)], Maybe Str)}
+VarArgs :: {([ArgSpec Expr TypeSpec], Maybe Str)}
   : Args ',' identifier "..." {($1, Just $ extract_identifier $3)}
   | Args {($1, Nothing)}
 
-Args :: {[ArgSpec Expr (Maybe TypeSpec)]}
+Args :: {[ArgSpec Expr TypeSpec]}
   : {[]}
   | ArgSpec {[$1]}
   | Args ',' ArgSpec {$3 : $1}
 
-ArgSpec  :: {ArgSpec Expr (Maybe TypeSpec)}
+ArgSpec  :: {ArgSpec Expr TypeSpec}
   : identifier TypeAnnotation OptionalDefault {ArgSpec {
     argName = extract_identifier $1,
      argType = fst $2,
@@ -530,11 +532,11 @@ ArgSpec  :: {ArgSpec Expr (Maybe TypeSpec)}
     }
   }
 
-DefinitionBody :: {Maybe (Maybe TypeSpec -> SyntacticStatement)}
+DefinitionBody :: {Maybe (TypeSpec -> SyntacticStatement)}
   : ';' {Nothing}
   | '{' DefStatements '}' {Just (\x -> ps (snd $1 <+> snd $3) $ ExtendDefinition x $ reverse $2)}
 
-DefStatements :: {[DefStatement Expr (Maybe TypeSpec)]}
+DefStatements :: {[DefStatement Expr TypeSpec]}
   : {[]}
   | DefStatements RewriteRule {(DefRule $2) : $1}
   | DefStatements RuleBlock {(map DefRule $2) ++ $1}
@@ -547,7 +549,7 @@ RewriteExpr :: {Expr}
   : Expr {$1}
   | StandaloneExpr {$1}
 
-RewriteRule :: {RewriteRule Expr (Maybe TypeSpec)}
+RewriteRule :: {RewriteRule Expr TypeSpec}
   : rule '(' RewriteExpr ')' OptionalRuleBody {
     newRewriteRule {
       rulePattern = $3,
@@ -556,14 +558,14 @@ RewriteRule :: {RewriteRule Expr (Maybe TypeSpec)}
     }
   }
 
-RuleBlock :: {[RewriteRule Expr (Maybe TypeSpec)]}
+RuleBlock :: {[RewriteRule Expr TypeSpec]}
   : rules '{' ShortRules '}' {$3}
 
-ShortRules :: {[RewriteRule Expr (Maybe TypeSpec)]}
+ShortRules :: {[RewriteRule Expr TypeSpec]}
   : {[]}
   | ShortRules ShortRule {$2 : $1}
 
-ShortRule :: {RewriteRule Expr (Maybe TypeSpec)}
+ShortRule :: {RewriteRule Expr TypeSpec}
   : '(' RewriteExpr ')' OptionalRuleBody {
     newRewriteRule {
       rulePattern = $2,
@@ -635,7 +637,7 @@ BinopTermCustom :: {Expr}
   | BinopTermCustom custom_op CastExpr {pe (pos $1 <+> pos $3) $ Binop (Custom $ extract_custom_op $2) $1 $3}
 
 CastExpr :: {Expr}
-  : CastExpr as TypeSpec {pe (pos $1 <+> snd $3) $ Cast $1 (Just $ fst $3)}
+  : CastExpr as TypeSpec {pe (pos $1 <+> snd $3) $ Cast $1 (fst $3)}
   | Unop {$1}
 
 Unop :: {Expr}
@@ -667,7 +669,7 @@ ArrayAccessCallFieldExpr :: {Expr}
   | TypeAnnotatedExpr {$1}
 
 TypeAnnotatedExpr :: {Expr}
-  : TypeAnnotatedExpr ':' TypeSpec {pe (pos $1 <+> snd $3) $ TypeAnnotation $1 (Just $ fst $3)}
+  : TypeAnnotatedExpr ':' TypeSpec {pe (pos $1 <+> snd $3) $ TypeAnnotation $1 (fst $3)}
   | BaseExpr {$1}
 
 BaseExpr :: {Expr}
@@ -676,14 +678,14 @@ BaseExpr :: {Expr}
   | Self {pe (snd $1) Self}
   | Identifier {pe (snd $1) $ Identifier (fst $1)}
   | unsafe Expr {pe (snd $1 <+> pos $2) (Unsafe $2)}
-  | sizeof TypeSpec {pe (snd $1 <+> snd $2) (SizeOf $ Just $ fst $2)}
+  | sizeof TypeSpec {pe (snd $1 <+> snd $2) (SizeOf $ fst $2)}
   | '(' Expr ParenthesizedExprs ')' {if null $3 then $2 {pos = snd $1 <+> snd $4} else pe (snd $1 <+> snd $4) (TupleInit ($2 : reverse $3)) }
   | null {pe (snd $1) Null}
   | empty {pe (snd $1) Empty}
-  | struct TypeSpec '{' StructInitFields '}' {pe (snd $1 <+> snd $5) $ StructInit (Just $ fst $2) $4}
-  | struct TypeSpec {pe (snd $1 <+> snd $2) $ StructInit (Just $ fst $2) []}
-  | union TypeSpec '{' StructInitField '}' {pe (snd $1 <+> snd $2) $ UnionInit (Just $ fst $2) $4}
-  | implicit TypeSpec {pe (snd $1 <+> snd $2) $ Implicit $ Just $ fst $2}
+  | struct TypeSpec '{' StructInitFields '}' {pe (snd $1 <+> snd $5) $ StructInit (fst $2) $4}
+  | struct TypeSpec {pe (snd $1 <+> snd $2) $ StructInit (fst $2) []}
+  | union TypeSpec '{' StructInitField '}' {pe (snd $1 <+> snd $2) $ UnionInit (fst $2) $4}
+  | implicit TypeSpec {pe (snd $1 <+> snd $2) $ Implicit $ fst $2}
   | inline_c TypeAnnotation {pe (snd $1 <+> snd $2) $ InlineCExpr (extract_inline_c $1) (fst $2)}
   | static Expr {pe (snd $1 <+> pos $2) (StaticExpr $2)}
 
@@ -691,12 +693,12 @@ ParenthesizedExprs :: {[Expr]}
   : {[]}
   | ParenthesizedExprs ',' Expr {$3 : $1}
 
-Term :: {((ValueLiteral, Maybe TypeSpec), Span)}
-  : bool {((BoolValue $ extract_bool $ fst $1, Just $ ConcreteType $ TypeBool), snd $1)}
-  | str {((StringValue $ extract_lit $ fst $1, Just $ makeTypeSpec "CString"), snd $1)}
+Term :: {((ValueLiteral, TypeSpec), Span)}
+  : bool {((BoolValue $ extract_bool $ fst $1, ConcreteType $ TypeBool), snd $1)}
+  | str {((StringValue $ extract_lit $ fst $1, makeTypeSpec "CString"), snd $1)}
   | int {let x = extract_int_lit $ fst $1 in ((IntValue $ fst x, snd x), snd $1)}
   | float {let x = extract_float_lit $ fst $1 in ((FloatValue $ fst x, snd x), snd $1)}
-  | char {((IntValue $ extract_char_lit $ fst $1, Just $ ConcreteType $ TypeChar), snd $1)}
+  | char {((IntValue $ extract_char_lit $ fst $1, ConcreteType $ TypeChar), snd $1)}
 
 StructInitFields :: {[(Str, Expr)]}
   : {[]}
@@ -711,13 +713,13 @@ StructInitField :: {(Str, Expr)}
   : UpperOrLowerIdentifier ':' Expr {(fst $1, $3)}
   | UpperOrLowerIdentifier {(fst $1, pe (snd $1) $ Identifier (Var $ ([], fst $1)))}
 
-Identifier :: {(Identifier (Maybe TypeSpec), Span)}
+Identifier :: {(Identifier TypeSpec, Span)}
   : UpperOrLowerIdentifier {(Var $ ([], fst $1), snd $1)}
   | MacroIdentifier {$1}
   | '_' {(Hole, snd $1)}
 
-MacroIdentifier :: {(Identifier (Maybe TypeSpec), Span)}
-  : macro_identifier {(MacroVar (extract_macro_identifier $1) Nothing, snd $1)}
+MacroIdentifier :: {(Identifier TypeSpec, Span)}
+  : macro_identifier {(MacroVar (extract_macro_identifier $1) (InferredType $ snd $1), snd $1)}
   | '$' '{' UpperOrLowerIdentifier TypeAnnotation '}' {(MacroVar (fst $3) (fst $4), (snd $1 <+> snd $5))}
   | '$' '{' '_' TypeAnnotation '}' {(MacroVar "_" (fst $4), (snd $1 <+> snd $5))}
 
@@ -741,8 +743,8 @@ extract_float_lit (LiteralFloat x y) = (x, numSpec y)
 extract_char_lit (LiteralChar x) = x
 extract_assign_op (Op (AssignOp x),_) = x
 extract_custom_op (Op (Custom x),_) = x
-numSpec (Just x) = Just $ TypeSpec ([], s_pack $ show x) [] NoPos
-numSpec Nothing = Nothing
+numSpec (Just x) = TypeSpec ([], s_pack $ show x) [] NoPos
+numSpec Nothing = (InferredType NoPos)
 
 ns x = ([], x)
 
