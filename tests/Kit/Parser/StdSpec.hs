@@ -42,5 +42,5 @@ spec = parallel $ do
         case result of
           ParseResult x -> True `shouldBe` True
           Err         e -> do
-            logError e
+            logError (\_ -> return Nothing) e
             error $ show e

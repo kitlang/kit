@@ -8,17 +8,17 @@ import Kit.Error
 import Kit.Parser
 import Kit.Str
 
-testParse s = unwrapParsed $ parseTokens (scanTokens "" s)
-testParseExpr s = unwrapParsed $ parseExpr (scanTokens "" s)
-testParseTopLevel s = unwrapParsed $ parseTopLevelExpr (scanTokens "" s)
-testParseTypeSpec s = fst $ unwrapParsed $ parseTypeSpec (scanTokens "" s)
+testParse s = unwrapParsed $ parseTokens (scanTokens (FileSpan "") s)
+testParseExpr s = unwrapParsed $ parseExpr (scanTokens (FileSpan "") s)
+testParseTopLevel s = unwrapParsed $ parseTopLevelExpr (scanTokens (FileSpan "") s)
+testParseTypeSpec s = fst $ unwrapParsed $ parseTypeSpec (scanTokens (FileSpan "") s)
 unwrapParsed x = case x of
   ParseResult r -> r
   Err         e -> error $ show e
 
 testParseType :: B.ByteString -> TypeDefinition Expr (Maybe TypeSpec)
 testParseType s =
-  let (t : e) = unwrapParsed $ parseTokens (scanTokens "" s)
+  let (t : e) = unwrapParsed $ parseTokens (scanTokens (FileSpan "") s)
   in  foldr
         addTypeExtension
         (case t of

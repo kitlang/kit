@@ -6,8 +6,8 @@ import Kit.Ast
 import Kit.Str
 import Kit.Parser
 
-lx s = map token_type $ scanTokens "" s
-lx2 s = scanTokens "" s
+lx s = map token_type $ scanTokens (FileSpan "") s
+lx2 s = scanTokens (FileSpan "") s
 
 spec :: Spec
 spec = parallel $ do

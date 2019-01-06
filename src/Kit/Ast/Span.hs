@@ -3,12 +3,25 @@
 
 module Kit.Ast.Span where
 
+import Control.Applicative
 import Data.Hashable
 import GHC.Generics
-import Control.Applicative
+import System.FilePath
+import Kit.Ast.TypePath
+import Kit.Str
+
+data SpanLocation
+  = FileSpan FilePath
+  | MacroSpan (TypePath, Int)
+  deriving (Eq, Generic)
+
+instance Hashable SpanLocation
+instance Show SpanLocation where
+  show (FileSpan fp) = show fp
+  show (MacroSpan (tp, _)) = "(macro " ++ s_unpack (showTypePath tp) ++ ")"
 
 data Span = Span
-  { file :: FilePath
+  { file :: SpanLocation
   , startLine :: Int
   , startCol :: Int
   , endLine :: Int
@@ -16,7 +29,7 @@ data Span = Span
   } deriving (Generic)
 
 pattern NoPos :: Span
-pattern NoPos = Span {file = "", startLine = 0, startCol = 0, endLine = 0, endCol = 0}
+pattern NoPos = Span {file = FileSpan "", startLine = 0, startCol = 0, endLine = 0, endCol = 0}
 
 instance Eq Span where
   (==) NoPos _ = True
@@ -25,7 +38,7 @@ instance Eq Span where
 
 instance Show Span where
   show NoPos = "@(???)"
-  show span = "@" ++ file span ++
+  show span = "@" ++ show (file span) ++
               ":" ++ (show $ startLine span) ++ ":" ++ (show $ startCol span) ++
               (if (startCol span /= endCol span) || (startLine span /= endLine span)
                 then "-" ++ (if startLine span /= endLine span then (show $ endLine span) ++ ":" else "") ++ (show $ endCol span)
@@ -37,7 +50,10 @@ class Positioned a where
   position :: a -> Span
 
 sp :: FilePath -> Int -> Int -> Int -> Int -> Span
-sp f a b c d = Span
+sp f a b c d = sp' (FileSpan f) a b c d
+
+sp' :: SpanLocation -> Int -> Int -> Int -> Int -> Span
+sp' f a b c d = Span
   { file          = f
   , startLine     = a
   , startCol      = b

@@ -76,7 +76,7 @@ cDecl t ident body = u $ CDecl typeSpec [(Just cdeclr, body, Nothing)]
 u x = x undefNode
 cpos p x = x $ mkNodeInfoOnlyPos $ Language.C.Data.Position.position
   0
-  (file p)
+  (show $ file p)
   (startLine p)
   (startCol p)
   Nothing

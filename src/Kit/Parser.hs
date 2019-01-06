@@ -18,9 +18,9 @@ import Kit.Parser.Token
 import Kit.Str
 
 parseString :: BL.ByteString -> Parser [SyntacticStatement]
-parseString s = parseTokens $ scanTokens "" s
+parseString s = parseTokens $ scanTokens (FileSpan "") s
 
 parseFile :: FilePath -> IO (Parser [SyntacticStatement])
 parseFile f = do
   contents <- BL.readFile f
-  return $ parseTokens $ scanTokens f contents
+  return $ parseTokens $ scanTokens (FileSpan f) contents

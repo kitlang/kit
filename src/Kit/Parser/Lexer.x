@@ -221,7 +221,7 @@ token_pos (_, p) = p
 token_type :: Token -> TokenClass
 token_type (t, _) = t
 
-scanTokens :: FilePath -> B.ByteString -> [Token]
+scanTokens :: SpanLocation -> B.ByteString -> [Token]
 scanTokens f str = go (alexStartPos,'\n',str,0)
   where go inp@(pos,_,str,n) =
           case alexScan inp 0 of
@@ -231,5 +231,5 @@ scanTokens f str = go (alexStartPos,'\n',str,0)
             AlexToken inp'@(_,_,_,n') _ act ->
               (a, b) : go inp'
               where (a', (b1, b2, b3, b4)) = act pos (B.take (fromIntegral $ n'-n) str)
-                    (a, b) = (a', sp f b1 b2 b3 b4)
+                    (a, b) = (a', sp' f b1 b2 b3 b4)
 }

@@ -18,8 +18,8 @@ printLogIf ctx s = when (ctxVerbose ctx >= 0) $ printLog s
 
 data ImportError = ImportError ModulePath [FilePath] (Maybe Span) deriving (Eq, Show)
 instance Errable ImportError where
-  logError e@(ImportError mod searchPaths _) =
-    logErrorBasic e $ "Couldn't find module <"
+  logError reader e@(ImportError mod searchPaths _) =
+    logErrorBasic reader e $ "Couldn't find module <"
                                 ++ s_unpack (showModulePath mod)
                                 ++ ">; tried searching the following locations: \n\n"
                                 ++ (intercalate

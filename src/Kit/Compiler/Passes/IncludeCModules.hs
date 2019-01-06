@@ -128,7 +128,6 @@ unknownTypeWarning ctx mod name pos = do
     ++ " "
     ++ (show pos)
     ++ "; attempts to access values of this type will fail"
-  displayFileSnippet pos
 
 parseCDecls :: CompileContext -> Module -> FilePath -> [CExtDecl] -> IO ()
 parseCDecls ctx mod path [] = do

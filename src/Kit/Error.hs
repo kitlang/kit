@@ -8,14 +8,19 @@ import Data.List
 import System.Console.ANSI
 import System.Directory
 import System.IO
-import Kit.Log
 import Kit.Ast.Span
+import Kit.Ast.TypePath
+import Kit.Log
+import Kit.Str
 
 throwk e = do
   throw $ KitError e
 
+-- to avoid dealing with CompileContext at this level
+type MacroReader = (TypePath, Int) -> IO (Maybe Str)
+
 class (Eq a, Show a) => Errable a where
-  logError :: a -> IO ()
+  logError :: MacroReader -> a -> IO ()
   errPos :: a -> Maybe Span
   errPos _ = Nothing
   flattenErrors :: a -> [KitError]
@@ -23,7 +28,7 @@ class (Eq a, Show a) => Errable a where
 
 data KitError = forall a . (Show a, Eq a, Errable a) => KitError a
 instance Errable KitError where
-  logError (KitError e) = logError e
+  logError reader (KitError e) = logError reader e
   errPos (KitError e) = errPos e
   flattenErrors (KitError e) = flattenErrors e
 instance Show KitError where
@@ -38,7 +43,7 @@ instance Exception KitError
 -}
 data Errors = KitErrors [KitError] deriving (Eq, Show)
 instance Errable Errors where
-  logError (KitErrors e) = forM_ e logError
+  logError reader (KitErrors e) = forM_ e $ logError reader
   errPos (KitErrors e) = msum (map errPos e)
   flattenErrors (KitErrors e) = nub $ foldr (++) [] (map flattenErrors e)
 
@@ -47,7 +52,7 @@ instance Errable Errors where
 -}
 data InternalError = InternalError String (Maybe Span) deriving (Eq, Show)
 instance Errable InternalError where
-  logError e@(InternalError s _) = logErrorBasic (KitError e) s
+  logError reader e@(InternalError s _) = logErrorBasic reader (KitError e) s
   errPos (InternalError _ pos) = pos
 
 {-
@@ -55,7 +60,7 @@ instance Errable InternalError where
 -}
 data BasicError = BasicError String (Maybe Span) deriving (Eq, Show)
 instance Errable BasicError where
-  logError e@(BasicError s _) = logErrorBasic (KitError e) s
+  logError reader e@(BasicError s _) = logErrorBasic reader (KitError e) s
   errPos (BasicError _ pos) = pos
 
 -- data Error
@@ -95,7 +100,7 @@ logErrorTitle err = do
       hSetSGR
         stderr
         [SetColor Foreground Vivid White, SetConsoleIntensity BoldIntensity]
-      hPutStr stderr $ f ++ ":" ++ (show start) ++ ": "
+      hPutStr stderr $ (show f) ++ ":" ++ (show start) ++ ": "
     _ -> do
       hSetSGR
         stderr
@@ -103,69 +108,77 @@ logErrorTitle err = do
       hPutStr stderr $ "Error: "
   hSetSGR stderr [Reset]
 
-logErrorBasic :: (Errable e) => e -> String -> IO ()
-logErrorBasic err msg = do
+logErrorBasic :: (Errable e) => MacroReader -> e -> String -> IO ()
+logErrorBasic reader err msg = do
   logErrorTitle err
   hPutStrLn stderr msg
   case errPos err of
-    Just pos -> displayFileSnippet pos
+    Just pos -> displayFileSnippet reader pos
     _        -> return ()
 
 lpad :: String -> Int -> String
 lpad s n = (take (n - length s) (repeat ' ')) ++ s
 
-displayFileSnippet :: Span -> IO ()
-displayFileSnippet NoPos = return ()
-displayFileSnippet span  = do
-  let fp = file span
+displayFileSnippet :: MacroReader -> Span -> IO ()
+displayFileSnippet _ NoPos                              = return ()
+displayFileSnippet _ span@(Span { file = FileSpan fp }) = do
   exists <- doesFileExist fp
   when exists $ do
+    contents <- readFile $ fp
+    showSnippet span contents
+displayFileSnippet macroReader span@(Span { file = MacroSpan (tp, index) }) = do
+  output <- macroReader (tp, index)
+  case output of
+    Just contents -> do
+      showSnippet span $ s_unpack contents
+
+showSnippet :: Span -> String -> IO ()
+showSnippet span contents = do
+  hSetSGR
+    stderr
+    [SetColor Foreground Vivid Blue, SetConsoleIntensity NormalIntensity]
+  hPutStrLn stderr $ "\n  " ++ show span
+  let content_lines = lines contents
+  let lineNumbers   = [(startLine span) .. (endLine span)]
+  forM_ lineNumbers $ \n -> do
     hSetSGR
       stderr
-      [SetColor Foreground Vivid Blue, SetConsoleIntensity NormalIntensity]
-    hPutStrLn stderr $ "\n  " ++ show span
-    contents <- readFile $ fp
-    let content_lines = lines contents
-    let lineNumbers   = [(startLine span) .. (endLine span)]
-    forM_ lineNumbers $ \n -> do
-      hSetSGR
-        stderr
-        [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
-      if n == (startLine span) + 3 && (length lineNumbers > 5)
-        then do
-          hPutStrLn stderr $ "\n  ...\n"
-        else unless (n > (startLine span) + 3 && n < (endLine span) - 2) $ do
-          let line = content_lines !! (n - 1)
-          hSetSGR stderr [SetConsoleIntensity NormalIntensity]
-          hPutStr stderr $ (lpad (show n) 8) ++ "    "
-          hSetSGR stderr [SetConsoleIntensity FaintIntensity]
-          hPutStrLn stderr $ line
-          when
-              (  (startLine span)
-              <= (endLine span)
-              || (startCol span)
-              >  1
-              || (endCol span)
-              <  length line
-              )
-            $ do
-                let this_startCol = if n == startLine span
-                      then startCol span
-                      else length (takeWhile ((==) ' ') line) + 1
-                let this_endCol =
-                      if n == endLine span then endCol span else length line
-                hSetSGR stderr [Reset]
-                ePutStr
-                  $  "            "
-                  ++ (take ((this_startCol) - 1) (repeat ' '))
-                hSetSGR
-                  stderr
-                  [ SetColor Foreground Vivid Yellow
-                  , SetConsoleIntensity BoldIntensity
-                  ]
-                ePutStrLn
-                  (take ((this_endCol) - (this_startCol) + 1) $ repeat '^')
-    hSetSGR stderr [Reset]
+      [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
+    if n == (startLine span) + 3 && (length lineNumbers > 5)
+      then do
+        hPutStrLn stderr $ "\n  ...\n"
+      else unless (n > (startLine span) + 3 && n < (endLine span) - 2) $ do
+        let line = content_lines !! (n - 1)
+        hSetSGR stderr [SetConsoleIntensity NormalIntensity]
+        hPutStr stderr $ (lpad (show n) 8) ++ "    "
+        hSetSGR stderr [SetConsoleIntensity FaintIntensity]
+        hPutStrLn stderr $ line
+        when
+            (  (startLine span)
+            <= (endLine span)
+            || (startCol span)
+            >  1
+            || (endCol span)
+            <  length line
+            )
+          $ do
+              let this_startCol = if n == startLine span
+                    then startCol span
+                    else length (takeWhile ((==) ' ') line) + 1
+              let this_endCol =
+                    if n == endLine span then endCol span else length line
+              hSetSGR stderr [Reset]
+              ePutStr
+                $  "            "
+                ++ (take ((this_startCol) - 1) (repeat ' '))
+              hSetSGR
+                stderr
+                [ SetColor Foreground Vivid Yellow
+                , SetConsoleIntensity BoldIntensity
+                ]
+              ePutStrLn
+                (take ((this_endCol) - (this_startCol) + 1) $ repeat '^')
+  hSetSGR stderr [Reset]
 
 forMWithErrors :: [a] -> (a -> IO b) -> IO [b]
 forMWithErrors l f = do
@@ -200,7 +213,7 @@ forMWithErrors_ l f = do
 
 mapMWithErrors_ f l = forMWithErrors_ l f
 
-showErrs e = do
+showErrs reader e = do
   let errs = flattenErrors e
-  mapM_ logError $ errs
+  mapM_ (logError reader) $ errs
   return $ length errs

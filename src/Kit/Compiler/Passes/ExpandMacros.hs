@@ -129,14 +129,15 @@ callMacros ctx cc compile invocations = do
               </>  (moduleFilePath mod)
               -<.> ""
               </>  (s_unpack $ tpName $ functionName def)
-      let macroCtx = ctx { ctxMainModule = mod
-                         , ctxMacro = Just (def, [ (a, b) | (b, (a, _)) <- args ])
-                         , ctxRun        = False
-                         , ctxState      = macroState
-                         , ctxVerbose    = ctxVerbose ctx - 1
-                         , ctxBuildDir   = buildDir
-                         , ctxOutputPath = buildDir </> "macro"
-                         }
+      let macroCtx = ctx
+            { ctxMainModule = mod
+            , ctxMacro      = Just (def, [ (a, b) | (b, (a, _)) <- args ])
+            , ctxRun        = False
+            , ctxState      = macroState
+            , ctxVerbose    = ctxVerbose ctx - 1
+            , ctxBuildDir   = buildDir
+            , ctxOutputPath = buildDir </> "macro"
+            }
       compile macroCtx cc
       let outName = ctxOutputPath macroCtx
       binPath <- canonicalizePath outName
@@ -146,16 +147,14 @@ callMacros ctx cc compile invocations = do
           ""
         case exitcode of
           ExitSuccess -> do
+            h_insert (ctxMacroOutput ctx) (functionName def, index)
+              $ s_pack result
             when (not $ null stderr) $ traceLog stderr
             debugLog ctx result
             let
               parseResult =
                 parseTokens
-                  $ scanTokens
-                      (  "(macro "
-                      ++ s_unpack (showTypePath $ functionName def)
-                      ++ ")"
-                      )
+                  $ scanTokens (MacroSpan (functionName def, index))
                   $ B.pack result
             case parseResult of
               ParseResult r -> h_insert (macroResults invocation) index r
