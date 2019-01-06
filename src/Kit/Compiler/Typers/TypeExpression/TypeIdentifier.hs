@@ -75,3 +75,17 @@ typeIdentifier (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolv
                   mod
                 $ expr
             Nothing -> return ex
+
+    (VarArgListCopy s) -> case tctxVarargsParameter tctx of
+      Just x | x == s -> return ex
+      Just y          -> throwk $ TypingError
+        (  "`"
+        ++ s_unpack s
+        ++ "...` doesn't match the current variadic function; did you mean `"
+        ++ s_unpack y
+        ++ "`?"
+        )
+        pos
+      Nothing -> throwk $ TypingError
+        ("`" ++ s_unpack s ++ "...` can only be used in a variadic function")
+        pos

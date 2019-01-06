@@ -138,6 +138,8 @@ pattern TypeVoid :: ConcreteType
 pattern TypeVoid = TypeBasicType BasicTypeVoid
 pattern TypeCString :: ConcreteType
 pattern TypeCString = TypeInstance (["kit", "common"], "CString") []
+pattern TypeVaList :: ConcreteType
+pattern TypeVaList = TypeBasicType (BasicTypeTypedef "__builtin_va_list")
 
 isNumericType TypeChar = True
 isNumericType TypeSize = True

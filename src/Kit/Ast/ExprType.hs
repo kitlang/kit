@@ -93,6 +93,7 @@ data ExprType a b
   | Undefined
   | InlineCExpr Str b
   | VarArg Str
+  | VarArgListCopy Str
   | StaticExpr a
   | Yield a
   | Tokens Str
@@ -153,6 +154,7 @@ exprDiscriminant et = case et of
   Tokens     _                -> 48
   Undefined                   -> 49
   UnionInit _ _               -> 50
+  VarArgListCopy _            -> 51
   x -> throwk $ InternalError "Expression has no discriminant!" Nothing
 
 exprChildren :: ExprType a b -> [a]

@@ -58,7 +58,9 @@ typeFunctionDefinition ctx tctx' mod f = do
           && (ctxMainModule ctx == modPath mod)
           && not (ctxIsLibrary ctx)
   functionScope <- newScope
-  let tctx = tctx' { tctxScopes = functionScope : tctxScopes tctx' }
+  let tctx = tctx' { tctxScopes           = functionScope : tctxScopes tctx'
+                   , tctxVarargsParameter = functionVararg f
+                   }
 
   veryNoisyDebugLog ctx $ "TypeFunction: follow function args"
   args <- forM (functionArgs f) $ \arg -> do
@@ -80,7 +82,9 @@ typeFunctionDefinition ctx tctx' mod f = do
       bindToScope
         functionScope
         x
-        (ExprBinding $ makeExprTyped (VarArg x) (TypeAny $ functionPos f) (functionPos f))
+        ( ExprBinding
+        $ makeExprTyped (VarArg x) (TypeAny $ functionPos f) (functionPos f)
+        )
     Nothing -> return ()
   veryNoisyDebugLog ctx $ "TypeFunction: follow function type"
   returnType <- follow ctx tctx $ functionType f

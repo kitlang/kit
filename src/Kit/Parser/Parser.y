@@ -677,6 +677,7 @@ BaseExpr :: {Expr}
   | this {pe (snd $1) This}
   | Self {pe (snd $1) Self}
   | Identifier {pe (snd $1) $ Identifier (fst $1)}
+  | '(' identifier "..." ')' {pe (snd $1 <+> snd $4) $ VarArgListCopy $ extract_identifier $2}
   | unsafe Expr {pe (snd $1 <+> pos $2) (Unsafe $2)}
   | sizeof TypeSpec {pe (snd $1 <+> snd $2) (SizeOf $ fst $2)}
   | '(' Expr ParenthesizedExprs ')' {if null $3 then $2 {pos = snd $1 <+> snd $4} else pe (snd $1 <+> snd $4) (TupleInit ($2 : reverse $3)) }

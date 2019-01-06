@@ -125,15 +125,21 @@ displayFileSnippet _ span@(Span { file = FileSpan fp }) = do
   exists <- doesFileExist fp
   when exists $ do
     contents <- readFile $ fp
-    showSnippet span contents
-displayFileSnippet macroReader span@(Span { file = MacroSpan (tp, index) }) = do
-  output <- macroReader (tp, index)
-  case output of
-    Just contents -> do
-      showSnippet span $ s_unpack contents
+    showSnippet span contents False
+displayFileSnippet macroReader span@(Span { file = MacroSpan (tp, index) }) =
+  do
+    output <- macroReader (tp, index)
+    case output of
+      Just contents -> do
+        showSnippet span (s_unpack contents) True
 
-showSnippet :: Span -> String -> IO ()
-showSnippet span contents = do
+showSnippet :: Span -> String -> Bool -> IO ()
+showSnippet span contents displayFull = do
+  when displayFull $ do
+    hSetSGR
+      stderr
+      [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
+    hPutStr stderr contents
   hSetSGR
     stderr
     [SetColor Foreground Vivid Blue, SetConsoleIntensity NormalIntensity]

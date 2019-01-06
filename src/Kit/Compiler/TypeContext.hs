@@ -302,6 +302,8 @@ _follow ctx tctx count t = do
       resolvedParams <- forM params (r)
       return
         $ TypeEnumConstructor tp d (ConcreteArgs resolvedArgs) resolvedParams
+    TypeTypedef "__builtin_va_list" ->
+      return $ TypeBasicType $ BasicTypeTypedef "__builtin_va_list"
     TypeTypedef name -> do
       typedef <- h_lookup (ctxTypedefs ctx) name
       case typedef of
@@ -398,7 +400,7 @@ builtinToConcreteType
 builtinToConcreteType ctx tctx mod s pos = do
   case s of
     "Void" -> return $ Just $ TypeBasicType BasicTypeVoid
-    _      -> return Nothing
+    _ -> return Nothing
 
 getTraitImpl
   :: CompileContext
