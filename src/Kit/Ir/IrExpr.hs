@@ -48,5 +48,6 @@ isValidInitializer (IrCArrLiteral x _) = all isValidInitializer x
 isValidInitializer (IrCast        x _) = isValidInitializer x
 isValidInitializer (IrStructInit _ fields) =
   all isValidInitializer $ map snd fields
-isValidInitializer (IrPreUnop Ref x) = isValidInitializer x
-isValidInitializer _                 = False
+isValidInitializer (IrPreUnop Ref x  ) = isValidInitializer x
+isValidInitializer (IrEnumInit _ _ []) = True
+isValidInitializer _                   = False

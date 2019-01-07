@@ -36,9 +36,9 @@ generateMonomorphs ctx = do
       else do
         existing <- h_lookup (ctxCompleteGenerics ctx) (tp, params)
         case existing of
-          Just x -> return Nothing
+          Just True -> return Nothing
           _      -> do
-            h_insert (ctxCompleteGenerics ctx) (tp, params) ()
+            h_insert (ctxCompleteGenerics ctx) (tp, params) True
             binding <- getBinding ctx tp
             case binding of
               FunctionBinding def -> do

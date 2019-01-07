@@ -74,7 +74,7 @@ data CompileContextState = CompileContextState {
   ctxStateTypedefs :: HashTable Str ConcreteType,
   ctxStateTuples :: IORef [(ModulePath, ConcreteType)],
   ctxStatePendingGenerics :: IORef [(TypePath, [ConcreteType])],
-  ctxStateCompleteGenerics :: HashTable (TypePath, [ConcreteType]) (),
+  ctxStateCompleteGenerics :: HashTable (TypePath, [ConcreteType]) Bool,
   ctxStateUnresolvedTypeVars :: IORef [Int],
   ctxStateUnresolvedTemplateVars :: IORef [(Int, [ConcreteType], Span)],
   ctxStateConstantParamTypes :: HashTable TypePath ConcreteType,
@@ -349,7 +349,14 @@ makeGeneric ctx tp@(modPath, name) pos existing = do
             )
             (map snd params)
           )
-        $ modifyRef (ctxPendingGenerics ctx) (\acc -> (tp, paramTypes) : acc)
+        $ do
+            existing <- h_lookup (ctxCompleteGenerics ctx) (tp, paramTypes)
+            case existing of
+              Nothing -> do
+                modifyRef (ctxPendingGenerics ctx) $ (:) (tp, paramTypes)
+                h_insert (ctxCompleteGenerics ctx) (tp, paramTypes) False
+              _ -> return ()
+
       return params
 
 makeGenericConcrete :: CompileContext -> Span -> ConcreteType -> IO ConcreteType
