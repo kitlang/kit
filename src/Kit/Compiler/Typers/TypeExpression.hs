@@ -12,7 +12,6 @@ import           Kit.Compiler.Module
 import           Kit.Compiler.Scope
 import           Kit.Compiler.TermRewrite
 import           Kit.Compiler.TypeContext
-import           Kit.Compiler.TypedExpr
 import           Kit.Compiler.Typers.AutoRefDeref
 import           Kit.Compiler.Typers.ExprTyper
 import           Kit.Compiler.Typers.TypeExpression.TypeArrayAccess
@@ -60,7 +59,6 @@ typeMaybeExpr ctx tctx mod e = case e of
 -}
 typeExpr :: CompileContext -> TypeContext -> Module -> TypedExpr -> IO TypedExpr
 typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
-  veryNoisyDebugLog ctx $ show ex
   let r = typeExpr ctx tctx mod
   let maybeR x = case x of
         Just x -> do
@@ -91,7 +89,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
                                     x
                                     (\tctx -> typeExpr ctx tctx mod)
               case result of
-                Just x  -> return $ Just (x, tctx)
+                Just x  -> return $ Just x
                 Nothing -> return Nothing
         )
         Nothing
@@ -99,15 +97,16 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         ++ [ rule | ruleset <- tctxRules tctx, rule <- ruleSetRules ruleset ]
         )
       case result of
-        Just (x, tctx) -> r x
-        Nothing        -> y
+        Just x  -> r x
+        Nothing -> y
 
-  let utils = TyperUtils { _r          = r
-                         , _maybeR     = maybeR
-                         , _tryRewrite = tryRewrite
-                         , _resolve    = resolve
-                         , _typeExpr   = typeExpr
-                         }
+  let utils = TyperUtils
+        { _r          = r
+        , _maybeR     = maybeR
+        , _tryRewrite = tryRewrite
+        , _resolve    = resolve
+        , _typeExpr   = typeExpr
+        }
 
   let subTyper f = f utils ctx tctx mod ex
 

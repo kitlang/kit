@@ -1,4 +1,5 @@
 module Kit.Ast.Definitions (
+  module Kit.Ast.Definitions.ArgSpec,
   module Kit.Ast.Definitions.Base,
   module Kit.Ast.Definitions.EnumVariant,
   module Kit.Ast.Definitions.FunctionDefinition,
@@ -9,6 +10,7 @@ module Kit.Ast.Definitions (
   module Kit.Ast.Definitions.VarDefinition
 ) where
 
+import Kit.Ast.Definitions.ArgSpec
 import Kit.Ast.Definitions.Base
 import Kit.Ast.Definitions.EnumVariant
 import Kit.Ast.Definitions.FunctionDefinition

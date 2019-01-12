@@ -7,8 +7,6 @@ import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedStmt
-import Kit.Compiler.TypedExpr
 import Kit.Compiler.Typers.TypeExpression
 import Kit.Compiler.Unify
 import Kit.Compiler.Utils
@@ -62,10 +60,20 @@ typeFunctionDefinition ctx tctx' mod f = do
                    , tctxVarargsParameter = functionVararg f
                    }
 
-  veryNoisyDebugLog ctx $ "TypeFunction: follow function args"
   args <- forM (functionArgs f) $ \arg -> do
-    t <- follow ctx tctx $ argType arg
-    return $ arg { argType = t }
+    t   <- follow ctx tctx $ argType arg
+    def <- typeMaybeExpr ctx tctx' mod $ argDefault arg
+    case def of
+      Just t -> resolveConstraint
+        ctx
+        tctx
+        (TypeEq (argType arg)
+                (inferredType t)
+                "Function argument defaults must match the argument type"
+                (argPos arg)
+        )
+      Nothing -> return ()
+    return $ arg { argType = t, argDefault = def }
   forM_
     args
     (\arg -> bindToScope
@@ -86,15 +94,13 @@ typeFunctionDefinition ctx tctx' mod f = do
         $ makeExprTyped (VarArg x) (TypeAny $ functionPos f) (functionPos f)
         )
     Nothing -> return ()
-  veryNoisyDebugLog ctx $ "TypeFunction: follow function type"
   returnType <- follow ctx tctx $ functionType f
   let ftctx =
         (tctx { tctxScopes     = functionScope : (tctxScopes tctx)
               , tctxReturnType = Just returnType
               }
         )
-  veryNoisyDebugLog ctx $ "TypeFunction: type function body"
-  body <- typeMaybeExpr ctx ftctx mod (functionBody f)
+  body <- typeMaybeExpr ctx ftctx mod $ functionBody f
   case body of
     Just body -> do
       let

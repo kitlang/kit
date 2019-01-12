@@ -9,7 +9,6 @@ import Kit.Ast
 import Kit.Compiler.Context
 import Kit.Compiler.Ir
 import Kit.Compiler.Module
-import Kit.Compiler.TypedStmt
 import Kit.Compiler.Utils
 import Kit.HashTable
 import Kit.Ir

@@ -15,7 +15,6 @@ import           Kit.Compiler.Context
 import           Kit.Compiler.Module
 import           Kit.Compiler.Scope
 import           Kit.Compiler.TypeContext
-import           Kit.Compiler.TypedExpr
 import           Kit.Error
 import           Kit.HashTable
 import           Kit.Parser

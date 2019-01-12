@@ -11,7 +11,6 @@ import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedExpr
 import Kit.Compiler.Typers.AutoRefDeref
 import Kit.Compiler.Typers.ExprTyper
 import Kit.Compiler.Typers.TypeExpression.ExprToType

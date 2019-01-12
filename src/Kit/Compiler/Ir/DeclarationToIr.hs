@@ -9,7 +9,6 @@ import Kit.Compiler.Ir.FindUnderlyingType
 import Kit.Compiler.Ir.ExprToIr
 import Kit.Compiler.Module
 import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedStmt
 import Kit.Compiler.Utils
 import Kit.Ir
 import Kit.NameMangling

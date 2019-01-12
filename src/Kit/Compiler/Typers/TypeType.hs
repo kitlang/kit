@@ -6,8 +6,6 @@ import Kit.Ast
 import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedStmt
-import Kit.Compiler.TypedExpr
 import Kit.Compiler.Typers.TypeExpression
 import Kit.Compiler.Unify
 import Kit.Compiler.Utils

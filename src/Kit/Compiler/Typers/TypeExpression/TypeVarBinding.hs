@@ -6,7 +6,6 @@ import Kit.Compiler.Binding
 import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedExpr
 import Kit.Compiler.Unify
 import Kit.Compiler.Typers.AutoRefDeref
 import Kit.Compiler.Typers.ExprTyper
@@ -32,13 +31,12 @@ typeVarBinding ctx tctx binding pos = do
       -- FIXME: pull params from tctx
       params <- makeGeneric ctx parentTp pos []
       let ct   = TypeInstance parentTp $ map snd params
-      let args = [ (argName arg, argType arg) | arg <- variantArgs def ]
-      if null args
+      if null $ variantArgs def
         then return $ makeExprTyped (EnumInit ct discriminant []) ct pos
         else do
           return $ makeExprTyped
             (Identifier $ Var discriminant)
-            (TypeEnumConstructor parentTp discriminant (ConcreteArgs args) (map snd params))
+            (TypeEnumConstructor parentTp discriminant (variantArgs def) (map snd params))
             pos
     VarBinding v ->
       return $ (makeExprTyped (Identifier $ Var $ varRealName v) (varType v) pos

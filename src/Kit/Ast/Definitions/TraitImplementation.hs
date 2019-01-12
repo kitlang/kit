@@ -11,7 +11,6 @@ import Kit.Ast.Definitions.TraitDefinition
 import Kit.Ast.Definitions.VarDefinition
 import Kit.Ast.TypeParam
 import Kit.Ast.TypePath
-import Kit.Ast.Types
 import Kit.Ast.Span
 import Kit.Str
 

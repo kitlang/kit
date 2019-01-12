@@ -10,7 +10,6 @@ import Kit.Ast
 import Kit.Compiler.Binding
 import Kit.Compiler.Context
 import Kit.Compiler.Module
-import Kit.Compiler.TypedExpr
 import Kit.Compiler.Utils
 import Kit.Error
 import Kit.HashTable
@@ -173,7 +172,7 @@ _loadPreludes
   :: CompileContext -> ParseContext -> ModulePath -> IO [SyntacticStatement]
 _loadPreludes ctx pctx mod = do
   preludes <- _loadPrelude ctx pctx mod
-  if mod == []
+  if null mod
     then return preludes
     else do
       _parents <- _loadPreludes ctx pctx (take (length mod - 1) mod)

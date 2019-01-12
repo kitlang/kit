@@ -5,7 +5,6 @@ import Kit.Ast
 import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedExpr
 
 exprToType
   :: CompileContext

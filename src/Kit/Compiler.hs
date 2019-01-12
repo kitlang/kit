@@ -28,7 +28,6 @@ import Kit.Compiler.Module
 import Kit.Compiler.Passes
 import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedExpr
 import Kit.Compiler.Unify
 import Kit.Compiler.Utils
 import Kit.Error

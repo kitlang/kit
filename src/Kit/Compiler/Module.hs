@@ -4,7 +4,6 @@ import Control.Monad
 import Data.Mutable
 import Data.Maybe
 import Kit.Ast
-import Kit.Compiler.TypedExpr
 import Kit.Error
 import Kit.HashTable
 import Kit.Log

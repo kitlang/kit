@@ -12,7 +12,6 @@ import Kit.Compiler.Module
 import Kit.Compiler.Passes.GenerateMonomorphs
 import Kit.Compiler.Passes.SpecializeTypes
 import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedStmt
 import Kit.Compiler.Typers
 import Kit.Compiler.Utils
 import Kit.Error
@@ -162,17 +161,18 @@ typeIterative ctx input output lastErrors limit = do
   let (incomplete, complete, errors) = splitComplete collapsedResults [] [] []
 
   madeProgress <- readRef (ctxMadeProgress ctx)
-  writeRef (ctxMadeProgress ctx) False
   if (null incomplete) || madeProgress || (madeProgress || errors /= lastErrors)
     then do
       newMonomorphs <- generateMonomorphs ctx
       specialized   <- specializeTypes ctx
       if (not $ null newMonomorphs) || specialized
-        then typeIterative ctx
-                           (incomplete ++ newMonomorphs)
-                           (complete ++ output)
-                           errors
-                           (limit - 1)
+        then do
+          writeRef (ctxMadeProgress ctx) False
+          typeIterative ctx
+                        (incomplete ++ newMonomorphs)
+                        (complete ++ output)
+                        errors
+                        (limit - 1)
         else if null incomplete
           then return $ complete ++ output
           else throwk $ KitErrors $ reverse errors

@@ -1,8 +1,11 @@
 module Kit.Ast.TypeConstraint where
 
 import Data.List
+import Kit.Ast.ConcreteType
+import Kit.Ast.TypedExpr
 import Kit.Ast.TypePath
-import Kit.Ast.Types
+import Kit.Ast.TypeSpec
+import Kit.Ast.TypeVar
 import Kit.Ast.Span
 import Kit.Str
 

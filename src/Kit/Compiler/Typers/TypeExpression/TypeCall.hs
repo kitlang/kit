@@ -13,7 +13,6 @@ import           Kit.Compiler.Binding
 import           Kit.Compiler.Context
 import           Kit.Compiler.Module
 import           Kit.Compiler.TypeContext
-import           Kit.Compiler.TypedExpr
 import           Kit.Compiler.Typers.AutoRefDeref
 import           Kit.Compiler.Typers.ExprTyper
 import           Kit.Compiler.Typers.TypeExpression.TypeVarBinding
@@ -199,6 +198,12 @@ argDescriptions implicits explicits =
     )
     : (argDescriptions [] explicits)
 
+addDefaultArgs :: ConcreteArgs -> [TypedExpr] -> [TypedExpr]
+addDefaultArgs [] new = reverse new
+addDefaultArgs ((ArgSpec { argType = argType, argDefault = Just x }) : t) new =
+  addDefaultArgs t ((x { inferredType = argType }) : new)
+addDefaultArgs (h : t) new = addDefaultArgs t new
+
 typeFunctionCall
   :: CompileContext
   -> TypeContext
@@ -207,33 +212,35 @@ typeFunctionCall
   -> [TypedExpr]
   -> [TypedExpr]
   -> IO TypedExpr
-typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = ft@(TypeFunction rt (ConcreteArgs argTypes) isVariadic params), tPos = pos }) implicits args
+typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = ft@(TypeFunction rt argSpecs isVariadic params), tPos = pos }) implicits args
   = do
     aligned <- alignCallArgs ctx
                              tctx
-                             (map snd argTypes)
+                             (map argType argSpecs)
                              (isJust isVariadic)
                              implicits
                              args
+    let defaults      = addDefaultArgs (drop (length aligned) argSpecs) []
+    let totalArgs     = aligned ++ defaults
     let usedImplicits = length aligned - length args
     when
         (if isJust isVariadic
-          then length aligned < length argTypes
-          else length aligned /= length argTypes
+          then length totalArgs < length argSpecs
+          else length totalArgs /= length argSpecs
         )
       $ throwk
       $ TypingError
           (  "Function expected "
-          ++ (show $ length argTypes)
+          ++ (show $ length argSpecs)
           ++ (if isJust isVariadic then " or more" else "")
           ++ " argument"
-          ++ (plural $ length argTypes)
+          ++ (plural $ length argSpecs)
           ++ ":\n\n  "
           ++ show ft
           ++ "\n\nCalled with "
           ++ let descriptions = argDescriptions
                    (map inferredType $ take usedImplicits aligned)
-                   (map inferredType $ drop usedImplicits aligned)
+                   (map inferredType $ drop usedImplicits totalArgs)
              in  if null descriptions
                    then "no arguments"
                    else
@@ -246,14 +253,15 @@ typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = ft@(TypeFunction rt 
           )
           pos
     converted <- forMWithErrors
-      (zip (map Just argTypes ++ repeat Nothing) aligned)
+      (zip (map Just argSpecs ++ repeat Nothing) aligned)
       (\(arg, argValue) -> case arg of
-        Just (_, argType) -> tryAutoRefDeref ctx tctx argType argValue
-        Nothing           -> return argValue
+        Just (ArgSpec { argType = argType }) ->
+          tryAutoRefDeref ctx tctx argType argValue
+        Nothing -> return argValue
       )
     forMWithErrors_
-      (zip argTypes converted)
-      (\((_, argType), argValue) -> do
+      (zip argSpecs converted)
+      (\((ArgSpec { argType = argType }), argValue) -> do
         t1 <- follow ctx tctx argType
         t2 <- follow ctx tctx (inferredType argValue)
         resolveConstraint
@@ -266,7 +274,10 @@ typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = ft@(TypeFunction rt 
           )
       )
     return $ makeExprTyped
-      (Call e (take usedImplicits converted) (drop usedImplicits converted))
+      (Call e
+            (take usedImplicits converted)
+            (drop usedImplicits converted ++ defaults)
+      )
       rt
       pos
 
@@ -281,11 +292,11 @@ typeEnumConstructorCall
   -> ConcreteArgs
   -> [ConcreteType]
   -> IO TypedExpr
-typeEnumConstructorCall ctx tctx mod e args tp discriminant (ConcreteArgs argTypes) params
-  = do
-    when (length args < length argTypes) $ throwk $ TypingError
+typeEnumConstructorCall ctx tctx mod e args tp discriminant argSpecs params =
+  do
+    when (length args < length argSpecs) $ throwk $ TypingError
       (  "Expected "
-      ++ (show $ length argTypes)
+      ++ (show $ length argSpecs)
       ++ " arguments (called with "
       ++ (show $ length args)
       ++ ")"
@@ -300,8 +311,8 @@ typeEnumConstructorCall ctx tctx mod e args tp discriminant (ConcreteArgs argTyp
       ]
       (tPos e)
     forMWithErrors_
-      (zip argTypes args)
-      (\((_, argType), argValue) -> do
+      (zip argSpecs args)
+      (\((ArgSpec { argType = argType }), argValue) -> do
         t1 <- follow ctx tctx argType
         t2 <- follow ctx tctx (inferredType argValue)
         resolveConstraint
@@ -315,6 +326,6 @@ typeEnumConstructorCall ctx tctx mod e args tp discriminant (ConcreteArgs argTyp
       )
     let ct = TypeInstance tp params
     return $ makeExprTyped
-      (EnumInit ct discriminant (zip (map fst argTypes) args))
+      (EnumInit ct discriminant (zip (map argName argSpecs) args))
       ct
       (tPos e)
