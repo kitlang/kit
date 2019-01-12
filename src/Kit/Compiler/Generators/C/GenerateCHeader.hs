@@ -55,8 +55,8 @@ findInits x = catMaybes $ map
 
 sortHeaderDefs :: [IrStmt] -> IO [IrStmt]
 sortHeaderDefs decls = do
-  memos        <- h_newSized (length decls)
-  dependencies <- h_newSized (length decls)
+  memos        <- h_newSized (length decls * 2)
+  dependencies <- h_newSized (length decls * 2)
   -- memoize BasicType dependencies of type declarations
   forM_ decls $ \decl -> case stmt decl of
     TypeDeclaration t -> case typeSubtype t of

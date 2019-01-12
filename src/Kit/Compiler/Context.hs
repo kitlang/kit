@@ -15,7 +15,6 @@ import Kit.Compiler.Binding
 import Kit.Compiler.CCompiler
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
-import Kit.Compiler.TypedExpr
 import Kit.Error
 import Kit.HashTable
 import Kit.Log
@@ -304,8 +303,6 @@ makeGeneric
   -> [ConcreteType]
   -> IO [(TypePath, ConcreteType)]
 makeGeneric ctx tp@(modPath, name) pos existing = do
-  when (ctxVerbose ctx > 2) $ logMsg (Just Debug) $ "make generic: " ++ s_unpack
-    (showTypePath tp)
   params <- do
     binding <- h_lookup (ctxBindings ctx) tp
     case binding of

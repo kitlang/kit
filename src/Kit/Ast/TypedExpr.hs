@@ -1,12 +1,20 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
 
-module Kit.Compiler.TypedExpr where
+module Kit.Ast.TypedExpr (
+  TypedExpr(..),
+  makeExprTyped
+) where
 
 import           Data.Hashable
 import           GHC.Generics
-import           Kit.Ast
+import           Kit.Ast.ConcreteTypeBase
+import           Kit.Ast.Definitions
+import           Kit.Ast.ExprType
 import           Kit.Ast.Span
+import           Kit.Ast.Value
+
+type ConcreteType = ConcreteTypeBase TypedExpr
 
 type TypedExprType = ExprType TypedExpr ConcreteType
 data TypedExpr = TypedExpr {
@@ -36,15 +44,16 @@ instance Hashable TypedExpr where
   hashWithSalt = hashUsing tExpr
 
 makeExprTyped :: TypedExprType -> ConcreteType -> Span -> TypedExpr
-makeExprTyped et t pos = TypedExpr { tExpr             = et
-                                   , inferredType      = t
-                                   , tImplicits        = []
-                                   , tPos              = pos
-                                   , rewrittenBy       = Nothing
-                                   , tIsLvalue         = False
-                                   , tIsLocal          = False
-                                   , tIsLocalPtr       = False
-                                   , tCompileTimeValue = Nothing
-                                   , tIsConst          = False
-                                   , tImplicitRules    = []
-                                   }
+makeExprTyped et t pos = TypedExpr
+  { tExpr             = et
+  , inferredType      = t
+  , tImplicits        = []
+  , tPos              = pos
+  , rewrittenBy       = Nothing
+  , tIsLvalue         = False
+  , tIsLocal          = False
+  , tIsLocalPtr       = False
+  , tCompileTimeValue = Nothing
+  , tIsConst          = False
+  , tImplicitRules    = []
+  }

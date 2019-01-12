@@ -1,5 +1,6 @@
 module Kit.Ast (
   module Kit.Ast.BasicType,
+  module Kit.Ast.ConcreteType,
   module Kit.Ast.Definitions,
   module Kit.Ast.DefStatement,
   module Kit.Ast.Expr,
@@ -12,14 +13,17 @@ module Kit.Ast (
   module Kit.Ast.Span,
   module Kit.Ast.Statement,
   module Kit.Ast.TypeConstraint,
+  module Kit.Ast.TypedExpr,
+  module Kit.Ast.TypedStmt,
   module Kit.Ast.TypeParam,
   module Kit.Ast.TypePath,
-  module Kit.Ast.Types,
+  module Kit.Ast.TypeSpec,
   module Kit.Ast.UsingType,
-  module Kit.Ast.Value
+  module Kit.Ast.Value,
 ) where
 
 import Kit.Ast.BasicType
+import Kit.Ast.ConcreteType
 import Kit.Ast.Definitions
 import Kit.Ast.DefStatement
 import Kit.Ast.Expr
@@ -32,8 +36,10 @@ import Kit.Ast.Operator
 import Kit.Ast.Span
 import Kit.Ast.Statement
 import Kit.Ast.TypeConstraint
+import Kit.Ast.TypedExpr
+import Kit.Ast.TypedStmt
 import Kit.Ast.TypeParam
 import Kit.Ast.TypePath
-import Kit.Ast.Types
+import Kit.Ast.TypeSpec
 import Kit.Ast.UsingType
 import Kit.Ast.Value

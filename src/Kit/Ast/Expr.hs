@@ -9,7 +9,7 @@ import GHC.Generics
 import Kit.Ast.ExprType
 import Kit.Ast.Span
 import Kit.Ast.Statement
-import Kit.Ast.Types
+import Kit.Ast.TypeSpec
 
 type SyntacticStatement = Statement Expr TypeSpec
 type SyntacticExprType = ExprType Expr TypeSpec

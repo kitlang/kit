@@ -104,13 +104,13 @@ _findUnderlyingType ctx mod pos stack t = do
     TypeTuple t -> do
       slots <- forM t (r)
       return $ BasicTypeTuple (tupleName slots) slots
-    TypeFunction rt (ConcreteArgs args) var params -> do
+    TypeFunction rt args var params -> do
       rt'   <- r rt
       args' <- forM
         args
-        (\(name, t) -> do
-          t' <- r t
-          return (name, t')
+        (\arg -> do
+          t' <- r $ argType arg
+          return (argName arg, t')
         )
       return $ BasicTypeFunction rt' args' $ isJust var
     TypeBox tp params -> do

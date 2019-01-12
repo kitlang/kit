@@ -17,7 +17,7 @@ struct Map[K: Hashable, V] {
     var allocator: Box[Allocator];
     var internalArray: Array[KeyValuePair[K, V]];
 
-    public static function new(allocator: Box[Allocator], capacity: Int): Map[K, V] using implicit allocator {
+    public static function new(allocator: Box[Allocator], capacity: Int = 16): Map[K, V] using implicit allocator {
         var internalArray: Array[KeyValuePair[K, V]] = Array.new(capacity);
         return struct Self {
             allocator,

@@ -22,7 +22,6 @@ import Kit.Ast.Metadata
 import Kit.Ast.Modifier
 import Kit.Ast.TypeParam
 import Kit.Ast.TypePath
-import Kit.Ast.Types
 import Kit.NameMangling
 import Kit.Ast.Span
 import Kit.Str

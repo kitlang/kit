@@ -12,7 +12,6 @@ import Data.Maybe
 import Kit.Ast
 import Kit.Compiler.Context
 import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedExpr
 import Kit.Compiler.Unify
 import Kit.Error
 

@@ -10,7 +10,6 @@ import Kit.Compiler.Context
 import Kit.NameMangling
 import Kit.Compiler.Module
 import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedExpr
 import Kit.Compiler.Typers.ConvertExpr
 import Kit.Compiler.Unify
 import Kit.Compiler.Utils

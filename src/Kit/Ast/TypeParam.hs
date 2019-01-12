@@ -8,7 +8,7 @@ import Data.List
 import GHC.Generics
 import Kit.Ast.Definitions.Base
 import Kit.Ast.TypePath
-import Kit.Ast.Types
+import Kit.Ast.TypeSpecBase
 import Kit.Ast.Value
 import Kit.Ast.Span
 import Kit.Str

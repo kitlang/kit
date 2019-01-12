@@ -1,10 +1,11 @@
 module Kit.Ast.Statement where
 
+import Kit.Ast.ConcreteType
 import Kit.Ast.Definitions
 import Kit.Ast.DefStatement
 import Kit.Ast.ModulePath
 import Kit.Ast.TypePath
-import Kit.Ast.Types
+import Kit.Ast.TypeSpec
 import Kit.Ast.UsingType
 import Kit.Ast.Span
 import Kit.Str

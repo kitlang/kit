@@ -8,8 +8,6 @@ import           Kit.Compiler.Binding
 import           Kit.Compiler.Context
 import           Kit.Compiler.Module
 import           Kit.Compiler.Scope
-import           Kit.Compiler.TypedStmt
-import           Kit.Compiler.TypedExpr
 import           Kit.Compiler.Utils
 import           Kit.Error
 import           Kit.HashTable
@@ -200,9 +198,9 @@ resolveType ctx tctx mod t = do
         (args)
         (\arg -> do
           t <- resolveType ctx tctx mod arg
-          return ("_", t)
+          return $ newArgSpec { argName = "_", argType = t }
         )
-      return $ TypeFunction rt' (ConcreteArgs args') isVariadic []
+      return $ TypeFunction rt' args' isVariadic []
 
     InferredType pos ->
       throwk $ BasicError ("Inferred type isn't supported here") (Just pos)
@@ -266,11 +264,12 @@ _follow ctx tctx count t = do
         case resolveTypeParam tp (tctxTypeParams tctx) of
           Just t -> do
             return t
-          Nothing -> throwk $ TypingError
-            (  "Required type parameter not in scope: "
-            ++ s_unpack (showTypePath tp)
-            )
-            NoPos
+          Nothing -> do
+            throwk $ TypingError
+              (  "Required type parameter not in scope: "
+              ++ s_unpack (showTypePath tp)
+              )
+              pos
       i <- templateVarToTypeVar ctx i params pos
       r $ TypeTypeVar i
     TypeInstance tp params -> do
@@ -279,29 +278,25 @@ _follow ctx tctx count t = do
     TypePtr t -> do
       t <- r t
       return $ TypePtr t
-    TypeFunction t (ConcreteArgs args) varargs params -> do
+    TypeFunction t args varargs params -> do
       resolved     <- r t
       resolvedArgs <- forM
         args
-        (\(name, t) -> do
-          resolvedArg <- r t
-          return (name, resolvedArg)
+        (\arg -> do
+          resolvedArg <- r $ argType arg
+          return $ arg { argType = resolvedArg }
         )
       resolvedParams <- forM params (r)
-      return $ TypeFunction resolved
-                            (ConcreteArgs resolvedArgs)
-                            varargs
-                            resolvedParams
-    TypeEnumConstructor tp d (ConcreteArgs args) params -> do
+      return $ TypeFunction resolved resolvedArgs varargs resolvedParams
+    TypeEnumConstructor tp d args params -> do
       resolvedArgs <- forM
         args
-        (\(name, t) -> do
-          resolvedArg <- r t
-          return (name, resolvedArg)
+        (\arg -> do
+          resolvedArg <- r $ argType arg
+          return $ arg { argType = resolvedArg }
         )
       resolvedParams <- forM params (r)
-      return
-        $ TypeEnumConstructor tp d (ConcreteArgs resolvedArgs) resolvedParams
+      return $ TypeEnumConstructor tp d resolvedArgs resolvedParams
     TypeTypedef "__builtin_va_list" ->
       return $ TypeBasicType $ BasicTypeTypedef "__builtin_va_list"
     TypeTypedef name -> do
@@ -400,7 +395,7 @@ builtinToConcreteType
 builtinToConcreteType ctx tctx mod s pos = do
   case s of
     "Void" -> return $ Just $ TypeBasicType BasicTypeVoid
-    _ -> return Nothing
+    _      -> return Nothing
 
 getTraitImpl
   :: CompileContext
@@ -439,11 +434,8 @@ getTraitImpl ctx tctx trait@(traitTp, params) ct = do
             _ -> return Nothing
         _ -> return Nothing
 
-functionConcrete f = TypeFunction
-  (functionType f)
-  (ConcreteArgs [ (argName arg, argType arg) | arg <- functionArgs f ])
-  (functionVararg f)
-  []
+functionConcrete f =
+  TypeFunction (functionType f) (functionArgs f) (functionVararg f) []
 
 {-
   Given a ConcreteType, returns a new TypeContext which has instantiated any

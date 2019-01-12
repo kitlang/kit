@@ -13,6 +13,8 @@ import           Kit.Compiler.Passes
 import           Kit.HashTable
 import           Kit.Ir
 
+concreteArgs = map (\(n, t) -> newArgSpec {argName = n, argType = t})
+
 testHeader :: IO (CompileContext, Module)
 testHeader = do
   ctx <- newCompileContext
@@ -86,7 +88,7 @@ spec = do
         , "pointer_var3"
         , (TypePtr
             (TypeFunction (TypeInt 16)
-                          (ConcreteArgs [("arg1", TypeInt 16)])
+                          (concreteArgs [("arg1", TypeInt 16)])
                           Nothing
                           []
             )
@@ -94,53 +96,53 @@ spec = do
         )
       , ( "Parses void function pointers"
         , "func_pointer"
-        , (TypePtr $ TypeFunction TypeVoid (ConcreteArgs []) Nothing [])
+        , (TypePtr $ TypeFunction TypeVoid (concreteArgs []) Nothing [])
         )
       , ( "Parses void functions"
         , "void_func1"
-        , TypeFunction TypeVoid (ConcreteArgs []) Nothing []
+        , TypeFunction TypeVoid (concreteArgs []) Nothing []
         )
       , ( "Parses functions with non-void types"
         , "int_func1"
-        , TypeFunction (TypeInt 16) (ConcreteArgs []) Nothing []
+        , TypeFunction (TypeInt 16) (concreteArgs []) Nothing []
         )
       , ( "Parses functions with arguments"
         , "func_with_args"
         , TypeFunction
           (TypeFloat 32)
-          (ConcreteArgs [("arg1", TypeInt 16), ("arg2", TypeUint 64)])
+          (concreteArgs [("arg1", TypeInt 16), ("arg2", TypeUint 64)])
           Nothing
           []
         )
       , ( "Parses functions with struct return value/arguments"
         , "struct_func"
         , TypeFunction (TypeInstance ([], "Struct1") [])
-                       (ConcreteArgs [("a", TypeInstance ([], "Struct2") [])])
+                       (concreteArgs [("a", TypeInstance ([], "Struct2") [])])
                        Nothing
                        []
         )
       , ( "Parses functions with pointer return value/arguments"
         , "pointer_func"
         , TypeFunction (TypePtr $ TypeFloat 32)
-                       (ConcreteArgs [("arg1", TypePtr $ TypeInt 0)])
+                       (concreteArgs [("arg1", TypePtr $ TypeInt 0)])
                        Nothing
                        []
         )
       , ( "Parses variadic functions"
         , "varargs_func"
-        , TypeFunction TypeVoid (ConcreteArgs [("a", TypeInt 16)]) (Just "") []
+        , TypeFunction TypeVoid (concreteArgs [("a", TypeInt 16)]) (Just "") []
         )
       , ( "Parses void arg functions"
         , "void_func"
-        , TypeFunction (TypeInt 32) (ConcreteArgs []) Nothing []
+        , TypeFunction (TypeInt 32) (concreteArgs []) Nothing []
         )
       , ( "Parses atexit"
         , "fake_atexit"
         , TypeFunction
           (TypeInt 0)
-          (ConcreteArgs
+          (concreteArgs
             [ ( "__func"
-              , TypePtr $ TypeFunction TypeVoid (ConcreteArgs []) Nothing []
+              , TypePtr $ TypeFunction TypeVoid (concreteArgs []) Nothing []
               )
             ]
           )
@@ -156,7 +158,7 @@ spec = do
       , ( "Parses function pointer typedef"
         , "func_pointah"
         , TypeFunction (TypeTypedef "fp_typedef")
-                       (ConcreteArgs [("arg3", TypeInt 0)])
+                       (concreteArgs [("arg3", TypeInt 0)])
                        Nothing
                        []
         )

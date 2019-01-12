@@ -3,8 +3,8 @@ module Kit.NameMangling where
 import Data.List
 import Data.Maybe
 import Kit.Ast.BasicType
+import Kit.Ast.ConcreteTypeBase
 import Kit.Ast.TypePath
-import Kit.Ast.Types
 import Kit.Str
 
 validName :: Str -> Str
@@ -16,7 +16,7 @@ mangleName ([], s) = s
 mangleName (namespace, s) =
   validName $ s_concat [s_join "_" namespace, "__", s]
 
-monomorphName :: TypePath -> [ConcreteType] -> TypePath
+monomorphName :: (Show a) => TypePath -> [ConcreteTypeBase a] -> TypePath
 monomorphName tp [] = tp
 monomorphName tp@(namespace, s) p =
   if null p then tp else monomorphAddSuffix tp $ Just $ monomorphSuffix p
@@ -24,7 +24,7 @@ monomorphName tp@(namespace, s) p =
 tupleName :: [BasicType] -> Str
 tupleName slots = s_concat ["tuple", hashParams slots]
 
-monomorphSuffix :: [ConcreteType] -> Str
+monomorphSuffix :: (Show a) => [ConcreteTypeBase a] -> Str
 monomorphSuffix p = hashParams p
 
 monomorphAddSuffix :: TypePath -> Maybe Str -> TypePath

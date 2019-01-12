@@ -6,8 +6,6 @@ import Data.Maybe
 import Kit.Ast
 import Kit.Compiler.Context
 import Kit.Compiler.Module
-import Kit.Compiler.TypedStmt
-import Kit.Compiler.TypedExpr
 import Kit.Parser
 import Kit.Str
 
@@ -133,9 +131,7 @@ dumpAst ctx indent e@(TypedExpr { tExpr = texpr, inferredType = t, tPos = pos })
   = do
     let dumpChild = dumpAst ctx (indent + 1)
     t' <- dumpCt ctx t
-    let
-      indented =
-        (++)
+    let indented = (++)
           (  (take (indent * 2) $ repeat ' ')
           ++ (show $ (pos { file = FileSpan "" }))
           ++ ": "
@@ -251,14 +247,14 @@ dumpCt ctx t = case t of
   TypeTuple t -> do
     parts <- forM t $ dumpCt ctx
     return $ "(" ++ intercalate ", " parts ++ ")"
-  TypeFunction rt (ConcreteArgs args) var params -> do
-    args <- forM args $ \(name, t) -> do
-      t' <- dumpCt ctx t
-      return (name, t')
+  TypeFunction rt args var params -> do
+    args <- forM args $ \arg -> do
+      t' <- dumpCt ctx $ argType arg
+      return $ arg { argType = t' }
     rt <- dumpCt ctx rt
     return
       $  "("
-      ++ intercalate ", " [ s_unpack name ++ ": " ++ t | (name, t) <- args ]
+      ++ intercalate ", " [ s_unpack (argName arg) ++ ": " ++ (argType arg) | arg <- args ]
       ++ ") -> "
       ++ rt
   TypePtr t -> do

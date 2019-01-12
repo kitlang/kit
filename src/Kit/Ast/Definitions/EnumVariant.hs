@@ -8,8 +8,8 @@ module Kit.Ast.Definitions.EnumVariant (
 ) where
 
 import Control.Monad
+import Kit.Ast.Definitions.ArgSpec
 import Kit.Ast.Definitions.Base
-import Kit.Ast.Definitions.FunctionDefinition
 import Kit.Ast.Metadata
 import Kit.Ast.Modifier
 import Kit.Ast.TypePath

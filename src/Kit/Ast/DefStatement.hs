@@ -3,7 +3,7 @@ module Kit.Ast.DefStatement where
 import Kit.Ast.Definitions
 import Kit.Ast.Modifier
 import Kit.Ast.TypePath
-import Kit.Ast.Types
+import Kit.Ast.TypeSpec
 import Kit.Ast.Span
 import Kit.Error
 import Kit.Str

@@ -5,7 +5,6 @@ import Kit.Ast
 import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedExpr
 import Kit.Compiler.Typers.AutoRefDeref
 import Kit.Compiler.Typers.ExprTyper
 import Kit.Compiler.Unify

@@ -13,7 +13,6 @@ import Kit.Compiler.Ir.PatternMatchToIr
 import Kit.Compiler.Ir.StringCompare
 import Kit.Compiler.Module
 import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedExpr
 import Kit.Error
 import Kit.HashTable
 import Kit.Ir

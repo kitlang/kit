@@ -18,7 +18,6 @@ import Kit.Compiler.Binding
 import Kit.Compiler.CCompiler
 import Kit.Compiler.Context
 import Kit.Compiler.Module
-import Kit.Compiler.TypedExpr
 import Kit.Compiler.Utils
 import Kit.Error
 import Kit.HashTable

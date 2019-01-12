@@ -7,7 +7,6 @@ import           Data.Maybe
 import           Kit.Ast
 import           Kit.Compiler.Context
 import           Kit.Compiler.TypeContext
-import           Kit.Compiler.TypedExpr
 import           Kit.Error
 import           Kit.HashTable
 import           Kit.Log
@@ -148,12 +147,10 @@ unifyBase ctx tctx strict a' b'         = do
     (TypeTuple a, TypeTuple b) | length a == length b -> do
       vals <- forM (zip a b) (\(a, b) -> r a b)
       return $ checkResults vals
-    (TypeFunction rt1 (ConcreteArgs args1) v1 _, TypeFunction rt2 (ConcreteArgs args2) v2 _)
-      | v1 == v2
-      -> do
-        rt   <- r rt1 rt2
-        args <- forM (zip args1 args2) (\((_, a), (_, b)) -> r a b)
-        return $ checkResults $ rt : args
+    (TypeFunction rt1 args1 v1 _, TypeFunction rt2 args2 v2 _) | v1 == v2 -> do
+      rt   <- r rt1 rt2
+      args <- forM (zip args1 args2) (\(a, b) -> r (argType a) (argType b))
+      return $ checkResults $ rt : args
     (TypePtr f1@(TypeFunction _ _ _ _), f2@(TypeFunction _ _ _ _)) -> r f1 f2
     (TypeEnumConstructor tp1 d1 _ params1, TypeEnumConstructor tp2 d2 _ params2)
       -> if (tp1 == tp2) && (d1 == d2) && (length params1 == length params2)
