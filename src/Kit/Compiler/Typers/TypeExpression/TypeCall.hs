@@ -292,8 +292,10 @@ typeEnumConstructorCall
   -> ConcreteArgs
   -> [ConcreteType]
   -> IO TypedExpr
-typeEnumConstructorCall ctx tctx mod e args tp discriminant argSpecs params =
+typeEnumConstructorCall ctx tctx mod e args' tp discriminant argSpecs params =
   do
+    let defaults = addDefaultArgs (drop (length params) argSpecs) []
+    let args     = args' ++ defaults
     when (length args < length argSpecs) $ throwk $ TypingError
       (  "Expected "
       ++ (show $ length argSpecs)
