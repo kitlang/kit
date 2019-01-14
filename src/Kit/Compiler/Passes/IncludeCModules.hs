@@ -162,7 +162,7 @@ parseCDecls ctx mod path (h : t) = do
                 TypeBasicType BasicTypeUnknown ->
                   unknownTypeWarning ctx mod name pos
                 _ -> return ()
-              veryNoisyDebugLog ctx
+              noisyDebugLog ctx
                 $  "bind "
                 ++ (s_unpack name)
                 ++ ": "

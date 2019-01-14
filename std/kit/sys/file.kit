@@ -39,7 +39,7 @@ abstract File: Ptr[FILE] {
         return remove(path) == 0;
     }
 
-    public function seek(offset: Int, from: SeekFrom) {
+    public function seek(offset: Int, from: SeekFrom = Beginning) {
         match from {
             Beginning => fseek(this, offset, ${SEEK_SET: Int});
             Current => fseek(this, offset, ${SEEK_CUR: Int});

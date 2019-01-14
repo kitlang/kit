@@ -36,7 +36,7 @@
     }
 
     public static function alloc(allocator: Box[Allocator], chars: Size): CString {
-        return allocator.alloc(chars + 1);
+        return allocator.calloc(chars + 1);
     }
 
     public function copy(allocator: Box[Allocator]): CString {

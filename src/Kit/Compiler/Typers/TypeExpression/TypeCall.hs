@@ -48,6 +48,7 @@ typeCall (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _ty
                     (r1 { inferredType = t })
                     implicits
                     typedArgs
+                    r
                   TypeFunction _ _ _ _ -> typeFunctionCall
                     ctx
                     tctx
@@ -55,6 +56,7 @@ typeCall (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _ty
                     (r1 { inferredType = t })
                     implicits
                     typedArgs
+                    r
                   TypeEnumConstructor tp discriminant argTypes params -> do
                     typeEnumConstructorCall ctx
                                             tctx
@@ -65,6 +67,7 @@ typeCall (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _ty
                                             discriminant
                                             argTypes
                                             params
+                                            r
                   TypeInstance tp params -> do
                     templateDef <- getTypeDefinition ctx tp
                     tctx        <- addTypeParams
@@ -211,8 +214,9 @@ typeFunctionCall
   -> TypedExpr
   -> [TypedExpr]
   -> [TypedExpr]
+  -> (TypedExpr -> IO TypedExpr)
   -> IO TypedExpr
-typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = ft@(TypeFunction rt argSpecs isVariadic params), tPos = pos }) implicits args
+typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = ft@(TypeFunction rt argSpecs isVariadic params), tPos = pos }) implicits args typer
   = do
     aligned <- alignCallArgs ctx
                              tctx
@@ -220,7 +224,8 @@ typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = ft@(TypeFunction rt 
                              (isJust isVariadic)
                              implicits
                              args
-    let defaults      = addDefaultArgs (drop (length aligned) argSpecs) []
+    -- FIXME: typing in this context isn't correct
+    defaults <- mapM typer $ addDefaultArgs (drop (length aligned) argSpecs) []
     let totalArgs     = aligned ++ defaults
     let usedImplicits = length aligned - length args
     when
@@ -291,11 +296,13 @@ typeEnumConstructorCall
   -> TypePath
   -> ConcreteArgs
   -> [ConcreteType]
+  -> (TypedExpr -> IO TypedExpr)
   -> IO TypedExpr
-typeEnumConstructorCall ctx tctx mod e args' tp discriminant argSpecs params =
-  do
-    let defaults = addDefaultArgs (drop (length params) argSpecs) []
-    let args     = args' ++ defaults
+typeEnumConstructorCall ctx tctx mod e args' tp discriminant argSpecs params typer
+  = do
+    -- FIXME: typing in this context isn't correct
+    defaults <- mapM typer $ addDefaultArgs (drop (length params) argSpecs) []
+    let args = args' ++ defaults
     when (length args < length argSpecs) $ throwk $ TypingError
       (  "Expected "
       ++ (show $ length argSpecs)

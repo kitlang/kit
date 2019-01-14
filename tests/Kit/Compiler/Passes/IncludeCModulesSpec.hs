@@ -13,7 +13,7 @@ import           Kit.Compiler.Passes
 import           Kit.HashTable
 import           Kit.Ir
 
-concreteArgs = map (\(n, t) -> newArgSpec {argName = n, argType = t})
+concreteArgs = map (\(n, t) -> newArgSpec { argName = n, argType = t })
 
 testHeader :: IO (CompileContext, Module)
 testHeader = do
@@ -102,6 +102,14 @@ spec = do
         , "void_func1"
         , TypeFunction TypeVoid (concreteArgs []) Nothing []
         )
+      , ( "Parses extern inline functions"
+        , "extern_inline_void_func"
+        , TypeFunction TypeVoid (concreteArgs []) Nothing []
+        )
+      , ( "Parses static inline functions"
+        , "static_inline_void_func"
+        , TypeFunction TypeVoid (concreteArgs []) Nothing []
+        )
       , ( "Parses functions with non-void types"
         , "int_func1"
         , TypeFunction (TypeInt 16) (concreteArgs []) Nothing []
@@ -177,24 +185,21 @@ spec = do
       [ ( "Parses struct declarations"
         , "Struct1"
         , TypeInstance ([], "Struct1") []
-        , Just
-        $ typeDecl
-        $ (newTypeDefinition :: TypeDefinition Expr TypeSpec)
-            { typeName    = ([], "Struct1")
-            , typeSubtype =
-              StructUnion
-                { structUnionFields =
-                  [ newVarDefinition { varName = ([], "field1")
-                                     , varType = ConcreteType $ TypeChar
-                                     }
-                  , newVarDefinition
-                    { varName = ([], "field2")
-                    , varType = ConcreteType $ TypeUint 16
-                    }
-                  ]
-                , isStruct          = True
-                }
+        , Just $ typeDecl $ (newTypeDefinition :: TypeDefinition Expr TypeSpec)
+          { typeName    = ([], "Struct1")
+          , typeSubtype = StructUnion
+            { structUnionFields = [ newVarDefinition
+                                    { varName = ([], "field1")
+                                    , varType = ConcreteType $ TypeChar
+                                    }
+                                  , newVarDefinition
+                                    { varName = ([], "field2")
+                                    , varType = ConcreteType $ TypeUint 16
+                                    }
+                                  ]
+            , isStruct          = True
             }
+          }
         )
       , ( "Parses anonymous struct typedefs"
         , "Struct2"
@@ -205,32 +210,24 @@ spec = do
       , ( "Parses empty struct typedefs"
         , "Struct3"
         , TypeInstance ([], "Struct3") []
-        , Just
-        $ typeDecl
-        $ (newTypeDefinition :: TypeDefinition Expr TypeSpec)
-            { typeName    = ([], "Struct3")
-            , typeSubtype = StructUnion { structUnionFields = []
-                                        , isStruct          = True
-                                        }
-            }
+        , Just $ typeDecl $ (newTypeDefinition :: TypeDefinition Expr TypeSpec)
+          { typeName    = ([], "Struct3")
+          , typeSubtype = StructUnion {structUnionFields = [], isStruct = True}
+          }
         )
       , ( "Parses enum definitions"
         , "Enum1"
         , TypeInstance ([], "Enum1") []
-        , Just
-        $ typeDecl
-        $ (newTypeDefinition :: TypeDefinition Expr TypeSpec)
-            { typeName    = ([], "Enum1")
-            , typeSubtype =
-              Enum
-                { enumVariants       =
-                  [ newEnumVariant { variantName = ([], "apple") }
-                  , newEnumVariant { variantName = ([], "banana") }
-                  , newEnumVariant { variantName = ([], "cherry") }
-                  ]
-                , enumUnderlyingType = InferredType NoPos
-                }
+        , Just $ typeDecl $ (newTypeDefinition :: TypeDefinition Expr TypeSpec)
+          { typeName    = ([], "Enum1")
+          , typeSubtype = Enum
+            { enumVariants = [ newEnumVariant { variantName = ([], "apple") }
+                             , newEnumVariant { variantName = ([], "banana") }
+                             , newEnumVariant { variantName = ([], "cherry") }
+                             ]
+            , enumUnderlyingType = InferredType NoPos
             }
+          }
         )
       , ( "Parses anonymous enum typedefs"
         , "Enum2"

@@ -49,6 +49,8 @@ float * pointer_func(int *arg1);
 void varargs_func(short a, ...);
 long void_func(void);
 int fake_atexit (void (*__func) (void));
+extern inline void extern_inline_void_func();
+static inline void static_inline_void_func();
 
 typedef void (*fp_typedef) (void *arg1, int arg2);
 fp_typedef func_pointah(int arg3);
