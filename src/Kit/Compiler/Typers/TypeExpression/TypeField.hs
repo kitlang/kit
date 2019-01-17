@@ -206,53 +206,8 @@ typeField (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _t
                       (typePos templateDef)
                     def <- followType ctx tctx templateDef
                     let subtype = typeSubtype def
-                    binding <- lookupBinding ctx $ subPath tp fieldName
-                    case binding of
-                      Just x -> do
-                        let accessible = case tctxSelf tctx of
-                              Just (TypeInstance tp2 params2) | tp2 == tp ->
-                                True
-                              _ -> bindingIsPublic x
-                        when (not accessible) failNotPublic
-                        -- this is a local method
-                        typed' <- typeVarBinding ctx tctx x pos
-                        t      <- follow ctx tctx (inferredType typed')
-                        let typed = typed' { inferredType = t }
-                        -- this may be a template; replace `this` with the actual
-                        -- type to guarantee the implicit pass will work
-                        let
-                          f = case inferredType typed of
-                            TypeFunction rt args varargs _ -> TypeFunction
-                              rt
-                              ( (let arg = (head args)
-                                 in
-                                   arg
-                                     { argType = MethodTarget
-                                       $ TypePtr
-                                       $ inferredType r1
-                                     }
-                                )
-                              : (tail args)
-                              )
-                              varargs
-                              params
-                            _ -> throwk $ TypingError
-                              "Static fields and methods can't be accessed from individual values"
-                              pos
-                        return
-                          $ (makeExprTyped (StaticMember tp params fieldName)
-                                           f
-                                           pos
-                            )
-                              { tImplicits = (r1
-                                               { inferredType = MethodTarget
-                                                 (inferredType r1)
-                                               }
-                                             )
-                                : tImplicits typed
-                              }
-
-                      _ -> case subtype of
+                    let
+                      fail = case subtype of
                         StructUnion { structUnionFields = fields, isStruct = isStruct }
                           -> do
                             result <- typeStructUnionFieldAccess ctx
@@ -273,6 +228,35 @@ typeField (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _t
                                 )
                                 pos
 
+                        Enum { enumVariants = variants } -> do
+                          case
+                              find (((==) fieldName) . tpName . variantName)
+                                   variants
+                            of
+                              Just v -> do
+                                resolve $ TypeEq
+                                  (TypeEnumVariant tp
+                                                   (tpName $ variantName v)
+                                                   params
+                                  )
+                                  (inferredType ex)
+                                  "Struct field access must match the field's type"
+                                  (tPos r1)
+                                return $ r1
+                                  { inferredType = (TypeEnumVariant
+                                                     tp
+                                                     (tpName $ variantName v)
+                                                     params
+                                                   )
+                                  }
+                              Nothing -> throwk $ TypingError
+                                (  "Enum "
+                                ++ (s_unpack $ showTypePath tp)
+                                ++ " doesn't have a variant called "
+                                ++ s_unpack fieldName
+                                )
+                                pos
+
                         Abstract { abstractUnderlyingType = u } ->
                           -- forward to parent
                           typeFieldAccess u fieldName
@@ -280,6 +264,112 @@ typeField (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _t
                         x -> throwk $ TypingError
                           ("Field access is not allowed on " ++ show x)
                           pos
+
+                    binding <- lookupBinding ctx $ subPath tp fieldName
+                    case binding of
+                      Just x -> do
+                        let accessible = case tctxSelf tctx of
+                              Just (TypeInstance tp2 params2) | tp2 == tp ->
+                                True
+                              _ -> bindingIsPublic x
+                        when (not accessible) failNotPublic
+                        -- this is a local method
+                        typed' <- typeVarBinding ctx tctx x pos
+                        t      <- follow ctx tctx (inferredType typed')
+                        let typed = typed' { inferredType = t }
+                        -- this may be a template; replace `this` with the actual
+                        -- type to guarantee the implicit pass will work
+                        case inferredType typed of
+                          TypeFunction rt args varargs _ ->
+                            let
+                              f = TypeFunction
+                                rt
+                                ( (let arg = (head args)
+                                   in
+                                     arg
+                                       { argType = MethodTarget
+                                         $ TypePtr
+                                         $ inferredType r1
+                                       }
+                                  )
+                                : (tail args)
+                                )
+                                varargs
+                                params
+                            in
+                              return
+                                $ (makeExprTyped
+                                    (StaticMember tp params fieldName)
+                                    f
+                                    pos
+                                  )
+                                    { tImplicits = (r1
+                                                     { inferredType = MethodTarget
+                                                       (inferredType r1)
+                                                     }
+                                                   )
+                                      : tImplicits typed
+                                    }
+                          _ -> fail
+                      _ -> fail
+
+                  TypeEnumVariant tp specificVariant params -> do
+                    templateDef <- getTypeDefinition ctx tp
+                    tctx        <- addTypeParams
+                      ctx
+                      (tctx { tctxSelf = Just t })
+                      [ (typeSubPath templateDef $ paramName param, val)
+                      | (param, val) <- zip (typeParams templateDef) params
+                      ]
+                      (typePos templateDef)
+                    def <- followType ctx tctx templateDef
+                    let subtype = typeSubtype def
+                    case subtype of
+                      Enum { enumVariants = variants } -> do
+                        case
+                            find
+                              (((==) specificVariant) . tpName . variantName)
+                              variants
+                          of
+                            Just variant -> do
+                              case
+                                  find (((==) fieldName) . argName)
+                                       (variantArgs variant)
+                                of
+                                  Just arg -> do
+                                    t <- follow ctx tctx $ argType arg
+                                    return $ makeExprTyped
+                                      (EnumField
+                                        (r1
+                                          { inferredType = TypeInstance tp
+                                                                        params
+                                          }
+                                        )
+                                        specificVariant
+                                        fieldName
+                                      )
+                                      t
+                                      pos
+                                  Nothing -> throwk $ TypingError
+                                    (  "Enum variant "
+                                    ++ (s_unpack $ showTypePath tp)
+                                    ++ "."
+                                    ++ s_unpack specificVariant
+                                    ++ " doesn't have a field called "
+                                    ++ s_unpack fieldName
+                                    )
+                                    pos
+
+                            Nothing -> throwk $ TypingError
+                              (  "Enum "
+                              ++ (s_unpack $ showTypePath tp)
+                              ++ " doesn't have a variant called "
+                              ++ s_unpack specificVariant
+                              )
+                              pos
+                      _ -> throwk $ InternalError
+                        ("EnumVariant on non-enum: " ++ show subtype)
+                        (Just pos)
 
                   TypeAnonStruct _ fields ->
                     case

@@ -412,7 +412,10 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
         r1 <- r x
         let (TypeInstance tp params) = inferredType x
         return
-          $ IrField (IrField (IrField r1 variantFieldName) variantName)
+          $ IrField
+              (IrField (IrField r1 variantFieldName) $ discriminantMemberName
+                (subPath (monomorphName tp params) variantName)
+              )
           $ fieldName
       (TupleInit slots) -> do
         resolvedSlots <- forMWithErrors
@@ -480,9 +483,9 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
       (VarArg x) -> do
         return $ IrCall (IrIdentifier ([], "va_arg"))
                         [IrIdentifier ([], x), IrType f]
-      (VarArgListCopy x) -> return $ IrIdentifier ([], x)
-      InlineCExpr s t -> return $ IrInlineC s
-      t               -> do
+      (           VarArgListCopy x) -> return $ IrIdentifier ([], x)
+      InlineCExpr s               t -> return $ IrInlineC s
+      t                             -> do
         throwk $ InternalError
           ("Unexpected expression in typed AST:\n\n" ++ show t)
           (Just pos)

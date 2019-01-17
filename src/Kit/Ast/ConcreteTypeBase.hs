@@ -39,6 +39,7 @@ data ConcreteTypeBase a
   | TypeBasicType BasicType
   | TypePtr (ConcreteTypeBase a)
   | TypeEnumConstructor TypePath TypePath (ConcreteArgsBase a) [ConcreteTypeBase a]
+  | TypeEnumVariant TypePath Str [ConcreteTypeBase a]
   | TypeRange
   | TypeTraitConstraint (TraitConstraintBase a)
   | TypeTuple [ConcreteTypeBase a]
@@ -103,6 +104,7 @@ instance (Show a) => Show (ConcreteTypeBase a) where
   show (TypeFunction rt args var params) = "function (" ++ (intercalate ", " [show $ argType arg | arg <- args]) ++ (case var of {Just x -> ", " ++ s_unpack x ++ "..."; Nothing -> ""}) ++ ") -> " ++ show rt
   show (TypeBasicType t) = show t
   show (TypeEnumConstructor tp d _ params) = "enum " ++ (s_unpack $ showTypePath tp) ++ " constructor " ++ (s_unpack $ showTypePath d) ++ "[" ++ (intercalate ", " (map show params)) ++ "]"
+  show (TypeEnumVariant tp s params) = "enum " ++ (s_unpack $ showTypePath tp) ++ " variant " ++ (s_unpack s) ++ "[" ++ (intercalate ", " (map show params)) ++ "]"
   show (TypeRange) = "range"
   show (TypeTraitConstraint (tp, params)) = "trait " ++ s_unpack (showTypePath tp) ++ showParams params
   show (TypeTuple t) = "(" ++ intercalate ", " (map show t) ++ ")"
@@ -175,6 +177,9 @@ mapType f (TypeEnumConstructor tp s args p) = do
     return $ arg {argType = t'}
   p' <- mapM f p
   f $ TypeEnumConstructor tp s args' p'
+mapType f (TypeEnumVariant tp s p) = do
+  p' <- mapM f p
+  f $ TypeEnumVariant tp s p'
 mapType f (TypeTuple p) = do
   p' <- mapM f p
   f $ TypeTuple p'
