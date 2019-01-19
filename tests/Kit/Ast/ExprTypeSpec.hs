@@ -16,4 +16,4 @@ spec = do
             )
       exprMapReduce (exprDiscriminant . expr) (:) expr [] ex `shouldBe` map
         exprDiscriminant
-        [Continue, Break, This, Self, This, Block [], Block [], Block []]
+        ([Continue, Break, This, Self, This, Block [], Block [], Block []] :: [ExprType () ()])
