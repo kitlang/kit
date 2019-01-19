@@ -101,7 +101,7 @@ data ExprType a b
 
 instance (Hashable a, Hashable b) => Hashable (ExprType a b)
 
-exprDiscriminant :: ExprType a b -> Int
+exprDiscriminant :: (Show a, Show b) => ExprType a b -> Int
 exprDiscriminant et = case et of
   Block _                     -> 1
   Using   _ _                 -> 1
@@ -155,7 +155,9 @@ exprDiscriminant et = case et of
   Undefined                   -> 49
   UnionInit _ _               -> 50
   VarArgListCopy _            -> 51
-  x -> throwk $ InternalError "Expression has no discriminant!" Nothing
+  StaticVtable   _            -> 52
+  x                           -> throwk
+    $ InternalError ("Expression has no discriminant: " ++ show x) Nothing
 
 exprChildren :: ExprType a b -> [a]
 exprChildren et = case et of
