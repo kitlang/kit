@@ -232,7 +232,7 @@ main = do
         (try (findModule ctx ["prelude"] Nothing)) :: IO
           (Either KitError FilePath)
       case preludePath of
-        Left  e -> showErrs (h_lookup $ ctxMacroOutput ctx) e >> return ()
+        Left  e -> showErrs e >> return ()
         Right f -> printDebugLog f
     else do
       when (null $ optMainModule opts) $ do
@@ -241,7 +241,7 @@ main = do
         exitWith $ ExitFailure 1
       result <- tryCompile ctx cc
       errors <- case result of
-        Left  e  -> showErrs (h_lookup $ ctxMacroOutput ctx) e
+        Left  e  -> showErrs e
         Right () -> return 0
 
       if errors == 0

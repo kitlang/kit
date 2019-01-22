@@ -16,11 +16,8 @@ import Kit.Str
 throwk e = do
   throw $ KitError e
 
--- to avoid dealing with CompileContext at this level
-type MacroReader = (TypePath, Int) -> IO (Maybe Str)
-
 class (Eq a, Show a) => Errable a where
-  logError :: MacroReader -> a -> IO ()
+  logError :: a -> IO ()
   errPos :: a -> Maybe Span
   errPos _ = Nothing
   flattenErrors :: a -> [KitError]
@@ -28,7 +25,7 @@ class (Eq a, Show a) => Errable a where
 
 data KitError = forall a . (Show a, Eq a, Errable a) => KitError a
 instance Errable KitError where
-  logError reader (KitError e) = logError reader e
+  logError (KitError e) = logError e
   errPos (KitError e) = errPos e
   flattenErrors (KitError e) = flattenErrors e
 instance Show KitError where
@@ -43,7 +40,7 @@ instance Exception KitError
 -}
 data Errors = KitErrors [KitError] deriving (Eq, Show)
 instance Errable Errors where
-  logError reader (KitErrors e) = forM_ e $ logError reader
+  logError (KitErrors e) = forM_ e $ logError
   errPos (KitErrors e) = msum (map errPos e)
   flattenErrors (KitErrors e) = nub $ foldr (++) [] (map flattenErrors e)
 
@@ -52,7 +49,7 @@ instance Errable Errors where
 -}
 data InternalError = InternalError String (Maybe Span) deriving (Eq, Show)
 instance Errable InternalError where
-  logError reader e@(InternalError s _) = logErrorBasic reader (KitError e) s
+  logError e@(InternalError s _) = logErrorBasic (KitError e) s
   errPos (InternalError _ pos) = pos
 
 {-
@@ -60,7 +57,7 @@ instance Errable InternalError where
 -}
 data BasicError = BasicError String (Maybe Span) deriving (Eq, Show)
 instance Errable BasicError where
-  logError reader e@(BasicError s _) = logErrorBasic reader (KitError e) s
+  logError e@(BasicError s _) = logErrorBasic (KitError e) s
   errPos (BasicError _ pos) = pos
 
 -- data Error
@@ -108,30 +105,24 @@ logErrorTitle err = do
       hPutStr stderr $ "Error: "
   hSetSGR stderr [Reset]
 
-logErrorBasic :: (Errable e) => MacroReader -> e -> String -> IO ()
-logErrorBasic reader err msg = do
+logErrorBasic :: (Errable e) => e -> String -> IO ()
+logErrorBasic err msg = do
   logErrorTitle err
   hPutStrLn stderr msg
   case errPos err of
-    Just pos -> displayFileSnippet reader pos
+    Just pos -> displayFileSnippet pos
     _        -> return ()
 
 lpad :: String -> Int -> String
 lpad s n = (take (n - length s) (repeat ' ')) ++ s
 
-displayFileSnippet :: MacroReader -> Span -> IO ()
-displayFileSnippet _ NoPos                              = return ()
-displayFileSnippet _ span@(Span { file = FileSpan fp }) = do
+displayFileSnippet :: Span -> IO ()
+displayFileSnippet NoPos                              = return ()
+displayFileSnippet span@(Span { file = FileSpan fp }) = do
   exists <- doesFileExist fp
   when exists $ do
     contents <- readFile $ fp
     showSnippet span contents False
-displayFileSnippet macroReader span@(Span { file = MacroSpan (tp, index) }) =
-  do
-    output <- macroReader (tp, index)
-    case output of
-      Just contents -> do
-        showSnippet span (s_unpack contents) True
 
 showSnippet :: Span -> String -> Bool -> IO ()
 showSnippet span contents displayFull = do
@@ -219,7 +210,7 @@ forMWithErrors_ l f = do
 
 mapMWithErrors_ f l = forMWithErrors_ l f
 
-showErrs reader e = do
+showErrs e = do
   let errs = flattenErrors e
-  mapM_ (logError reader) $ errs
+  mapM_ logError errs
   return $ length errs

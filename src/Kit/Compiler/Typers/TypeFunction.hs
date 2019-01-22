@@ -17,11 +17,11 @@ import Kit.Str
 
 data ReturnTypeError = ReturnTypeError String Span Span deriving (Eq, Show)
 instance Errable ReturnTypeError where
-  logError reader err@(ReturnTypeError msg pos1 pos2) = do
-    logErrorBasic reader err $ msg ++ ":"
+  logError err@(ReturnTypeError msg pos1 pos2) = do
+    logErrorBasic err $ msg ++ ":"
     ePutStrLn $ msg
-    displayFileSnippet reader pos1
-    displayFileSnippet reader pos2
+    displayFileSnippet pos1
+    displayFileSnippet pos2
 
 {-
   Type checks a non-generic function.

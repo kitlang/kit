@@ -12,10 +12,10 @@ import Kit.Str
 
 data DuplicateDeclarationError = DuplicateDeclarationError ModulePath Str Span Span deriving (Eq, Show)
 instance Errable DuplicateDeclarationError where
-  logError reader e@(DuplicateDeclarationError mod name pos1 pos2) = do
-    logErrorBasic reader e $ "Duplicate declaration for `" ++ s_unpack name ++ "` in " ++ s_unpack (showModulePath mod) ++ "; \n\nFirst declaration:"
+  logError e@(DuplicateDeclarationError mod name pos1 pos2) = do
+    logErrorBasic e $ "Duplicate declaration for `" ++ s_unpack name ++ "` in " ++ s_unpack (showModulePath mod) ++ "; \n\nFirst declaration:"
     ePutStrLn "\nSecond declaration:"
-    displayFileSnippet reader pos2
+    displayFileSnippet pos2
     ePutStrLn "\nFunction, variable, type and trait names must be unique within the same namespace."
   errPos (DuplicateDeclarationError _ _ pos _) = Just pos
 

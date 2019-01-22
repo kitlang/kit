@@ -14,15 +14,15 @@ import           Kit.Str
 
 data UnificationError = UnificationError CompileContext TypeConstraint
 instance Errable UnificationError where
-  logError reader err@(UnificationError ctx (TypeEq a b reason pos)) = do
-    logErrorBasic reader err $ reason ++ ":"
+  logError err@(UnificationError ctx (TypeEq a b reason pos)) = do
+    logErrorBasic err $ reason ++ ":"
     let showConstraint x = do
           case x of
             TypeTypeVar i -> do
               info <- getTypeVar ctx i
               ePutStrLn $ show info
               let varPos = typeVarPosition info
-              displayFileSnippet reader varPos
+              displayFileSnippet varPos
             _ -> ePutStrLn $ show x
     ePutStr $ "    Expected type:  "
     showConstraint a

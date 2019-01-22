@@ -16,7 +16,7 @@ import           Kit.Str
 
 data TypingError = TypingError String Span deriving (Eq, Show)
 instance Errable TypingError where
-  logError reader e@(TypingError s _) = logErrorBasic reader (KitError e) s
+  logError e@(TypingError s _) = logErrorBasic (KitError e) s
   errPos (TypingError _ pos) = Just pos
 
 type TypedStmtWithContext = (TypedStmt, TypeContext)

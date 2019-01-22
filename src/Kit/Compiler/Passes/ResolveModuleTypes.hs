@@ -21,10 +21,10 @@ import Kit.Str
 
 data DuplicateDefaultError = DuplicateDefaultError ModulePath TypePath Span Span deriving (Eq, Show)
 instance Errable DuplicateDefaultError where
-  logError reader e@(DuplicateDefaultError mod tp pos1 pos2) = do
-    logErrorBasic reader e $ "Duplicate default for `" ++ s_unpack (showTypePath tp) ++ "` in " ++ s_unpack (showModulePath mod) ++ "; \n\nFirst default:"
+  logError e@(DuplicateDefaultError mod tp pos1 pos2) = do
+    logErrorBasic e $ "Duplicate default for `" ++ s_unpack (showTypePath tp) ++ "` in " ++ s_unpack (showModulePath mod) ++ "; \n\nFirst default:"
     ePutStrLn "\nSecond default:"
-    displayFileSnippet reader pos2
+    displayFileSnippet pos2
     ePutStrLn "\nTraits cannot have more than one default."
   errPos (DuplicateDefaultError _ _ pos _) = Just pos
 

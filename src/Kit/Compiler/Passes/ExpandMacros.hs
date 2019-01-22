@@ -146,14 +146,13 @@ callMacros ctx cc compile invocations = do
           ""
         case exitcode of
           ExitSuccess -> do
-            h_insert (ctxMacroOutput ctx) (functionName def, index)
-              $ s_pack result
+            let outPath = buildDir </> ".results" ++ "." ++ (show index)
+            writeFile outPath result
             when (not $ null stderr) $ traceLog stderr
-            debugLog ctx result
             let
               parseResult =
                 parseTokens
-                  $ scanTokens (MacroSpan (functionName def, index))
+                  $ scanTokens (FileSpan outPath)
                   $ B.pack result
             case parseResult of
               ParseResult r -> h_insert (macroResults invocation) index r

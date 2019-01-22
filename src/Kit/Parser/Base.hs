@@ -7,7 +7,7 @@ data Parser a = ParseResult a | Err KitError
 
 data ParseError = ParseError String (Maybe Span) deriving (Eq, Show)
 instance Errable ParseError where
-  logError reader err@(ParseError msg _) = logErrorBasic reader (KitError err) msg
+  logError err@(ParseError msg _) = logErrorBasic (KitError err) msg
   errPos (ParseError _ pos) = pos
 
 instance Functor Parser where
