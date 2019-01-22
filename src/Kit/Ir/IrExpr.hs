@@ -44,6 +44,7 @@ instance Hashable IrExpr
 isValidInitializer (IrLiteral _ _    ) = True
 isValidInitializer (IrIdentifier _   ) = True
 isValidInitializer (IrEmpty      _   ) = True
+isValidInitializer (IrNull           ) = True
 isValidInitializer (IrCArrLiteral x _) = all isValidInitializer x
 isValidInitializer (IrCast        x _) = isValidInitializer x
 isValidInitializer (IrStructInit _ fields) =

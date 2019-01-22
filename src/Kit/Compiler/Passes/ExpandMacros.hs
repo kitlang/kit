@@ -146,7 +146,7 @@ callMacros ctx cc compile invocations = do
           ""
         case exitcode of
           ExitSuccess -> do
-            let outPath = buildDir </> ".results" ++ "." ++ (show index)
+            let outPath = buildDir </> ".results" ++ "." ++ (show index) ++ ".kit"
             writeFile outPath result
             when (not $ null stderr) $ traceLog stderr
             let

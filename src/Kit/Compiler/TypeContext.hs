@@ -203,7 +203,8 @@ resolveType ctx tctx mod t = do
       return $ TypeFunction rt' args' isVariadic []
 
     InferredType pos ->
-      throwk $ BasicError ("Inferred type isn't supported here") (Just pos)
+      makeTypeVar ctx pos
+      --throwk $ BasicError ("Inferred type isn't supported here") (Just pos)
 
 resolveMaybeType
   :: CompileContext

@@ -209,9 +209,7 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
 
     (ArrayLiteral items) -> do
       items <- mapM r items
-      case inferredType ex of
-        TypeArray t s -> do
-          when (s > 0) $ do
+      let handle t s = when (s > 0) $ do
             unless (length items == s) $ throwk $ TypingError
               (  "The Array's length parameter ("
               ++ show s
@@ -220,12 +218,15 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
               ++ ")"
               )
               pos
-          forM_ items $ \val -> resolve $ TypeEq
-            t
-            (inferredType val)
-            "Array elements must match the array's value type"
-            (tPos val)
-        _ -> throwk $ TypingError "Array literals must be typed as arrays" pos
+            forM_ items $ \val -> resolve $ TypeEq
+              t
+              (inferredType val)
+              "Array elements must match the array's value type"
+              (tPos val)
+      case inferredType ex of
+        TypeArray t s -> handle t s
+        TypeConst (TypeArray t s) -> handle t s
+        _ -> throwk $ TypingError ("Array literals must be typed as arrays; this array typed as " ++ show (inferredType ex)) pos
       return $ makeExprTyped (ArrayLiteral items) (inferredType ex) pos
 
     (LocalVarDeclaration _ _ _ _) -> subTyper typeVarDeclaration

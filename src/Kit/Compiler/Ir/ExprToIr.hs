@@ -347,11 +347,13 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
         $ BasicError ("unexpected range literal in typed AST") (Just pos)
       (ArrayLiteral items) -> do
         items' <- mapMWithErrors r items
-        let contentType = case f of
-              CArray t _ -> t
-              _          -> throwk $ BasicError
-                ("unexpected array literal type: " ++ show f)
-                (Just pos)
+        let
+          contentType = case f of
+            CArray t _                  -> t
+            BasicTypeConst (CArray t _) -> t
+            _                           -> throwk $ BasicError
+              ("unexpected array literal type: " ++ show f)
+              (Just pos)
         return $ IrCArrLiteral items' contentType
       (LocalVarDeclaration (Var name) ts const def) -> do
         case (def, f) of
