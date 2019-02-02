@@ -89,6 +89,7 @@ struct Vector[T] {
             memcpy(&this.data.data[i], &this.data.data[i + 1], (this.length - i) * sizeof T);
         }
         --this.length;
+        return val;
     }
 
     rules {
