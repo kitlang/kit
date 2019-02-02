@@ -16,5 +16,5 @@ public function random(): Double {
  * Generates a random integer between min and max, inclusive.
  */
 public function randomRange(min: Int, max: Int): Int {
-    return min + ((1 + max - min) * random() as Int);
+    return min + (((1 + max - min) * random()) as Int);
 }
