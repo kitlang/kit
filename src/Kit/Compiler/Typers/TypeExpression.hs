@@ -1,36 +1,36 @@
 module Kit.Compiler.Typers.TypeExpression where
 
-import           Control.Applicative
-import           Control.Exception
-import           Control.Monad
-import           Data.List
-import           Data.Maybe
-import           Kit.Ast
-import           Kit.Compiler.Binding
-import           Kit.Compiler.Context
-import           Kit.Compiler.Module
-import           Kit.Compiler.Scope
-import           Kit.Compiler.TermRewrite
-import           Kit.Compiler.TypeContext
-import           Kit.Compiler.Typers.AutoRefDeref
-import           Kit.Compiler.Typers.ExprTyper
-import           Kit.Compiler.Typers.TypeExpression.TypeArrayAccess
-import           Kit.Compiler.Typers.TypeExpression.TypeCall
-import           Kit.Compiler.Typers.TypeExpression.TypeCast
-import           Kit.Compiler.Typers.TypeExpression.TypeControl
-import           Kit.Compiler.Typers.TypeExpression.TypeField
-import           Kit.Compiler.Typers.TypeExpression.TypeIdentifier
-import           Kit.Compiler.Typers.TypeExpression.TypeLiteral
-import           Kit.Compiler.Typers.TypeExpression.TypeMatch
-import           Kit.Compiler.Typers.TypeExpression.TypeOp
-import           Kit.Compiler.Typers.TypeExpression.TypeStructInit
-import           Kit.Compiler.Typers.TypeExpression.TypeVarBinding
-import           Kit.Compiler.Typers.TypeExpression.TypeVarDeclaration
-import           Kit.Compiler.Unify
-import           Kit.Compiler.Utils
-import           Kit.Error
-import           Kit.Parser
-import           Kit.Str
+import Control.Applicative
+import Control.Exception
+import Control.Monad
+import Data.List
+import Data.Maybe
+import Kit.Ast
+import Kit.Compiler.Binding
+import Kit.Compiler.Context
+import Kit.Compiler.Module
+import Kit.Compiler.Scope
+import Kit.Compiler.TermRewrite
+import Kit.Compiler.TypeContext
+import Kit.Compiler.Typers.AutoRefDeref
+import Kit.Compiler.Typers.ExprTyper
+import Kit.Compiler.Typers.TypeExpression.TypeArrayAccess
+import Kit.Compiler.Typers.TypeExpression.TypeCall
+import Kit.Compiler.Typers.TypeExpression.TypeCast
+import Kit.Compiler.Typers.TypeExpression.TypeControl
+import Kit.Compiler.Typers.TypeExpression.TypeField
+import Kit.Compiler.Typers.TypeExpression.TypeIdentifier
+import Kit.Compiler.Typers.TypeExpression.TypeLiteral
+import Kit.Compiler.Typers.TypeExpression.TypeMatch
+import Kit.Compiler.Typers.TypeExpression.TypeOp
+import Kit.Compiler.Typers.TypeExpression.TypeStructInit
+import Kit.Compiler.Typers.TypeExpression.TypeVarBinding
+import Kit.Compiler.Typers.TypeExpression.TypeVarDeclaration
+import Kit.Compiler.Unify
+import Kit.Compiler.Utils
+import Kit.Error
+import Kit.Parser
+import Kit.Str
 
 typeMaybeExpr
   :: CompileContext
@@ -73,29 +73,39 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
             nub
               $  ownRules
               ++ (foldr (++) [] $ map tImplicitRules $ exprChildren $ tExpr x)
+      let
+        rulesByType = groupBy
+          (\x y -> ruleThis x == ruleThis y)
+          (  implicitRules
+          ++ [ rule
+             | ruleset <- tctxRules tctx
+             , rule    <- ruleSetRules ruleset
+             ]
+          )
       result <- foldM
-        (\acc rule -> do
+        (\acc rules -> do
           case acc of
             Just x  -> return $ Just x
             Nothing -> do
-              let thisType = case ruleThis rule of
-                    Just x  -> inferredType x
-                    Nothing -> TypeBasicType BasicTypeUnknown
-              tctx   <- genericTctx ctx tctx (tPos x) thisType
-              result <- rewriteExpr ctx
-                                    tctx
-                                    mod
-                                    rule
-                                    x
-                                    (\tctx -> typeExpr ctx tctx mod)
-              case result of
-                Just x  -> return $ Just x
-                Nothing -> return Nothing
+              gtctx <- case ruleThis $ head rules of
+                Just x  -> genericTctx ctx tctx (tPos x) (inferredType x)
+                Nothing -> return tctx
+              foldM
+                (\acc rule -> do
+                  case acc of
+                    Just x  -> return $ Just x
+                    Nothing -> rewriteExpr ctx
+                                           gtctx
+                                           mod
+                                           rule
+                                           x
+                                           (\tctx -> typeExpr ctx tctx mod)
+                )
+                Nothing
+                rules
         )
         Nothing
-        (  implicitRules
-        ++ [ rule | ruleset <- tctxRules tctx, rule <- ruleSetRules ruleset ]
-        )
+        rulesByType
       case result of
         Just x  -> r x
         Nothing -> y
@@ -224,9 +234,13 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
               "Array elements must match the array's value type"
               (tPos val)
       case inferredType ex of
-        TypeArray t s -> handle t s
+        TypeArray t s             -> handle t s
         TypeConst (TypeArray t s) -> handle t s
-        _ -> throwk $ TypingError ("Array literals must be typed as arrays; this array typed as " ++ show (inferredType ex)) pos
+        _                         -> throwk $ TypingError
+          (  "Array literals must be typed as arrays; this array typed as "
+          ++ show (inferredType ex)
+          )
+          pos
       return $ makeExprTyped (ArrayLiteral items) (inferredType ex) pos
 
     (LocalVarDeclaration _ _ _ _) -> subTyper typeVarDeclaration
