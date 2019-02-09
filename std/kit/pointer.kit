@@ -53,7 +53,7 @@ abstract Shared[T]: Ptr[T] {
     public function decrement(): Bool {
         var meta = this.metadata();
         if meta.count == 0 {
-            return true;
+            return false;
         } else if --meta.count == 0 {
             return true;
         } else {

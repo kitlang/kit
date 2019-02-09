@@ -48,7 +48,7 @@ enum Yaml {
         return Some(result);
     }
 
-    static function getNode(allocator: Box[Allocator], doc: Ptr[yaml_document_t], node: Ptr[yaml_node_t]): Yaml {
+    static function getNode(allocator: Box[Allocator], doc: Ptr[yaml_document_t], node: Ptr[yaml_node_t]): Yaml using implicit allocator {
         match node.type {
             YAML_SCALAR_NODE => {
                 // TODO
