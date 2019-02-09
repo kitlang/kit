@@ -1,3 +1,12 @@
+abstract MyInt: Int;
+
+implement Hashable for MyInt {
+    public function hash(): Int {
+        // always cause a hash collision
+        return 1;
+    }
+}
+
 function main() {
     var myMap: Map[CString, Int] = Map.new(10);
     printf("Capacity: %zu\n", myMap.internalArray.length);
@@ -45,7 +54,7 @@ function main() {
     myMap.put("4", 1);
     myMap.put("5", 1);
 
-    printf("Map resizes if more than threshold is added, capacity is double: %zu\n", myMap.internalArray.length);
+    printf("Map resizes if more than threshold is added, capacity is greater: %zu\n", myMap.internalArray.length);
     printf("Key Exists 'test2': %s\n", if myMap.exists("test2") then "true" else "false");
     printf("Key Exists 'test3': %s\n", if myMap.exists("test3") then "true" else "false");
     printf("Key Exists 'test5': %s\n", if myMap.exists("test5") then "true" else "false");
@@ -69,5 +78,13 @@ function main() {
     // printf("reference count: %i\n", shared.rc());
     // weakMap.free();
 
-    var m2: Map[CString, Int] = Map.new();
+    // test a map where entries collide
+    var m2: Map[MyInt, Int] = Map.new();
+    m2.put(1 as MyInt, 1);
+    m2.put(2 as MyInt, 2);
+    printf("Key 1 Exists: %s\n", if m2.exists(1 as MyInt) then "true" else "false");
+    printf("Key 2 Exists: %s\n", if m2.exists(2 as MyInt) then "true" else "false");
+    m2.remove(1 as MyInt);
+    printf("Key 1 Exists: %s\n", if m2.exists(1 as MyInt) then "true" else "false");
+    printf("Key 2 Exists: %s\n", if m2.exists(2 as MyInt) then "true" else "false");
 }
