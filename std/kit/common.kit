@@ -24,8 +24,8 @@
 #[promote] #[demote] abstract CString: Ptr[Char] {
     rules {
         ($this.length) => strlen($this);
-        ($this == ${other: CString}) => strcmp($this, $other) == 0;
-        ($this != ${other: CString}) => strcmp($this, $other) != 0;
+        ($this == ${other: CString}) => $this.eq($other);
+        ($this != ${other: CString}) => !$this.eq($other);
         (for $ident in $this {$e}) => {
             var __i: Ptr[Char] = $this;
             while __i != null && (*__i) != 0 {
@@ -55,6 +55,16 @@
         var len1 = this.length;
         var len2 = other.length;
         return len1 >= len2 && strcmp(&this[len1 - len2], other) == 0;
+    }
+
+    public function eq(other: CString): Bool {
+        if (this as Ptr[Void]) == null && (other as Ptr[Void]) == null {
+            return true;
+        } else if (this as Ptr[Void]) == null || (other as Ptr[Void]) == null {
+            return false;
+        } else {
+            return strcmp(this, other) == 0;
+        }
     }
 }
 

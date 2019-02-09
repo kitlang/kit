@@ -60,7 +60,7 @@ struct Map[K: Hashable, V] {
 
     public function get(key: K): Option[V] {
         var index = this.findLocation(key);
-        if this.internalArray[index].state != HashCellState.Empty {
+        if this.internalArray[index].state == HashCellState.Occupied {
             return Some(this.internalArray[index].value);
         }
         return None;
@@ -68,7 +68,7 @@ struct Map[K: Hashable, V] {
 
     public function ref(key: K): Option[Ptr[V]] {
         var index = this.findLocation(key);
-        if this.internalArray[index].state != HashCellState.Empty {
+        if this.internalArray[index].state == HashCellState.Occupied {
             return Some(&this.internalArray[index].value);
         }
         return None;
