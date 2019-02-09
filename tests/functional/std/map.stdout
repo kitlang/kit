@@ -21,7 +21,11 @@ Get 5: 6
 Quick Get 3: 3
 Array size of map keys: 3
 Array contains 'test2': true
-Map resizes if more than threshold is added, capacity is double: 20
+Map resizes if more than threshold is added, capacity is greater: 15
 Key Exists 'test2': true
 Key Exists 'test3': true
 Key Exists 'test5': false
+Key 1 Exists: true
+Key 2 Exists: true
+Key 1 Exists: false
+Key 2 Exists: true
