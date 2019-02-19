@@ -182,8 +182,8 @@ dumpAst ctx indent e@(TypedExpr { tExpr = texpr, inferredType = t, tPos = pos })
       Field a id -> i ("field " ++ show id) [a]
       StructInit (TypeInstance tp _) fields ->
         i ("struct " ++ s_unpack (showTypePath tp)) (map snd fields)
-      EnumInit _ constructor fields ->
-        i ("enum " ++ (s_unpack $ showTypePath constructor)) (map snd fields)
+      EnumInit t constructor fields ->
+        i ("enum " ++ show t ++ " " ++ (s_unpack $ showTypePath constructor)) (map snd fields)
       ArrayAccess a b  -> i "array access" [a, b]
       Call a a1 a2     -> i "call" (a : a1 ++ a2)
       Cast a _         -> i "cast" [a]

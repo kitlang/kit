@@ -58,6 +58,6 @@ typeMatch (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _t
                                   }
                 )
         let tctx' = tctx { tctxScopes = patternScope : (tctxScopes tctx) }
-        body <- typeExpr ctx tctx' mod $ matchBody c
+        body <- typeExpr ctx tctx' mod $ makeBlock $ matchBody c
         return $ MatchCase {matchPattern = pattern, matchBody = body}
       return $ makeExprTyped (Match r1 cases' r2) (TypeVoid) pos

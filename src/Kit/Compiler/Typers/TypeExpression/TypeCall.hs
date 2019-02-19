@@ -225,7 +225,19 @@ typeFunctionCall ctx tctx mod e@(TypedExpr { inferredType = ft@(TypeFunction rt 
                              implicits
                              args
     -- FIXME: typing in this context isn't correct
-    defaults <- mapM typer $ addDefaultArgs (drop (length aligned) argSpecs) []
+    defaults <-
+      forM (addDefaultArgs (drop (length aligned) argSpecs) []) $ \arg -> do
+        let t = inferredType arg
+        ex <- typer arg
+        resolveConstraint
+          ctx
+          tctx
+          (TypeEq t
+                  (inferredType ex)
+                  "Function arg types must match the function's declaration"
+                  (tPos ex)
+          )
+        return ex
     let totalArgs     = aligned ++ defaults
     let usedImplicits = length aligned - length args
     when

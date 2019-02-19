@@ -1,0 +1,18 @@
+struct MyStruct {
+    public var x: Int;
+    public var y: Float;
+}
+
+function main() {
+    var a = Some(struct MyStruct {x: 1, y: 2});
+    match a {
+        Some(x) => match if x.x == 1 then true else false {
+            true => puts("1");
+            default => puts("something else");
+        }
+    }
+
+    if (if (a = None).isNone() then true else false) {
+        puts("None");
+    }
+}

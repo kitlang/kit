@@ -3,7 +3,8 @@
 
 module Kit.Ast.TypedExpr (
   TypedExpr(..),
-  makeExprTyped
+  makeExprTyped,
+  makeBlock
 ) where
 
 import           Data.Hashable
@@ -57,3 +58,7 @@ makeExprTyped et t pos = TypedExpr
   , tIsConst          = False
   , tImplicitRules    = []
   }
+
+makeBlock :: TypedExpr -> TypedExpr
+makeBlock ex@(TypedExpr { tExpr = Block _ }) = ex
+makeBlock ex = makeExprTyped (Block [ex]) TypeVoid (tPos ex)
