@@ -1,0 +1,28 @@
+struct MyStruct {
+    var a: Int;
+}
+
+function f(x: Option[MyStruct] = None) {
+    return x;
+}
+
+function g(x: Option[MyStruct] = Option[MyStruct].None) {
+    return x;
+}
+
+function main() {
+    var s = f();
+    if s.isNone() {
+        puts("hi1");
+    }
+
+    var t = g();
+    if t.isNone() {
+        puts("hi2");
+    }
+
+    var u = f(Some(struct MyStruct));
+    if u.isNone() {
+        puts("hi3");
+    }
+}

@@ -307,6 +307,14 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           ("static expression couldn't be evaluated at compile time")
           (tPos x)
 
+    (EnumInit b _ _) -> do
+      resolve $ TypeEq
+        (inferredType ex)
+        b
+        "Enum initialization type must match type being initialized"
+        (tPos ex)
+      return ex
+
     _ -> return $ ex
 
   t'       <- follow ctx tctx $ inferredType result

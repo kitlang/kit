@@ -61,19 +61,19 @@ typeFunctionDefinition ctx tctx' mod f = do
                    }
 
   args <- forM (functionArgs f) $ \arg -> do
-    t   <- follow ctx tctx $ argType arg
+    argT   <- follow ctx tctx $ argType arg
     def <- typeMaybeExpr ctx tctx' mod $ argDefault arg
     case def of
-      Just t -> resolveConstraint
+      Just def -> resolveConstraint
         ctx
         tctx
-        (TypeEq (argType arg)
-                (inferredType t)
+        (TypeEq argT
+                (inferredType def)
                 "Function argument defaults must match the argument type"
                 (argPos arg)
         )
       Nothing -> return ()
-    return $ arg { argType = t, argDefault = def }
+    return $ arg { argType = argT, argDefault = def }
   forM_
     args
     (\arg -> bindToScope
