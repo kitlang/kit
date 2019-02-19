@@ -62,50 +62,7 @@ resolveModuleTypes ctx modContents = do
     []
     [ResolveRules ..]
   unless (ctxIsLibrary ctx) $ validateMain ctx
-  flattenDefaults ctx
   return results
-
-flattenDefaults :: CompileContext -> IO ()
-flattenDefaults ctx = do
-  impls <- h_toList $ ctxImpls ctx
-  memos <- h_new
-  forMWithErrors_ impls $ \(tp, _) -> do
-    impls <- findImpls ctx memos tp
-    h_insert (ctxImpls ctx) tp impls
-
-findImpls
-  :: CompileContext
-  -> HashTable
-       TraitConstraint
-       (HashTable ConcreteType (TraitImplementation TypedExpr ConcreteType))
-  -> TraitConstraint
-  -> IO
-       ( HashTable
-           ConcreteType
-           (TraitImplementation TypedExpr ConcreteType)
-       )
-findImpls ctx memos t = do
-  memoized <- h_lookup memos t
-  case memoized of
-    Just x  -> return x
-    Nothing -> do
-      impls   <- h_new
-      directs <- h_lookup (ctxImpls ctx) t
-      case directs of
-        Just x -> do
-          childList <- h_toList x
-          forMWithErrors_ childList $ \(ct, impl) -> do
-            h_insert impls ct impl
-            case ct of
-              TypeTraitConstraint tp -> do
-                indirects    <- findImpls ctx memos tp
-                indirectList <- h_toList indirects
-                forMWithErrors_ indirectList $ \(ct, impl) -> do
-                  h_insert impls ct impl
-              _ -> return ()
-          h_insert memos t impls
-          return impls
-        Nothing -> return impls
 
 validateMain :: CompileContext -> IO ()
 validateMain ctx = do

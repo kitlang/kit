@@ -75,6 +75,9 @@ compile ctx cc = do
   printLogIf ctx "resolving module types"
   resolved <- {-# SCC "compile_pass.resolve_module_types" #-} resolveModuleTypes ctx declarations
 
+  printLogIf ctx "flattening trait implementations"
+  resolved <- {-# SCC "compile_pass.flatten_traits" #-} flattenTraits ctx resolved
+
   compilerSanityChecks ctx
 
   {-
