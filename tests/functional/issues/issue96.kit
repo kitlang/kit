@@ -1,0 +1,20 @@
+trait MyTrait;
+
+trait OtherTrait {
+    function getHash(): Int;
+}
+
+implement MyTrait for Int;
+implement MyTrait for Char;
+
+implement OtherTrait for MyTrait {
+    function getHash(): Int {
+        return this;
+    }
+}
+
+function main() {
+    var i: Int = 1;
+    var c: Char = 2;
+    printf("%i %i\n", i.OtherTrait.getHash(), c.OtherTrait.getHash());
+}
