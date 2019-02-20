@@ -260,12 +260,12 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
           _ | complexMatch -> do
             -- complex match with ADT
             cases' <- forMWithErrors cases $ \c -> do
-              (conditions, exprs) <- patternMatch ctx
-                                                  mod
-                                                  r
-                                                  (matchPattern c)
-                                                  matchType
-                                                  r1
+              (conditions, assigns) <- patternMatch ctx
+                                                    mod
+                                                    r
+                                                    (matchPattern c)
+                                                    matchType
+                                                    r1
               body <- r $ matchBody c
               let mergeConditions x = if null x
                     then (IrLiteral (BoolValue True) BasicTypeBool)
@@ -274,7 +274,27 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
                       in  if null t
                             then h
                             else (IrBinop And h (mergeConditions t))
-              return $ (mergeConditions conditions, (IrBlock $ exprs ++ [body]))
+              let
+                (fullAssigns, _) = foldr
+                  (\(varName, varType, varExpr) (l, n) ->
+                    ( let tmpName = (s_concat ["__match__", s_pack $ show n])
+                      in
+                        l
+                          ++ [ IrVarDeclaration tmpName varType (Just varExpr)
+                             , IrVarDeclaration
+                               varName
+                               varType
+                               (Just $ IrIdentifier ([], tmpName))
+                             ]
+                    , n + 1
+                    )
+                  )
+                  ([], 1)
+                  assigns
+              return
+                $ ( mergeConditions conditions
+                  , (IrBlock $ fullAssigns ++ [body])
+                  )
             let ifX ((cond, body) : t) =
                   IrIf cond body (if null t then r2 else Just $ ifX t)
             return $ ifX cases'

@@ -1,0 +1,12 @@
+function f(): Option[Int] {
+    return Some(1);
+}
+
+function main() {
+    var result = f();
+    match result {
+        Some(result) => {
+            printf("%i\n", result);
+        }
+    }
+}
