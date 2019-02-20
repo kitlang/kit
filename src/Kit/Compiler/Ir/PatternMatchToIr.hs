@@ -12,6 +12,7 @@ import Kit.Compiler.TypeContext
 import Kit.Error
 import Kit.Ir
 import Kit.NameMangling
+import Kit.Str
 
 {-
   Given a match pattern and the matched expression, returns a list of
@@ -24,7 +25,7 @@ patternMatch
   -> TypedExpr
   -> BasicType
   -> IrExpr
-  -> IO ([IrExpr], [IrExpr])
+  -> IO ([IrExpr], [(Str, BasicType, IrExpr)])
 patternMatch ctx mod typer pattern t ex = do
   let mergeResults = foldr (\(a, b) (c, d) -> (a ++ c, b ++ d)) ([], [])
   case tExpr pattern of
@@ -91,7 +92,7 @@ patternMatch ctx mod typer pattern t ex = do
         patternMatch ctx mod typer val t (IrField ex name)
       return $ mergeResults conds
     Identifier (Var ([], x)) -> do
-      return $ ([], [IrVarDeclaration x t (Just ex)])
+      return $ ([], [(x, t, ex)])
     Identifier Hole -> do
       return ([], [])
     Literal (BoolValue   True ) _ -> return ([ex], [])
