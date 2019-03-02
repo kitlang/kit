@@ -4,28 +4,25 @@ import Control.Concurrent.Async
 import Control.Monad
 import Data.Either
 import Data.List
+import Data.Mutable
 import System.Directory
-import System.Exit
 import System.FilePath
 import System.Process
 import Kit.Ast
-import Kit.Compiler.CCompiler
 import Kit.Compiler.Context
 import Kit.Compiler.Utils
 import Kit.Error
 import Kit.Log
 import Kit.Str
+import Kit.Toolchain
 
 {-
   Compile the generated C code.
 -}
-compileCode :: CompileContext -> CCompiler -> [TypePath] -> IO (Maybe FilePath)
+compileCode :: CompileContext -> Toolchain -> [TypePath] -> IO (Maybe FilePath)
 compileCode ctx cc names = do
-  ccache        <- findCcache ctx
-  compilerFlags <- getCompileFlags ctx cc
-  linkerFlags   <- getCtxLinkerFlags ctx
   createDirectoryIfMissing True (buildDir ctx)
-  results <- forConcurrently names (compileBundle ctx ccache cc compilerFlags)
+  results <- forConcurrently names (compileBundle ctx cc)
   errs    <- foldM
     (\acc out -> case out of
       Left  err -> return $ (BasicError err Nothing) : acc
@@ -39,52 +36,27 @@ compileCode ctx cc names = do
   if ctxNoLink ctx
     then return Nothing
     else do
-      binPath <- linkBundles ctx cc linkerFlags names
+      binPath <- linkBundles ctx cc names
       return $ Just binPath
 
 compileBundle
   :: CompileContext
-  -> Maybe FilePath
-  -> CCompiler
-  -> [String]
+  -> Toolchain
   -> TypePath
   -> IO (Either String String)
-compileBundle ctx ccache cc args name = do
+compileBundle ctx cc name = do
   let objFilePath = objPath ctx name
   createDirectoryIfMissing True (takeDirectory objFilePath)
-  args <-
-    return
-    $  args
-    ++ ["-I" ++ includeDir ctx, "-c", libPath ctx name, "-o", objPath ctx name]
   debugLog ctx $ "compiling " ++ s_unpack (showTypePath name)
-  (ccPath, args) <- return $ case ccache of
-    Just x  -> (x, ccPath cc : args)
-    Nothing -> (ccPath cc, args)
-  debugLog ctx $ showCommandForUser ccPath args
-  (status, _, stderr) <- readCreateProcessWithExitCode (proc ccPath args)
-                                                            ""
-  if status == ExitSuccess
-    then return $ Right stderr
-    else return $ Left stderr
+  invokeCompiler (cc {ccIncludePaths = (includeDir ctx) : (ccIncludePaths cc)}) (debugLog ctx) (not $ ctxNoCcache ctx) (libPath ctx name) (objPath ctx name)
 
 linkBundles
-  :: CompileContext -> CCompiler -> [String] -> [TypePath] -> IO FilePath
-linkBundles ctx cc args names = do
+  :: CompileContext -> Toolchain -> [TypePath] -> IO FilePath
+linkBundles ctx cc names = do
   let outName = ctxOutputPath ctx
-  let args' =
-        [ objPath ctx name | name <- names ]
-          ++ ["-I" ++ includeDir ctx]
-          ++ (if ctxIsLibrary ctx
-               then ["-shared", "-o" ++ outName]
-               else ["-o" ++ outName]
-             )
-          ++ args
   when (ctxVerbose ctx >= 0) $ printLog $ "linking"
-  debugLog ctx $ showCommandForUser (ccPath cc) args'
-  callProcess (ccPath cc) args'
-  binPath <- canonicalizePath outName
-  return $ binPath
-
-compilerSpecificArgs :: FilePath -> [String]
-compilerSpecificArgs "clang" = ["-Wno-error=unused-command-line-argument"]
-compilerSpecificArgs _       = []
+  linkedLibs <- readRef $ ctxLinkedLibs ctx
+  invokeLinker (cc {
+      ccIncludePaths = (includeDir ctx) : (ccIncludePaths cc),
+      ldFlags = (ldFlags cc) ++ [ "-l" ++ s_unpack lib | lib <- nub linkedLibs ]
+    }) (debugLog ctx) (ctxIsLibrary ctx) [ objPath ctx name | name <- names ] outName

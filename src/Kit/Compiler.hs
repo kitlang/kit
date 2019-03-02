@@ -2,7 +2,6 @@ module Kit.Compiler (
   decideModuleAndSourcePaths,
   tryCompile,
   module Kit.Compiler.Binding,
-  module Kit.Compiler.CCompiler,
   module Kit.Compiler.Context,
   module Kit.Compiler.Module,
   module Kit.Compiler.Passes,
@@ -21,7 +20,6 @@ import System.Process
 import Kit.Ast
 import Kit.Ir
 import Kit.Compiler.Binding
-import Kit.Compiler.CCompiler
 import Kit.Compiler.Context
 import Kit.Compiler.DumpAst
 import Kit.Compiler.Module
@@ -33,16 +31,17 @@ import Kit.Compiler.Utils
 import Kit.Error
 import Kit.Log
 import Kit.Str
+import Kit.Toolchain
 
-tryCompile :: CompileContext -> CCompiler -> IO (Either KitError ())
-tryCompile context cc = try $ compile context cc
+tryCompile :: CompileContext -> Toolchain -> Toolchain -> IO (Either KitError ())
+tryCompile context build host = try $ compile context build host
 
 {-
   Run compilation to completion from the given CompileContext. Throws an
   Error on failure.
 -}
-compile :: CompileContext -> CCompiler -> IO ()
-compile ctx cc = do
+compile :: CompileContext -> Toolchain -> Toolchain -> IO ()
+compile ctx build host = do
   startTime <- getCurrentTime
 
   {-
@@ -57,13 +56,13 @@ compile ctx cc = do
     Generate C modules for all includes found during buildModuleGraph.
   -}
   printLogIf      ctx "processing C includes"
-  {-# SCC "compile_pass.include_C_modules" #-} includeCModules ctx cc
+  {-# SCC "compile_pass.include_C_modules" #-} includeCModules ctx host
 
   {-
     Find and execute statement-level macros.
   -}
   printLogIf      ctx "expanding macros"
-  declarations <- {-# SCC "compile_pass.expand_macros" #-} expandMacros ctx cc compile declarations
+  declarations <- {-# SCC "compile_pass.expand_macros" #-} expandMacros ctx build compile declarations
 
   {-
     This step utilizes the module interfaces from buildModuleGraph to convert
@@ -140,7 +139,7 @@ compile ctx cc = do
       return Nothing
     else do
       printLogIf ctx "compiling"
-      compileCode ctx cc generated
+      compileCode ctx host generated
 
   endTime <- getCurrentTime
   printLogIf ctx

@@ -1,6 +1,7 @@
 module Kit.CompilerSpec where
 
 import Control.Monad
+import Data.Maybe
 import Data.Mutable
 import Data.List
 import System.Directory
@@ -12,9 +13,18 @@ import Test.Hspec
 import Test.QuickCheck
 import Kit.Compiler
 import Kit.Str
+import Kit.Toolchain
 
 isKitFile :: FilePath -> Bool
 isKitFile f = takeExtension f == ".kit"
+
+getTestToolchain = do
+  toolchain <- lookupEnv "KIT_BUILD_TOOLCHAIN"
+  cc     <- loadToolchain (fromMaybe defaultToolchain toolchain)
+  return $ cc {
+    ccIncludePaths = ("tests" </> "functional") : (ccIncludePaths cc),
+    cFlags = (cFlags cc) ++ ["-lm", "-Werror"]
+  }
 
 readDir :: FilePath -> IO [FilePath]
 readDir d = do
@@ -46,17 +56,13 @@ spec = parallel $ do
         withSystemTempDirectory "build.test." $ \tmpDir -> do
           forM_ [1 .. testRuns] $ \_ -> do
             ctx    <- newCompileContext
-            cc     <- getCompiler Nothing
+            cc <- getTestToolchain
             result <- tryCompile
               (ctx
                 { ctxSourcePaths   = [ (f, [])
                                      | f <- [takeDirectory path, "std"]
                                      ]
                 , ctxMainModule    = [s_pack $ takeFileName path -<.> ""]
-                , ctxCompilerFlags = ["-Werror"]
-                , ctxLinkerFlags   = ["-lm", "-Werror"]
-                , ctxIncludePaths  = ("tests" </> "functional")
-                  : (ctxIncludePaths ctx)
                 , ctxBuildDir      = tmpDir
                 , ctxOutputPath    = tmpDir </> "test"
                 , ctxVerbose       = -1
@@ -64,6 +70,7 @@ spec = parallel $ do
                 , ctxResultHandler = Just $ writeRef output
                 }
               )
+              cc
               cc
             (case result of
                 Left  err -> Just err
@@ -81,19 +88,18 @@ spec = parallel $ do
     forM_ paths $ \path -> do
       it path $ do
         ctx <- newCompileContext
-        cc  <- getCompiler Nothing
+        cc  <- getTestToolchain
         withSystemTempDirectory "build.sample." $ \tmpDir -> do
           result <- tryCompile
             (ctx
               { ctxSourcePaths = [ (f, []) | f <- [takeDirectory path, "std"] ]
               , ctxMainModule    = [s_pack $ takeFileName path -<.> ""]
-              , ctxCompilerFlags = ["-Werror"]
-              , ctxLinkerFlags   = ["-lm", "-Werror"]
               , ctxBuildDir      = tmpDir
               , ctxOutputPath    = tmpDir </> "sample"
               , ctxVerbose       = -1
               }
             )
+            cc
             cc
           (case result of
               Left  err -> Just err

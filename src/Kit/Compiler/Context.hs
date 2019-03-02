@@ -12,7 +12,6 @@ import System.FilePath
 import System.Info
 import Kit.Ast
 import Kit.Compiler.Binding
-import Kit.Compiler.CCompiler
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Error
@@ -20,6 +19,7 @@ import Kit.HashTable
 import Kit.Log
 import Kit.NameMangling
 import Kit.Str
+import Kit.Toolchain
 
 data DuplicateGlobalNameError = DuplicateGlobalNameError ModulePath Str Span Span deriving (Eq, Show)
 instance Errable DuplicateGlobalNameError where
@@ -39,13 +39,9 @@ data CompileContext = CompileContext {
   ctxMainModule :: !ModulePath,
   ctxIsLibrary :: !Bool,
   ctxSourcePaths :: ![(FilePath, ModulePath)],
-  ctxCompilerPath :: Maybe FilePath,
-  ctxIncludePaths :: ![FilePath],
   ctxBuildDir :: !FilePath,
   ctxOutputPath :: !FilePath,
   ctxDefines :: ![(String, String)],
-  ctxCompilerFlags :: ![String],
-  ctxLinkerFlags :: ![String],
   ctxNoCompile :: !Bool,
   ctxNoLink :: !Bool,
   ctxDumpAst :: !Bool,
@@ -87,14 +83,10 @@ newCompileContext = do
     { ctxMainModule     = ["main"]
     , ctxIsLibrary      = False
     , ctxSourcePaths    = [("src", [])]
-    , ctxCompilerPath   = Nothing
-    , ctxIncludePaths   = []
     , ctxBuildDir       = "build"
     , ctxOutputPath     = "main"
     , ctxDefines        = []
     , ctxVerbose        = 0
-    , ctxCompilerFlags  = []
-    , ctxLinkerFlags    = []
     , ctxNoCompile      = False
     , ctxNoLink         = False
     , ctxDumpAst        = False
@@ -480,34 +472,6 @@ findPackageContents_ recurse (m : n) (dir, (h : t)) = if m == h
 findPackageContents_ _ _ _ = return []
 
 isModule file = (takeExtension file == ".kit") && (file /= "prelude.kit")
-
-findCcache :: CompileContext -> IO (Maybe FilePath)
-findCcache ctx =
-  if ctxNoCcache ctx then return Nothing else findExecutable "ccache"
-
-getCtxCompilerFlags :: CompileContext -> IO [String]
-getCtxCompilerFlags ctx = do
-  let includeFlags = [ "-I" ++ path | path <- ctxIncludePaths ctx ]
-  let ctxFlags =
-        ctxCompilerFlags ctx
-          ++ (if ctxIsLibrary ctx then ["-fPIC"] else [])
-          ++ includeFlags
-  envFlags <- lookupEnv "COMPILER_FLAGS"
-  return $ case envFlags of
-    -- FIXME
-    Just s  -> ctxFlags ++ words s
-    Nothing -> ctxFlags
-
-getCtxLinkerFlags :: CompileContext -> IO [String]
-getCtxLinkerFlags ctx = do
-  linkedLibs <- readRef $ ctxLinkedLibs ctx
-  let ctxFlags =
-        [ "-l" ++ s_unpack lib | lib <- nub linkedLibs ] ++ ctxLinkerFlags ctx
-  envFlags <- lookupEnv "LINKER_FLAGS"
-  return $ case envFlags of
-    -- FIXME
-    Just s  -> ctxFlags ++ words s
-    Nothing -> ctxFlags
 
 interfaceTypeConverter
   :: CompileContext

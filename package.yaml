@@ -32,6 +32,7 @@ library:
   - Kit.Log
   - Kit.Parser
   - Kit.Str
+  - Kit.Toolchain
   dependencies:
   - ansi-terminal
   - array
@@ -40,6 +41,7 @@ library:
   - bytestring
   - cryptohash-md5
   - directory
+  - dotenv
   - filepath
   - hashable
   - hashtables
@@ -48,6 +50,7 @@ library:
   - pretty
   - process
   - regex-posix
+  - split
   - text
   - time
   - transformers
