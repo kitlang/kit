@@ -5,35 +5,35 @@ module Kit.Compiler.Passes.IncludeCModules
   )
 where
 
-import           Control.Monad
-import           Data.Mutable
-import           Data.List
-import           System.Directory
-import           System.FilePath
-import           System.IO
-import           System.Process
-import           Language.C
-import           Language.C.Analysis.ConstEval
-import           Language.C.Data.Ident
-import           Language.C.Data.Position
-import           Language.C.System.GCC
-import           Kit.Ast
-import           Kit.Compiler.Binding
-import           Kit.Compiler.CCompiler
-import           Kit.Compiler.Context
-import           Kit.Compiler.Module
-import           Kit.Compiler.Utils
-import           Kit.Error
-import           Kit.HashTable
-import           Kit.Log
-import           Kit.Parser
-import           Kit.Str
+import Control.Monad
+import Data.Mutable
+import Data.List
+import System.Directory
+import System.FilePath
+import System.IO
+import System.Process
+import Language.C
+import Language.C.Analysis.ConstEval
+import Language.C.Data.Ident
+import Language.C.Data.Position
+import Language.C.System.GCC
+import Kit.Ast
+import Kit.Compiler.Binding
+import Kit.Compiler.Context
+import Kit.Compiler.Module
+import Kit.Compiler.Utils
+import Kit.Error
+import Kit.HashTable
+import Kit.Log
+import Kit.Parser
+import Kit.Str
+import Kit.Toolchain
 
 {-
   For each C header discovered during the BuildModuleGraph pass, parse the
   header to discover all declarations, and make these available from Kit.
 -}
-includeCModules :: CompileContext -> CCompiler -> IO ()
+includeCModules :: CompileContext -> Toolchain -> IO ()
 includeCModules ctx cc = do
   includes <- readRef (ctxIncludes ctx)
   existing <- h_lookup (ctxModules ctx) externModPath
@@ -54,17 +54,15 @@ includeCModules ctx cc = do
   includeCHeader ctx cc mod clibPath
   return ()
 
-includeCHeader :: CompileContext -> CCompiler -> Module -> FilePath -> IO ()
+includeCHeader :: CompileContext -> Toolchain -> Module -> FilePath -> IO ()
 includeCHeader ctx cc mod path = do
   parseCMacros ctx cc mod path
   parseCHeader ctx cc mod path
 
-headerParseFlags ctx cc = do
-  flags <- getCompileFlags ctx cc
-  return $ (filter (\flag -> flag /= "-pedantic") $ flags) ++ ["-w"]
+headerParseFlags ctx cc = (filter (\flag -> flag /= "-pedantic") $ getCppFlags cc) ++ ["-w"]
 
 parseCMacros ctx cc mod path = do
-  flags  <- headerParseFlags ctx cc
+  let flags  = headerParseFlags ctx cc
   result <- readProcess (ccPath cc) ("-dM" : "-E" : flags ++ [path]) ""
   forM_ (lines result) $ \line -> do
     when (isPrefixOf "#define " line) $ do
@@ -106,9 +104,9 @@ parseCMacros ctx cc mod path = do
               Nothing -> return ()
           _ -> return ()
 
-parseCHeader :: CompileContext -> CCompiler -> Module -> FilePath -> IO ()
+parseCHeader :: CompileContext -> Toolchain -> Module -> FilePath -> IO ()
 parseCHeader ctx cc mod path = do
-  flags       <- headerParseFlags ctx cc
+  let flags       = headerParseFlags ctx cc
   parseResult <- parseCFile (newGCC $ ccPath cc) Nothing flags path
   case parseResult of
     Left e -> throwk $ BasicError

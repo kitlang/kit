@@ -15,7 +15,6 @@ import Language.C.Data.Position
 import Language.C.System.GCC
 import Kit.Ast
 import Kit.Compiler.Binding
-import Kit.Compiler.CCompiler
 import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.Utils
@@ -24,6 +23,7 @@ import Kit.HashTable
 import Kit.Log
 import Kit.Parser
 import Kit.Str
+import Kit.Toolchain
 
 data MacroData = MacroData {
   macroDef :: FunctionDefinition Expr TypeSpec,
@@ -33,14 +33,14 @@ data MacroData = MacroData {
   macroResults :: HashTable Int [SyntacticStatement]
 }
 
-type CompileFunc = CompileContext -> CCompiler -> IO ()
+type CompileFunc = CompileContext -> Toolchain -> Toolchain -> IO ()
 type MacroMap = HashTable TypePath (FunctionDefinition Expr TypeSpec)
 type MacroInvocationMap = HashTable TypePath MacroData
 type ModuleStatements = (Module, [SyntacticStatement])
 
 expandMacros
   :: CompileContext
-  -> CCompiler
+  -> Toolchain
   -> CompileFunc
   -> [ModuleStatements]
   -> IO [ModuleStatements]
@@ -137,7 +137,7 @@ callMacros ctx cc compile invocations = do
             , ctxBuildDir   = buildDir
             , ctxOutputPath = buildDir </> "macro"
             }
-      compile macroCtx cc
+      compile macroCtx cc cc
       let outName = ctxOutputPath macroCtx
       binPath <- canonicalizePath outName
       forM_ args $ \(_, (index, pos)) -> do

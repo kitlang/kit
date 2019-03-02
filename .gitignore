@@ -13,3 +13,5 @@ kitlang.cabal
 assets/*.png
 build
 main
+.importify
+.vscode

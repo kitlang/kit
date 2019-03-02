@@ -1,24 +1,25 @@
 module Kit.Compiler.Passes.IncludeCModulesSpec where
 
-import           Control.Monad
-import           Data.Maybe
-import           Language.C
-import           Test.Hspec
-import           Test.QuickCheck
-import           Kit.Ast
-import           Kit.Compiler
-import           Kit.Compiler.Generators.C
-import           Kit.Compiler.Ir
-import           Kit.Compiler.Passes
-import           Kit.HashTable
-import           Kit.Ir
+import Control.Monad
+import Data.Maybe
+import Language.C
+import Test.Hspec
+import Test.QuickCheck
+import Kit.Ast
+import Kit.Compiler
+import Kit.Compiler.Generators.C
+import Kit.Compiler.Ir
+import Kit.Compiler.Passes
+import Kit.HashTable
+import Kit.Ir
+import Kit.Toolchain
 
 concreteArgs = map (\(n, t) -> newArgSpec { argName = n, argType = t })
 
 testHeader :: IO (CompileContext, Module)
 testHeader = do
   ctx <- newCompileContext
-  cc  <- getCompiler Nothing
+  cc  <- loadToolchain defaultToolchain
   -- let ctx = ctx' {
   --   ctxIncludePaths = ["tests/Kit/Compiler/Passes"]
   -- }
