@@ -46,6 +46,7 @@ import Kit.Str
   continue {(KeywordContinue,_)}
   default {(KeywordDefault,_)}
   defer {(KeywordDefer,_)}
+  defined {(KeywordDefined,_)}
   do {(KeywordDo,_)}
   else {(KeywordElse,_)}
   empty {(KeywordEmpty,_)}
@@ -680,6 +681,9 @@ BaseExpr :: {Expr}
   | '(' identifier "..." ')' {pe (snd $1 <+> snd $4) $ VarArgListCopy $ extract_identifier $2}
   | unsafe Expr {pe (snd $1 <+> pos $2) (Unsafe $2)}
   | sizeof TypeSpec {pe (snd $1 <+> snd $2) (SizeOf $ fst $2)}
+  | sizeof '(' TypeSpec ')' {pe (snd $1 <+> snd $3) (SizeOf $ fst $3)}
+  | defined Identifier {pe (snd $1 <+> snd $2) (Defined $ fst $2)}
+  | defined '(' Identifier ')' {pe (snd $1 <+> snd $3) (Defined $ fst $3)}
   | '(' Expr ParenthesizedExprs ')' {if null $3 then $2 {pos = snd $1 <+> snd $4} else pe (snd $1 <+> snd $4) (TupleInit ($2 : reverse $3)) }
   | null {pe (snd $1) Null}
   | empty {pe (snd $1) Empty}

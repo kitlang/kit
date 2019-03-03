@@ -51,6 +51,7 @@ tokens :-
   continue { tok KeywordContinue }
   default { tok KeywordDefault }
   defer { tok KeywordDefer }
+  defined { tok KeywordDefined }
   do { tok KeywordDo }
   else { tok KeywordElse }
   empty { tok KeywordEmpty }

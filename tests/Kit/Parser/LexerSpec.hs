@@ -32,14 +32,16 @@ spec = parallel $ do
                    , (FunctionArrow, sp "" 1 7 1 8)
                    ]
     it "lexes keywords" $ do
-      lx "abstract inline for in public rule rules"
+      lx "abstract defined inline for in public rule rules undefined"
         `shouldBe` [ KeywordAbstract
+                   , KeywordDefined
                    , KeywordInline
                    , KeywordFor
                    , KeywordIn
                    , KeywordPublic
                    , KeywordRule
                    , KeywordRules
+                   , KeywordUndefined
                    ]
     it "skips whitespace" $ do
       lx2 "  \t  \n  \r\t \na \n\n\n\t\t\t\r\n\r\n \r \n"
