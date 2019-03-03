@@ -20,30 +20,43 @@ addons:
 matrix:
   fast_finish: true
   include:
-  - stage: test
+  - stage: Test
     name: linux-gcc
     os: linux
     env: KIT_BUILD_TOOLCHAIN=linux-gcc
-  - stage: test
+  - stage: Test
     name: linux-clang
     os: linux
     env: KIT_BUILD_TOOLCHAIN=linux-clang
-  - stage: test
+  - stage: Test
     name: darwin-gcc
     os: osx
     env: KIT_BUILD_TOOLCHAIN=darwin-gcc
-  - stage: test
+  - stage: Test
     name: darwin-clang
     os: osx
     env: KIT_BUILD_TOOLCHAIN=darwin-clang
-  - stage: install
-    if: branch IN (master, dev)
+
+  - stage: Upload
+    name: upload Linux packages
+    if: env(TRAVIS_PULL_REQUEST) = "false"
+    os: linux
+    script: 'bash ./.packages/linux.sh'
+  - stage: Upload
+    name: upload MacOS package
+    if: env(TRAVIS_PULL_REQUEST) = "false"
+    os: osx
+    script: 'bash ./.packages/osx.sh'
+
+  - stage: Test Package Install
+    name: "test Linux package install"
+    if: branch IN (master, dev) AND env(TRAVIS_PULL_REQUEST) = "false"
     os: linux
     env:
     - KIT_BUILD_TOOLCHAIN: linux-gcc
     before_install: skip
     install: skip
-    script: 'if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then bash ./.packages/install_test.sh; fi'
+    script: 'bash ./.packages/install_test.sh'
 
 before_install:
   - mkdir -p ~/.local/bin
@@ -62,9 +75,6 @@ script:
   - stack exec kitc -- --env
   - TEST_RUNS=1 stack test --test-arguments '+RTS -N -RTS'
   - stack install
-  - if [ "$TRAVIS_OS_NAME" == "linux" ] && [ "$TRAVIS_PULL_REQUEST" == "false" ]; then bash ./.packages/linux.sh; fi
-  - if [ "$TRAVIS_OS_NAME" == "osx" ] && [ "$TRAVIS_PULL_REQUEST" == "false" ]; then bash ./.packages/osx.sh; fi
-
 
 notifications:
   webhooks:
