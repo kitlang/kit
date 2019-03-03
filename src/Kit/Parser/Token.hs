@@ -38,6 +38,7 @@ data TokenClass
   | KeywordConst
   | KeywordContinue
   | KeywordDefault
+  | KeywordDefined
   | KeywordDefer
   | KeywordDo
   | KeywordElse
@@ -140,6 +141,7 @@ instance Show TokenClass where
     KeywordContinue -> "continue"
     KeywordDefault -> "default"
     KeywordDefer -> "defer"
+    KeywordDefined -> "defined"
     KeywordDo -> "do"
     KeywordElse -> "else"
     KeywordEmpty -> "empty"

@@ -16,7 +16,14 @@
 // }
 
 #[noreturn] function panic(msg: Const[CString], args...) {
-    vfprintf(stderr, msg, (args...));
-    fputs("", stderr);
+    static if defined stderr {
+        // use stderr in environments where it's defined
+        vfprintf(stderr, msg, (args...));
+        fputs("", stderr);
+    } else {
+        // fall back to stdout
+        vprintf(msg, (args...));
+        puts("");
+    }
     abort();
 }

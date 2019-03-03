@@ -1,0 +1,15 @@
+function main() {
+    var b = defined stdout;
+    puts(if b then "true" else "false");
+
+    static if defined stdout {
+        puts("stdout exists");
+    } else {
+        puts("stdout doesn't exist");
+    }
+    static if defined stdout123987 {
+        puts("stdout123987 exists");
+    } else {
+        puts("stdout123987 doesn't exist");
+    }
+}

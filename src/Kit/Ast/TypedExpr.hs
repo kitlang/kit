@@ -7,13 +7,13 @@ module Kit.Ast.TypedExpr (
   makeBlock
 ) where
 
-import           Data.Hashable
-import           GHC.Generics
-import           Kit.Ast.ConcreteTypeBase
-import           Kit.Ast.Definitions
-import           Kit.Ast.ExprType
-import           Kit.Ast.Span
-import           Kit.Ast.Value
+import Data.Hashable
+import GHC.Generics
+import Kit.Ast.ConcreteTypeBase
+import Kit.Ast.Definitions
+import Kit.Ast.ExprType
+import Kit.Ast.Span
+import Kit.Ast.Value
 
 type ConcreteType = ConcreteTypeBase TypedExpr
 

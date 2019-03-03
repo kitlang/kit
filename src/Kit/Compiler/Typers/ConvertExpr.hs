@@ -202,6 +202,9 @@ convertExpr ctx tctx mod params e = do
       x <- r x
       t <- mtv
       return $ m (StaticExpr x) t
+    Defined id -> do
+      id <- convertIdentifier (\_ -> return TypeVoid) id
+      return $ m (Defined id) TypeBool
     VarArgListCopy s -> do
       return $ m (VarArgListCopy s) TypeVaList
     _ -> throwk $ InternalError

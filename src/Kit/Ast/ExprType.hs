@@ -97,6 +97,7 @@ data ExprType a b
   | StaticExpr a
   | Yield a
   | Tokens Str
+  | Defined (Identifier b)
   deriving (Eq, Generic, Show)
 
 instance (Hashable a, Hashable b) => Hashable (ExprType a b)
@@ -156,6 +157,7 @@ exprDiscriminant et = case et of
   UnionInit _ _               -> 50
   VarArgListCopy _            -> 51
   StaticVtable   _            -> 52
+  Defined _                   -> 53
   x                           -> throwk
     $ InternalError ("Expression has no discriminant: " ++ show x) Nothing
 
