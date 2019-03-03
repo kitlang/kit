@@ -20,11 +20,11 @@ isKitFile f = takeExtension f == ".kit"
 
 getTestToolchain = do
   toolchain <- lookupEnv "KIT_BUILD_TOOLCHAIN"
-  cc     <- loadToolchain (fromMaybe defaultToolchain toolchain)
-  return $ cc {
-    ccIncludePaths = ("tests" </> "functional") : (ccIncludePaths cc),
-    cFlags = (cFlags cc) ++ ["-lm", "-Werror"]
-  }
+  cc        <- loadToolchain (fromMaybe defaultToolchain toolchain)
+  return $ cc
+    { ccIncludePaths = ("tests" </> "functional") : (ccIncludePaths cc)
+    , cFlags         = (cFlags cc) ++ ["-lm", "-Werror"]
+    }
 
 readDir :: FilePath -> IO [FilePath]
 readDir d = do
@@ -56,7 +56,7 @@ spec = parallel $ do
         withSystemTempDirectory "build.test." $ \tmpDir -> do
           forM_ [1 .. testRuns] $ \_ -> do
             ctx    <- newCompileContext
-            cc <- getTestToolchain
+            cc     <- getTestToolchain
             result <- tryCompile
               (ctx
                 { ctxSourcePaths   = [ (f, [])
@@ -93,10 +93,10 @@ spec = parallel $ do
           result <- tryCompile
             (ctx
               { ctxSourcePaths = [ (f, []) | f <- [takeDirectory path, "std"] ]
-              , ctxMainModule    = [s_pack $ takeFileName path -<.> ""]
-              , ctxBuildDir      = tmpDir
-              , ctxOutputPath    = tmpDir </> "sample"
-              , ctxVerbose       = -1
+              , ctxMainModule  = [s_pack $ takeFileName path -<.> ""]
+              , ctxBuildDir    = tmpDir
+              , ctxOutputPath  = tmpDir </> "sample"
+              , ctxVerbose     = -1
               }
             )
             cc

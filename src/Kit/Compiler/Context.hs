@@ -300,8 +300,9 @@ makeGeneric ctx tp@(modPath, name) pos existing = do
         TraitBinding    def -> return $ traitAllParams def
       Nothing -> do
         binding <- h_get (ctxTypes ctx) tp
-        let c = converter (\expr -> undefined)
-                          (\_ t -> return $ UnresolvedType t modPath)
+        let
+          c = converter (\expr -> undefined)
+                        (\_ t -> return $ UnresolvedType t modPath)
         let params = case binding of
               TypeBinding     def -> typeParams def
               FunctionBinding def -> functionParams def

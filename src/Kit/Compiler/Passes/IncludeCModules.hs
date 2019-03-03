@@ -59,10 +59,11 @@ includeCHeader ctx cc mod path = do
   parseCMacros ctx cc mod path
   parseCHeader ctx cc mod path
 
-headerParseFlags ctx cc = (filter (\flag -> flag /= "-pedantic") $ getCppFlags cc) ++ ["-w"]
+headerParseFlags ctx cc =
+  (filter (\flag -> flag /= "-pedantic") $ getCppFlags cc) ++ ["-w"]
 
 parseCMacros ctx cc mod path = do
-  let flags  = headerParseFlags ctx cc
+  let flags = headerParseFlags ctx cc
   result <- readProcess (ccPath cc) ("-dM" : "-E" : flags ++ [path]) ""
   forM_ (lines result) $ \line -> do
     when (isPrefixOf "#define " line) $ do
@@ -106,7 +107,7 @@ parseCMacros ctx cc mod path = do
 
 parseCHeader :: CompileContext -> Toolchain -> Module -> FilePath -> IO ()
 parseCHeader ctx cc mod path = do
-  let flags       = headerParseFlags ctx cc
+  let flags = headerParseFlags ctx cc
   parseResult <- parseCFile (newGCC $ ccPath cc) Nothing flags path
   case parseResult of
     Left e -> throwk $ BasicError

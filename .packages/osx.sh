@@ -24,7 +24,7 @@ if [ "$CC" == "gcc" ]; then
       --vendor "kitlang.org" \
       --maintainer "Ben Morris <ben@bendmorris.com>" \
       --url "https://kitlang.org" \
-      ~/.local/bin/kitc=/usr/local/bin/kitc std/=/usr/local/lib/kit
+      ~/.local/bin/kitc=/usr/local/bin/kitc std/=/usr/local/lib/kit toolchains/=/etc/kitlang/toolchains
 
     curl --show-error --fail -vvv -T kitlang-$FILE_VERSION.pkg -ubendmorris:$BINTRAY_API_KEY \
       -H "X-Bintray-Publish: 1" -H "X-Bintray-Override: 1" \
