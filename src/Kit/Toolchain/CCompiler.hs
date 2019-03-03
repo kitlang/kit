@@ -52,12 +52,12 @@ toolchainSearchPaths _ = [".", "toolchains"]
 loadToolchain :: String -> IO Toolchain
 loadToolchain name = do
   -- if this is a path to a toolchain, use that
-  path   <- canonicalizePath $ name -<.> "env"
+  path   <- canonicalizePath $ name
   exists <- doesFileExist path
   if exists
     then loadToolchainFile name
     else do
-      paths <- forM (toolchainSearchPaths os) $ \dir -> canonicalizePath $ dir </> name -<.> "env"
+      paths <- forM (toolchainSearchPaths os) $ \dir -> canonicalizePath $ dir </> name
       found <- foldM
         (\acc path -> case acc of
           Just x  -> return acc
