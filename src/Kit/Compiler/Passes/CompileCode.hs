@@ -40,23 +40,31 @@ compileCode ctx cc names = do
       return $ Just binPath
 
 compileBundle
-  :: CompileContext
-  -> Toolchain
-  -> TypePath
-  -> IO (Either String String)
+  :: CompileContext -> Toolchain -> TypePath -> IO (Either String String)
 compileBundle ctx cc name = do
   let objFilePath = objPath ctx name
   createDirectoryIfMissing True (takeDirectory objFilePath)
   debugLog ctx $ "compiling " ++ s_unpack (showTypePath name)
-  invokeCompiler (cc {ccIncludePaths = (includeDir ctx) : (ccIncludePaths cc)}) (debugLog ctx) (not $ ctxNoCcache ctx) (libPath ctx name) (objPath ctx name)
+  invokeCompiler
+    (cc { ccIncludePaths = (includeDir ctx) : (ccIncludePaths cc) })
+    (debugLog ctx)
+    (not $ ctxNoCcache ctx)
+    (libPath ctx name)
+    (objPath ctx name)
 
-linkBundles
-  :: CompileContext -> Toolchain -> [TypePath] -> IO FilePath
+linkBundles :: CompileContext -> Toolchain -> [TypePath] -> IO FilePath
 linkBundles ctx cc names = do
   let outName = ctxOutputPath ctx
   when (ctxVerbose ctx >= 0) $ printLog $ "linking"
   linkedLibs <- readRef $ ctxLinkedLibs ctx
-  invokeLinker (cc {
-      ccIncludePaths = (includeDir ctx) : (ccIncludePaths cc),
-      ldFlags = (ldFlags cc) ++ [ "-l" ++ s_unpack lib | lib <- nub linkedLibs ]
-    }) (debugLog ctx) (ctxIsLibrary ctx) [ objPath ctx name | name <- names ] outName
+  invokeLinker
+    (cc
+      { ccIncludePaths = (includeDir ctx) : (ccIncludePaths cc)
+      , ldFlags        = (ldFlags cc)
+        ++ [ "-l" ++ s_unpack lib | lib <- nub linkedLibs ]
+      }
+    )
+    (debugLog ctx)
+    (ctxIsLibrary ctx)
+    [ objPath ctx name | name <- names ]
+    outName

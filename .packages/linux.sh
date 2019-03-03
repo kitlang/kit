@@ -29,7 +29,7 @@ if [ "$CC" == "gcc" ]; then
       --maintainer "Ben Morris <ben@bendmorris.com>" \
       --url "https://kitlang.org" \
       -d "gcc | clang" \
-      ~/.local/bin/kitc=/usr/bin/kitc std/=/usr/lib/kit
+      ~/.local/bin/kitc=/usr/bin/kitc std/=/usr/lib/kit toolchains/=/etc/kitlang/toolchains
 
     ## Create the RPM package
     fpm -s dir -t rpm -n kitlang -v $FILE_VERSION --iteration $TRAVIS_BUILD_NUMBER \
@@ -39,7 +39,7 @@ if [ "$CC" == "gcc" ]; then
       --maintainer "Ben Morris <ben@bendmorris.com>" \
       --url "https://kitlang.org" \
       -d "gcc" \
-      ~/.local/bin/kitc=/usr/bin/kitc std/=/usr/lib/kit
+      ~/.local/bin/kitc=/usr/bin/kitc std/=/usr/lib/kit toolchains/=/etc/kitlang/toolchains
 
     ## Deploy the Apt package
     curl --show-error --fail -T kitlang_${FILE_VERSION}-${TRAVIS_BUILD_NUMBER}_amd64.deb -ubendmorris:$BINTRAY_API_KEY \

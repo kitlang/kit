@@ -97,11 +97,15 @@ options =
     <*> many compilerFlagParser
     <*> many linkerFlagParser
     <*> (optional $ strOption
-          (long "build" <> metavar "TOOLCHAIN" <> help "name, or path to, the native toolchain")
+          (long "build" <> metavar "TOOLCHAIN" <> help
+            "name, or path to, the native toolchain"
+          )
         )
     <*> (optional $ strOption
-        (long "host" <> metavar "TOOLCHAIN" <> help "name, or path to, the host toolchain; used for cross-compilation")
-      )
+          (long "host" <> metavar "TOOLCHAIN" <> help
+            "name, or path to, the host toolchain; used for cross-compilation"
+          )
+        )
     <*> many definesParser
     <*> switch (long "lib" <> help "build a shared library, not an executable")
     <*> switch
@@ -176,47 +180,56 @@ main = do
         )
       )
       args
-  opts        <- parseOpts args
+  opts           <- parseOpts args
 
-  stdPath     <- findStd
+  stdPath        <- findStd
   buildToolchain <- lookupEnv "KIT_BUILD_TOOLCHAIN"
-  hostToolchain <- lookupEnv "KIT_HOST_TOOLCHAIN"
-  cc <- try (do
-    build       <- loadToolchain $ fromMaybe defaultToolchain $ optBuild opts <|> buildToolchain
-    host        <- case optHost opts of {Just t -> loadToolchain t; Nothing -> case hostToolchain of
-                                                                                  Just e -> loadToolchain e
-                                                                                  Nothing -> return build}
-    return (build, host)) :: IO (Either KitError (Toolchain, Toolchain))
+  hostToolchain  <- lookupEnv "KIT_HOST_TOOLCHAIN"
+  cc             <-
+    try
+      (do
+        build <-
+          loadToolchain
+          $   fromMaybe defaultToolchain
+          $   optBuild opts
+          <|> buildToolchain
+        host <- case optHost opts of
+          Just t  -> loadToolchain t
+          Nothing -> case hostToolchain of
+            Just e  -> loadToolchain e
+            Nothing -> return build
+        return (build, host)
+      ) :: IO (Either KitError (Toolchain, Toolchain))
   (build, host) <- case cc of
     Left e -> do
       showErrs e
       exitWith $ ExitFailure 1
     Right x -> return x
-  [build, host] <- forM [build, host] $ \cc -> return $ cc {
-    ccIncludePaths = ccIncludePaths cc ++ optIncludePaths opts,
-    cFlags = cFlags cc ++ optCompilerFlags opts,
-    ldFlags = ldFlags cc ++ optLinkerFlags opts
-  }
+  [build, host] <- forM [build, host] $ \cc -> return $ cc
+    { ccIncludePaths = ccIncludePaths cc ++ optIncludePaths opts
+    , cFlags         = cFlags cc ++ optCompilerFlags opts
+    , ldFlags        = ldFlags cc ++ optLinkerFlags opts
+    }
   baseContext <- newCompileContext
   let (mainModule, sourcePaths) = decideModuleAndSourcePaths
         (s_pack $ optMainModule opts)
         (optSourcePaths opts)
       ctx = baseContext
-        { ctxMainModule    = parseModulePath $ mainModule
-        , ctxIsLibrary     = optIsLibrary opts
-        , ctxBuildDir      = optBuildDir opts
-        , ctxOutputPath    = optOutputPath opts
-        , ctxSourcePaths   = map parseSourcePath $ sourcePaths ++ stdPath
-        , ctxDefines       = map
+        { ctxMainModule   = parseModulePath $ mainModule
+        , ctxIsLibrary    = optIsLibrary opts
+        , ctxBuildDir     = optBuildDir opts
+        , ctxOutputPath   = optOutputPath opts
+        , ctxSourcePaths  = map parseSourcePath $ sourcePaths ++ stdPath
+        , ctxDefines      = map
           (\s -> (takeWhile (/= '=') s, drop 1 $ dropWhile (/= '=') s))
           (optDefines opts)
-        , ctxVerbose       = if optQuiet opts then -1 else optVerbose opts
-        , ctxNoCompile     = optNoCompile opts
-        , ctxNoLink        = optNoLink opts
-        , ctxDumpAst       = optDumpAst opts
-        , ctxNoCcache      = optNoCcache opts
-        , ctxRun           = optRun opts
-        , ctxNameMangling  = not $ optNoMangle opts
+        , ctxVerbose      = if optQuiet opts then -1 else optVerbose opts
+        , ctxNoCompile    = optNoCompile opts
+        , ctxNoLink       = optNoLink opts
+        , ctxDumpAst      = optDumpAst opts
+        , ctxNoCcache     = optNoCcache opts
+        , ctxRun          = optRun opts
+        , ctxNameMangling = not $ optNoMangle opts
         }
 
   if optShowEnv opts
@@ -241,16 +254,21 @@ main = do
       case preludePath of
         Left  e -> showErrs e >> return ()
         Right f -> printDebugLog f
-      let toolchains = if build == host then [("COMPILER", build)] else [("BUILD", build), ("HOST", host)]
+      let toolchains = if build == host
+            then [("COMPILER", build)]
+            else [("BUILD", build), ("HOST", host)]
       forM_ toolchains $ \(ccType, cc) -> do
         printLog $ "** " ++ ccType ++ " **"
         printLog "Toolchain"
         printDebugLog $ toolchainName cc
         printLog "Compiler"
         printDebugLog $ ccPath cc
-        ccVersionResult <- (try $ readProcess (ccPath cc) ["--version"] "") :: IO (Either IOError String)
+        ccVersionResult <-
+          (try $ readProcess (ccPath cc) ["--version"] "") :: IO
+            (Either IOError String)
         case ccVersionResult of
-          Left err -> errorLog $ "Error getting compiler version:\n\n" ++ show err
+          Left err ->
+            errorLog $ "Error getting compiler version:\n\n" ++ show err
           Right s -> putStr s
         printLog "Include paths"
         printDebugLog $ show (ccIncludePaths cc)
@@ -258,7 +276,6 @@ main = do
         printDebugLog $ show $ getCppFlags cc
         printLog "Linker flags"
         printDebugLog $ show $ getLdFlags cc
-
     else do
       when (null $ optMainModule opts) $ do
         errorLog $ "no main module specified"

@@ -20,9 +20,6 @@ testHeader :: IO (CompileContext, Module)
 testHeader = do
   ctx <- newCompileContext
   cc  <- loadToolchain defaultToolchain
-  -- let ctx = ctx' {
-  --   ctxIncludePaths = ["tests/Kit/Compiler/Passes"]
-  -- }
   let testHeader = "tests/Kit/Compiler/Passes/test_header.h"
   mod <- newCMod
   parseCHeader ctx cc mod testHeader

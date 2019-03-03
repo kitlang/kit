@@ -21,19 +21,19 @@ matrix:
   fast_finish: true
   include:
   - stage: test
-    name: "Test: linux-gcc"
+    name: linux-gcc
     os: linux
     env: KIT_BUILD_TOOLCHAIN=linux-gcc
   - stage: test
-    name: "Test: linux-clang"
+    name: linux-clang
     os: linux
     env: KIT_BUILD_TOOLCHAIN=linux-clang
   - stage: test
-    name: "Test: darwin-gcc"
+    name: darwin-gcc
     os: osx
     env: KIT_BUILD_TOOLCHAIN=darwin-gcc
   - stage: test
-    name: "Test: darwin-clang"
+    name: darwin-clang
     os: osx
     env: KIT_BUILD_TOOLCHAIN=darwin-clang
   - stage: install
