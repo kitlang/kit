@@ -19,8 +19,8 @@ struct Vector[T] {
         };
     }
 
-    public function free(): Void {
-        this.data.free(this.allocator);
+    public function free(): Void using implicit this.allocator {
+        this.data.free();
     }
 
     public function push(value: T): T {

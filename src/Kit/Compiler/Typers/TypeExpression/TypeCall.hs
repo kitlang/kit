@@ -4,22 +4,22 @@ module Kit.Compiler.Typers.TypeExpression.TypeCall
   )
 where
 
-import           Control.Exception
-import           Control.Monad
-import           Data.List
-import           Data.Maybe
-import           Kit.Ast
-import           Kit.Compiler.Binding
-import           Kit.Compiler.Context
-import           Kit.Compiler.Module
-import           Kit.Compiler.TypeContext
-import           Kit.Compiler.Typers.AutoRefDeref
-import           Kit.Compiler.Typers.ExprTyper
-import           Kit.Compiler.Typers.TypeExpression.TypeVarBinding
-import           Kit.Compiler.Unify
-import           Kit.Compiler.Utils
-import           Kit.Error
-import           Kit.Str
+import Control.Exception
+import Control.Monad
+import Data.List
+import Data.Maybe
+import Kit.Ast
+import Kit.Compiler.Binding
+import Kit.Compiler.Context
+import Kit.Compiler.Module
+import Kit.Compiler.TypeContext
+import Kit.Compiler.Typers.AutoRefDeref
+import Kit.Compiler.Typers.ExprTyper
+import Kit.Compiler.Typers.TypeExpression.TypeVarBinding
+import Kit.Compiler.Unify
+import Kit.Compiler.Utils
+import Kit.Error
+import Kit.Str
 
 typeCall :: SubTyper
 typeCall (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _typeExpr = typeExpr }) ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos })
@@ -144,7 +144,7 @@ alignCallArgs
   -> [TypedExpr]
   -> [TypedExpr]
   -> IO [TypedExpr]
-alignCallArgs ctx tctx []       isVariadic implicits args = return []
+alignCallArgs ctx tctx []       isVariadic implicits args = return args
 alignCallArgs ctx tctx argTypes isVariadic implicits args = do
   nextArg <- follow ctx tctx (head argTypes)
   found   <- findImplicit ctx tctx nextArg implicits
