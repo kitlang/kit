@@ -121,7 +121,7 @@ spec = parallel $ do
                      -- Also that we normalize paths.
           , ("./src/main.kit"  , []        , ("main", ["src"]))
           , ("src/main.kit"    , ["./src/"], ("main", ["src"]))
-          , ("src/pkg/main.kit", []        , ("main", ["src/pkg"]))
+          , ("src/pkg/main.kit", []        , ("main", ["src" </> "pkg"]))
           , ("src/pkg/main.kit", ["src"]   , ("pkg.main", ["src"]))
           ]
     forM_ (testData) $ \d -> do

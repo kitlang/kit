@@ -74,7 +74,7 @@ loadToolchain name = do
 
 defaultToolchain = case os of
   "darwin"  -> "darwin-gcc"
-  "windows" -> "windows-gcc"
+  "windows" -> "windows-mingw"
   _         -> "linux-gcc"
 
 loadToolchainFile :: FilePath -> IO Toolchain

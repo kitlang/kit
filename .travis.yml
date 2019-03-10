@@ -1,5 +1,5 @@
 sudo: false
-language: generic
+language: c
 cache:
   directories:
     - $HOME/.stack
@@ -36,6 +36,11 @@ matrix:
     name: darwin-clang
     os: osx
     env: KIT_BUILD_TOOLCHAIN=darwin-clang
+  - stage: Test
+    name: windows-mingw
+    os: windows
+    env: KIT_BUILD_TOOLCHAIN=windows-mingw
+
 
   - stage: Upload
     name: upload Linux packages
@@ -63,6 +68,7 @@ before_install:
   - export PATH=$HOME/.local/bin:$PATH
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then travis_retry curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then travis_retry curl -L https://get.haskellstack.org/stable/osx-x86_64.tar.gz | tar xz --strip-components=1 -C ~/.local/bin '*/stack'; fi
+  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then travis_retry curl -L https://get.haskellstack.org/stable/windows-x86_64.tar.gz | tar xz --strip-components=1 -C ~/.local/bin --wildcards '*/stack.exe'; fi
 
 install:
   - stack --no-terminal --install-ghc test --only-dependencies

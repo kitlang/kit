@@ -2,6 +2,7 @@
 
 module Kit.Compiler.ContextSpec where
 
+import System.FilePath
 import Test.Hspec
 import Test.QuickCheck
 import Kit.Ast
@@ -21,9 +22,9 @@ spec = do
   describe "CompileContext" $ do
     it "generates code in the correct directory" $ do
       ctx <- newCompileContext
-      libPath ctx ([]       , "apple") `shouldBe` "build/lib/kit_apple.c"
+      libPath ctx ([]       , "apple") `shouldBe` "build" </> "lib" </> "kit_apple.c"
       libPath ctx (["apple"], "banana")
-        `shouldBe` "build/lib/apple/kit_banana.c"
+        `shouldBe` "build" </> "lib" </> "apple" </> "kit_banana.c"
 
   describe "Variable resolution" $ do
     it "resolves variables to scopes, falling back to modules" $ do
