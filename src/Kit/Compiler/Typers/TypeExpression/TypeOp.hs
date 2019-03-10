@@ -236,6 +236,8 @@ unopTypes op l x pos = case op of
         "Dereference operator must operate on a pointer, yielding the pointed to type"
         pos
     ]
+  Sub ->
+    Just [TypeEq l x "Negation must yield the same type as its operand" pos]
   _ -> Nothing
 
 {-
