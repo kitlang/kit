@@ -261,10 +261,6 @@ typeField (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _t
                           -- forward to parent
                           typeFieldAccess u fieldName
 
-                        x -> throwk $ TypingError
-                          ("Field access is not allowed on " ++ show x)
-                          pos
-
                     binding <- lookupBinding ctx $ subPath tp fieldName
                     case binding of
                       Just x -> do
