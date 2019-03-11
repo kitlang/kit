@@ -108,6 +108,10 @@ spec = do
         , "static_inline_void_func"
         , TypeFunction TypeVoid (concreteArgs []) Nothing []
         )
+      , ( "Parses function definitions"
+        , "defined_function"
+        , TypeFunction (TypeInt 0) (concreteArgs [("arg1", TypePtr $ TypeInt 0)]) (Just "") []
+        )
       , ( "Parses functions with non-void types"
         , "int_func1"
         , TypeFunction (TypeInt 16) (concreteArgs []) Nothing []
