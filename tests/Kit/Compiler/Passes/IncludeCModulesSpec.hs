@@ -19,7 +19,7 @@ concreteArgs = map (\(n, t) -> newArgSpec { argName = n, argType = t })
 testHeader :: IO (CompileContext, Module)
 testHeader = do
   ctx <- newCompileContext
-  cc  <- loadToolchain defaultToolchain
+  cc  <- loadToolchain defaultToolchain []
   let testHeader = "tests/Kit/Compiler/Passes/test_header.h"
   mod <- newCMod
   parseCHeader ctx cc mod testHeader

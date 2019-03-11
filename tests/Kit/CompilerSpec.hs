@@ -20,7 +20,7 @@ isKitFile f = takeExtension f == ".kit"
 
 getTestToolchain = do
   toolchain <- lookupEnv "KIT_BUILD_TOOLCHAIN"
-  cc        <- loadToolchain (fromMaybe defaultToolchain toolchain)
+  cc        <- loadToolchain (fromMaybe defaultToolchain toolchain) []
   return $ cc
     { ccIncludePaths = ("tests" </> "functional") : (ccIncludePaths cc)
     , cFlags         = (cFlags cc) ++ ["-lm", "-Werror"]

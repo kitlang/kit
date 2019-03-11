@@ -185,18 +185,25 @@ main = do
   stdPath        <- findStd
   buildToolchain <- lookupEnv "KIT_BUILD_TOOLCHAIN"
   hostToolchain  <- lookupEnv "KIT_HOST_TOOLCHAIN"
-  cc             <-
+  let defines = map
+        (\s ->
+          ( takeWhile (/= '=') s
+          , if isJust $ find ((==) '=') s
+            then drop 1 $ dropWhile (/= '=') s
+            else "1"
+          )
+        )
+        (optDefines opts)
+  cc <-
     try
       (do
-        build <-
-          loadToolchain
-          $   fromMaybe defaultToolchain
-          $   optBuild opts
-          <|> buildToolchain
+        build <- loadToolchain
+          (fromMaybe defaultToolchain $ optBuild opts <|> buildToolchain)
+          defines
         host <- case optHost opts of
-          Just t  -> loadToolchain t
+          Just t  -> loadToolchain t defines
           Nothing -> case hostToolchain of
-            Just e  -> loadToolchain e
+            Just e  -> loadToolchain e defines
             Nothing -> return build
         return (build, host)
       ) :: IO (Either KitError (Toolchain, Toolchain))
@@ -220,9 +227,6 @@ main = do
         , ctxBuildDir     = optBuildDir opts
         , ctxOutputPath   = optOutputPath opts
         , ctxSourcePaths  = map parseSourcePath $ sourcePaths ++ stdPath
-        , ctxDefines      = map
-          (\s -> (takeWhile (/= '=') s, drop 1 $ dropWhile (/= '=') s))
-          (optDefines opts)
         , ctxVerbose      = if optQuiet opts then -1 else optVerbose opts
         , ctxNoCompile    = optNoCompile opts
         , ctxNoLink       = optNoLink opts
