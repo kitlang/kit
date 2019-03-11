@@ -127,21 +127,24 @@ unknownTypeWarning ctx mod name pos = do
     ++ (show pos)
     ++ "; attempts to access values of this type will fail"
 
-parseCDecls :: CompileContext -> Module -> FilePath -> [CExtDecl] -> IO ()
-parseCDecls ctx mod path [] = do
-  return ()
-parseCDecls ctx mod path (h : t) = do
-  case h of
-    CDeclExt cdecl -> do
-      let ann     = annotation cdecl
-      let nodePos = posOfNode ann
-      let pos = if isSourcePos nodePos
+annotatedPos a =
+  let ann = annotation a
+  in  let nodePos = posOfNode ann
+      in  if isSourcePos nodePos
             then sp (posFile nodePos)
                     (posRow nodePos)
                     (posColumn nodePos)
                     (posRow nodePos)
                     (posColumn nodePos)
             else NoPos
+
+parseCDecls :: CompileContext -> Module -> FilePath -> [CExtDecl] -> IO ()
+parseCDecls ctx mod path [] = do
+  return ()
+parseCDecls ctx mod path (h : t) = do
+  case h of
+    CDeclExt cdecl -> do
+      let pos                      = annotatedPos cdecl
       let (declSpec, initializers) = decomposeCDecl cdecl
       if isTypedef declSpec
         then do
@@ -168,6 +171,12 @@ parseCDecls ctx mod path (h : t) = do
                 ++ (show t')
               addCDecl ctx mod name t' pos
             )
+    CFDefExt f@(CFunDef declSpec declr args _ _) -> do
+      let pos = annotatedPos f
+      let t   = parseType (modPath mod) declSpec (cDeclrDerived declr)
+      let name = cDeclrName declr
+      noisyDebugLog ctx $ "bind " ++ (s_unpack name) ++ ": " ++ (show t)
+      addCDecl ctx mod name t pos
     _ -> do
       return ()
   parseCDecls ctx mod path t
