@@ -29,7 +29,8 @@ data Toolchain = Toolchain {
   ldFlags :: [String]
 } deriving (Show, Eq)
 
-newToolchain name = do
+newToolchain :: String -> [(String, String)] -> IO Toolchain
+newToolchain name defines = do
   cc           <- lookupEnv "CC"
   includePaths <- lookupEnv "INCLUDE_PATHS"
   cFlags       <- lookupEnv "CFLAGS"
@@ -39,7 +40,8 @@ newToolchain name = do
     { toolchainName  = name
     , ccPath         = fromMaybe "" cc
     , ccIncludePaths = wordsBy isSpace $ fromMaybe "" includePaths
-    , cppFlags       = wordsBy isSpace $ fromMaybe "" cppFlags
+    , cppFlags       = (wordsBy isSpace $ fromMaybe "" cppFlags)
+      ++ [ "-D" ++ a ++ "=" ++ b | (a, b) <- defines ]
     , cFlags         = wordsBy isSpace $ fromMaybe "" cFlags
     , ldFlags        = wordsBy isSpace $ fromMaybe "" ldFlags
     }
@@ -49,15 +51,16 @@ toolchainSearchPaths x | x == "linux" || x == "darwin" =
   (toolchainSearchPaths "") ++ ["/etc/kitlang/toolchains"]
 toolchainSearchPaths _ = [".", "toolchains"]
 
-loadToolchain :: String -> IO Toolchain
-loadToolchain name = do
+loadToolchain :: String -> [(String, String)] -> IO Toolchain
+loadToolchain name defines = do
   -- if this is a path to a toolchain, use that
   path   <- canonicalizePath $ name
   exists <- doesFileExist path
   if exists
-    then loadToolchainFile name
+    then loadToolchainFile name defines
     else do
-      paths <- forM (toolchainSearchPaths os) $ \dir -> canonicalizePath $ dir </> name
+      paths <- forM (toolchainSearchPaths os)
+        $ \dir -> canonicalizePath $ dir </> name
       found <- foldM
         (\acc path -> case acc of
           Just x  -> return acc
@@ -69,7 +72,7 @@ loadToolchain name = do
         Nothing
         paths
       case found of
-        Just f  -> loadToolchainFile f
+        Just f  -> loadToolchainFile f defines
         Nothing -> throwk $ BasicError ("Unknown toolchain: " ++ name) Nothing
 
 defaultToolchain = case os of
@@ -77,10 +80,10 @@ defaultToolchain = case os of
   "mingw32" -> "windows-mingw"
   _         -> "linux-gcc"
 
-loadToolchainFile :: FilePath -> IO Toolchain
-loadToolchainFile fp = do
+loadToolchainFile :: FilePath -> [(String, String)] -> IO Toolchain
+loadToolchainFile fp defines = do
   env       <- parseFile fp
-  toolchain <- newToolchain fp
+  toolchain <- newToolchain fp defines
   overrides <-
     forM ["CC", "INCLUDE_PATHS", "CFLAGS", "CPPFLAGS", "LDFLAGS"] $ \var -> do
       value <- lookupEnv var
@@ -90,10 +93,10 @@ loadToolchainFile fp = do
   return $ foldl
     (\toolchain (key, value) -> case key of
       "CC"            -> toolchain { ccPath = value }
-      "INCLUDE_PATHS" -> toolchain { ccIncludePaths = splitOn " " value }
-      "CFLAGS"        -> toolchain { cFlags = splitOn " " value }
-      "CPPFLAGS"      -> toolchain { cppFlags = splitOn " " value }
-      "LDFLAGS"       -> toolchain { ldFlags = splitOn " " value }
+      "INCLUDE_PATHS" -> toolchain { ccIncludePaths = ccIncludePaths toolchain ++ splitOn " " value }
+      "CFLAGS"        -> toolchain { cFlags = cFlags toolchain ++ splitOn " " value }
+      "CPPFLAGS"      -> toolchain { cppFlags = cppFlags toolchain ++ splitOn " " value }
+      "LDFLAGS"       -> toolchain { ldFlags = ldFlags toolchain ++ splitOn " " value }
       _               -> toolchain
     )
     toolchain

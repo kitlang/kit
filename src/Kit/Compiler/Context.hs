@@ -41,7 +41,6 @@ data CompileContext = CompileContext {
   ctxSourcePaths :: ![(FilePath, ModulePath)],
   ctxBuildDir :: !FilePath,
   ctxOutputPath :: !FilePath,
-  ctxDefines :: ![(String, String)],
   ctxNoCompile :: !Bool,
   ctxNoLink :: !Bool,
   ctxDumpAst :: !Bool,
@@ -85,7 +84,6 @@ newCompileContext = do
     , ctxSourcePaths    = [("src", [])]
     , ctxBuildDir       = "build"
     , ctxOutputPath     = "main"
-    , ctxDefines        = []
     , ctxVerbose        = 0
     , ctxNoCompile      = False
     , ctxNoLink         = False
