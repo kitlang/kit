@@ -49,14 +49,7 @@ function print_yaml(value: Yaml, indent: Size) {
 function main() {
     static if defined _WIN32 {
         // FIXME: until we sort out installing libyaml on CI, noop this on Windows
-        var f = File.read("tests/functional/std/yaml.stdout");
-        var buf: CArray[Char, 1024];
-        var read = 0;
-        do {
-            if (read = f.readBytes(buf, 1024)) > 0 {
-                fwrite(buf, read, 1, stdout);
-            }
-        } while read >= 1024;
+        puts("SKIP TEST");
     } else {
         var result = Yaml.parse("""
 str_key: hello!

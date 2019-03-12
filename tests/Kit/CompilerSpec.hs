@@ -78,10 +78,11 @@ spec = parallel $ do
               )
               `shouldBe` Nothing
           out               <- readRef output
-          outTemplateExists <- doesFileExist (path -<.> "stdout")
-          when (outTemplateExists) $ do
-            outTemplate <- readFile (path -<.> "stdout")
-            out `shouldBe` outTemplate
+          unless (out == "SKIP TEST\n") $ do
+            outTemplateExists <- doesFileExist (path -<.> "stdout")
+            when (outTemplateExists) $ do
+              outTemplate <- readFile (path -<.> "stdout")
+              out `shouldBe` outTemplate
 
   describe "Build samples" $ do
     paths <- runIO sampleFiles
