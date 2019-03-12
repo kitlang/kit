@@ -5,7 +5,13 @@ include "sys/time.h";
  * Sleep for the specified amount of time, in seconds.
  */
 function sleep(t: Double) {
-    usleep(floor(t * 1000000) as Uint);
+    static if defined _POSIX_SOURCE {
+        usleep(floor(t * 1000000) as Uint);
+    } else {
+        if t >= 1 {
+            sleep(t as Int);
+        }
+    }
 }
 
 /**

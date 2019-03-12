@@ -1,3 +1,3 @@
 true
-stdout exists
-stdout123987 doesn't exist
+printf exists
+printf123987 doesn't exist
