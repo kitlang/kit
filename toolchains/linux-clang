@@ -1,3 +1,2 @@
 CC=clang
-CPPFLAGS="-D_GNU_SOURCE -D_BSD_SOURCE -D_DEFAULT_SOURCE"
 CFLAGS="-std=c99 -pedantic -O3 -Os -Wno-unused-command-line-argument -Wno-shift-op-parentheses"

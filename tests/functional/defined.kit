@@ -1,15 +1,15 @@
 function main() {
-    var b = defined stdout;
+    var b = defined printf;
     puts(if b then "true" else "false");
 
-    static if defined stdout {
-        puts("stdout exists");
+    static if defined printf {
+        puts("printf exists");
     } else {
-        puts("stdout doesn't exist");
+        puts("printf doesn't exist");
     }
-    static if defined stdout123987 {
-        puts("stdout123987 exists");
+    static if defined printf123987 {
+        puts("printf123987 exists");
     } else {
-        puts("stdout123987 doesn't exist");
+        puts("printf123987 doesn't exist");
     }
 }
