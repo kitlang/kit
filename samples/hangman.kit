@@ -89,7 +89,10 @@ function main() {
     game.word = word;
     game.guesses = Empty;
     game.wrongGuesses = 0;
-    game.filled[0] = 0;
+
+    for i in 0 ... word.length {
+        game.filled[i] = 0;
+    }
 
     var success: Bool = false;
 
