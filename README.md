@@ -92,7 +92,7 @@ Install from package
 
 ### Windows
 
-Kit provides a Scoop package. Follow the instructions at [scoop.sh](https://scoop.sh/) to install scoop, then run `scoop install 'https://raw.githubusercontent.com/kitlang/kit/dev/.packages/scoop/README.md'`
+Kit provides a Scoop package. Follow the instructions at [scoop.sh](https://scoop.sh/) to install scoop, then run `scoop install 'https://raw.githubusercontent.com/kitlang/kit/dev/.packages/scoop/kitlang-prerelease.json'`
 
 ### macOS
 
