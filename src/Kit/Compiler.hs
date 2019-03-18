@@ -138,7 +138,6 @@ compile ctx build host = do
       printLogIf ctx "skipping compile"
       return Nothing
     else do
-      printLogIf ctx "compiling"
       compileCode ctx host generated
 
   endTime <- getCurrentTime

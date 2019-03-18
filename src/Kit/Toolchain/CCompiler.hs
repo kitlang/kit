@@ -26,7 +26,8 @@ data Toolchain = Toolchain {
   ccIncludePaths :: [FilePath],
   cppFlags :: [String],
   cFlags :: [String],
-  ldFlags :: [String]
+  ldFlags :: [String],
+  kitFlags :: [String]
 } deriving (Show, Eq)
 
 newToolchain :: String -> [(String, String)] -> IO Toolchain
@@ -36,6 +37,7 @@ newToolchain name defines = do
   cFlags       <- lookupEnv "CFLAGS"
   cppFlags     <- lookupEnv "CPPFLAGS"
   ldFlags      <- lookupEnv "LDFLAGS"
+  kitFlags     <- lookupEnv "KITFLAGS"
   return $ Toolchain
     { toolchainName  = name
     , ccPath         = fromMaybe "" cc
@@ -44,6 +46,7 @@ newToolchain name defines = do
       ++ [ "-D" ++ a ++ "=" ++ b | (a, b) <- defines ]
     , cFlags         = wordsBy isSpace $ fromMaybe "" cFlags
     , ldFlags        = wordsBy isSpace $ fromMaybe "" ldFlags
+    , kitFlags       = wordsBy isSpace $ fromMaybe "" kitFlags
     }
 
 toolchainSearchPaths :: String -> IO [FilePath]
@@ -52,8 +55,8 @@ toolchainSearchPaths x | x == "linux" || x == "darwin" = do
   return $ defaults ++ ["/etc/kitlang/toolchains"]
 toolchainSearchPaths _ = do
   override <- lookupEnv "KIT_TOOLCHAIN_PATH"
-  exePath <- getExecutablePath
-  let exeDir   = takeDirectory exePath
+  exePath  <- getExecutablePath
+  let exeDir = takeDirectory exePath
   return $ catMaybes [override] ++ [".", "toolchains", exeDir </> "toolchains"]
 
 loadToolchain :: String -> [(String, String)] -> IO Toolchain
@@ -64,9 +67,8 @@ loadToolchain name defines = do
   if exists
     then loadToolchainFile name defines
     else do
-      dirs <- toolchainSearchPaths os
-      paths <- forM dirs
-        $ \dir -> canonicalizePath $ dir </> name
+      dirs  <- toolchainSearchPaths os
+      paths <- forM dirs $ \dir -> canonicalizePath $ dir </> name
       found <- foldM
         (\acc path -> case acc of
           Just x  -> return acc
@@ -99,11 +101,17 @@ loadToolchainFile fp defines = do
   return $ foldl
     (\toolchain (key, value) -> case key of
       "CC"            -> toolchain { ccPath = value }
-      "INCLUDE_PATHS" -> toolchain { ccIncludePaths = ccIncludePaths toolchain ++ splitOn " " value }
-      "CFLAGS"        -> toolchain { cFlags = cFlags toolchain ++ splitOn " " value }
-      "CPPFLAGS"      -> toolchain { cppFlags = cppFlags toolchain ++ splitOn " " value }
-      "LDFLAGS"       -> toolchain { ldFlags = ldFlags toolchain ++ splitOn " " value }
-      _               -> toolchain
+      "INCLUDE_PATHS" -> toolchain
+        { ccIncludePaths = ccIncludePaths toolchain ++ splitOn " " value
+        }
+      "CFLAGS" -> toolchain { cFlags = cFlags toolchain ++ splitOn " " value }
+      "CPPFLAGS" ->
+        toolchain { cppFlags = cppFlags toolchain ++ splitOn " " value }
+      "LDFLAGS" ->
+        toolchain { ldFlags = ldFlags toolchain ++ splitOn " " value }
+      "KITFLAGS" ->
+        toolchain { kitFlags = kitFlags toolchain ++ splitOn " " value }
+      _ -> toolchain
     )
     toolchain
     (env ++ catMaybes overrides)
@@ -127,10 +135,10 @@ parseIncludePaths ((' ' : h) : t) True paths =
   parseIncludePaths t True (h : paths)
 parseIncludePaths (_ : t) True paths = parseIncludePaths t True paths
 
-getCppFlags toolchain =
+getCppFlags toolchain includeCflags =
   cppFlags toolchain
     ++ [ "-I" ++ dir | dir <- ccIncludePaths toolchain ]
-    ++ cFlags toolchain
+    ++ (if includeCflags then cFlags toolchain else [])
 getLdFlags toolchain = cFlags toolchain ++ ldFlags toolchain
 
 findCcache :: IO (Maybe FilePath)
@@ -144,7 +152,7 @@ invokeCompiler
   -> FilePath
   -> IO (Either String String)
 invokeCompiler toolchain logger useCcache fp out = do
-  let args = (getCppFlags toolchain) ++ ["-c", "-o" ++ out, fp]
+  let args = (getCppFlags toolchain True) ++ ["-c", "-o" ++ out, fp]
   ccache         <- if useCcache then findCcache else return Nothing
   (ccPath, args) <- return $ case ccache of
     Just x  -> (x, ccPath toolchain : args)
@@ -158,11 +166,13 @@ invokeLinker
   -> (String -> IO ())
   -> Bool
   -> [FilePath]
+  -> Bool
   -> FilePath
   -> IO FilePath
-invokeLinker toolchain logger shared files out = do
+invokeLinker toolchain logger shared files source out = do
   let args =
-        files
+        (if source then getCppFlags toolchain False else [])
+          ++ files
           ++ (getLdFlags toolchain)
           ++ (if shared then ["-shared"] else [])
           ++ ["-o" ++ out]

@@ -45,6 +45,7 @@ data CompileContext = CompileContext {
   ctxNoLink :: !Bool,
   ctxDumpAst :: !Bool,
   ctxNoCcache :: !Bool,
+  ctxSinglePass :: !Bool,
   ctxRecursionLimit :: !Int,
   ctxRun :: !Bool,
   ctxResultHandler :: Maybe (String -> IO ()),
@@ -89,6 +90,7 @@ newCompileContext = do
     , ctxNoLink         = False
     , ctxDumpAst        = False
     , ctxNoCcache       = False
+    , ctxSinglePass     = False
     , ctxRecursionLimit = 64
     , ctxRun            = False
     , ctxResultHandler  = Nothing

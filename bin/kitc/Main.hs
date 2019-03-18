@@ -43,6 +43,7 @@ data Options = Options {
   optNoLink :: Bool,
   optDumpAst :: Bool,
   optNoCcache :: Bool,
+  optSinglePass :: Bool,
   optRun :: Bool,
   optNoMangle :: Bool,
   optShowEnv :: Bool
@@ -127,6 +128,7 @@ options =
           <> help
                "don't use ccache for compilation, even if it is available on your path"
           )
+    <*> switch (long "single-pass" <> help "compile and link in one pass")
     <*> switch
           (long "run" <> help "run the program after successful compilation")
     <*> switch (long "no-mangle" <> help "disables name mangling")
@@ -217,6 +219,9 @@ main = do
     , cFlags         = cFlags cc ++ optCompilerFlags opts
     , ldFlags        = ldFlags cc ++ optLinkerFlags opts
     }
+
+  opts        <- parseOpts $ (kitFlags host) ++ args
+
   baseContext <- newCompileContext
   let (mainModule, sourcePaths) = decideModuleAndSourcePaths
         (s_pack $ optMainModule opts)
@@ -232,6 +237,7 @@ main = do
         , ctxNoLink       = optNoLink opts
         , ctxDumpAst      = optDumpAst opts
         , ctxNoCcache     = optNoCcache opts
+        , ctxSinglePass   = optSinglePass opts
         , ctxRun          = optRun opts
         , ctxNameMangling = not $ optNoMangle opts
         }
@@ -277,7 +283,7 @@ main = do
         printLog "Include paths"
         printDebugLog $ show (ccIncludePaths cc)
         printLog "Compiler flags"
-        printDebugLog $ show $ getCppFlags cc
+        printDebugLog $ show $ getCppFlags cc True
         printLog "Linker flags"
         printDebugLog $ show $ getLdFlags cc
     else do

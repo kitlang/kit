@@ -22,22 +22,33 @@ import Kit.Toolchain
 compileCode :: CompileContext -> Toolchain -> [TypePath] -> IO (Maybe FilePath)
 compileCode ctx cc names = do
   createDirectoryIfMissing True (buildDir ctx)
-  results <- forConcurrently names (compileBundle ctx cc)
-  errs    <- foldM
-    (\acc out -> case out of
-      Left  err -> return $ (BasicError err Nothing) : acc
-      Right s   -> do
-        putStr s
-        return acc
-    )
-    []
-    results
-  when (not $ null errs) $ throwk $ KitErrors $ reverse $ map KitError errs
-  if ctxNoLink ctx
-    then return Nothing
+  if ctxSinglePass ctx
+    then do
+      -- compile and link in one pass
+      if ctxNoLink ctx
+        then return Nothing
+        else do
+          binPath <- linkFiles ctx cc (map (libPath ctx) names) True
+          return $ Just binPath
     else do
-      binPath <- linkBundles ctx cc names
-      return $ Just binPath
+      -- compile individually in parallel, then link
+      printLogIf ctx "compiling"
+      results <- forConcurrently names (compileBundle ctx cc)
+      errs    <- foldM
+        (\acc out -> case out of
+          Left  err -> return $ (BasicError err Nothing) : acc
+          Right s   -> do
+            putStr s
+            return acc
+        )
+        []
+        results
+      when (not $ null errs) $ throwk $ KitErrors $ reverse $ map KitError errs
+      if ctxNoLink ctx
+        then return Nothing
+        else do
+          binPath <- linkBundles ctx cc names
+          return $ Just binPath
 
 compileBundle
   :: CompileContext -> Toolchain -> TypePath -> IO (Either String String)
@@ -53,7 +64,11 @@ compileBundle ctx cc name = do
     (objPath ctx name)
 
 linkBundles :: CompileContext -> Toolchain -> [TypePath] -> IO FilePath
-linkBundles ctx cc names = do
+linkBundles ctx cc names =
+  linkFiles ctx cc [ objPath ctx name | name <- names ] False
+
+linkFiles :: CompileContext -> Toolchain -> [FilePath] -> Bool -> IO FilePath
+linkFiles ctx cc files source = do
   let outName = ctxOutputPath ctx
   when (ctxVerbose ctx >= 0) $ printLog $ "linking"
   linkedLibs <- readRef $ ctxLinkedLibs ctx
@@ -66,5 +81,6 @@ linkBundles ctx cc names = do
     )
     (debugLog ctx)
     (ctxIsLibrary ctx)
-    [ objPath ctx name | name <- names ]
+    files
+    source
     outName

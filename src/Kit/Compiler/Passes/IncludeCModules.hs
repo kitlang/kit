@@ -60,7 +60,7 @@ includeCHeader ctx cc mod path = do
   parseCHeader ctx cc mod path
 
 headerParseFlags ctx cc =
-  (filter (\flag -> flag /= "-pedantic") $ getCppFlags cc) ++ ["-w"]
+  (filter (\flag -> flag /= "-pedantic") $ getCppFlags cc True) ++ ["-w"]
 
 parseCMacros ctx cc mod path = do
   let flags = headerParseFlags ctx cc
