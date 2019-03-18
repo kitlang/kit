@@ -46,10 +46,14 @@ newToolchain name defines = do
     , ldFlags        = wordsBy isSpace $ fromMaybe "" ldFlags
     }
 
-toolchainSearchPaths :: String -> [FilePath]
-toolchainSearchPaths x | x == "linux" || x == "darwin" =
-  (toolchainSearchPaths "") ++ ["/etc/kitlang/toolchains"]
-toolchainSearchPaths _ = [".", "toolchains"]
+toolchainSearchPaths :: String -> IO [FilePath]
+toolchainSearchPaths x | x == "linux" || x == "darwin" = do
+  defaults <- (toolchainSearchPaths "")
+  return $ defaults ++ ["/etc/kitlang/toolchains"]
+toolchainSearchPaths _ = do
+  exePath <- getExecutablePath
+  let exeDir   = takeDirectory exePath
+  return [".", "toolchains", exeDir]
 
 loadToolchain :: String -> [(String, String)] -> IO Toolchain
 loadToolchain name defines = do
@@ -59,7 +63,8 @@ loadToolchain name defines = do
   if exists
     then loadToolchainFile name defines
     else do
-      paths <- forM (toolchainSearchPaths os)
+      dirs <- toolchainSearchPaths os
+      paths <- forM dirs
         $ \dir -> canonicalizePath $ dir </> name
       found <- foldM
         (\acc path -> case acc of
