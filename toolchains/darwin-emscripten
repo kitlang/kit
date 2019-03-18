@@ -1,0 +1,3 @@
+CC=gcc
+CFLAGS="-pedantic -Wno-unused-command-line-argument -Wno-missing-braces -Wno-shift-op-parentheses -Wno-expansion-to-defined -Wno-gnu-zero-variadic-macro-arguments"
+KITFLAGS="--no-ccache --single-pass"

@@ -1,0 +1,3 @@
+CC=emcc
+CFLAGS="-pedantic -Wno-missing-braces -Wno-shift-op-parentheses"
+KITFLAGS="--no-ccache --single-pass"
