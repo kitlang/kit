@@ -79,13 +79,9 @@ To install:
 
 This will copy the `kitc` binary to Stack's binary install directory (~/.local/bin on Linux); make sure this directory is part of your executable paths.
 
-You'll need to point Kit to its standard library (which is the "std" directory in the repo's root directory); you have a few options:
-
-- Set an environment variable, KIT_STD_PATH
-- Put the kitc binary next to its standard library
-- Put the standard library in an OS-specific default location:
-    - Linux: "/usr/lib/kit"
-    - Mac: "/usr/local/lib/kit"
+You'll also need to set two environment variables:
+- KIT_STD_PATH, pointing to the `std` directory in the repo
+- KIT_TOOLCHAIN_PATH, pointing to the `toolchains` directory in the repo
 
 ### Windows setup
 
@@ -93,6 +89,16 @@ You'll need to point Kit to its standard library (which is the "std" directory i
 
 Install from package
 --------------------
+
+### Windows
+
+Kit provides a Scoop package. Follow the instructions at [scoop.sh](https://scoop.sh/) to install scoop, then run `scoop install 'https://raw.githubusercontent.com/kitlang/kit/dev/.packages/scoop/README.md'`
+
+### macOS
+
+* Download one of the macOS packages from https://bintray.com/kitlang/kitlang-macos/kitlang/0.1.0#
+
+* Install the package (NOTE: the installer will complain about 'unidentified developer', have to bypass in System Preferences/Security & Privacy.)
 
 ### Debian/Ubuntu
 
@@ -159,12 +165,6 @@ enabled=1
 * Install with yum:
 
 ```sudo yum install kitlang```
-
-### macOS
-
-* Download one of the macOS packages from https://bintray.com/kitlang/kitlang-macos/kitlang/0.1.0#
-
-* Install the package (NOTE: the installer will complain about 'unidentified developer', have to bypass in System Preferences/Security & Privacy.)
 
 Hello world
 -----------

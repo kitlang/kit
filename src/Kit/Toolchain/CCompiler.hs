@@ -51,9 +51,10 @@ toolchainSearchPaths x | x == "linux" || x == "darwin" = do
   defaults <- (toolchainSearchPaths "")
   return $ defaults ++ ["/etc/kitlang/toolchains"]
 toolchainSearchPaths _ = do
+  override <- lookupEnv "KIT_TOOLCHAIN_PATH"
   exePath <- getExecutablePath
   let exeDir   = takeDirectory exePath
-  return [".", "toolchains", exeDir]
+  return $ catMaybes [override] ++ [".", "toolchains", exeDir </> "toolchains"]
 
 loadToolchain :: String -> [(String, String)] -> IO Toolchain
 loadToolchain name defines = do

@@ -1,0 +1,26 @@
+{
+    "homepage": "https://www.kitlang.org/",
+    "license": "LGPL",
+    "version": "0.1.0-prerelease-0",
+    "architecture": {
+        "64bit": {
+            "url": "https://dl.bintray.com/kitlang/kitlang-prerelease-windows/kitlang_0.1.0-prerelease-0_x86_64.zip",
+            "hash": "a06822727a3bf665e21e0064665c8c2beb69e79f7be1c09fb788b498369930d8"
+        }
+    },
+    "bin": "kitc.exe",
+    "checkver": {
+        "url": "https://dl.bintray.com/kitlang/kitlang-prerelease-windows/",
+        "re": "kitlang_(.+).zip"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://dl.bintray.com/kitlang/kitlang-prerelease-windows/kitlang_$version_x86_64.zip"
+            }
+        }
+    },
+    "depends": [
+        "gcc"
+    ]
+}
