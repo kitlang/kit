@@ -97,10 +97,14 @@ parseCMacros ctx cc mod path = do
                 h_insert
                   (ctxBindings ctx)
                   ([], s_pack macroName)
-                  (ExprBinding $ makeExprTyped
-                    (Identifier (MacroVar (s_pack macroName) $ TypeInt 0))
-                    (TypeInt 0)
-                    NoPos
+                  ( ExprBinding
+                  $ (makeExprTyped
+                      (Identifier (MacroVar (s_pack macroName) $ TypeInt 0))
+                      (TypeInt 0)
+                      NoPos
+                    )
+                      { tCompileTimeValue = Just $ IntValue $ fromIntegral x
+                      }
                   )
               Nothing -> return ()
           _ -> return ()
@@ -172,8 +176,8 @@ parseCDecls ctx mod path (h : t) = do
               addCDecl ctx mod name t' pos
             )
     CFDefExt f@(CFunDef declSpec declr args _ _) -> do
-      let pos = annotatedPos f
-      let t   = parseType (modPath mod) declSpec (cDeclrDerived declr)
+      let pos  = annotatedPos f
+      let t    = parseType (modPath mod) declSpec (cDeclrDerived declr)
       let name = cDeclrName declr
       noisyDebugLog ctx $ "bind " ++ (s_unpack name) ++ ": " ++ (show t)
       addCDecl ctx mod name t pos

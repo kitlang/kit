@@ -310,9 +310,9 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
     (Defined (Var x)) -> do
       binding <- lookupBinding ctx x
       let val = BoolValue $ isJust binding
-      return $ (makeExprTyped (Literal val TypeBool) TypeBool pos) {
-        tCompileTimeValue = Just val
-      }
+      return $ (makeExprTyped (Literal val TypeBool) TypeBool pos)
+        { tCompileTimeValue = Just val
+        }
 
     (EnumInit b _ _) -> do
       resolve $ TypeEq
