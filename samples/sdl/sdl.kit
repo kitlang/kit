@@ -1,0 +1,25 @@
+include "SDL2/SDL.h" => "SDL2";
+include "stdio.h";
+
+function main() {
+    var window: Ptr[SDL_Window] = null;
+    var screenSurface: Ptr[SDL_Surface] = null;
+    if SDL_Init(SDL_INIT_VIDEO) < 0 {
+        panic("could not initialize sdl2: %s\n", SDL_GetError());
+    }
+    window = SDL_CreateWindow(
+        "Hello from Kit and SDL2",
+        ${SDL_WINDOWPOS_UNDEFINED: Int}, ${SDL_WINDOWPOS_UNDEFINED: Int},
+        640, 480,
+        SDL_WINDOW_SHOWN as Uint
+    );
+    if window == null {
+        panic("could not create window: %s\n", SDL_GetError());
+    }
+    screenSurface = SDL_GetWindowSurface(window);
+    SDL_FillRect(screenSurface, null, SDL_MapRGB(screenSurface.format, 0x80, 0xff, 0xe6));
+    SDL_UpdateWindowSurface(window);
+    SDL_Delay(2000);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+}
