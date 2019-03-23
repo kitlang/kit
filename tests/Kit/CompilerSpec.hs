@@ -84,30 +84,6 @@ spec = parallel $ do
               outTemplate <- readFile (path -<.> "stdout")
               out `shouldBe` outTemplate
 
-  describe "Build samples" $ do
-    paths <- runIO sampleFiles
-    forM_ paths $ \path -> do
-      it path $ do
-        ctx <- newCompileContext
-        cc  <- getTestToolchain
-        withSystemTempDirectory "build.sample." $ \tmpDir -> do
-          result <- tryCompile
-            (ctx
-              { ctxSourcePaths = [ (f, []) | f <- [takeDirectory path, "std"] ]
-              , ctxMainModule  = [s_pack $ takeFileName path -<.> ""]
-              , ctxBuildDir    = tmpDir
-              , ctxOutputPath  = tmpDir </> "sample"
-              , ctxVerbose     = -1
-              }
-            )
-            cc
-            cc
-          (case result of
-              Left  err -> Just err
-              Right ()  -> Nothing
-            )
-            `shouldBe` Nothing
-
   describe "Test decideModuleAndSourcePaths" $ do
     let testData =
           [ -- We default to src if we have no source paths and a file wasn't specified directly
