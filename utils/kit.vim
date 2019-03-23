@@ -38,7 +38,7 @@ syn keyword kitMacro rules using rule implicit
 " syn keyword kitPreCondit ...
 
 syn keyword kitType Int8 Int16 Short Int32 Int64 Long
-syn keyword kitType Uint8 Byte Uint16 Unt32 Uint64
+syn keyword kitType Uint8 Byte Uint16 Uint32 Uint64
 syn keyword kitType Float32 Float Float64 Double
 syn keyword kitType Void Bool Char Int Size Ptr
 syn keyword kitType Numeric Integral NumericMixed
