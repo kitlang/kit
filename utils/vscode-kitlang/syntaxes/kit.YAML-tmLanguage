@@ -27,13 +27,13 @@ patterns:
   end: '\}'
 
 - name: constant.numeric.decimal.kit
-  match: \b-?[0-9]+(\.[0-9]+)?(_([ui](8|16|32|64)|f(32|64)))?\b
+  match: -?[0-9]+(\.[0-9]+)?(_([ui](8|16|32|64)|f(32|64)))?
 - name: constant.numeric.octal.kit
-  match: \b-?0o[0-7]+(_([ui](8|16|32|64)|f(32|64)))?\b
+  match: -?0o[0-7]+(_([ui](8|16|32|64)|f(32|64)))?
 - name: constant.numeric.hex.kit
-  match: \b-?0x[0-9a-f]+(_([ui](8|16|32|64)|f(32|64)))?\b
+  match: -?0x[0-9a-f]+(_([ui](8|16|32|64)|f(32|64)))?
 - name: constant.numeric.bin.kit
-  match: \b-?0b[01]+(_([ui](8|16|32|64)|f(32|64)))?\b
+  match: -?0b[01]+(_([ui](8|16|32|64)|f(32|64)))?
 
 - name: string.quoted.block.kit
   begin: '"""'
