@@ -1,0 +1,102 @@
+name:                  clang-pure
+version:               0.2.0.3
+synopsis:              Pure C++ code analysis with libclang
+description:
+  Pure C++ code analysis with libclang.
+  .
+  Refer to <http://clang.llvm.org/doxygen/group__CINDEX.html libclang's documentation> for usage.
+  In general, the naming scheme is @clang_getCursorType -> cursorType@, @CXCursor -> `Cursor`@.
+license:               Apache-2.0
+license-file:          LICENSE
+author:                Patrick Chilton
+maintainer:            chpatrick@gmail.com
+copyright:             Copyright 2014 Google Inc. All Rights Reserved.
+category:              Language
+build-type:            Custom
+cabal-version:         >=1.24
+extra-source-files:    cbits/clang-pure-utils.h
+
+custom-setup
+  setup-depends:
+    base >= 4.5 && < 5,
+    Cabal >= 1.24,
+    process >= 1.3.0.0,
+    inline-c
+
+source-repository head
+  type: git
+  location: https://github.com/chpatrick/clang-pure.git
+
+library
+  exposed-modules:     Language.C.Clang,
+                       Language.C.Clang.Cursor,
+                       Language.C.Clang.Cursor.Typed,
+                       Language.C.Clang.File,
+                       Language.C.Clang.Location,
+                       Language.C.Clang.Token,
+                       Language.C.Clang.TranslationUnit,
+                       Language.C.Clang.Type
+  other-modules:       Language.C.Clang.Internal.Context,
+                       Language.C.Clang.Internal.FFI,
+                       Language.C.Clang.Internal.Refs,
+                       Language.C.Clang.Internal.Types
+  default-extensions:  TypeFamilies,
+                       GeneralizedNewtypeDeriving,
+                       TemplateHaskell,
+                       QuasiQuotes,
+                       OverloadedStrings,
+                       LambdaCase,
+                       NamedFieldPuns,
+                       StandaloneDeriving,
+                       FlexibleContexts
+  build-depends:       base >=4.8 && <5,
+                       contravariant >= 1.3.3,
+                       inline-c >= 0.5.5.9,
+                       containers >= 0.5.6.2,
+                       template-haskell >= 2.10,
+                       vector >= 0.10.12,
+                       bytestring >= 0.10.6,
+                       stm >= 2.4.4,
+                       singletons >= 2.0.1,
+                       microlens >= 0.4.2.1,
+                       microlens-contra >= 0.1.0.1
+  hs-source-dirs:      src/
+  build-tools:         hsc2hs
+  default-language:    Haskell2010
+  include-dirs:        cbits/
+  includes:            clang-c/Index.h
+  cc-options:          -Wall -Werror
+  extra-libraries:     clang
+  ghc-options:         -Wall
+  if impl(ghc >= 8.0.0)
+    ghc-options: -fno-warn-redundant-constraints
+
+executable find-classes
+  main-is:             FindClasses.hs
+  default-language:    Haskell2010
+  build-depends:       base, clang-pure, lens, unordered-containers, hashable, bytestring
+  hs-source-dirs:      app
+  buildable:           False
+  ghc-options:         -Wall -fno-warn-orphans
+  if impl(ghc >= 8.0.0)
+    ghc-options: -fno-warn-redundant-constraints
+
+test-suite list-fun-types
+  type:                exitcode-stdio-1.0
+  main-is:             ListTypes.hs
+  default-language:    Haskell2010
+  build-depends:       base, clang-pure, lens, bytestring
+  hs-source-dirs:      examples
+  ghc-options:         -Wall
+  if impl(ghc >= 8.0.0)
+    ghc-options: -fno-warn-redundant-constraints
+
+test-suite list-structs
+  type:                exitcode-stdio-1.0
+  default-language:    Haskell2010
+  main-is:             ListStructs.hs
+  build-depends:       base, clang-pure, lens, bytestring
+  hs-source-dirs:      examples
+  ghc-options:         -Wall
+  if impl(ghc >= 8.0.0)
+    ghc-options: -fno-warn-redundant-constraints

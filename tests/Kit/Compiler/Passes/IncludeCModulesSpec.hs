@@ -32,30 +32,6 @@ externFunctionDef s =
 
 spec :: Spec
 spec = do
-  describe "Parses C type declarations" $ do
-    forM_
-      [ BasicTypeVoid
-      , BasicTypeBool
-      , BasicTypeInt 8
-      , BasicTypeInt 16
-      , BasicTypeInt 32
-      , BasicTypeInt 64
-      , BasicTypeUint 8
-      , BasicTypeUint 16
-      , BasicTypeUint 32
-      , BasicTypeUint 64
-      , BasicTypeCChar
-      , BasicTypeCInt
-      , BasicTypeCSize
-      ]
-      (\t -> it ("Parses C specifiers into " ++ show t) $ do
-        ctx <- newCompileContext
-        mod <- newMod [] ""
-        t'  <- findUnderlyingType ctx mod Nothing
-          $ parseType [] (fst $ ctype t) []
-        t' `shouldBe` t
-      )
-
     {-it "Resolves specifiers for structs into struct types" $ do
       parseDeclSpec (ctype (BasicTypeStruct ("mystruct", [("a", BasicTypeInt 8), ("b", BasicTypeUint 16)]))) `shouldBe` Just (TypeStruct [] "mystruct")
       parseDeclSpec (ctype (BasicTypeComplexEnum "myenum" [])) `shouldBe` Just (TypeStruct [] "myenum")

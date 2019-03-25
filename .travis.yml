@@ -13,9 +13,11 @@ addons:
       - ruby
       - ruby-dev
       - rpm
+      - libclang-3.9-dev
   homebrew:
     packages:
       - libyaml
+      - llvm@3.9
 
 matrix:
   fast_finish: true
@@ -66,16 +68,26 @@ matrix:
 before_install:
   - mkdir -p ~/.local/bin
   - export PATH=$HOME/.local/bin:$PATH
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then travis_retry curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then travis_retry curl -L https://get.haskellstack.org/stable/osx-x86_64.tar.gz | tar xz --strip-components=1 -C ~/.local/bin '*/stack'; fi
-  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then travis_retry curl -L https://get.haskellstack.org/stable/windows-x86_64.tar.gz | tar xz --strip-components=1 -C ~/.local/bin --wildcards '*/stack.exe'; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
+      travis_retry curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack';
+    fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
+      export CLANG_PURE_LLVM_LIB_DIR=/usr/local/opt/llvm@3.9/lib;
+      export CLANG_PURE_LLVM_INCLUDE_DIR=/usr/local/opt/llvm@3.9/include;
+      travis_retry curl -L https://get.haskellstack.org/stable/osx-x86_64.tar.gz | tar xz --strip-components=1 -C ~/.local/bin '*/stack';
+    fi
+  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
+      export CLANG_PURE_LLVM_LIB_DIR=/usr/lib/llvm-3.9/lib;
+      export CLANG_PURE_LLVM_INCLUDE_DIR=/usr/lib/llvm-3.9/include;
+      travis_retry curl -L https://get.haskellstack.org/stable/windows-x86_64.tar.gz | tar xz --strip-components=1 -C ~/.local/bin --wildcards '*/stack.exe';
+    fi
+  - "gcc --version"
+  - "clang --version"
 
 install:
   - stack --no-terminal --install-ghc test --only-dependencies
 
 script:
-  - "gcc --version"
-  - "clang --version"
   - stack build kitlang:kitc
   - stack exec kitc -- -h
   - stack exec kitc -- --env

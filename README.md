@@ -63,6 +63,10 @@ Design goals and philosophy
 Building from source
 --------------------
 
+Building from source requires **libclang** to be installed; Kit is tested with libclang 3.8.
+
+Make sure you update submodules before building: `git submodule update --init`
+
 The Kit compiler, `kitc`, is written in Haskell. Building the compiler requires GHC; the easiest path is to install [Stack](https://docs.haskellstack.org/en/stable/README/) and run:
 
     stack build

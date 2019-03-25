@@ -39,9 +39,10 @@ library:
   - async
   - base16-bytestring
   - bytestring
+  - clang-pure
   - cryptohash-md5
-  - directory
   - dotenv
+  - directory
   - filepath
   - hashable
   - hashtables

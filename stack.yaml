@@ -1,1 +1,7 @@
 resolver: lts-12.9
+# extra-deps:
+# - clang-pure-0.2.0.3
+packages:
+- '.'
+- location: 'vendor/clang-pure'
+  extra-dep: true

@@ -1,3 +1,4 @@
 true
 printf exists
 printf123987 doesn't exist
+__STDC_VERSION__ exists

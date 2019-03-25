@@ -12,4 +12,9 @@ function main() {
     } else {
         puts("printf123987 doesn't exist");
     }
+    static if defined __STDC_VERSION__ {
+        puts("__STDC_VERSION__ exists");
+    } else {
+        puts("__STDC_VERSION__ doesn't exist");
+    }
 }
