@@ -1,11 +1,13 @@
 module Kit.Log where
 
 import Control.Monad
+import qualified Control.Concurrent.Lock as Lock (new, with)
 import Data.Time
 import Data.Time.Format
 import Data.Time.LocalTime
 import System.Console.ANSI
 import System.IO
+import System.IO.Unsafe
 
 data LogLevel
   = Notice
@@ -23,6 +25,8 @@ logColor lv = case lv of
   Warning -> Yellow
   Error   -> Red
 
+logLock = unsafePerformIO (Lock.new)
+
 logPrefix :: LogLevel -> IO ()
 logPrefix lv = do
   hSetSGR stderr [color (logColor lv), normal]
@@ -33,7 +37,7 @@ logPrefix lv = do
     Error   -> ePutStr "ERR: "
 
 logMsg :: Maybe LogLevel -> String -> IO ()
-logMsg lv msg = do
+logMsg lv msg = Lock.with logLock $ do
   hSetSGR stderr [color Yellow, normal]
   ePutStr "["
   hSetSGR stderr [color Cyan, normal]
@@ -54,6 +58,7 @@ logMsg lv msg = do
     Nothing -> hSetSGR stderr [Reset]
   ePutStrLn msg
   hSetSGR stderr [Reset]
+  hFlush stderr
 
 traceLog = logMsg Nothing
 printLog = logMsg (Just Notice)

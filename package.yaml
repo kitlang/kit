@@ -39,6 +39,7 @@ library:
   - async
   - base16-bytestring
   - bytestring
+  - concurrent-extra
   - cryptohash-md5
   - directory
   - dotenv
