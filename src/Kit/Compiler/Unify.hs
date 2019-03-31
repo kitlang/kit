@@ -363,10 +363,11 @@ mergeFunctionInfo ctx tctx f1 f2 rtMsg argMsg = do
         (\(arg1, arg2) -> mergeArgInfo ctx tctx arg1 arg2 argMsg)
 
 typeIsIntegral :: ConcreteType -> Bool
-typeIsIntegral (TypeInt  _)  = True
-typeIsIntegral (TypeUint _)  = True
-typeIsIntegral TypeChar      = True
-typeIsIntegral TypeSize      = True
-typeIsIntegral TypeSize      = True
-typeIsIntegral (TypeConst t) = typeIsIntegral t
-typeIsIntegral _             = False
+typeIsIntegral (TypeInt  _)       = True
+typeIsIntegral (TypeUint _)       = True
+typeIsIntegral TypeChar           = True
+typeIsIntegral TypeSize           = True
+typeIsIntegral TypeSize           = True
+typeIsIntegral (TypeConst t     ) = typeIsIntegral t
+typeIsIntegral (TypeAnonEnum _ _) = True
+typeIsIntegral _                  = False
