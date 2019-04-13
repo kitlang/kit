@@ -36,6 +36,7 @@ tokens :-
   "->" { tok FunctionArrow }
   "?" { tok Question }
   ".*" { tok WildcardSuffix }
+  ".**" { tok DoubleWildcardSuffix }
 
   -- comments
   "/*" ([^\*]|\*[^\/]|\*\n|\n)* "*/";
@@ -53,6 +54,7 @@ tokens :-
   else { tok KeywordElse }
   empty { tok KeywordEmpty }
   enum { tok KeywordEnum }
+  extend { tok KeywordExtend }
   for { tok KeywordFor }
   function { tok KeywordFunction }
   if { tok KeywordIf }
@@ -62,6 +64,7 @@ tokens :-
   include { tok KeywordInclude }
   inline { tok KeywordInline }
   in { tok KeywordIn }
+  macro { tok KeywordMacro }
   match { tok KeywordMatch }
   null { tok KeywordNull }
   private { tok KeywordPrivate }
@@ -78,6 +81,7 @@ tokens :-
   then { tok KeywordThen }
   this { tok KeywordThis }
   throw { tok KeywordThrow }
+  tokens { tok KeywordTokens }
   trait { tok KeywordTrait }
   typedef { tok KeywordTypedef }
   union { tok KeywordUnion }
@@ -85,6 +89,7 @@ tokens :-
   using { tok KeywordUsing }
   var { tok KeywordVar }
   while { tok KeywordWhile }
+  yield { tok KeywordYield }
 
   -- literals
   "true" { tok $ LiteralBool True }
@@ -152,9 +157,9 @@ tokens :-
   "`" [^`]+ "`" { tok' (\s -> LowerIdentifier $ s_take (s_length s - 2) $ s_drop 1 s) }
   [_]*[A-Z][a-zA-Z0-9_]* { tokString UpperIdentifier }
   "``" ([^`]|\`[^`])+ "``" { tok' (\s -> UpperIdentifier $ s_take (s_length s - 4) $ s_drop 2 s) }
-  "$" [a-z_][a-zA-Z0-9_]* { tok' (\s -> MacroIdentifier $ s_drop 1 s) }
-  "${" [a-z_][a-zA-Z0-9_]* "}" { tok' (\s -> MacroIdentifier $ s_take (s_length s - 3) $ s_drop 2 s) }
-  "```" ([^`]|\`[^`]|\`\`[^`])* "```" { tok' (\s -> InlineC $ s_take (s_length s - 6) $ s_drop 3 s) }
+  "$" [A-Za-z_][a-zA-Z0-9_]* { tok' (\s -> MacroIdentifier $ s_drop 1 s) }
+  "${" [A-Za-z_][a-zA-Z0-9_]* "}" { tok' (\s -> MacroIdentifier $ s_take (s_length s - 3) $ s_drop 2 s) }
+  "```" ([^`]|\`[^`]|\`\`[^`]|\n)* "```" { tok' (\s -> InlineC $ s_take (s_length s - 6) $ s_drop 3 s) }
 
   "_" _+ { tokString LowerIdentifier }
   "_" { tok Underscore }

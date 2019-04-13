@@ -7,7 +7,7 @@ import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TypeContext
-import Kit.Compiler.TypedDecl
+import Kit.Compiler.TypedStmt
 import Kit.Compiler.TypedExpr
 import Kit.Compiler.Typers.TypeExpression
 import Kit.Compiler.Unify
@@ -33,7 +33,7 @@ typeFunction
   -> TypeContext
   -> Module
   -> FunctionDefinition TypedExpr ConcreteType
-  -> IO TypedDecl
+  -> IO TypedStmt
 typeFunction ctx tctx mod def = do
   debugLog ctx
     $  "typing function "
@@ -43,7 +43,7 @@ typeFunction ctx tctx mod def = do
          x  -> " monomorph " ++ show x
        )
   typed <- typeFunctionDefinition ctx tctx mod def
-  return $ DeclFunction typed
+  return $ ps (functionPos def) $ FunctionDeclaration typed
 
 typeFunctionDefinition
   :: CompileContext
@@ -75,6 +75,13 @@ typeFunctionDefinition ctx tctx' mod f = do
                                      }
       )
     )
+  case functionVararg f of
+    Just x -> do
+      bindToScope
+        functionScope
+        x
+        (ExprBinding $ makeExprTyped (VarArg x) (TypeAny $ functionPos f) (functionPos f))
+    Nothing -> return ()
   veryNoisyDebugLog ctx $ "TypeFunction: follow function type"
   returnType <- mapType (follow ctx tctx) $ functionType f
   let ftctx =
@@ -105,13 +112,13 @@ typeFunctionDefinition ctx tctx' mod f = do
           body
       let unifyVoid fPos = do
             -- either no return statement, or an empty one
-            unification <- unify ctx ftctx returnType voidType
+            unification <- unify ctx ftctx returnType TypeVoid
             case unification of
               Just _ -> do
                 resolveConstraint
                   ctx
                   tctx
-                  (TypeEq voidType
+                  (TypeEq TypeVoid
                           returnType
                           "Functions that don't return values must be Void"
                           fPos

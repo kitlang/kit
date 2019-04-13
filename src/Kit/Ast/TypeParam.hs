@@ -3,6 +3,7 @@
 module Kit.Ast.TypeParam where
 
 import Control.Monad
+import Data.Hashable
 import Data.List
 import GHC.Generics
 import Kit.Ast.Definitions.Base
@@ -19,6 +20,8 @@ data TypeParam b = TypeParam {
   typeParamIsConstant :: Bool,
   typeParamDefault :: Maybe b
 } deriving (Eq, Generic, Show)
+
+instance (Hashable b) => Hashable (TypeParam b)
 
 makeTypeParam :: Str -> TypeParam b
 makeTypeParam s = TypeParam

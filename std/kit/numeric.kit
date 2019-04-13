@@ -1,7 +1,66 @@
+abstract Char: Void {
+    public function capitalize(): Char {
+        if this >= c'a' && this <= c'z' {
+            return this + c'A' - c'a';
+        } else {
+            return this;
+        }
+    }
+}
+abstract Size: Void;
+
+abstract Int[$W = 0]: Void {
+    public static function minValue(): Self {
+        static if W == 0 {
+            return ${INT_MIN: Int};
+        } else {
+            return ~(Self.maxValue());
+        }
+    }
+    public static function maxValue(): Self {
+        static if W == 0 {
+            return ${INT_MAX: Int};
+        } else {
+            return ~(0 as Self) & ~((1 as Self << (W - 1)) as Self);
+        }
+    }
+}
+
+abstract Uint[$W = 0]: Void {
+    public static function minValue(): Self {
+        return 0;
+    }
+    public static function maxValue(): Self {
+        static if W == 0 {
+            return ${UINT_MAX: Uint};
+         } else {
+             return (1 as Self << (W - 1) as Self) | ~(1 as Self << (W - 1) as Self);
+         }
+    }
+}
+
+abstract Float[$W = 32]: Void;
+
+typedef Int8 = Int[8];
+typedef Int16 = Int[16];
+typedef Int32 = Int[32];
+typedef Int64 = Int[64];
+typedef Uint8 = Uint[8];
+typedef Uint16 = Uint[16];
+typedef Uint32 = Uint[32];
+typedef Uint64 = Uint[64];
+typedef Float32 = Float[32];
+typedef Float64 = Float[64];
+
+typedef Byte = Int8;
+typedef Short = Int16;
+typedef Long = Int64;
+typedef Double = Float64;
+
 /**
  * A type which represents only integer values.
  */
-#[protected] trait Integral;
+#[closed] trait Integral;
 
 /**
  * A type which represents numbers with integral and fractional components.
@@ -9,7 +68,7 @@
  * Numeric literals with decimal points and no type annotation are constrained
  * to types implementing this trait; if none is specified, Float will be used.
  */
-#[protected] trait NumericMixed;
+#[closed] trait NumericMixed;
 
 /**
  * Any numeric type.
@@ -17,44 +76,44 @@
  * Numeric literals without a decimal point or type annotation are constrained
  * to types implementing this trait; if none is specified, Int will be used.
  */
-#[protected] trait Numeric;
+#[closed] trait Numeric;
 
 // The following traits classify whether specific numbers are representable by
 // each of the builtin numeric types. They generally don't need to be directly
-// used, but will be inferred as literal constraints to let us default to the
-// smallest acceptable type for a given literal.
-trait NumericNE63;
-specialize NumericNE63 as Int64;
-trait NumericNE53;
-specialize NumericNE53 as Int64;
-trait NumericNE31;
-specialize NumericNE31 as Int32;
-trait NumericNE24;
-specialize NumericNE24 as Int32;
-trait NumericNE15;
-specialize NumericNE15 as Int16;
-trait NumericNE7;
-specialize NumericNE7 as Int8;
-trait NumericE7;
-specialize NumericE7 as Int8;
-trait NumericE8;
-specialize NumericE8 as Int16;
-trait NumericE15;
-specialize NumericE15 as Int16;
-trait NumericE16;
-specialize NumericE16 as Int32;
-trait NumericE24;
-specialize NumericE24 as Int32;
-trait NumericE31;
-specialize NumericE31 as Int32;
-trait NumericE32;
-specialize NumericE32 as Int64;
-trait NumericE53;
-specialize NumericE53 as Int64;
-trait NumericE63;
-specialize NumericE63 as Int64;
-trait NumericE64;
-specialize NumericE64 as Uint64;
+// used, but will be inferred as literal constraints to let us default to an
+// appropriate numeric type.
+#[closed] trait NumericNE63;
+default NumericNE63 as Int64;
+#[closed] trait NumericNE53;
+default NumericNE53 as Int64;
+#[closed] trait NumericNE31;
+default NumericNE31 as Int;
+#[closed] trait NumericNE24;
+default NumericNE24 as Int;
+#[closed] trait NumericNE15;
+default NumericNE15 as Int;
+#[closed] trait NumericNE7;
+default NumericNE7 as Int;
+#[closed] trait NumericE7;
+default NumericE7 as Int;
+#[closed] trait NumericE8;
+default NumericE8 as Int;
+#[closed] trait NumericE15;
+default NumericE15 as Int;
+#[closed] trait NumericE16;
+default NumericE16 as Int;
+#[closed] trait NumericE24;
+default NumericE24 as Int;
+#[closed] trait NumericE31;
+default NumericE31 as Int;
+#[closed] trait NumericE32;
+default NumericE32 as Int64;
+#[closed] trait NumericE53;
+default NumericE53 as Int64;
+#[closed] trait NumericE63;
+default NumericE63 as Int64;
+#[closed] trait NumericE64;
+default NumericE64 as Uint64;
 
 // By-definition implementations; E8 must be able to represent [0,2e8), etc.
 implement NumericNE7 for NumericNE15;
@@ -103,9 +162,11 @@ implement NumericE53 for Float64;
 implement NumericE8 for Char;
 implement NumericNE7 for Char;
 implement Integral for Char;
-implement NumericE15 for Int;
-implement NumericNE15 for Int;
+implement NumericE31 for Int;
+implement NumericNE31 for Int;
 implement Integral for Int;
+implement NumericE32 for Uint;
+implement Integral for Uint;
 implement NumericE16 for Size;
 implement Integral for Size;
 
@@ -116,6 +177,6 @@ implement Numeric for NumericMixed;
 // would only be used when we know nothing else about the value, and this are
 // pretty arbitrary. Erring toward smaller size at the cost of possible more
 // frequent overflow issues.
-specialize Integral as Int8;
-specialize NumericMixed as Float;
-specialize Numeric as Int8;
+default Integral as Int;
+default NumericMixed as Float;
+default Numeric as Int;

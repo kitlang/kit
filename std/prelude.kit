@@ -1,8 +1,11 @@
 include "stdlib.h";
+include "stdarg.h";
 include "stdio.h";
 include "stdint.h";
 include "math.h" => "m";
 include "string.h";
+include "inttypes.h";
+include "limits.h";
 
 import kit.array;
 import kit.cmp;
@@ -10,12 +13,12 @@ import kit.common;
 import kit.either;
 import kit.iterator;
 import kit.list;
-// import kit.map;
+import kit.map;
 import kit.math;
 import kit.mem;
 import kit.numeric;
 import kit.option;
-// import kit.pointers;
+import kit.pointer;
 import kit.io;
 import kit.result;
 import kit.slice;
@@ -24,4 +27,4 @@ import kit.string;
 import kit.utils;
 import kit.vector;
 
-using implicit callocator;
+using implicit mallocator;

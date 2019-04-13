@@ -2,6 +2,7 @@
 
 module Kit.Ast.Modifier where
 
+import Data.Hashable
 import GHC.Generics
 
 data Modifier
@@ -10,6 +11,8 @@ data Modifier
   | Inline
   | Static
   deriving (Eq, Generic)
+
+instance Hashable Modifier
 
 instance Show Modifier where
   show Public = "public"

@@ -3,6 +3,7 @@
 module Kit.Ast.Definitions.RewriteRule where
 
 import Control.Monad
+import Data.Hashable
 import GHC.Generics
 import Kit.Ast.Definitions.Base
 import Kit.Ast.TypePath
@@ -18,6 +19,8 @@ data RewriteRule a b = RewriteRule {
 
 instance Positioned (RewriteRule a b) where
   position = rulePos
+
+instance (Hashable a, Hashable b) => Hashable (RewriteRule a b)
 
 newRewriteRule = RewriteRule
   { rulePattern = undefined

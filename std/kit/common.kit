@@ -1,6 +1,8 @@
+#[builtin] abstract Bool: Void;
+
 #[builtin] abstract CArray[T, $N = 0]: Ptr[T] {
     rules {
-        ($this.length) => N as Size;
+        ($this.length) => N;
         (for $ident in $this {$e}) => {
             for __i in 0 ... N {
                 var $ident: T = $this[__i];
@@ -11,16 +13,30 @@
 }
 #[builtin] abstract Box[T];
 
+#[builtin] #[promote] abstract Const[T]: T;
+
 #[promote] abstract ReadOnly[T]: T {
     rules {
         ($this.$field = $e) => {1 / 0;}
     }
 }
 
-#[promote] abstract CString: Ptr[Char] {
+#[promote] #[demote] abstract CString: Ptr[Char] {
     rules {
         ($this.length) => strlen($this);
         ($this == ${other: CString}) => strcmp($this, $other) == 0;
+        ($this != ${other: CString}) => strcmp($this, $other) != 0;
+        (for $ident in $this {$e}) => {
+            var __i: Ptr[Char] = $this;
+            while __i != null && (*__i) != 0 {
+                var $ident: Char = *(__i++);
+                {$e}
+            }
+        }
+    }
+
+    public static function alloc(allocator: Box[Allocator], chars: Size): CString {
+        return allocator.alloc(chars + 1);
     }
 
     public function copy(allocator: Box[Allocator]): CString {
@@ -28,4 +44,31 @@
         strcpy(new, this);
         return new;
     }
+
+    public function startsWith(other: CString): Bool {
+        var len1 = this.length;
+        var len2 = other.length;
+        return len1 >= len2 && strncmp(this, other, len2) == 0;
+    }
+
+    public function endsWith(other: CString): Bool {
+        var len1 = this.length;
+        var len2 = other.length;
+        return len1 >= len2 && strcmp(&this[len1 - len2], other) == 0;
+    }
+}
+
+trait Enum {
+    public static function name(): CString;
+    public static function members(): Slice[CString];
+}
+
+trait Struct {
+    public static function name(): CString;
+    public static function fields(): Slice[CString];
+}
+
+trait Union {
+    public static function name(): CString;
+    public static function fields(): Slice[CString];
 }

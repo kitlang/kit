@@ -1,0 +1,44 @@
+function main() {
+    var a = 127_i8;
+    var a2 = 127;
+    var b = 255_u8;
+    var c = 32767_i16;
+    var d = 100000;
+    var e = 127_u64;
+    var f = 127_f32;
+    var g = 100_s;
+
+    if ++a == -128 {
+        printf("a overflow\n");
+    }
+    if ++a2 == 128 {
+        printf("no a2 overflow\n");
+    }
+    if ++b == 0 {
+        printf("b overflow\n");
+    }
+    if ++c == -32768 {
+        printf("c overflow\n");
+    }
+    if ++d == 100001 {
+        printf("no d overflow\n");
+    }
+    if ++e == 0 {
+        printf("e overflow\n");
+    }
+    f += 1.0;
+    printf("%.1f\n", f);
+    printf("%zu\n", g);
+
+    printf((```"Int8: %" PRId8 " to %" PRId8 "\n"```: CString), Int8.minValue(), Int8.maxValue());
+    printf((```"Int16: %" PRId16 " to %" PRId16 "\n"```: CString), Int16.minValue(), Int16.maxValue());
+    printf((```"Int32: %" PRId32 " to %" PRId32 "\n"```: CString), Int32.minValue(), Int32.maxValue());
+    printf((```"Int64: %" PRId64 " to %" PRId64 "\n"```: CString), Int64.minValue(), Int64.maxValue());
+    printf((```"Uint8: %" PRIu8 " to %" PRIu8 "\n"```: CString), Uint8.minValue(), Uint8.maxValue());
+    printf((```"Uint16: %" PRIu16 " to %" PRIu16 "\n"```: CString), Uint16.minValue(), Uint16.maxValue());
+    printf((```"Uint32: %" PRIu32 " to %" PRIu32 "\n"```: CString), Uint32.minValue(), Uint32.maxValue());
+    printf((```"Uint64: %" PRIu64 " to %" PRIu64 "\n"```: CString), Uint64.minValue(), Uint64.maxValue());
+
+    printf(if Int.minValue() < Int.maxValue() && Int.minValue() < 0 then "Int: OK\n" else "Int: Broken\n");
+    printf(if Uint.minValue() < Uint.maxValue() && Uint.minValue() == 0 then "Uint: OK\n" else "Uint: Broken\n");
+}

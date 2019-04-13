@@ -1,0 +1,87 @@
+include "test_header1.h";
+
+// we should be mangling the discriminant, and name collision within the same
+// module should be allowed, with the last declaration winning; if either of
+// these fail, the module won't compile
+enum MyRedundantEnum {
+    Apple;
+    Banana;
+    Strawberry;
+}
+
+enum MySimpleEnum {
+    Apple;
+    Banana;
+    Strawberry;
+
+    public function print(): Void {
+        match this {
+            Apple => printf("%s\n", "apple");
+            Banana => printf("%s\n", "banana");
+            Strawberry => printf("%s\n", "strawberry");
+        }
+    }
+}
+
+enum MyComplexEnum {
+    Apple2(i: Int);
+    Banana2(a: Float, b: CString);
+    Strawberry2;
+
+    public function print(): Void {
+        match this {
+            Apple2(i) => {
+                printf("Apple2: %i\n", i);
+            }
+            Banana2(a, b) => {
+                printf("Banana2: %.1f, %s\n", a, b);
+            }
+            Strawberry2 => {
+                printf("Strawberry2\n");
+            }
+        }
+    }
+}
+
+function main() {
+    // simple enums
+    var a = Apple;
+    var b = Banana;
+
+    // complex enums with fields
+    var c = Apple2(1);
+    var d = Banana2(5, "hello");
+    var e = Strawberry2;
+
+    // unification between enum type and variants
+    var f: MyComplexEnum = d;
+    f = e;
+
+    // simple enum equality
+    if (a != b) {
+        printf("hello!\n");
+    }
+
+    // TODO: complex enum equality (not yet implemented)
+
+    // simple enum methods + match
+    a.print();
+    b.print();
+
+    // complex enum match with destructuring
+    c.print();
+    d.print();
+    e.print();
+
+    var g = MyRedundantEnum.Apple;
+
+    puts("MySimpleEnum variants:");
+    for variant in MySimpleEnum.variants {
+        printf("- %i: ", variant as Int);
+        variant.print();
+    }
+
+    var x: TestEnum = Var2;
+    var y: Int = x as Int;
+    printf("%i\n", y);
+}

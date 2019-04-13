@@ -1,0 +1,64 @@
+struct MyStruct {
+    var a: Int;
+    var b: Int;
+    var c: Ptr[Int];
+}
+
+function f1(x: MyStruct) {
+    printf("%i\n", x.a);
+}
+
+function f2(x: Ptr[MyStruct]) {
+    printf("%i\n", x.b);
+}
+
+function f3(x: Ptr[Ptr[MyStruct]]) {
+    printf("%i\n", *(x.c));
+}
+
+function main() {
+    var myInt: Int = 3;
+    var myVal = struct MyStruct {
+        a: 1,
+        b: 2,
+        // auto-reference
+        c: myInt,
+    };
+
+    // field access on pointers
+    var p1: Ptr[MyStruct] = &myVal;
+    printf("%i\n", p1.a);
+    var p2: Ptr[Ptr[MyStruct]] = &p1;
+    printf("%i\n", p2.b);
+    var p3: MyStruct = p1;
+    printf("%i\n", *(p3.c));
+    // let's get crazy
+    var ptr1 = &myVal;
+    var ptr2 = &ptr1;
+    var ptr3 = &ptr2;
+    var ptr4 = &ptr3;
+    var ptr5 = &ptr4;
+    var p4: MyStruct = ptr5;
+    printf("%i\n", *(p4.c));
+
+    f1(myVal);
+    f1(p1);
+    f1(p2);
+    f1(p3);
+    f1(p4);
+    f2(myVal);
+    f2(p1);
+    f2(p2);
+    f2(p3);
+    f2(p4);
+    f3(p1);
+    f3(p2);
+    f3(*ptr5);
+    f3(* (*ptr5));
+
+    var localString = "a string";
+    var localStringPtr: Ptr[CString] = localString;
+    var localCharPtrPtr: Ptr[Ptr[Char]] = localString;
+    printf("%s\n", *localStringPtr);
+    printf("%s\n", *localCharPtrPtr);
+}

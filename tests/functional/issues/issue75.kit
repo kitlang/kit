@@ -1,0 +1,32 @@
+// these enum constructors conflict with Int type parameter names
+enum MyEnum {
+    N;
+    T;
+    W;
+}
+
+struct Struct1[T] {
+    var x: Struct2[T];
+
+    public static function new(y: T) {
+        return struct Self {
+            x: Struct2[T].new(y),
+        };
+    }
+}
+
+struct Struct2[T] {
+    var y: T;
+
+    public static function new(y: T) {
+        return struct Self {y};
+    }
+}
+
+function main() {
+    var i: Int = 1;
+    printf("%i\n", i);
+
+    var s = Struct1[CString].new("hi");
+    printf("%s\n", s.x.y);
+}

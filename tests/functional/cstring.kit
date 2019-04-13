@@ -1,0 +1,15 @@
+function main() {
+    for i in "hello, world!" {
+        printf("%c", i);
+    }
+    puts("");
+
+    puts(if "abcdefg".startsWith("abc") then "abcdefg starts with abc" else "wrong");
+    puts(if "abcdefg".startsWith("efg") then "wrong" else "abcdefg does not start with efg");
+    puts(if "abcdefg".startsWith("") then "abcdefg starts with empty string" else "wrong");
+    puts(if "abcdefg".startsWith("abcdefg") then "abcdefg starts with abcdefg" else "wrong");
+
+    puts(if "abcdefg".endsWith("efg") then "abcdefg ends with efg" else "wrong");
+    puts(if "abcdefg".endsWith("def") then "wrong" else "abcdefg does not end with def");
+    puts(if "abcdefg".endsWith("") then "abcdefg ends with empty string" else "wrong");
+}

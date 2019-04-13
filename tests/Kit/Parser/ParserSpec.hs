@@ -4,7 +4,9 @@ import Kit.Str
 import Test.Hspec
 import Test.QuickCheck
 import Kit.Ast
+import Kit.Error
 import Kit.Parser
+import Kit.Str
 
 testParse s = unwrapParsed $ parseTokens (scanTokens "" s)
 testParseExpr s = unwrapParsed $ parseExpr (scanTokens "" s)
@@ -13,6 +15,27 @@ testParseTypeSpec s = fst $ unwrapParsed $ parseTypeSpec (scanTokens "" s)
 unwrapParsed x = case x of
   ParseResult r -> r
   Err         e -> error $ show e
+
+testParseType :: Str -> TypeDefinition Expr (Maybe TypeSpec)
+testParseType s =
+  let (t : e) = unwrapParsed $ parseTokens (scanTokens "" s)
+  in  foldr
+        addTypeExtension
+        (case t of
+          Statement { stmt = TypeDeclaration t } -> t
+          _ -> throwk $ BasicError
+            ("Unexpected non-type definition statement: " ++ show t)
+            Nothing
+        )
+        (foldr (++) [] $ map
+          (\s -> case s of
+            Statement { stmt = ExtendDefinition _ s } -> s
+            _ -> throwk $ BasicError
+              ("Unexpected non-extension statement: " ++ show s)
+              Nothing
+          )
+          e
+        )
 
 spec :: Spec
 spec = parallel $ do
@@ -57,7 +80,7 @@ spec = parallel $ do
                      [ (TypeSpec ([], "A") [] NoPos)
                      , (TypeSpec ([], "B") [] NoPos)
                      ]
-                     False
+                     Nothing
                      NoPos
 
   describe "Parse expressions" $ do
@@ -121,7 +144,7 @@ spec = parallel $ do
                      $ Literal (BoolValue True)
                      $ Just
                      $ ConcreteType
-                     $ TypeBasicType BasicTypeBool
+                     $ TypeBool
                      )
                      (e $ Literal (IntValue 1) Nothing)
                      (Just $ e $ Literal (IntValue 2) Nothing)
@@ -136,12 +159,12 @@ spec = parallel $ do
                      $ Literal (BoolValue True)
                      $ Just
                      $ ConcreteType
-                     $ TypeBasicType BasicTypeBool
+                     $ TypeBool
                      , e
                      $ Literal (BoolValue False)
                      $ Just
                      $ ConcreteType
-                     $ TypeBasicType BasicTypeBool
+                     $ TypeBool
                      ]
                    )
 
@@ -168,7 +191,7 @@ spec = parallel $ do
                        $ Literal (BoolValue True)
                        $ Just
                        $ ConcreteType
-                       $ TypeBasicType BasicTypeBool
+                       $ TypeBool
                        )
                      ]
                    )
@@ -195,7 +218,7 @@ spec = parallel $ do
                      (Just
                        (FunctionTypeSpec (TypeSpec ([], "A") [] NoPos)
                                          []
-                                         False
+                                         Nothing
                                          NoPos
                        )
                      )
@@ -208,7 +231,7 @@ spec = parallel $ do
                      (Just
                        (FunctionTypeSpec (TypeSpec ([], "A") [] NoPos)
                                          [(TypeSpec ([], "Int") [] NoPos)]
-                                         False
+                                         Nothing
                                          NoPos
                        )
                      )
@@ -224,7 +247,7 @@ spec = parallel $ do
                          [ (TypeSpec ([], "Int") [] NoPos)
                          , (TypeSpec ([], "Float") [] NoPos)
                          ]
-                         False
+                         Nothing
                          NoPos
                        )
                      )
@@ -242,25 +265,25 @@ spec = parallel $ do
                              [ (TypeSpec ([], "A") [] NoPos)
                              , (TypeSpec ([], "B") [] NoPos)
                              ]
-                             False
+                             Nothing
                              NoPos
                            )
                          , (TypeSpec ([], "Float") [] NoPos)
                          ]
-                         False
+                         Nothing
                          NoPos
                        )
                      )
                    )
 
     it "parses variadic function type specs" $ do
-      testParseExpr "__: function (Int, ...) -> A"
+      testParseExpr "__: function (Int, x...) -> A"
         `shouldBe` (e $ TypeAnnotation
                      (e $ Identifier $ Var ([], "__"))
                      (Just
                        (FunctionTypeSpec (TypeSpec ([], "A") [] NoPos)
                                          [(TypeSpec ([], "Int") [] NoPos)]
-                                         True
+                                         (Just "x")
                                          NoPos
                        )
                      )
@@ -298,7 +321,7 @@ spec = parallel $ do
 
     it "parses functions" $ do
       testParse
-          "/**test*/ #[meta] inline function abc[A, B: Int, C :: ToString | ToInt](a: A, b: B = 2, c: C, ...): Something { print(a); print(b); print(c); }"
+          "/**test*/ #[meta] inline function abc[A, B: Int, C :: ToString | ToInt](a: A, b: B = 2, c: C, x...): Something { print(a); print(b); print(c); }"
         `shouldBe` [ ( ps (sp "" 1 26 1 37)
                      $ FunctionDeclaration
                      $ (newFunctionDefinition :: FunctionDefinition
@@ -351,29 +374,35 @@ spec = parallel $ do
                          , functionType      = Just $ makeTypeSpec "Something"
                          , functionBody      = Just $ e $ Block
                            [ e $ Call (e $ Identifier (Var ([], "print")))
-                                      [] [e $ Identifier (Var ([], "a"))]
+                                      []
+                                      [e $ Identifier (Var ([], "a"))]
                            , e $ Call (e $ Identifier (Var ([], "print")))
-                                      [] [e $ Identifier (Var ([], "b"))]
+                                      []
+                                      [e $ Identifier (Var ([], "b"))]
                            , e $ Call (e $ Identifier (Var ([], "print")))
-                                      [] [e $ Identifier (Var ([], "c"))]
+                                      []
+                                      [e $ Identifier (Var ([], "c"))]
                            ]
-                         , functionVarargs   = True
+                         , functionVararg    = Just "x"
                          }
                      )
                    ]
 
   describe "Parse toplevel statements" $ do
     it "parses imports" $ do
-      testParse "import a;" `shouldBe` [makeStmt $ Import ["a"] False]
-      testParse "import a.b.c.*; import d;"
-        `shouldBe` [ makeStmt $ Import ["a", "b", "c"] True
-                   , makeStmt $ Import ["d"] False
+      testParse "import a;" `shouldBe` [makeStmt $ Import ["a"] ImportSingle]
+      testParse "import a.b.c.*; import d; import e.f.**;"
+        `shouldBe` [ makeStmt $ Import ["a", "b", "c"] ImportWildcard
+                   , makeStmt $ Import ["d"] ImportSingle
+                   , makeStmt $ Import ["e", "f"] ImportDoubleWildcard
                    ]
 
 
     it "parses typedefs" $ do
       testParse "typedef MyType = OtherType;"
-        `shouldBe` [makeStmt $ Typedef "MyType" $ makeTypeSpec "OtherType"]
+        `shouldBe` [ makeStmt $ Typedef ([], "MyType") $ makeTypeSpec
+                       "OtherType"
+                   ]
       {-testParse "typedef MyType[A] = OtherType[B];" `shouldBe` [makeStmt $ TypeDeclaration $ TypeDefinition {
         typeName = "MyType",
         typeMeta = [],
@@ -386,59 +415,60 @@ spec = parallel $ do
       }]-}
 
     it "parses enums" $ do
-      testParse
-          "enum MyEnum: Float {\n\
+      testParseType
+          "enum MyEnum {//}: Float {\n\
             \    Apple;\n\
             \    Banana(i: Int);\n\
-            \    /**Abc*/ Strawberry = 1;\n\
+            \    /**Abc*/ Strawberry;// = 1;\n\
             \}"
-        `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition)
-                       { typeName      = ([], "MyEnum")
-                       , typeMeta      = []
-                       , typeModifiers = []
-                       , typeRules     = []
-                       , typeParams    = []
-                       , typeSubtype   = Enum
-                         { enumUnderlyingType = Just (makeTypeSpec "Float")
-                         , enumVariants       = [ newEnumVariant
-                                                  { variantName = ([], "Apple")
-                                                  , variantParent = ([], "MyEnum")
-                                                  , variantArgs = []
-                                                  , variantMeta = []
-                                                  , variantModifiers = []
-                                                  , variantValue = Nothing
-                                                  }
-                                                , newEnumVariant
-                                                  { variantName = ([], "Banana")
-                                                  , variantParent = ([], "MyEnum")
-                                                  , variantArgs = [ newArgSpec
-                                                                      { argName = "i"
-                                                                      , argType = Just
-                                                                        (makeTypeSpec
-                                                                          "Int"
-                                                                        )
-                                                                      }
-                                                                  ]
-                                                  , variantMeta = []
-                                                  , variantModifiers = []
-                                                  , variantValue = Nothing
-                                                  }
-                                                , newEnumVariant
-                                                  { variantName = ([], "Strawberry")
-                                                  , variantParent = ([], "MyEnum")
-                                                  , variantArgs = []
-                                                  , variantMeta = []
-                                                  , variantModifiers = []
-                                                  , variantValue = Just
-                                                    (e $ Literal (IntValue 1) Nothing)
-                                                  }
-                                                ]
-                         }
+        `shouldBe` newTypeDefinition
+                     { typeName      = ([], "MyEnum")
+                     , typeMeta      = []
+                     , typeModifiers = []
+                     , typeRules     = []
+                     , typeParams    = []
+                     , typeSubtype   = Enum
+                       { enumUnderlyingType = Just (makeTypeSpec "Int") --Just (makeTypeSpec "Float")
+                       , enumVariants       = [ newEnumVariant
+                                                { variantName = (["MyEnum"], "Apple")
+                                                , variantParent = ([], "MyEnum")
+                                                , variantArgs = []
+                                                , variantMeta = []
+                                                , variantModifiers = []
+                                                , variantValue = Nothing
+                                                }
+                                              , newEnumVariant
+                                                { variantName = (["MyEnum"], "Banana")
+                                                , variantParent = ([], "MyEnum")
+                                                , variantArgs = [ newArgSpec
+                                                                    { argName = "i"
+                                                                    , argType = Just
+                                                                      (makeTypeSpec
+                                                                        "Int"
+                                                                      )
+                                                                    }
+                                                                ]
+                                                , variantMeta = []
+                                                , variantModifiers = []
+                                                , variantValue = Nothing
+                                                }
+                                              , newEnumVariant
+                                                { variantName = ( ["MyEnum"]
+                                                                , "Strawberry"
+                                                                )
+                                                , variantParent = ([], "MyEnum")
+                                                , variantArgs = []
+                                                , variantMeta = []
+                                                , variantModifiers = []
+                                                , variantValue = Nothing --Just
+                                                    --(e $ Literal (IntValue 1) Nothing)
+                                                }
+                                              ]
                        }
-                   ]
+                     }
 
     it "parses structs" $ do
-      testParse
+      testParseType
           "struct MyStruct {\n\
             \    var abc;\n\
             \    public var def;\n\
@@ -447,83 +477,84 @@ spec = parallel $ do
             \    static var ghi;\n\
             \    static function jkl() {}\n\
             \}"
-        `shouldBe` [ makeStmt $ TypeDeclaration $ (newTypeDefinition)
-                       { typeName          = ([], "MyStruct")
-                       , typeMeta          = []
-                       , typeModifiers     = []
-                       , typeRules         = []
-                       , typeParams        = []
-                       , typeStaticFields  = [ newVarDefinition
-                                                 { varName      = ([], "ghi")
-                                                 , varMeta      = []
-                                                 , varModifiers = [Static]
-                                                 , varType      = Nothing
-                                                 , varDefault   = Nothing
-                                                 }
+        `shouldBe` newTypeDefinition
+                     { typeName          = ([], "MyStruct")
+                     , typeMeta          = []
+                     , typeModifiers     = []
+                     , typeRules         = []
+                     , typeParams        = []
+                     , typeStaticFields  = [ newVarDefinition
+                                               { varName = (["MyStruct"], "ghi")
+                                               , varMeta      = []
+                                               , varModifiers = [Static]
+                                               , varType      = Nothing
+                                               , varDefault   = Nothing
+                                               }
+                                           ]
+                     , typeStaticMethods = [ newFunctionDefinition
+                                               { functionName = ( ["MyStruct"]
+                                                                , "jkl"
+                                                                )
+                                               , functionMeta      = []
+                                               , functionModifiers = [Static]
+                                               , functionParams    = []
+                                               , functionArgs      = []
+                                               , functionType      = Nothing
+                                               , functionBody      = Just
+                                                 (e $ Block [])
+                                               , functionVararg    = Nothing
+                                               }
+                                           ]
+                     , typeSubtype       = StructUnion
+                       { structUnionFields = [ (newVarDefinition :: VarDefinition
+                                                   Expr
+                                                   (Maybe TypeSpec)
+                                               )
+                                               { varName      = ([], "abc")
+                                               , varMeta      = []
+                                               , varModifiers = []
+                                               , varType      = Nothing
+                                               , varDefault   = Nothing
+                                               }
+                                             , (newVarDefinition :: VarDefinition
+                                                   Expr
+                                                   (Maybe TypeSpec)
+                                               )
+                                               { varName      = ([], "def")
+                                               , varMeta      = []
+                                               , varModifiers = [Public]
+                                               , varType      = Nothing
+                                               , varDefault   = Nothing
+                                               }
+                                             , (newVarDefinition :: VarDefinition
+                                                   Expr
+                                                   (Maybe TypeSpec)
+                                               )
+                                               { varName      = ([], "ghi")
+                                               , varMeta      = [ Metadata
+                                                                    { metaName = "meta"
+                                                                    , metaArgs = []
+                                                                    }
+                                                                ]
+                                               , varModifiers = []
+                                               , varType      = Just
+                                                 (makeTypeSpec "Int")
+                                               , varDefault = Just $ e $ Literal
+                                                 (IntValue 1)
+                                                 Nothing
+                                               }
                                              ]
-                       , typeStaticMethods = [ newFunctionDefinition
-                                                 { functionName = ([], "jkl")
-                                                 , functionMeta      = []
-                                                 , functionModifiers = [Static]
-                                                 , functionParams    = []
-                                                 , functionArgs      = []
-                                                 , functionType      = Nothing
-                                                 , functionBody      = Just
-                                                   (e $ Block [])
-                                                 , functionVarargs   = False
-                                                 }
-                                             ]
-                       , typeSubtype       = Struct
-                         { structFields = [ (newVarDefinition :: VarDefinition
-                                                Expr
-                                                (Maybe TypeSpec)
-                                            )
-                                            { varName      = ([], "abc")
-                                            , varMeta      = []
-                                            , varModifiers = []
-                                            , varType      = Nothing
-                                            , varDefault   = Nothing
-                                            }
-                                          , (newVarDefinition :: VarDefinition
-                                                Expr
-                                                (Maybe TypeSpec)
-                                            )
-                                            { varName      = ([], "def")
-                                            , varMeta      = []
-                                            , varModifiers = [Public]
-                                            , varType      = Nothing
-                                            , varDefault   = Nothing
-                                            }
-                                          , (newVarDefinition :: VarDefinition
-                                                Expr
-                                                (Maybe TypeSpec)
-                                            )
-                                            { varName      = ([], "ghi")
-                                            , varMeta      = [ Metadata
-                                                                 { metaName = "meta"
-                                                                 , metaArgs = []
-                                                                 }
-                                                             ]
-                                            , varModifiers = []
-                                            , varType      = Just
-                                              (makeTypeSpec "Int")
-                                            , varDefault   = Just $ e $ Literal
-
-                                              (IntValue 1)
-                                              Nothing
-                                            }
-                                          ]
-                         }
+                       , isStruct = True
                        }
-                   ]
+                     }
 
   describe "Parses statement lists" $ do
     it "parses multiple statements" $ do
       testParse "import a; import b; import c; import d;"
-        `shouldBe` [ makeStmt $ Import ["a"] False
-                   , makeStmt $ Import ["b"] False
-                   , makeStmt $ Import ["c"] False
-                   , makeStmt $ Import ["d"] False
+        `shouldBe` [ makeStmt $ Import ["a"] ImportSingle
+                   , makeStmt $ Import ["b"] ImportSingle
+                   , makeStmt $ Import ["c"] ImportSingle
+                   , makeStmt $ Import ["d"] ImportSingle
                    ]
 
   describe "Parses trait declarations" $ do

@@ -1,0 +1,29 @@
+struct MyStruct {
+    public static const MY_CONST: Int = 5;
+
+    var a: Int = 1;
+    const b: Int = 2;
+}
+
+function f(x: Const[Ptr[Char]]) {
+    printf("%s\n", x);
+}
+
+function main() {
+    const a: Int = 1;
+    printf("%i\n", a);
+
+    const x = struct MyStruct {
+        a: 1,
+        b: 2,
+    };
+    printf("%i\n", x.b);
+
+    printf("%i\n", MyStruct.MY_CONST);
+
+    var c: CString = "abc";
+    var d: Const[CString] = c;
+    var e: Const[Ptr[Char]] = c;
+
+    f(e);
+}

@@ -1,0 +1,65 @@
+import kit.vector;
+import kit.map;
+
+trait Component {
+    function typeIdentifier(): CString;
+}
+
+struct Entity {
+    private var components: Map[CString, Box[Component]]; 
+    public var name: CString;
+
+    public static function new(allocator: Box[Allocator], name: CString): Entity using implicit allocator {
+        var components = Map.new(10);
+        return struct Self
+        {
+            components,
+            name,
+        };
+    }
+
+    public function addComponent(component: Box[Component]) {
+        if this.components.exists(component.typeIdentifier()) {
+            this.components.put(component.typeIdentifier(), component);
+        } else {
+            this.components.remove(component.typeIdentifier());
+            this.components.put(component.typeIdentifier(), component);
+        }
+    }
+
+    public function getComponent(typeIdentifier: CString) {
+        if this.components.exists(typeIdentifier) {
+            return this.components.get(typeIdentifier).unwrap();
+        } else {
+            panic("component doesn't exist");
+        }
+    }
+}
+
+struct PositionComponent{
+    var x: Float;
+    var y: Float;
+    var z: Float;
+}
+
+implement Component for PositionComponent {
+    function typeIdentifier(): CString {
+        return "Position";
+    }
+}
+
+function main() {
+    var entity1: Entity = Entity.new("Apple");
+    var entity2: Entity = Entity.new("Orange");
+
+    var positionComponent = struct PositionComponent{
+        x: 12.0,
+        y: 12.0,
+        z: 12.0
+    };
+
+    var boxComponent: Box[Component] = positionComponent;
+    entity1.addComponent(boxComponent);
+
+    var returnedBoxedComponent: Box[Component] = entity1.getComponent("Position");
+}

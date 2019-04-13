@@ -1,0 +1,61 @@
+trait TestTrait {
+    static var staticVar: CString;
+    static function staticMethod(): Void;
+    function a(): Void;
+    function b(a: Int): Int;
+}
+
+implement TestTrait for Int {
+    static var staticVar: CString;
+
+    public static function staticMethod() {
+        printf("Int.TestTrait.staticMethod()");
+    }
+
+    public function a() {
+        printf("Int's TestTrait method a\n");
+    }
+
+    public function b(x: Int) {
+        printf("Int's TestTrait method b\n");
+        return this + x;
+    }
+}
+
+
+implement TestTrait for CString {
+    public static var staticVar: CString;
+
+    public static function staticMethod() {
+        printf("CString.TestTrait.staticMethod(): %s\n", Self.TestTrait.staticVar);
+    }
+
+    public function a() {
+        printf("CString %s's TestTrait method a\n", this);
+    }
+
+    public function b(x: Int) {
+        printf("CString %s's TestTrait method b\n", this);
+        return x;
+    }
+}
+
+function main() {
+    // static trait dispatch
+    (1_i).TestTrait.a();
+    printf("%i\n", (1_i).TestTrait.b(2));
+
+    var s: CString = "hello";
+    s.TestTrait.a();
+    printf("%i\n", s.TestTrait.b(3));
+
+    var x: Int = 777;
+    var p: Ptr[Int] = &x;
+    p.TestTrait.a();
+    printf("%i\n", p.TestTrait.b(5));
+
+    // call trait static method
+    CString.TestTrait.staticVar = "hello";
+    CString.TestTrait.staticMethod();
+    // CString.TestTrait.a("hi");
+}

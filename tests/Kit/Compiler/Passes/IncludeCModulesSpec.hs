@@ -1,11 +1,14 @@
 module Kit.Compiler.Passes.IncludeCModulesSpec where
 
 import Control.Monad
+import Data.Maybe
+import Language.C
 import Test.Hspec
 import Test.QuickCheck
 import Kit.Ast
-import Kit.Compiler.Generators.C
 import Kit.Compiler
+import Kit.Compiler.Generators.C
+import Kit.Compiler.Ir
 import Kit.Compiler.Passes
 import Kit.HashTable
 import Kit.Ir
@@ -13,12 +16,13 @@ import Kit.Ir
 testHeader :: IO (CompileContext, Module)
 testHeader = do
   ctx <- newCompileContext
+  cc  <- getCompiler Nothing
   -- let ctx = ctx' {
   --   ctxIncludePaths = ["tests/Kit/Compiler/Passes"]
   -- }
   let testHeader = "tests/Kit/Compiler/Passes/test_header.h"
   mod <- newCMod
-  parseCHeader ctx mod testHeader
+  parseCHeader ctx cc mod testHeader
   return (ctx, mod)
 
 externVarDef s = newVarDefinition { varName = s, varMeta = [meta metaExtern] }
@@ -44,10 +48,25 @@ spec = do
       , BasicTypeCInt
       , BasicTypeCSize
       ]
-      (\t ->
-        it ("Parses C specifiers into " ++ show t)
-          $          parseType [] (fst $ ctype t) []
-          `shouldBe` TypeBasicType t
+      (\t -> it ("Parses C specifiers into " ++ show t) $ do
+        ctx <- newCompileContext
+        mod <- newMod [] ""
+        t'  <- findUnderlyingType ctx mod Nothing $ parseType
+          []
+          (fst
+            (let (a, b) = ctype t
+             in  ( catMaybes $ map
+                   (\x -> case x of
+                     CTypeSpec x -> Just x
+                     _           -> Nothing
+                   )
+                   a
+                 , b
+                 )
+            )
+          )
+          []
+        t' `shouldBe` t
       )
 
     {-it "Resolves specifiers for structs into struct types" $ do
@@ -63,91 +82,75 @@ spec = do
       True `shouldBe` True
 
     forM_
-      [ let (n, t) = ("var1", (TypeBasicType $ BasicTypeInt 16))
+      [ let (n, t) = ("var1", (TypeInt 16))
         in  ("Parses var declarations", "var1", t)
-      , ("Parses var definitions", "var2", (TypeBasicType $ BasicTypeCChar))
+      , ("Parses var definitions", "var2", (TypeChar))
       , ( "Parses var definitions with multiple type specifiers"
         , "var3"
-        , (TypeBasicType $ BasicTypeUint 32)
+        , (TypeUint 32)
         )
       , ("Parses struct vars", "struct_var1", (TypeInstance ([], "Struct1") []))
-      , ("Parses enum vars"  , "enum_var1"  , (TypeInstance ([], "Enum1") []))
-      , ( "Parses pointer vars"
-        , "pointer_var1"
-        , (TypePtr (TypeBasicType $ BasicTypeInt 16))
-        )
+      , ("Parses enum vars"   , "enum_var1"   , (TypeInstance ([], "Enum1") []))
+      , ("Parses pointer vars", "pointer_var1", (TypePtr (TypeInt 16)))
       , ( "Parses pointers to pointer vars"
         , "pointer_var2"
-        , (TypePtr (TypePtr (TypeBasicType $ BasicTypeInt 16)))
+        , (TypePtr (TypePtr (TypeInt 16)))
         )
       , ( "Parses function pointer vars"
         , "pointer_var3"
-        , (TypePtr
-            (TypeFunction (TypeBasicType $ BasicTypeInt 16)
-                          [("arg1", TypeBasicType $ BasicTypeInt 16)]
-                          False
-                          []
-            )
+        , (TypePtr (TypeFunction (TypeInt 16) [("arg1", TypeInt 16)] Nothing [])
           )
         )
       , ( "Parses void function pointers"
         , "func_pointer"
-        , (TypePtr $ TypeFunction (TypeBasicType $ BasicTypeVoid) [] False [])
+        , (TypePtr $ TypeFunction TypeVoid [] Nothing [])
         )
       , ( "Parses void functions"
         , "void_func1"
-        , TypeFunction (TypeBasicType $ BasicTypeVoid) [] False []
+        , TypeFunction TypeVoid [] Nothing []
         )
       , ( "Parses functions with non-void types"
         , "int_func1"
-        , TypeFunction (TypeBasicType $ BasicTypeInt 16) [] False []
+        , TypeFunction (TypeInt 16) [] Nothing []
         )
       , ( "Parses functions with arguments"
         , "func_with_args"
-        , TypeFunction
-          (TypeBasicType $ BasicTypeFloat 32)
-          [ ("arg1", TypeBasicType $ BasicTypeInt 16)
-          , ("arg2", TypeBasicType $ BasicTypeUint 64)
-          ]
-          False
-          []
+        , TypeFunction (TypeFloat 32)
+                       [("arg1", TypeInt 16), ("arg2", TypeUint 64)]
+                       Nothing
+                       []
         )
       , ( "Parses functions with struct return value/arguments"
         , "struct_func"
         , TypeFunction (TypeInstance ([], "Struct1") [])
                        [("a", TypeInstance ([], "Struct2") [])]
-                       False
+                       Nothing
                        []
         )
       , ( "Parses functions with pointer return value/arguments"
         , "pointer_func"
-        , TypeFunction (TypePtr $ TypeBasicType $ BasicTypeFloat 32)
-                       [("arg1", TypePtr $ TypeBasicType $ BasicTypeCInt)]
-                       False
+        , TypeFunction (TypePtr $ TypeFloat 32)
+                       [("arg1", TypePtr $ TypeInt 0)]
+                       Nothing
                        []
         )
       , ( "Parses variadic functions"
         , "varargs_func"
-        , TypeFunction (TypeBasicType $ BasicTypeVoid)
-                       [("a", TypeBasicType $ BasicTypeInt 16)]
-                       True
-                       []
+        , TypeFunction TypeVoid [("a", TypeInt 16)] (Just "") []
         )
       , ( "Parses void arg functions"
         , "void_func"
-        , TypeFunction (TypeBasicType $ BasicTypeInt 32) [] False []
+        , TypeFunction (TypeInt 32) [] Nothing []
         )
       , ( "Parses atexit"
         , "fake_atexit"
         , TypeFunction
-          (TypeBasicType $ BasicTypeCInt)
-          [ ( "__func"
-            , TypePtr $ TypeFunction (TypeBasicType $ BasicTypeVoid) [] False []
-            )
-          ]
-          False
+          (TypeInt 0)
+          [("__func", TypePtr $ TypeFunction TypeVoid [] Nothing [])]
+          Nothing
           []
         )
+      , ("Parses 'unsigned' by itself", "just_unsigned", (TypeUint 0))
       ]
       (\(label, name, ct) -> it label $ do
         (ctx, header) <- testHeader
@@ -163,57 +166,62 @@ spec = do
       [ ( "Parses struct declarations"
         , "Struct1"
         , TypeInstance ([], "Struct1") []
-        , Just $ DeclType $ (newTypeDefinition)
-          { typeName    = ([], "Struct1")
-          , typeSubtype = Struct
-            { structFields = [ newVarDefinition
-                               { varName = ([], "field1")
-                               , varType = Just
-                                 $ ConcreteType
-                                 $ TypeBasicType
-                                 $ BasicTypeCChar
-                               }
-                             , newVarDefinition
-                               { varName = ([], "field2")
-                               , varType = Just
-                                 $ ConcreteType
-                                 $ TypeBasicType
-                                 $ BasicTypeUint 16
-                               }
-                             ]
+        , Just
+        $ typeDecl
+        $ (newTypeDefinition :: TypeDefinition Expr (Maybe TypeSpec))
+            { typeName    = ([], "Struct1")
+            , typeSubtype = StructUnion
+              { structUnionFields = [ newVarDefinition
+                                      { varName = ([], "field1")
+                                      , varType = Just $ ConcreteType $ TypeChar
+                                      }
+                                    , newVarDefinition
+                                      { varName = ([], "field2")
+                                      , varType = Just $ ConcreteType $ TypeUint
+                                        16
+                                      }
+                                    ]
+              , isStruct          = True
+              }
             }
-          }
         )
       , ( "Parses anonymous struct typedefs"
         , "Struct2"
-        , TypeAnonStruct
-          (Just "Struct2")
-          [ ("field1", TypeBasicType $ BasicTypeInt 16)
-          , ("field2", TypeBasicType $ BasicTypeFloat 64)
-          ]
+        , TypeAnonStruct (Just "Struct2")
+                         [("field1", TypeInt 16), ("field2", TypeFloat 64)]
         , Nothing
         )
       , ( "Parses empty struct typedefs"
         , "Struct3"
         , TypeInstance ([], "Struct3") []
-        , Just $ DeclType $ (newTypeDefinition)
-          { typeName    = ([], "Struct3")
-          , typeSubtype = Struct {structFields = []}
-          }
+        , Just
+        $ typeDecl
+        $ (newTypeDefinition :: TypeDefinition Expr (Maybe TypeSpec))
+            { typeName    = ([], "Struct3")
+            , typeSubtype = StructUnion
+              { structUnionFields = []
+              , isStruct          = True
+              }
+            }
         )
       , ( "Parses enum definitions"
         , "Enum1"
         , TypeInstance ([], "Enum1") []
-        , Just $ DeclType $ (newTypeDefinition)
-          { typeName    = ([], "Enum1")
-          , typeSubtype = Enum
-            { enumVariants = [ newEnumVariant { variantName = ([], "apple") }
-                             , newEnumVariant { variantName = ([], "banana") }
-                             , newEnumVariant { variantName = ([], "cherry") }
-                             ]
-            , enumUnderlyingType = Nothing
+        , Just
+        $ typeDecl
+        $ (newTypeDefinition :: TypeDefinition Expr (Maybe TypeSpec))
+            { typeName    = ([], "Enum1")
+            , typeSubtype = Enum
+              { enumVariants = [ newEnumVariant { variantName = ([], "apple")
+                                                }
+                               , newEnumVariant { variantName = ([], "banana")
+                                                }
+                               , newEnumVariant { variantName = ([], "cherry")
+                                                }
+                               ]
+              , enumUnderlyingType = Nothing
+              }
             }
-          }
         )
       , ( "Parses anonymous enum typedefs"
         , "Enum2"

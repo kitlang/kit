@@ -1,0 +1,28 @@
+struct A {
+    public var a: Int;
+    public var b: Int;
+
+    public static function f1() {
+        puts("f1");
+    }
+}
+
+extend A {
+    public var c: Int;
+
+    public static function f2() {
+        puts("f2");
+    }
+}
+
+struct StartsEmpty {}
+extend StartsEmpty {
+    public var nowItHasAField: Int;
+}
+
+function main() {
+    var s = struct A {a: 1, b: 1, c: 1};
+    printf("%i %i %i\n", s.a, s.b, s.c);
+    A.f1();
+    A.f2();
+}

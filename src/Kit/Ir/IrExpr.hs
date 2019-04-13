@@ -31,6 +31,7 @@ data IrExpr
   | IrEnumInit BasicType TypePath [(Str, IrExpr)]
   | IrTupleInit BasicType [IrExpr]
   | IrSizeOf BasicType
+  | IrType BasicType
   | IrSwitch IrExpr [(IrExpr, IrExpr)] (Maybe IrExpr)
   | IrNull
   | IrEmpty BasicType
@@ -38,3 +39,13 @@ data IrExpr
   deriving (Eq, Show, Generic)
 
 instance Hashable IrExpr
+
+isValidInitializer (IrLiteral _ _    ) = True
+isValidInitializer (IrIdentifier _   ) = True
+isValidInitializer (IrEmpty      _   ) = True
+isValidInitializer (IrCArrLiteral x _) = all isValidInitializer x
+isValidInitializer (IrCast        x _) = isValidInitializer x
+isValidInitializer (IrStructInit _ fields) =
+  all isValidInitializer $ map snd fields
+isValidInitializer (IrPreUnop Ref x) = isValidInitializer x
+isValidInitializer _                 = False

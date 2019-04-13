@@ -58,12 +58,12 @@ patternMatch ctx mod typer pattern t ex = do
                 forMWithErrors (zip (variantArgs variant) args)
                   $ \(arg, (_, argValue)) -> do
                       modTctx <- modTypeContext ctx mod
-                      let tctx = addTypeParams
-                            modTctx
-                            [ (typeSubPath def $ paramName param, value)
-                            | (param, value) <- zip (typeParams def)
-                                                    resolvedParams
-                            ]
+                      tctx    <- addTypeParams
+                        ctx
+                        modTctx
+                        [ (typeSubPath def $ paramName param, value)
+                        | (param, value) <- zip (typeParams def) resolvedParams
+                        ] (typePos def)
                       t  <- mapType (follow ctx tctx) $ argType arg
                       at <- findUnderlyingType ctx mod (Just $ tPos pattern) t
                       patternMatch ctx

@@ -18,17 +18,6 @@ import Kit.Log
 import Kit.Parser
 import Kit.Str
 
-data DuplicateGlobalNameError = DuplicateGlobalNameError ModulePath Str Span Span deriving (Eq, Show)
-instance Errable DuplicateGlobalNameError where
-  logError e@(DuplicateGlobalNameError mod name pos1 pos2) = do
-    logErrorBasic e $ "Duplicate declaration for global name `" ++ s_unpack name ++ "` in " ++ s_unpack (showModulePath mod) ++ "; \n\nFirst declaration:"
-    ePutStrLn "\nSecond declaration:"
-    displayFileSnippet pos2
-    ePutStrLn "\n#[extern] declarations and declarations from included C headers must have globally unique names."
-  errPos (DuplicateGlobalNameError _ _ pos _) = Just pos
-
-type SyntacticDecl = Declaration Expr (Maybe TypeSpec)
-
 {-
   Starting from the compilation entry point ("main" module), recursively trace
   all imports and includes to discover the full set of modules and C modules
@@ -38,8 +27,66 @@ type SyntacticDecl = Declaration Expr (Maybe TypeSpec)
   interface which can be used in ResolveModuleTypes; we'll know e.g. that type
   X exists and is a struct, but not its fields or types, etc.
 -}
-buildModuleGraph :: CompileContext -> IO [(Module, [(SyntacticDecl, Span)])]
-buildModuleGraph ctx = loadModule ctx (ctxMainModule ctx) Nothing
+buildModuleGraph :: CompileContext -> IO [(Module, [SyntacticStatement])]
+buildModuleGraph ctx = do
+  results <- loadModule ctx (ctxMainModule ctx) Nothing
+  case ctxMacro ctx of
+    Just (f, argSets) -> forM results $ \(mod, stmts) -> do
+      if modPath mod == ctxMainModule ctx
+        then do
+          return
+            ( mod
+            , (functionDecl f) -- add the macro and a main function to invoke it
+            : (functionDecl $ newFunctionDefinition
+                { functionName = ([], "main")
+                , functionType = Nothing
+                , functionPos  = functionPos f
+                , functionArgs = [ newArgSpec
+                                   { argName = "argc"
+                                   , argType = Just $ makeTypeSpec "Int"
+                                   }
+                                 , newArgSpec
+                                   { argName = "argv"
+                                   , argType = Just $ PointerTypeSpec
+                                     (makeTypeSpec "CString")
+                                     NoPos
+                                   }
+                                 ]
+                , functionBody = let p = pe (functionPos f)
+                                 in
+                                   Just $ p $ Block
+                                     [ p $ Match
+                                         (p $ Call
+                                           (p $ Identifier (Var $ ([], "atoi")))
+                                           []
+                                           [ (p $ ArrayAccess
+                                               (p $ Identifier (Var $ ([], "argv")))
+                                               (p $ Literal (IntValue 1)
+                                                            (Just $ makeTypeSpec "Int")
+                                               )
+                                             )
+                                           ]
+                                         )
+                                         [ matchCase
+                                             (p $ Literal (IntValue index)
+                                                          (Just $ makeTypeSpec "Int")
+                                             )
+                                             (p
+                                               (Call (p $ Identifier (Var $ functionName f))
+                                                     []
+                                                     args
+                                               )
+                                             )
+                                         | (index, args) <- argSets
+                                         ]
+                                         Nothing
+                                     ]
+                }
+              )
+            : stmts
+            )
+        else return (mod, stmts)
+    Nothing -> return results
 
 {-
   Load a module, if it hasn't already been loaded. Also triggers recursive
@@ -50,7 +97,7 @@ loadModule
   :: CompileContext
   -> ModulePath
   -> Maybe Span
-  -> IO [(Module, [(SyntacticDecl, Span)])]
+  -> IO [(Module, [SyntacticStatement])]
 loadModule ctx mod pos = do
   existing <- h_lookup (ctxModules ctx) mod
   case existing of
@@ -100,7 +147,6 @@ loadModule ctx mod pos = do
             $ reverse errs
           return $ (m, decls) : results
 
-
 {-
   Find all relevant prelude modules for a package, and return a list of
   expressions to prepend to the module contents.
@@ -114,7 +160,7 @@ loadModule ctx mod pos = do
   and appends the contents of any of these modules that exist in reverse
   order.
 -}
-_loadPreludes :: CompileContext -> ModulePath -> IO [Statement]
+_loadPreludes :: CompileContext -> ModulePath -> IO [SyntacticStatement]
 _loadPreludes ctx mod = do
   preludes <- _loadPrelude ctx mod
   if mod == []
@@ -124,7 +170,7 @@ _loadPreludes ctx mod = do
       return $ _parents ++ preludes
 
 -- Look for a single package prelude. Caches the result.
-_loadPrelude :: CompileContext -> ModulePath -> IO [Statement]
+_loadPrelude :: CompileContext -> ModulePath -> IO [SyntacticStatement]
 _loadPrelude ctx mod = do
   -- look for a possible prelude module for this package
   existing <- h_lookup (ctxPreludes ctx) mod
@@ -155,7 +201,7 @@ _loadModule
   :: CompileContext
   -> ModulePath
   -> Maybe Span
-  -> IO (Module, [(SyntacticDecl, Span)])
+  -> IO (Module, [SyntacticStatement])
 _loadModule ctx mod pos = do
   (fp, exprs) <- parseModuleExprs ctx mod Nothing pos
   prelude     <- if last mod == "prelude"
@@ -189,7 +235,7 @@ addModuleTypes ctx tp = do
 _loadImportedModule
   :: CompileContext
   -> (ModulePath, Span)
-  -> IO (Either KitError [(Module, [(SyntacticDecl, Span)])])
+  -> IO (Either KitError [(Module, [SyntacticStatement])])
 _loadImportedModule ctx (mod, pos) = try $ loadModule ctx mod (Just pos)
 
 parseModuleExprs
@@ -197,7 +243,7 @@ parseModuleExprs
   -> ModulePath
   -> Maybe FilePath
   -> Maybe Span
-  -> IO (FilePath, [Statement])
+  -> IO (FilePath, [SyntacticStatement])
 parseModuleExprs ctx mod fp pos = do
   path <- case fp of
     Just fp -> do
@@ -210,141 +256,29 @@ parseModuleExprs ctx mod fp pos = do
       h_insert (ctxFailedModules ctx) mod ()
       throwk e
 
-interfaceTypeConverter
-  :: CompileContext
-  -> Module
-  -> Span
-  -> [TypePath]
-  -> Maybe TypeSpec
-  -> IO ConcreteType
-interfaceTypeConverter ctx mod pos typeParams (Just (ConstantTypeSpec v _)) =
-  return $ ConstantType v
-interfaceTypeConverter ctx mod pos (h : t) x@(Just (TypeSpec tp [] _)) =
-  if h == tp || ((null $ fst tp) && tpName tp == tpName h)
-    then return $ TypeTypeParam h
-    else interfaceTypeConverter ctx mod pos t x
-interfaceTypeConverter ctx mod pos typeParams (Just x) =
-  return $ UnresolvedType x $ modPath mod
-interfaceTypeConverter ctx mod pos typeParams x = makeTypeVar ctx pos
-
-addStmtToModuleInterface
-  :: CompileContext -> Module -> Statement -> IO [(SyntacticDecl, Span)]
-addStmtToModuleInterface ctx mod s = do
-  -- the expressions from these conversions shouldn't be used;
-  -- we'll use the actual typed versions generated later
-  let interfaceParamConverter tp params = converter
-        (\e -> do
-          tv <- if null params
-            then makeTypeVar ctx (ePos e)
-            else makeTemplateVar ctx params (ePos e)
-          return $ makeExprTyped (This) tv (ePos e)
-        )
-        (\pos t -> interfaceTypeConverter ctx mod pos params t)
-  let interfaceConverter = interfaceParamConverter ([], "") []
-  decls <- case stmt s of
-    TypeDeclaration d -> do
-      let extern = hasMeta "extern" (typeMeta d)
-      let name   = tpName $ typeName d
-      let tp     = (if extern then [] else modPath mod, name)
-      d <- return $ d { typeName = tp }
-      h_insert (ctxTypes ctx) tp $ TypeBinding d
-      return [DeclType d]
-
-    TraitDeclaration d -> do
-      let name = tpName $ traitName d
-      let tp   = (modPath mod, name)
-      d <- return $ d { traitName = tp }
-      h_insert (ctxTypes ctx) tp $ TraitBinding d
-      return [DeclTrait d]
-
-    ModuleVarDeclaration d -> do
-      let extern = hasMeta "extern" (varMeta d)
-      let name   = tpName $ varName d
-      let tp     = (if extern then [] else modPath mod, name)
-      converted <- convertVarDefinition interfaceConverter (d { varName = tp })
-      when extern $ recordGlobalName name
-      d <- return $ d { varName = tp }
-      return [DeclVar d]
-
-    FunctionDeclaration d@(FunctionDefinition { functionVarargs = varargs }) ->
-      do
-        let
-          isMain =
-            functionName d == ([], "main") && (ctxMainModule ctx == modPath mod)
-        let extern = (hasMeta "extern" (functionMeta d)) || isMain
-        let name   = tpName $ functionName d
-        let tp     = (if extern then [] else modPath mod, name)
-        when extern $ recordGlobalName name
-        d <- return $ d { functionName = tp }
-        return [DeclFunction d]
-
-    RuleSetDeclaration r -> do
-      let name = tpName $ ruleSetName r
-      let tp   = (modPath mod, name)
-      r <- return $ r { ruleSetName = tp }
-      h_insert (ctxTypes ctx) tp $ RuleSetBinding r
-      return [DeclRuleSet r]
-
-    Specialize a b -> do
-      modifyIORef (modSpecializations mod) (\l -> ((a, b), stmtPos s) : l)
-      return []
-
-    Implement i -> do
-      let
-        impl = i
-          { implName = ( modPath mod
-                       , s_hash
-                         ( s_concat
-                         $ map (s_pack . show) [implTrait i, implFor i]
-                         )
-                       )
-          }
-      return [DeclImpl impl]
-
-    ModuleUsing using -> do
-      return [DeclUsing using]
-
-    _ -> return []
-  return [ (decl, pos) | decl <- decls ]
- where
-  pos = stmtPos s
-  recordGlobalName name = do
-    existing <- lookupBinding ctx ([], name)
-    case existing of
-      Just b ->
-        throwk $ DuplicateGlobalNameError (modPath mod) name (bindingPos b) pos
-      _ -> return ()
-
 findImports
-  :: CompileContext -> ModulePath -> [Statement] -> IO [(ModulePath, Span)]
+  :: CompileContext
+  -> ModulePath
+  -> [SyntacticStatement]
+  -> IO [(ModulePath, Span)]
 findImports ctx mod stmts = do
   r <- foldM
     (\acc e -> case e of
-      Statement { stmt = Import mp False, stmtPos = p } ->
-  -- eliminate self imports (e.g. from prelude)
-        return $ if mod == mp then acc else (mp, p) : acc
-      Statement { stmt = Import mp True, stmtPos = p } -> do
-        results <- forM (ctxSourcePaths ctx) $ \dir -> do
-          let dirPath = dir </> (moduleFilePath mp -<.> "")
-          exists <- doesDirectoryExist dirPath
-          if not exists
-            then return []
-            else do
-              files <- listDirectory dirPath
-              return
-                $ [ mp ++ [s_pack $ file -<.> ""]
-                  | file <- files
-                  , takeExtension file == ".kit"
-                  , file /= "prelude.kit"
-                  ]
-        return $ [ (i, p) | i <- foldr (++) [] results ] ++ acc
+      Statement { stmt = Import mp importType, stmtPos = p } ->
+        case importType of
+          ImportSingle ->
+            -- eliminate self imports (e.g. from prelude)
+            return $ if mod == mp then acc else (mp, p) : acc
+          x | x == ImportWildcard || x == ImportDoubleWildcard -> do
+            results <- findPackageContents ctx mp (x == ImportDoubleWildcard)
+            return $ [ (i, p) | i <- results ] ++ acc
       _ -> return acc
     )
     []
     stmts
   return $ reverse r
 
-findIncludes :: [Statement] -> [(FilePath, Span)]
+findIncludes :: [SyntacticStatement] -> [(FilePath, Span)]
 findIncludes stmts = foldr
   (\e acc -> case e of
     Statement { stmt = Include ip _, stmtPos = p } -> (ip, p) : acc
@@ -353,8 +287,7 @@ findIncludes stmts = foldr
   []
   stmts
 
-
-findLibs :: [Statement] -> [Str]
+findLibs :: [SyntacticStatement] -> [Str]
 findLibs stmts = foldr
   (\e acc -> case e of
     Statement { stmt = Include _ (Just s), stmtPos = p } -> s : acc

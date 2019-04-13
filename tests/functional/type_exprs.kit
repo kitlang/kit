@@ -1,0 +1,19 @@
+function main() {
+    var m1 = Map[Int, Float].new(1);
+    var m2 = Map[Int, Map[Int, Int]].new(1);
+    var m3 = Map[Int, (Int, Float)].new(1);
+    var m4 = Map[Int, (Int, Map[Int, Int])].new(1);
+    var m5 = Map[Int, (Int, Shared[Int])].new(1);
+
+    m1.put(1, 1.0);
+    m2.put(2, Map[Int, Int].new(1));
+    m3.put(3, (1, 2.0));
+    m4.put(4, (3, Map[Int, Int].new(1)));
+    m5.put(5, (1, Shared.alloc(1)));
+
+    printf("%zu\n", m1.length);
+    printf("%zu\n", m2.length);
+    printf("%zu\n", m3.length);
+    printf("%zu\n", m4.length);
+    printf("%zu\n", m5.length);
+}

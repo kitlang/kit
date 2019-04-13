@@ -3,6 +3,7 @@
 module Main where
 
 import Control.Monad
+import Data.List
 import Data.Time
 import System.Environment
 import System.Exit
@@ -21,11 +22,14 @@ data Options = Options {
   optMainModule :: String,
   optShowVersion :: Bool,
   optVerbose :: Int,
+  optQuiet :: Bool,
   optTarget :: String,
   optBuildDir :: FilePath,
   optOutputPath :: FilePath,
   optSourcePaths :: [FilePath],
   optIncludePaths :: [FilePath],
+  optCompilerFlags :: [String],
+  optLinkerFlags :: [String],
   optCompilerPath :: Maybe FilePath,
   optDefines :: [String],
   optIsLibrary :: Bool,
@@ -57,6 +61,7 @@ options =
             )
           )
         )
+    <*> switch (long "quiet" <> short 'q' <> help "show less output")
     <*> strOption
           (  long "target"
           <> short 't'
@@ -82,6 +87,8 @@ options =
           )
     <*> many sourceDirParser
     <*> many includeDirParser
+    <*> many compilerFlagParser
+    <*> many linkerFlagParser
     <*> (optional $ strOption
           (long "cc" <> metavar "PATH" <> help "path to the C compiler")
         )
@@ -110,6 +117,14 @@ options =
           (long "run" <> help "run the program after successful compilation")
     <*> switch (long "no-mangle" <> help "disables name mangling")
 
+compilerFlagParser = strOption
+  (long "compile-flag" <> short 'c' <> metavar "FLAG" <> help
+    "add a compiler flag; can be repeated"
+  )
+linkerFlagParser = strOption
+  (long "linker-flag" <> short 'l' <> metavar "FLAG" <> help
+    "add a linker flag; can be repeated"
+  )
 sourceDirParser = strOption
   (long "src" <> short 's' <> metavar "DIR" <> help
     "add a source directory; can be repeated"
@@ -131,8 +146,7 @@ p = prefs (showHelpOnError)
 
 main :: IO ()
 main = do
-  startTime <- getCurrentTime
-  argv      <- getArgs
+  argv <- getArgs
   let args = if length argv == 0 then ["--help"] else argv
 
   opts <- handleParseResult $ execParserPure
@@ -150,46 +164,48 @@ main = do
   if optShowVersion opts
     then putStrLn $ "kitc v" ++ version
     else do
-      modules         <- h_new
-      stdPath         <- findStd
-      baseContext     <- newCompileContext
-      defaultIncludes <- defaultIncludePaths
-      let
-        (mainModule, sourcePaths) = decideModuleAndSourcePaths (s_pack $ optMainModule opts) (optSourcePaths opts)
-        ctx = baseContext
-          { ctxMainModule   = parseModulePath $ mainModule
-          , ctxIsLibrary    = optIsLibrary opts
-          , ctxBuildDir     = optBuildDir opts
-          , ctxOutputPath   = optOutputPath opts
-          , ctxCompilerPath = optCompilerPath opts
-          , ctxIncludePaths = optIncludePaths opts ++ defaultIncludes
-          , ctxSourcePaths  = sourcePaths ++ stdPath
-          , ctxDefines      = map
-            (\s -> (takeWhile (/= '=') s, drop 1 $ dropWhile (/= '=') s))
-            (optDefines opts)
-          , ctxModules      = modules
-          , ctxVerbose      = optVerbose opts
-          , ctxNoCompile    = optNoCompile opts
-          , ctxNoLink       = optNoLink opts
-          , ctxDumpAst      = optDumpAst opts
-          , ctxNoCcache     = optNoCcache opts
-          , ctxRun          = optRun opts
-          , ctxNameMangling = not $ optNoMangle opts
-          }
+      stdPath     <- findStd
+      cc          <- getCompiler $ optCompilerPath opts
+      baseContext <- newCompileContext
+      let (mainModule, sourcePaths) = decideModuleAndSourcePaths
+            (s_pack $ optMainModule opts)
+            (optSourcePaths opts)
+          ctx = baseContext
+            { ctxMainModule   = parseModulePath $ mainModule
+            , ctxIsLibrary    = optIsLibrary opts
+            , ctxBuildDir     = optBuildDir opts
+            , ctxOutputPath   = optOutputPath opts
+            , ctxIncludePaths = optIncludePaths opts
+            , ctxSourcePaths  = map parseSourcePath $ sourcePaths ++ stdPath
+            , ctxDefines      = map
+              (\s -> (takeWhile (/= '=') s, drop 1 $ dropWhile (/= '=') s))
+              (optDefines opts)
+            , ctxVerbose      = if optQuiet opts then -1 else optVerbose opts
+            , ctxNoCompile     = optNoCompile opts
+            , ctxNoLink        = optNoLink opts
+            , ctxDumpAst       = optDumpAst opts
+            , ctxNoCcache      = optNoCcache opts
+            , ctxRun           = optRun opts
+            , ctxNameMangling  = not $ optNoMangle opts
+            , ctxCompilerFlags = optCompilerFlags opts
+            , ctxLinkerFlags   = optLinkerFlags opts
+            }
 
-      result  <- tryCompile ctx
-      endTime <- getCurrentTime
-      errors  <- case result of
+      result <- tryCompile ctx cc
+      errors <- case result of
         Left e -> do
           let errs = flattenErrors e
           mapM_ logError $ errs
           return $ length errs
         Right () -> return 0
-      printLog
-        $  "total time: "
-        ++ (show $ diffUTCTime endTime startTime)
+
       if errors == 0
         then return ()
         else do
           errorLog $ "compilation failed (" ++ show errors ++ " errors)"
           exitWith $ ExitFailure 1
+
+parseSourcePath :: String -> (FilePath, ModulePath)
+parseSourcePath (':' : ':' : t) = ("", parseModulePath $ s_pack t)
+parseSourcePath (h         : t) = let (a, b) = parseSourcePath t in (h : a, b)
+parseSourcePath []              = ("", [])

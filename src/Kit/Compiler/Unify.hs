@@ -42,14 +42,17 @@ getAbstractParents ctx tctx t = do
     TypeInstance tp params -> do
       def <- getTypeDefinition ctx tp
       case typeSubtype def of
-        Abstract { abstractUnderlyingType = t' } -> do
-          let tctx' = addTypeParams
-                tctx
-                [ (typeSubPath def $ paramName param, value)
-                | (param, value) <- zip (typeParams def) params
-                ]
-          t       <- mapType (follow ctx tctx') t'
-          parents <- getAbstractParents ctx tctx' t
+        Abstract { abstractUnderlyingType = TypeVoid } -> return []
+        Abstract { abstractUnderlyingType = t' }       -> do
+          tctx <- addTypeParams
+            ctx
+            tctx
+            [ (typeSubPath def $ paramName param, value)
+            | (param, value) <- zip (typeParams def) params
+            ]
+            (typePos def)
+          t       <- mapType (follow ctx tctx) t'
+          parents <- getAbstractParents ctx tctx t
           return $ t : parents
         _ -> return []
     _ -> return []
@@ -83,7 +86,10 @@ unifyBase ctx tctx strict a' b'         = do
   a <- mapType (follow ctx tctx) a'
   b <- mapType (follow ctx tctx) b'
   case (a, b) of
-    (TypeSelf, x) -> case tctxSelf tctx of
+    (MethodTarget a, MethodTarget b) -> r a b
+    -- FIXME: this shouldn't be necessary, but MethodTarget sometimes bleeds through type inference
+    (a             , MethodTarget b) -> if strict then return Nothing else r a b
+    (TypeSelf      , x             ) -> case tctxSelf tctx of
       Just y  -> r y x
       Nothing -> return Nothing
     (TypeTypeVar i, TypeTraitConstraint t) -> do
@@ -122,11 +128,15 @@ unifyBase ctx tctx strict a' b'         = do
     (TypeTraitConstraint t, x) -> do
       impl <- resolveTraitConstraint ctx tctx t x
       if impl then return $ Just [] else fallBackToAbstractParent a b
-    (_, TypeTraitConstraint v) -> r b a
-    (TypeBasicType a, TypeBasicType b) -> return $ unifyBasic a b
-    (TypePtr (TypeBasicType BasicTypeVoid), TypePtr _) -> return $ Just []
-    (TypePtr _, TypePtr (TypeBasicType BasicTypeVoid)) -> return $ Just []
-    (TypePtr a, TypePtr b) -> r a b
+    (_, TypeTraitConstraint v                ) -> r b a
+    (TypeBasicType a, TypeBasicType b        ) -> return $ unifyBasic a b
+    (TypePtr       (TypeBasicType BasicTypeVoid), TypePtr _) -> return $ Just []
+    (TypePtr       _, TypePtr (TypeBasicType BasicTypeVoid)) -> return $ Just []
+    (TypePtr (TypeBasicType BasicTypeVoid), TypeFunction _ _ _ _) ->
+      return $ Just []
+    (TypeFunction _ _ _ _, TypePtr (TypeBasicType BasicTypeVoid)) ->
+      return $ Just []
+    (TypePtr   a, TypePtr b  )                        -> r a b
     (TypeTuple a, TypeTuple b) | length a == length b -> do
       vals <- forM (zip a b) (\(a, b) -> r a b)
       return $ checkResults vals
@@ -147,17 +157,23 @@ unifyBase ctx tctx strict a' b'         = do
           return $ checkResults paramMatch
         else return Nothing
     (TypeArray t1 s1, TypeArray t2 s2) | (s1 > 0) && (s1 == s2) -> r t1 t2
-    (TypeArray t1 0 , TypeArray t2 _ )                          -> r t1 t2
-    (TypeArray t1 _ , TypePtr t2     )                          -> r t1 t2
+    (TypeArray t1 0, TypeArray t2 _) -> r t1 t2
+    (TypeArray t1 _, TypePtr t2) -> r t1 t2
+    (a, b) | (typeIsIntegral a) && (typeIsIntegral b) -> return $ Just []
+    (TypeFloat _, b) | typeIsIntegral b -> return $ Just []
     (TypeInstance tp1 params1, TypeInstance tp2 params2) ->
       if (tp1 == tp2) && (length params1 == length params2)
         then do
           paramMatch <- mapM (\(a, b) -> rStrict a b) (zip params1 params2)
           return $ checkResults paramMatch
-        else if strict then return Nothing else fallBackToAbstractParent a b
+        else if strict
+          then demoteAndFallBack a b
+          else fallBackToAbstractParent a b
     (_, TypeInstance tp1 params1) -> if a == b
       then return $ Just []
-      else if strict then return Nothing else fallBackToAbstractParent a b
+      else if strict
+        then demoteAndFallBack a b
+        else fallBackToAbstractParent a b
     (TypeInstance tp1 params1, _) ->
       -- in case of #[promote]
       fallBackToAbstractParent a b
@@ -168,10 +184,18 @@ unifyBase ctx tctx strict a' b'         = do
     (TypeAnonEnum (Just a) _, TypeAnonEnum (Just b) _) ->
       if a == b then return $ Just [] else return Nothing
     (a, b) | a == b -> return $ Just []
-    _ -> return Nothing
+    _               -> return Nothing
  where
   r       = unifyBase ctx tctx strict
   rStrict = unifyStrict ctx tctx
+  demoteAndFallBack a b = do
+    case b of
+      TypeInstance tp params -> do
+        t <- getTypeDefinition ctx tp
+        if hasMeta metaDemote (typeMeta t)
+          then fallBackToAbstractParent a b
+          else return Nothing
+      _ -> return Nothing
   fallBackToAbstractParent a b = do
     parents <- getAbstractParents ctx tctx b
     if not (null parents)
@@ -189,14 +213,12 @@ unifyBase ctx tctx strict a' b'         = do
         _ -> return Nothing
 
 unifyBasic :: BasicType -> BasicType -> Maybe [TypeInformation]
-unifyBasic (BasicTypeVoid)    (BasicTypeVoid) = Just []
+unifyBasic (BasicTypeUnknown) (_)             = Nothing
+unifyBasic a                  b | a == b      = Just []
 unifyBasic (BasicTypeVoid)    _               = Nothing
 unifyBasic _                  (BasicTypeVoid) = Nothing
-unifyBasic a                  b | (typeIsIntegral a) && (typeIsIntegral b) = Just []
-unifyBasic (BasicTypeFloat _) b | (typeIsIntegral b) = Just []
-unifyBasic (BasicTypeUnknown) (_     )        = Nothing
-unifyBasic (CPtr a          ) (CPtr b)        = unifyBasic a b
-unifyBasic a b = if a == b then Just [] else Nothing
+unifyBasic (CPtr a)           (CPtr b       ) = unifyBasic a b
+unifyBasic a                  b               = Nothing
 
 resolveConstraint :: CompileContext -> TypeContext -> TypeConstraint -> IO ()
 resolveConstraint ctx tctx constraint@(TypeEq a b reason pos) = do
@@ -312,3 +334,12 @@ mergeFunctionInfo ctx tctx f1 f2 rtMsg argMsg = do
     (TypeEq (functionType f1) (functionType f2) rtMsg (functionPos f1))
   forM_ (zip (functionArgs f1) (functionArgs f2))
         (\(arg1, arg2) -> mergeArgInfo ctx tctx arg1 arg2 argMsg)
+
+typeIsIntegral :: ConcreteType -> Bool
+typeIsIntegral (TypeInt  _)  = True
+typeIsIntegral (TypeUint _)  = True
+typeIsIntegral TypeChar      = True
+typeIsIntegral TypeSize      = True
+typeIsIntegral TypeSize      = True
+typeIsIntegral (TypeConst t) = typeIsIntegral t
+typeIsIntegral _             = False

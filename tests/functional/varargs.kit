@@ -1,0 +1,14 @@
+include "stdarg.h";
+
+function f(num: Int, b...) {
+    printf("args: %i\n", num);
+    for i in 0 ... num {
+        var x: Int = b;
+        printf("%i\n", x);
+    }
+}
+
+function main() {
+    f(3, 1, 2, 3);
+    f(5, 4, 5, 6, 7, 8);
+}

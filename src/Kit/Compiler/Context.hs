@@ -4,12 +4,14 @@ import Control.Exception
 import Control.Monad
 import Data.IORef
 import Data.List
+import Data.Maybe
 import System.Directory
 import System.Environment
 import System.FilePath
 import System.Info
 import Kit.Ast
 import Kit.Compiler.Binding
+import Kit.Compiler.CCompiler
 import Kit.Compiler.Module
 import Kit.Compiler.Scope
 import Kit.Compiler.TypedExpr
@@ -19,33 +21,24 @@ import Kit.Log
 import Kit.NameMangling
 import Kit.Str
 
+data DuplicateGlobalNameError = DuplicateGlobalNameError ModulePath Str Span Span deriving (Eq, Show)
+instance Errable DuplicateGlobalNameError where
+  logError e@(DuplicateGlobalNameError mod name pos1 pos2) = do
+    logErrorBasic e $ "Duplicate declaration for global name `" ++ s_unpack name ++ "` in " ++ s_unpack (showModulePath mod) ++ "; \n\nFirst declaration:"
+    ePutStrLn "\nSecond declaration:"
+    displayFileSnippet pos2
+    ePutStrLn "\n#[extern] declarations and declarations from included C headers must have globally unique names."
+  errPos (DuplicateGlobalNameError _ _ pos _) = Just pos
+
 data CompileContext = CompileContext {
   -- state
-  ctxModules :: HashTable ModulePath Module,
-  ctxFailedModules :: HashTable ModulePath (),
-  ctxPreludes :: HashTable ModulePath [Statement],
-  ctxIncludes :: IORef [FilePath],
-  ctxLinkedLibs :: IORef [Str],
-  ctxLastTypeVar :: IORef Int,
-  ctxLastTemplateVar :: IORef Int,
-  ctxTypeVariables :: HashTable Int TypeVarInfo,
-  ctxTemplateVariables :: HashTable Int (HashTable Str Int),
-  ctxTraitSpecializations :: HashTable TypePath (ConcreteType, Span),
-  ctxImpls :: HashTable TraitConstraint (HashTable ConcreteType (TraitImplementation TypedExpr ConcreteType)),
-  -- ctxGenericImpls :: HashTable
-  ctxTypes :: HashTable TypePath SyntacticBinding,
-  ctxBindings :: HashTable TypePath TypedBinding,
-  ctxTypedefs :: HashTable Str ConcreteType,
-  ctxPendingGenerics :: IORef [(TypePath, [ConcreteType])],
-  ctxCompleteGenerics :: HashTable TypePath (HashTable [ConcreteType] ()),
-  ctxUnresolvedTypeVars :: IORef [Int],
-  ctxUnresolvedTemplateVars :: IORef [(Int, [ConcreteType], Span)],
+  ctxState :: CompileContextState,
 
   -- options
   ctxVerbose :: Int,
   ctxMainModule :: ModulePath,
   ctxIsLibrary :: Bool,
-  ctxSourcePaths :: [FilePath],
+  ctxSourcePaths :: [(FilePath, ModulePath)],
   ctxCompilerPath :: Maybe FilePath,
   ctxIncludePaths :: [FilePath],
   ctxBuildDir :: FilePath,
@@ -59,11 +52,62 @@ data CompileContext = CompileContext {
   ctxNoCcache :: Bool,
   ctxRecursionLimit :: Int,
   ctxRun :: Bool,
-  ctxNameMangling :: Bool
+  ctxResultHandler :: Maybe (String -> IO ()),
+  ctxNameMangling :: Bool,
+  ctxMacro :: Maybe (FunctionDefinition Expr (Maybe TypeSpec), [(Int, [Expr])])
+}
+
+data CompileContextState = CompileContextState {
+  ctxStateModules :: HashTable ModulePath Module,
+  ctxStateFailedModules :: HashTable ModulePath (),
+  ctxStatePreludes :: HashTable ModulePath [SyntacticStatement],
+  ctxStateIncludes :: IORef [FilePath],
+  ctxStateLinkedLibs :: IORef [Str],
+  ctxStateLastTypeVar :: IORef Int,
+  ctxStateLastTemplateVar :: IORef Int,
+  ctxStateTypeVariables :: HashTable Int TypeVarInfo,
+  ctxStateTemplateVariables :: HashTable Int (HashTable Str Int),
+  ctxStateTraitDefaults :: HashTable TypePath (ConcreteType, Span),
+  ctxStateImpls :: HashTable TraitConstraint (HashTable ConcreteType (TraitImplementation TypedExpr ConcreteType)),
+  -- ctxStateGenericImpls :: HashTable
+  ctxStateTypes :: HashTable TypePath SyntacticBinding,
+  ctxStateBindings :: HashTable TypePath TypedBinding,
+  ctxStateTypedefs :: HashTable Str ConcreteType,
+  ctxStateTuples :: IORef [(ModulePath, ConcreteType)],
+  ctxStatePendingGenerics :: IORef [(TypePath, [ConcreteType])],
+  ctxStateCompleteGenerics :: HashTable TypePath (HashTable [ConcreteType] ()),
+  ctxStateUnresolvedTypeVars :: IORef [Int],
+  ctxStateUnresolvedTemplateVars :: IORef [(Int, [ConcreteType], Span)]
 }
 
 newCompileContext :: IO CompileContext
 newCompileContext = do
+  state <- newCtxState
+  return $ CompileContext
+    { ctxMainModule     = ["main"]
+    , ctxIsLibrary      = False
+    , ctxSourcePaths    = [("src", [])]
+    , ctxCompilerPath   = Nothing
+    , ctxIncludePaths   = []
+    , ctxBuildDir       = "build"
+    , ctxOutputPath     = "main"
+    , ctxDefines        = []
+    , ctxVerbose        = 0
+    , ctxCompilerFlags  = []
+    , ctxLinkerFlags    = []
+    , ctxNoCompile      = False
+    , ctxNoLink         = False
+    , ctxDumpAst        = False
+    , ctxNoCcache       = False
+    , ctxRecursionLimit = 64
+    , ctxRun            = False
+    , ctxResultHandler  = Nothing
+    , ctxNameMangling   = True
+    , ctxMacro          = Nothing
+    , ctxState          = state
+    }
+
+newCtxState = do
   mods               <- h_new
   failed             <- h_new
   preludes           <- h_new
@@ -71,9 +115,10 @@ newCompileContext = do
   linkedLibs         <- newIORef []
   lastTypeVar        <- newIORef 0
   lastTemplateVar    <- newIORef 0
-  specs              <- h_new
+  defaults           <- h_new
   impls              <- h_new
   typedefs           <- h_new
+  tuples             <- newIORef []
   -- make these big so we're less likely to have to resize later
   typeVars           <- h_newSized 4096
   templateVars       <- h_newSized 2048
@@ -83,45 +128,47 @@ newCompileContext = do
   completeGenerics   <- h_new
   unresolved         <- newIORef []
   unresolvedTemplate <- newIORef []
-  defaultIncludes    <- defaultIncludePaths
-  return $ CompileContext
-    { ctxMainModule             = ["main"]
-    , ctxIsLibrary              = False
-    , ctxSourcePaths            = ["src"]
-    , ctxCompilerPath           = Nothing
-    , ctxIncludePaths           = defaultIncludes
-    , ctxBuildDir               = "build"
-    , ctxOutputPath             = "main"
-    , ctxDefines                = []
-    , ctxModules                = mods
-    , ctxFailedModules          = failed
-    , ctxPreludes               = preludes
-    , ctxVerbose                = 0
-    , ctxIncludes               = includes
-    , ctxLinkedLibs             = linkedLibs
-    , ctxLastTypeVar            = lastTypeVar
-    , ctxLastTemplateVar        = lastTemplateVar
-    , ctxUnresolvedTypeVars     = unresolved
-    , ctxUnresolvedTemplateVars = unresolvedTemplate
-    , ctxTypeVariables          = typeVars
-    , ctxTemplateVariables      = templateVars
-    , ctxTraitSpecializations   = specs
-    , ctxImpls                  = impls
-    , ctxTypedefs               = typedefs
-    , ctxTypes                  = types
-    , ctxBindings               = bindings
-    , ctxPendingGenerics        = pendingGenerics
-    , ctxCompleteGenerics       = completeGenerics
-    , ctxCompilerFlags          = []
-    , ctxLinkerFlags            = []
-    , ctxNoCompile              = False
-    , ctxNoLink                 = False
-    , ctxDumpAst                = False
-    , ctxNoCcache               = False
-    , ctxRecursionLimit         = 64
-    , ctxRun                    = False
-    , ctxNameMangling           = True
+  return $ CompileContextState
+    { ctxStateIncludes               = includes
+    , ctxStateLinkedLibs             = linkedLibs
+    , ctxStateLastTypeVar            = lastTypeVar
+    , ctxStateLastTemplateVar        = lastTemplateVar
+    , ctxStateUnresolvedTypeVars     = unresolved
+    , ctxStateUnresolvedTemplateVars = unresolvedTemplate
+    , ctxStateTypeVariables          = typeVars
+    , ctxStateTemplateVariables      = templateVars
+    , ctxStateTraitDefaults          = defaults
+    , ctxStateImpls                  = impls
+    , ctxStateTypedefs               = typedefs
+    , ctxStateTuples                 = tuples
+    , ctxStateTypes                  = types
+    , ctxStateBindings               = bindings
+    , ctxStatePendingGenerics        = pendingGenerics
+    , ctxStateCompleteGenerics       = completeGenerics
+    , ctxStateModules                = mods
+    , ctxStateFailedModules          = failed
+    , ctxStatePreludes               = preludes
     }
+
+ctxModules = ctxStateModules . ctxState
+ctxFailedModules = ctxStateFailedModules . ctxState
+ctxPreludes = ctxStatePreludes . ctxState
+ctxIncludes = ctxStateIncludes . ctxState
+ctxLinkedLibs = ctxStateLinkedLibs . ctxState
+ctxLastTypeVar = ctxStateLastTypeVar . ctxState
+ctxLastTemplateVar = ctxStateLastTemplateVar . ctxState
+ctxTypeVariables = ctxStateTypeVariables . ctxState
+ctxTemplateVariables = ctxStateTemplateVariables . ctxState
+ctxTraitDefaults = ctxStateTraitDefaults . ctxState
+ctxImpls = ctxStateImpls . ctxState
+ctxTypes = ctxStateTypes . ctxState
+ctxBindings = ctxStateBindings . ctxState
+ctxTypedefs = ctxStateTypedefs . ctxState
+ctxTuples = ctxStateTuples . ctxState
+ctxPendingGenerics = ctxStatePendingGenerics . ctxState
+ctxCompleteGenerics = ctxStateCompleteGenerics . ctxState
+ctxUnresolvedTypeVars = ctxStateUnresolvedTypeVars . ctxState
+ctxUnresolvedTemplateVars = ctxStateUnresolvedTemplateVars . ctxState
 
 ctxSourceModules :: CompileContext -> IO [Module]
 ctxSourceModules ctx = do
@@ -135,7 +182,10 @@ addTypeBinding :: CompileContext -> TypePath -> SyntacticBinding -> IO ()
 addTypeBinding ctx tp b = h_insert (ctxTypes ctx) tp b
 
 lookupBinding :: CompileContext -> TypePath -> IO (Maybe TypedBinding)
-lookupBinding ctx tp = h_lookup (ctxBindings ctx) tp
+lookupBinding ctx tp = do
+  result <- h_lookup (ctxBindings ctx) tp
+  case result of
+    _ -> return result
 
 getBinding :: CompileContext -> TypePath -> IO TypedBinding
 getBinding ctx tp = do
@@ -156,10 +206,10 @@ getMod ctx mod = do
       Nothing
 
 makeTypeVar :: CompileContext -> Span -> IO ConcreteType
-makeTypeVar ctx NoPos = throwk $ InternalError
-  -- type vars from nowhere are impossible to debug, so disallow them
-  ("Attempt to make type variable with no position data")
-  Nothing
+-- makeTypeVar ctx NoPos = throwk $ InternalError
+--   -- type vars from nowhere are impossible to debug, so disallow them
+--   ("Attempt to make type variable with no position data")
+--   Nothing
 makeTypeVar ctx pos = do
   last <- readIORef (ctxLastTypeVar ctx)
   let next = last + 1
@@ -223,19 +273,13 @@ resolveVar ctx scopes mod s = do
   case local of
     Just _  -> return local
     Nothing -> do
-      imports <- getModImports ctx mod
       foldM
         (\acc v -> case acc of
           Just _  -> return acc
           Nothing -> lookupBinding ctx (v, s)
         )
         Nothing
-        imports
-
-getModImports :: CompileContext -> Module -> IO [ModulePath]
-getModImports ctx mod = do
-  let imports = map fst $ modImports mod
-  return $ (modPath mod) : (imports ++ [[]])
+        (modImportPaths mod)
 
 makeGeneric
   :: CompileContext
@@ -309,6 +353,9 @@ makeGenericConcrete ctx pos t = case t of
   TypeTraitConstraint (tp, p) -> do
     params <- makeGeneric ctx tp pos p
     return $ TypeTraitConstraint (tp, map snd params)
+  TypeTuple t -> do
+    t <- forM t $ makeGenericConcrete ctx pos
+    return $ TypeTuple t
   _ -> return t
 
 getTypeDefinition
@@ -378,35 +425,68 @@ findStd = do
           "darwin" -> ["/usr/local/lib/kit"]
           _        -> []
 
-defaultIncludePaths :: IO [FilePath]
-defaultIncludePaths = do
-  inc <- lookupEnv "INCLUDE_PATH"
-  case inc of
-    Just x  -> return $ splitDirs x
-    Nothing -> case os of
-      "linux"  -> return ["/usr/include/x86_64-linux-gnu", "/usr/include"]
-      "darwin" -> return ["/usr/include", "/usr/local/include"]
-      _        -> return []
-
 splitDirs f = case break (== ',') f of
   (a, ',' : b) -> a : splitDirs b
   (a, ""     ) -> [a]
 
-
 buildDir :: CompileContext -> FilePath
 buildDir ctx = ctxBuildDir ctx
 
-getCompilerFlags :: CompileContext -> IO [String]
-getCompilerFlags ctx = do
-  let ctxFlags = ctxCompilerFlags ctx
+findPackageContents :: CompileContext -> ModulePath -> Bool -> IO [ModulePath]
+findPackageContents ctx modPath recurse = do
+  x <- forM (ctxSourcePaths ctx) $ findPackageContents_ recurse modPath
+  return $ foldr (++) [] x
+
+findPackageContents_
+  :: Bool -> ModulePath -> (FilePath, ModulePath) -> IO [ModulePath]
+findPackageContents_ recurse m (dir, []) = do
+  let dirPath = dir </> (moduleFilePath m -<.> "")
+  exists <- doesDirectoryExist dirPath
+  if not exists
+    then return []
+    else do
+      files <- listDirectory dirPath
+      if recurse
+        then do
+          children <- forM files $ \file -> do
+            isDir <- doesDirectoryExist $ dirPath </> file
+            if isDir
+              then findPackageContents_ True (m ++ [s_pack file]) (dir, [])
+              else if isModule file
+                then return [m ++ [s_pack $ file -<.> ""]]
+                else return []
+          return $ foldr (++) [] children
+        else
+          return
+            $ [ m ++ [s_pack $ file -<.> ""] | file <- files, isModule file ]
+findPackageContents_ recurse (m : n) (dir, (h : t)) = if m == h
+  then do
+    contents <- findPackageContents_ recurse n (dir, t)
+    return $ [ (h : c) | c <- contents ]
+  else return []
+findPackageContents_ _ _ _ = return []
+
+isModule file = (takeExtension file == ".kit") && (file /= "prelude.kit")
+
+findCcache :: CompileContext -> IO (Maybe FilePath)
+findCcache ctx =
+  if ctxNoCcache ctx then return Nothing else findExecutable "ccache"
+
+getCtxCompilerFlags :: CompileContext -> IO [String]
+getCtxCompilerFlags ctx = do
+  let includeFlags = [ "-I" ++ path | path <- ctxIncludePaths ctx ]
+  let ctxFlags =
+        ctxCompilerFlags ctx
+          ++ (if ctxIsLibrary ctx then ["-fPIC"] else [])
+          ++ includeFlags
   envFlags <- lookupEnv "COMPILER_FLAGS"
   return $ case envFlags of
     -- FIXME
     Just s  -> ctxFlags ++ words s
     Nothing -> ctxFlags
 
-getLinkerFlags :: CompileContext -> IO [String]
-getLinkerFlags ctx = do
+getCtxLinkerFlags :: CompileContext -> IO [String]
+getCtxLinkerFlags ctx = do
   linkedLibs <- readIORef $ ctxLinkedLibs ctx
   let ctxFlags =
         [ "-l" ++ s_unpack lib | lib <- nub linkedLibs ] ++ ctxLinkerFlags ctx
@@ -416,60 +496,122 @@ getLinkerFlags ctx = do
     Just s  -> ctxFlags ++ words s
     Nothing -> ctxFlags
 
-findCompiler :: CompileContext -> IO FilePath
-findCompiler ctx = do
-  -- use the --cc flag if provided
-  case ctxCompilerPath ctx of
-    Just cc -> return cc
-    _       -> do
-      -- use a CC environment variable if it exists
-      ccEnv <- lookupEnv "CC"
-      case ccEnv of
-        Just cc -> return cc
-        Nothing -> do
-          -- look for a compiler next to kitc
-          let exes = ["cc", "gcc", "clang"]
-          exePath <- getExecutablePath
-          let exeDir = takeDirectory exePath
-          exePaths <- mapM (findFile [exeDir]) exes
-          case msum exePaths of
-            Just cc -> return cc
-            Nothing -> do
-              -- search the user's executable paths
-              exePaths <- mapM findExecutable exes
-              case msum exePaths of
-                Just cc -> return cc
-                Nothing -> throwk $ BasicError
-                  ("Couldn't find a C compiler from your executable paths; tried looking for:\n\n"
-                  ++ intercalate "\n" ([ "  - " ++ exe | exe <- exes ])
-                  ++ "\n\nYou can set the compiler path explicitly using the CC environment variable"
-                  )
-                  Nothing
+interfaceTypeConverter
+  :: CompileContext
+  -> Module
+  -> Span
+  -> [TypePath]
+  -> Maybe TypeSpec
+  -> IO ConcreteType
+interfaceTypeConverter ctx mod pos typeParams (Just (ConstantTypeSpec v _)) =
+  return $ ConstantType v
+interfaceTypeConverter ctx mod pos (h : t) x@(Just (TypeSpec tp [] _)) =
+  if h == tp || ((null $ fst tp) && tpName tp == tpName h)
+    then return $ TypeTypeParam h
+    else interfaceTypeConverter ctx mod pos t x
+interfaceTypeConverter ctx mod pos typeParams (Just x) =
+  return $ UnresolvedType x $ modPath mod
+interfaceTypeConverter ctx mod pos typeParams x = makeTypeVar ctx pos
 
-findCcache :: CompileContext -> IO (Maybe FilePath)
-findCcache ctx =
-  if ctxNoCcache ctx then return Nothing else findExecutable "ccache"
+addStmtToModuleInterface
+  :: CompileContext -> Module -> SyntacticStatement -> IO [SyntacticStatement]
+addStmtToModuleInterface ctx mod s = do
+  -- the expressions from these conversions shouldn't be used;
+  -- we'll use the actual typed versions generated later
+  let interfaceParamConverter tp params = converter
+        (\e -> do
+          tv <- if null params
+            then makeTypeVar ctx (ePos e)
+            else makeTemplateVar ctx params (ePos e)
+          return $ makeExprTyped (This) tv (ePos e)
+        )
+        (\pos t -> interfaceTypeConverter ctx mod pos params t)
+  let interfaceConverter = interfaceParamConverter ([], "") []
+  decls <- case stmt s of
+    Typedef ([], name) t -> do
+      return [s { stmt = Typedef (modPath mod, name) t }]
 
-defaultCompileArgs :: CompileContext -> FilePath -> [String]
-defaultCompileArgs ctx cc =
-  [ "-D_GNU_SOURCE"
-    , "-D_BSD_SOURCE"
-    , "-D_DEFAULT_SOURCE"
-    , "-std=c99"
-    , "-pedantic"
-    , "-O3"
-    , "-Os"
-    ]
-    ++ (if ctxIsLibrary ctx then ["-fPIC"] else [])
-    ++ osSpecificDefaultCompileArgs os
-    ++ ccSpecificDefaultCompileArgs cc
+    TypeDeclaration d -> do
+      let extern = hasMeta "extern" (typeMeta d)
+      let name   = tpName $ typeName d
+      let tp     = (if extern then [] else modPath mod, name)
+      d <- return $ d { typeName = tp }
+      h_insert (ctxTypes ctx) tp $ TypeBinding d
+      return [s { stmt = TypeDeclaration d }]
 
-osSpecificDefaultCompileArgs "darwin" =
-  [ "-U__BLOCKS__"
-  , "-Wno-expansion-to-defined"
-  , "-Wno-gnu-zero-variadic-macro-arguments"
-  ]
-osSpecificDefaultCompileArgs _ = []
+    TraitDeclaration d -> do
+      let name = tpName $ traitName d
+      let tp   = (modPath mod, name)
+      d <- return $ d { traitName = tp }
+      h_insert (ctxTypes ctx) tp $ TraitBinding d
+      return [s { stmt = TraitDeclaration d }]
 
-ccSpecificDefaultCompileArgs "gcc" = ["-Wno-missing-braces"]
-ccSpecificDefaultCompileArgs _     = []
+    VarDeclaration d -> do
+      let extern = hasMeta "extern" (varMeta d)
+      let name   = tpName $ varName d
+      let tp     = (if extern then [] else modPath mod, name)
+      converted <- convertVarDefinition interfaceConverter (d { varName = tp })
+      when extern $ recordGlobalName name
+      d <- return $ d { varName = tp }
+      return [s { stmt = VarDeclaration d }]
+
+    FunctionDeclaration d@(FunctionDefinition { functionVararg = vararg }) ->
+      let isMain =
+            functionName d == ([], "main") && (ctxMainModule ctx == modPath mod)
+      in  case (ctxMacro ctx, isMain) of
+            (Just _, True) -> -- filter out main for macros
+              return []
+            _ -> do
+              let extern = (hasMeta "extern" (functionMeta d)) || isMain
+              let name   = tpName $ functionName d
+              let tp     = (if extern then [] else modPath mod, name)
+              when extern $ recordGlobalName name
+              d <- return $ d { functionName = tp }
+              return [s { stmt = FunctionDeclaration d }]
+
+    RuleSetDeclaration r -> do
+      let name = tpName $ ruleSetName r
+      let tp   = (modPath mod, name)
+      r <- return $ r { ruleSetName = tp }
+      h_insert (ctxTypes ctx) tp $ RuleSetBinding r
+      return [s { stmt = RuleSetDeclaration r }]
+
+    TraitDefault a b -> do
+      modifyIORef (modDefaults mod) (\l -> ((a, b), stmtPos s) : l)
+      return []
+
+    Implement i -> do
+      let
+        impl = i
+          { implName = ( modPath mod
+                       , s_hash
+                         ( s_concat
+                         $ map (s_pack . show) [implTrait i, implFor i]
+                         )
+                       )
+          }
+      return [s { stmt = Implement impl }]
+
+    ModuleUsing _ -> do
+      return [s]
+
+    ExtendDefinition _ _ -> do
+      return [s]
+
+    MacroDeclaration _ -> do
+      return [s]
+    MacroCall _ _ -> do
+      return [s]
+
+    _ -> return []
+
+  return decls
+ where
+  recordGlobalName name = do
+    existing <- lookupBinding ctx ([], name)
+    case existing of
+      Just b -> throwk $ DuplicateGlobalNameError (modPath mod)
+                                                  name
+                                                  (bindingPos b)
+                                                  (stmtPos s)
+      _ -> return ()

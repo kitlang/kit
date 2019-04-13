@@ -3,10 +3,12 @@
 module Kit.Ast.Definitions.TraitImplementation where
 
 import Control.Monad
+import Data.Hashable
 import GHC.Generics
 import Kit.Ast.Definitions.Base
 import Kit.Ast.Definitions.FunctionDefinition
 import Kit.Ast.Definitions.TraitDefinition
+import Kit.Ast.Definitions.VarDefinition
 import Kit.Ast.TypeParam
 import Kit.Ast.TypePath
 import Kit.Ast.Types
@@ -20,8 +22,12 @@ data TraitImplementation a b = TraitImplementation {
   implParams :: [TypeParam b],
   implAssocTypes :: [b],
   implMethods :: [FunctionDefinition a b],
+  implStaticFields :: [VarDefinition a b],
+  implStaticMethods :: [FunctionDefinition a b],
   implPos :: Span
 } deriving (Eq, Generic, Show)
+
+instance (Hashable a, Hashable b) => Hashable (TraitImplementation a b)
 
 instance Positioned (TraitImplementation a b) where
   position = implPos
@@ -32,13 +38,15 @@ associatedTypes traitDef impl =
   ]
 
 newTraitImplementation = TraitImplementation
-  { implName       = undefined
-  , implTrait      = undefined
-  , implFor        = undefined
-  , implParams     = []
-  , implAssocTypes = []
-  , implMethods    = []
-  , implPos        = NoPos
+  { implName          = undefined
+  , implTrait         = undefined
+  , implFor           = undefined
+  , implParams        = []
+  , implAssocTypes    = []
+  , implMethods       = []
+  , implStaticFields  = []
+  , implStaticMethods = []
+  , implPos           = NoPos
   }
 
 convertTraitImplementation
@@ -52,15 +60,22 @@ convertTraitImplementation converter@(Converter { exprConverter = exprConverter,
     for        <- typeConverter (implPos i) (implFor i)
     assocTypes <- forM (implAssocTypes i) $ typeConverter (implPos i)
     methods    <- forM (implMethods i)
-                       (\f -> convertFunctionDefinition (\p -> converter) f)
+                       (\f -> convertFunctionDefinition (\p -> return converter) f)
+    staticFields <- forM (implStaticFields i)
+                         (\f -> convertVarDefinition converter f)
+    staticMethods <- forM
+      (implStaticMethods i)
+      (\f -> convertFunctionDefinition (\p -> return converter) f)
     params <- forM (implParams i) $ convertTypeParam converter
-    return $ (newTraitImplementation) { implName       = implName i
-                                      , implTrait      = trait
-                                      , implFor        = for
-                                      , implParams     = params
-                                      , implAssocTypes = assocTypes
-                                      , implMethods    = methods
-                                      , implPos        = implPos i
+    return $ (newTraitImplementation) { implName          = implName i
+                                      , implTrait         = trait
+                                      , implFor           = for
+                                      , implParams        = params
+                                      , implAssocTypes    = assocTypes
+                                      , implMethods       = methods
+                                      , implStaticFields  = staticFields
+                                      , implStaticMethods = staticMethods
+                                      , implPos           = implPos i
                                       }
 
 vThisArgName :: Str

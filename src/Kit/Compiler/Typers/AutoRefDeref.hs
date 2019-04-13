@@ -36,31 +36,50 @@ _autoRefDeref
   -> ConcreteType
   -> TypedExpr
   -> IO (Maybe TypedExpr)
+_autoRefDeref ctx tctx (MethodTarget a) (MethodTarget b) ex = do
+  result <- _autoRefDeref ctx tctx a b ex
+  return $ case result of
+    Just ex -> Just $ ex
+      { inferredType = case inferredType ex of
+        MethodTarget t -> MethodTarget t
+        t              -> MethodTarget t
+      }
+    Nothing -> Nothing
 _autoRefDeref ctx tctx toType fromType ex = do
+  let r = _autoRefDeref ctx tctx
   toType   <- mapType (follow ctx tctx) toType
   fromType <- mapType (follow ctx tctx) fromType
-  result   <- unify ctx tctx toType fromType
+  result   <- unifyStrict ctx tctx toType fromType
   case result of
     Just _ -> return $ Just ex
     _      -> case (toType, fromType) of
-      (TypeBox tp params, b) -> do
+      (MethodTarget a   , _             ) -> return Nothing
+      (_                , MethodTarget b) -> return Nothing
+      (TypeBox tp params, b             ) -> do
         x <- makeBox ctx tctx tp params ex
         case x of
           Just x  -> return $ Just x
           Nothing -> return Nothing
-      (TypePtr a, TypePtr b) -> _autoRefDeref ctx tctx a b ex
-      (TypePtr a, b        ) -> _autoRefDeref ctx tctx a b (addRef ex)
+      (TypePtr a, TypePtr b                 ) -> r a b ex
+      (TypePtr a, b@(TypeInstance tp params)) -> do
+        -- special case for abstracts over pointers
+        result <- unifyStrict ctx tctx toType fromType
+        case result of
+          Just _  -> return $ Just ex
+          Nothing -> r a b (addRef ex)
+      (TypePtr a, b) -> do
+        r a b (addRef ex)
       (a, TypePtr (TypeBasicType BasicTypeVoid)) ->
         -- don't try to deref a void pointer
         return Nothing
       (a, TypePtr b) -> case addDeref ex of
-        Just x  -> _autoRefDeref ctx tctx a b x
+        Just x  -> r a b x
         Nothing -> return Nothing
       (TypeTuple a, TypeTuple b) | (length a == length b) && (isTupleInit ex) ->
         case tExpr ex of
           TupleInit t -> do
-            parts <- forM (zip t (zip a b)) $ \(val, (toType, fromType)) ->
-              _autoRefDeref ctx tctx toType fromType val
+            parts <- forM (zip t (zip a b))
+              $ \(val, (toType, fromType)) -> r toType fromType val
             if all isJust parts
               then do
                 forMWithErrors_ (zip parts a) $ \(Just part, t) -> do
@@ -77,6 +96,11 @@ _autoRefDeref ctx tctx toType fromType ex = do
                                               (tPos ex)
               else return Nothing
           _ -> return Nothing
+      (TypeInstance _ _, TypeInstance _ _) -> do
+        result <- unify ctx tctx toType fromType
+        case result of
+          Just _ -> return $ Just ex
+          _      -> return Nothing
       _ -> return Nothing
 
 isTupleInit (TypedExpr { tExpr = TupleInit _ }) = True
@@ -111,9 +135,16 @@ makeBox ctx tctx tp params ex = do
 addRef :: TypedExpr -> TypedExpr
 addRef ex@(TypedExpr { tExpr = PreUnop Deref inner }) = inner
 addRef ex@(TypedExpr { tIsLvalue = True }) =
-  (makeExprTyped (PreUnop Ref ex) (TypePtr $ inferredType ex) (tPos ex)) { tIsLocalPtr = tIsLocal
-                                                                           ex
-                                                                         }
+  (makeExprTyped
+      (PreUnop Ref ex)
+      (case inferredType ex of
+        MethodTarget t -> MethodTarget $ TypePtr t
+        t              -> TypePtr t
+      )
+      (tPos ex)
+    )
+    { tIsLocalPtr = tIsLocal ex
+    }
 addRef ex = addRef (makeLvalue ex)
 
 addDeref :: TypedExpr -> Maybe TypedExpr
