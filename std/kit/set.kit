@@ -1,0 +1,159 @@
+/**
+ * HashSet implementation for Kit
+ * @author Tyler Bezera
+ */
+
+ 
+ /**
+ * Hashable trait must be implemented for any key in the hashmap,
+ * as the hash function is used to determine it's place in the map.
+ */
+trait Hashable {
+    function hash(): Int;
+}
+
+// enum HashCellState {
+//     Empty;
+//     Deleted;
+//     Occupied;
+// }
+
+struct Set[T] {
+    static const internalArrayThreshold: Float = 0.7;
+
+    var length: Size = 0;
+    var deleted: Size = 0;
+    var allocator: Box[Allocator];
+    var internalArray: Array[Node[T]];
+
+    public static function new(allocator: Box[Allocator], capacity: Int = 16): Set[T] using implicit allocator {
+        var internalArray: Array[Node[T]] = Array.new(capacity);
+        return struct Self {
+            allocator,
+            internalArray,
+        };
+    }
+
+    public function remove(key: T): Void {
+        var index = this.findLocation(key);
+        if this.internalArray[index].state == HashCellState.Occupied && this.internalArray[index].data == key {
+            this.internalArray[index].state = HashCellState.Deleted;
+            --this.length;
+            ++this.deleted;
+        }
+    }
+    
+    public function put(key: T): Void{
+        var alreadyExists = this.exists(key);
+        if (((this.length + this.deleted) as Float) / this.internalArray.length) >= Self.internalArrayThreshold {
+            this.resize();
+        }
+        var index = this.findLocation(key);
+        if this.internalArray[index].state == Deleted {
+            --this.deleted;
+        }
+        this.internalArray[index] = struct Node[T] {
+            data: key,
+            state: HashCellState.Occupied,
+        };
+        if !alreadyExists {
+            ++this.length;
+        }
+    }
+
+    public function exists(key: T): Bool {
+        var index = this.findLocation(key);
+        if this.internalArray[index].state == HashCellState.Occupied && this.internalArray[index].data == key {
+            return true;
+        }
+        return false;
+    }
+
+    function findLocation(key: T): Int {
+        var hash = key.Hashable.hash() % this.internalArray.length;
+        while this.internalArray[hash].state != HashCellState.Empty && this.internalArray[hash].data != key {
+            hash = (hash + 1) % this.internalArray.length;
+        }
+        return hash;
+    }
+
+    function resize(): Void using implicit this.allocator {
+        var old = this.internalArray;
+        this.internalArray = Array.new((this.internalArray.length * 1.5) as Int);
+        for i in 0 ... old.length {
+            if old[i].state == HashCellState.Occupied {
+                this.put(old[i].data);
+                --this.length;
+            }
+        }
+        old.free();
+    }
+
+    public function free(): Void {
+        this.internalArray.free();
+    }
+
+    public function clear(): Void {
+        this.internalArray.clear();
+        this.length = 0;
+    }
+
+     rules {
+        ($this[$k]) => $this.put($k);
+
+        (for $ident in $this {$e}) => {
+            var __length = $this.internalArray.length;
+            for __i in 0 ... __length {
+                var __slot = $this.internalArray[__i];
+                if __slot.state == HashCellState.Occupied {
+                    var $ident = __slot.data;
+                    {$e}
+                }
+            }
+        }
+    }
+
+ }
+
+ struct Node[T]{
+     var data: T;
+     var state: HashCellState;
+ }
+
+ implement Hashable for Bool {
+    function hash(): Int {
+        return if this then 1 else 0;
+    }
+}
+
+implement Hashable for CString {
+    function hash(): Int {
+        var hash = 5381;
+        for char in this {
+            hash = (hash << 5) + hash + char;
+        }
+        return hash;
+    }
+}
+
+implement Hashable for Int {
+    function hash(): Int {
+        return this;
+    }
+}
+
+implement Hashable for Char {
+    function hash(): Int {
+        return this;
+    }
+}
+
+implement Hashable for String {
+    function hash(): Int {
+        var hash = 5381;
+        for char in this {
+            hash = (hash << 5) + hash + char;
+        }
+        return hash;
+    }
+}
