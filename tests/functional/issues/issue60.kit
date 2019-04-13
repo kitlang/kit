@@ -1,0 +1,15 @@
+function main() {
+    var localInt = 1;
+    var localIntPtr: Ptr[Int] = localInt;
+    var sharedInt = localIntPtr as Shared[Int];
+    var sharedIntPtr: Ptr[Shared[Int]] = sharedInt;
+
+    var x: Shared[Void] = Shared.alloc(sizeof Int);
+    *(x as Ptr[Int]) = 5;
+    printf("%i\n", *(x as Ptr[Int]));
+    x.release();
+
+    // the fix for #60 could break this:
+    var a: Int = 1;
+    var b: Ptr[Const[Int]] = a;
+}

@@ -1,0 +1,17 @@
+a overflow
+no a2 overflow
+b overflow
+c overflow
+no d overflow
+128.0
+100
+Int8: -128 to 127
+Int16: -32768 to 32767
+Int32: -2147483648 to 2147483647
+Int64: -9223372036854775808 to 9223372036854775807
+Uint8: 0 to 255
+Uint16: 0 to 65535
+Uint32: 0 to 4294967295
+Uint64: 0 to 18446744073709551615
+Int: OK
+Uint: OK

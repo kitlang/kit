@@ -1,5 +1,6 @@
 module Kit.Compiler.Generators.C.CFun where
 
+import Data.Maybe
 import Language.C
 import Kit.Ast
 import Kit.Compiler.Generators.C.CExpr
@@ -8,12 +9,14 @@ import Kit.Ir
 import Kit.Str
 
 cfunDecl :: FunctionDefinition IrExpr BasicType -> CDecl
-cfunDecl f@(FunctionDefinition { functionName = name, functionType = rt, functionArgs = args, functionVarargs = varargs })
+cfunDecl f@(FunctionDefinition { functionName = name, functionType = rt, functionArgs = args, functionVararg = vararg })
   = u $ CDecl
-    (map CTypeSpec typeSpec)
+    ((specFromMeta $ functionMeta f) ++ typeSpec)
     [ ( Just $ u $ CDeclr
         (Just $ cIdent $ mangleName name)
-        ((u $ CFunDeclr (Right (map cfunArg args, varargs)) []) : derivedDeclr)
+        ( (u $ CFunDeclr (Right (map cfunArg args, isJust vararg)) [])
+        : derivedDeclr
+        )
         Nothing
         (attributesFromMeta $ functionMeta f)
       , Nothing
@@ -23,12 +26,14 @@ cfunDecl f@(FunctionDefinition { functionName = name, functionType = rt, functio
   where (typeSpec, derivedDeclr) = ctype rt
 
 cfunDef :: FunctionDefinition IrExpr BasicType -> CFunDef
-cfunDef f@(FunctionDefinition { functionName = name, functionType = rt, functionArgs = args, functionVarargs = varargs, functionBody = Just body })
+cfunDef f@(FunctionDefinition { functionName = name, functionType = rt, functionArgs = args, functionVararg = vararg, functionBody = Just body })
   = u $ CFunDef
-    (map CTypeSpec typeSpec)
+    ((specFromMeta $ functionMeta f) ++ typeSpec)
     (u $ CDeclr
       (Just $ cIdent $ mangleName name)
-      ((u $ CFunDeclr (Right (map cfunArg args, varargs)) []) : derivedDeclr)
+      ( (u $ CFunDeclr (Right (map cfunArg args, isJust vararg)) [])
+      : derivedDeclr
+      )
       Nothing
       []
     )
@@ -41,7 +46,15 @@ cfunArg arg = cDecl (argType arg) (Just ([], argName arg)) Nothing
 
 attributesFromMeta :: [Metadata] -> [CAttr]
 attributesFromMeta (h : t) = case metaName h of
-  "inline"   -> (u $ CAttr (internalIdent "always_inline") []) : attributesFromMeta t
-  "noreturn" -> (u $ CAttr (internalIdent "noreturn") []) : attributesFromMeta t
-  _          -> attributesFromMeta t
+  "inline" ->
+    (u $ CAttr (internalIdent "always_inline") []) : attributesFromMeta t
+  "noreturn" ->
+    (u $ CAttr (internalIdent "noreturn") []) : attributesFromMeta t
+  _ -> attributesFromMeta t
 attributesFromMeta [] = []
+
+specFromMeta :: [Metadata] -> [CDeclSpec]
+specFromMeta (h : t) = case metaName h of
+  "static" -> (CStorageSpec $ u $ CStatic) : specFromMeta t
+  _        -> specFromMeta t
+specFromMeta [] = []

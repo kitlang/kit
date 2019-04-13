@@ -2,11 +2,11 @@ include "dirent.h";
 include "unistd.h";
 include "sys/time.h";
 
-function readDir(path: Path): DirectoryReader {
-    return DirectoryReader.new(path);
-}
-
 abstract Directory: dirent {
+    public static function read(path: Path): DirectoryReader {
+        return DirectoryReader.new(path);
+    }
+
     rules {
         ($this.path) => ($this.d_name as CString) as Path;
     }

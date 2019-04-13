@@ -24,6 +24,7 @@ library:
   - Kit.Compiler
   - Kit.Compiler.Generators
   - Kit.Compiler.Generators.C
+  - Kit.Compiler.Ir
   - Kit.Compiler.Passes
   - Kit.Error
   - Kit.HashTable
@@ -44,6 +45,7 @@ library:
   - language-c
   - pretty
   - process
+  - regex-posix
   - text
   - time
   - transformers
@@ -58,17 +60,11 @@ executables:
     - optparse-applicative ==0.14.2.0
     - time
 
-  kit:
-    main: Main.hs
-    source-dirs: bin/kit
-    dependencies:
-    - ansi-terminal
-    - optparse-applicative ==0.14.2.0
-
 tests:
   unit-tests:
     main: Test.hs
     source-dirs: tests
+    ghc-options: -threaded
     build-tools:
     - alex
     - happy
@@ -81,3 +77,4 @@ tests:
     - pretty
     - process
     - QuickCheck
+    - temporary-rc

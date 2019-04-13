@@ -1,0 +1,71 @@
+function main() {
+    var myMap: Map[CString, Int] = Map.new(10);
+    printf("Capacity: %zu\n", myMap.internalArray.length);
+    printf("Size: %zu\n", myMap.length);
+    printf("Key Exists 'test1': %s\n", if myMap.exists("test1") then "true" else "false");
+
+    printf("First value added: %d\n", myMap.put("test1", 1));
+    printf("Size: %zu\n", myMap.length);
+    printf("Key Exists 'test1': %s\n", if myMap.exists("test1") then "true" else "false");
+
+    myMap.remove("test1");
+    printf("Size after removing single element: %zu\n", myMap.length);
+    printf("Key Exists 'test1': %s\n", if myMap.exists("test1") then "true" else "false");
+
+    printf("Value added: %d\n", myMap.put("test2", 3));
+    printf("Value added: %d\n", myMap.put("test3", 4));
+    printf("Value added: %d\n", myMap.put("test4", 5));
+    printf("Size after adding three elements: %zu\n", myMap.length);
+    printf("Value added: %d\n", myMap.put("test4", 6));
+    printf("Size after adding duplicate element: %zu\n", myMap.length);
+
+    printf("Key Exists 'test2': %s\n", if myMap.exists("test2") then "true" else "false");
+    printf("Key Exists 'test3': %s\n", if myMap.exists("test3") then "true" else "false");
+    printf("Key Exists 'test5': %s\n", if myMap.exists("test5") then "true" else "false");
+
+    printf("Get 3: %d\n", myMap.get("test2").unwrap());
+    printf("Get 4: %d\n", myMap.get("test3").unwrap());
+    printf("Get 5: %d\n", myMap.get("test4").unwrap());
+    printf("Quick Get 3: %d\n", myMap["test2"]);
+
+    var arrayKeys: Array[CString] = myMap.keys();
+    printf("Array size of map keys: %zu\n", arrayKeys.length);
+    var contains = false;
+    for key in arrayKeys {
+        if key == "test2" {
+            contains = true;
+            break;
+        }
+    }
+    printf("Array contains 'test2': %s\n", if contains then "true" else "false");
+
+    myMap.put("1", 1);
+    myMap.put("2", 1);
+    myMap.put("3", 1);
+    myMap.put("4", 1);
+    myMap.put("5", 1);
+
+    printf("Map resizes if more than threshold is added, capacity is double: %zu\n", myMap.internalArray.length);
+    printf("Key Exists 'test2': %s\n", if myMap.exists("test2") then "true" else "false");
+    printf("Key Exists 'test3': %s\n", if myMap.exists("test3") then "true" else "false");
+    printf("Key Exists 'test5': %s\n", if myMap.exists("test5") then "true" else "false");
+
+    myMap.free();
+
+    // var weakMap = WeakMap[Bool, Int].new(8);
+    // var shared = Shared[Int].new();
+    // *shared = 5;
+    // weakMap.put(true, shared);
+    // printf("WeakMap contains 'true': %s\n", if weakMap.exists(true) then "true" else "false");
+    // printf("reference count: %i\n", shared.rc());
+    // weakMap.retain(true);
+    // printf("WeakMap contains 'true': %s\n", if weakMap.exists(true) then "true" else "false");
+    // printf("reference count: %i\n", shared.rc());
+    // weakMap.release(true);
+    // printf("WeakMap contains 'true': %s\n", if weakMap.exists(true) then "true" else "false");
+    // printf("reference count: %i\n", shared.rc());
+    // weakMap.release(true);
+    // printf("WeakMap contains 'true': %s\n", if weakMap.exists(true) then "true" else "false");
+    // printf("reference count: %i\n", shared.rc());
+    // weakMap.free();
+}

@@ -14,6 +14,7 @@ import Kit.Ast
 import Kit.Compiler.Generators.C.CExpr
 import Kit.Compiler.Generators.C.CFun
 import Kit.Compiler.Generators.C.CTypeDecl
+import Kit.Compiler.Generators.C.GenerateCModule
 import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.Utils
@@ -40,19 +41,26 @@ generateProjectHeader ctx ir = do
   sorted <- sortHeaderDefs flatDecls
   let defs = map generateHeaderDef sorted
   forM_ (catMaybes defs) $ hPutStrLn handle
+  generateDef ctx handle $ generateInit $ findInits flatDecls
   hClose handle
   return ()
 
-sortHeaderDefs :: [IrDecl] -> IO [IrDecl]
+findInits :: [IrStmt] -> [IrExpr]
+findInits x = catMaybes $ map
+  (\s -> case stmt s of
+    StaticInit x -> Just x
+    _            -> Nothing
+  )
+  x
+
+sortHeaderDefs :: [IrStmt] -> IO [IrStmt]
 sortHeaderDefs decls = do
   memos        <- h_newSized (length decls)
   dependencies <- h_newSized (length decls)
   -- memoize BasicType dependencies of type declarations
-  forM_ decls $ \decl -> case decl of
-    DeclType t -> case typeSubtype t of
-      Struct { structFields = fields } ->
-        h_insert dependencies (typeName t) (map varType fields)
-      Union { unionFields = fields } ->
+  forM_ decls $ \decl -> case stmt decl of
+    TypeDeclaration t -> case typeSubtype t of
+      StructUnion { structUnionFields = fields } ->
         h_insert dependencies (typeName t) (map varType fields)
       Enum { enumVariants = variants } -> h_insert
         dependencies
@@ -66,9 +74,9 @@ sortHeaderDefs decls = do
   return $ map snd $ sortBy (\(a, _) (b, _) -> if a > b then GT else LT)
                             (nub scored)
 
-declToBt :: IrDecl -> BasicType
-declToBt (DeclTuple t) = t
-declToBt (DeclType  t) = case typeBasicType t of
+declToBt :: IrStmt -> BasicType
+declToBt (Statement { stmt = TupleDeclaration t }) = t
+declToBt (Statement { stmt = TypeDeclaration t } ) = case typeBasicType t of
   Just x  -> x
   Nothing -> BasicTypeUnknown
 declToBt t = BasicTypeUnknown
@@ -102,17 +110,18 @@ btOrder dependencies memos t = do
         CArray t _              -> do
           depScore <- btOrder dependencies memos t
           return $ depScore + 1
-        _ -> return (-1)
+        CPtr (BasicTypeSimpleEnum tp) -> tpScore tp
+        _                             -> return (-1)
       h_insert memos t score
       return score
 
 bundleDef :: Str -> String
 bundleDef s = "KIT_INCLUDE__" ++ s_unpack s
 
-generateHeaderForwardDecl :: IrDecl -> Maybe String
-generateHeaderForwardDecl decl = case decl of
-  DeclTuple t -> generateTypeForwardDecl t
-  DeclType  def@(TypeDefinition { typeName = name }) -> do
+generateHeaderForwardDecl :: IrStmt -> Maybe String
+generateHeaderForwardDecl decl = case stmt decl of
+  TupleDeclaration t -> generateTypeForwardDecl t
+  TypeDeclaration  def@(TypeDefinition { typeName = name }) -> do
     case typeBasicType def of
       -- ISO C forbids forward references to enum types
       Just t  -> generateTypeForwardDecl t
@@ -126,33 +135,43 @@ generateTypeForwardDecl t = case t of
   BasicTypeComplexEnum _ -> Nothing
   _ -> Just (render $ pretty $ CDeclExt $ cDecl t Nothing Nothing)
 
-generateHeaderDef :: IrDecl -> Maybe String
-generateHeaderDef decl = case decl of
-  DeclTuple (BasicTypeTuple name slots) ->
+generateHeaderDef :: IrStmt -> Maybe String
+generateHeaderDef decl = case stmt decl of
+  TupleDeclaration (BasicTypeTuple name slots) ->
     let decls = cTupleDecl name slots
     in  Just $ intercalate "\n" $ map (\d -> render $ pretty $ CDeclExt d) decls
 
-  DeclType def@(TypeDefinition{}) ->
+  TypeDeclaration def@(TypeDefinition{}) ->
     let decls = cTypeDecl def
     in  Just $ intercalate "\n" $ map (\d -> render $ pretty $ CDeclExt d) decls
 
-  DeclFunction def -> Just $ render $ pretty $ CDeclExt $ cfunDecl def
+  FunctionDeclaration def -> Just $ render $ pretty $ CDeclExt $ cfunDecl def
 
-  DeclVar def@(VarDefinition { varType = t }) ->
+  VarDeclaration def@(VarDefinition { varType = t }) ->
     Just $ render $ pretty $ CDeclExt $ cDecl t (Just $ varRealName def) Nothing
 
   _ -> Nothing
 
+generateInit :: [IrExpr] -> IrStmt
+generateInit inits = makeStmt $ FunctionDeclaration $ newFunctionDefinition
+  { functionName = ([], "__kit_init")
+  , functionType = BasicTypeVoid
+  , functionBody = Just $ IrBlock inits
+  , functionMeta = [meta metaStatic]
+  }
+
 functionBasicType :: FunctionDefinition a BasicType -> BasicType
-functionBasicType (FunctionDefinition { functionType = t, functionArgs = args, functionVarargs = varargs })
-  = (BasicTypeFunction t (map (\arg -> (argName arg, argType arg)) args) varargs
+functionBasicType (FunctionDefinition { functionType = t, functionArgs = args, functionVararg = vararg })
+  = (BasicTypeFunction t
+                       (map (\arg -> (argName arg, argType arg)) args)
+                       (isJust vararg)
     )
 
 typeBasicType :: TypeDefinition a BasicType -> Maybe BasicType
 typeBasicType def@(TypeDefinition { typeName = name }) =
   case typeSubtype def of
-    Struct { structFields = fields } -> Just $ BasicTypeStruct name
-    Union { unionFields = fields }   -> Just $ BasicTypeUnion name
+    StructUnion { structUnionFields = fields, isStruct = isStruct } ->
+      Just $ (if isStruct then BasicTypeStruct else BasicTypeUnion) name
     Enum { enumVariants = variants } -> if all variantIsSimple variants
       then Just $ BasicTypeSimpleEnum name
       else Just $ BasicTypeComplexEnum name

@@ -1,140 +1,240 @@
 /**
  * Hashable trait must be implemented for any key in the hashmap,
- * as the hashcode function is used to determine it's place in the map
+ * as the hash function is used to determine it's place in the map.
  */
-trait Hashable{
-    function hashcode() : Int;
+trait Hashable {
+    function hash(): Int;
+}
+
+enum HashCellState {
+    Empty;
+    Deleted;
+    Occupied;
 }
 
 /**
- * Generic HashMap implementation, requring the key to implement the Hashable trait.
- * Relies on == operator for comparisons, so you may need to overwrite it in custom types
+ * Generic HashMap implementation, requiring the key to implement the Hashable trait.
+ * Relies on == operator for comparisons, so you may need to overwrite it in custom types.
  */
-struct Map[K: Hashable, V]{
-    private var size: Int;
-    private var allocator: Box[Allocator];
-    private var internalArray: Array[KeyValuePair[K, V]];
-    private var internalArrayCapacity: Int = 10;
-    const internalArrayThreshold: Float = 0.7;
+struct Map[K: Hashable, V] {
+    static const internalArrayThreshold: Float = 0.7;
 
-    public static function new(allocator: Box[Allocator], capacity: Int): Map[K, V] using implicit allocator {
-        
+    var length: Size = 0;
+    var deleted: Size = 0;
+    var allocator: Box[Allocator];
+    var internalArray: Array[KeyValuePair[K, V]];
+
+    public static function new(allocator: Box[Allocator], capacity: Int = 16): Map[K, V] using implicit allocator {
         var internalArray: Array[KeyValuePair[K, V]] = Array.new(capacity);
-        return struct Self{
-            size: 0,
+        return struct Self {
             allocator,
             internalArray,
-            internalArrayCapacity: capacity
         };
-
     }
 
-    public function put(key: K, value: V): V{
-        
-        if (this.size / this.internalArrayCapacity) >= this.internalArrayThreshold{
+    public function put(key: K, value: V): Ptr[V] {
+        var ref = this.putRef(key);
+        *ref = value;
+        return ref;
+    }
+
+    public function putRef(key: K): Ptr[V] {
+        var alreadyExists = this.exists(key);
+        if (((this.length + this.deleted) as Float) / this.internalArray.length) >= Self.internalArrayThreshold {
             this.resize();
         }
-        
-        this.internalArray[this.findLocation(key)] = struct KeyValuePair[K, V] {
+        var index = this.findLocation(key);
+        if this.internalArray[index].state == Deleted {
+            --this.deleted;
+        }
+        this.internalArray[index] = struct KeyValuePair[K, V] {
             key: key,
-            value: value,
-            isActive: true,
+            // value: value,
+            state: HashCellState.Occupied,
         };
-        this.size = this.size + 1;
-        return value;
+        if !alreadyExists {
+            ++this.length;
+        }
+        return &this.internalArray[index].value;
     }
 
-    public function get(key: K): Option[V]{
-        if(this.internalArray[this.findLocation(key)].isActive){
-            return Some(this.internalArray[this.findLocation(key)].value);
+    public function get(key: K): Option[V] {
+        var index = this.findLocation(key);
+        if this.internalArray[index].state == HashCellState.Occupied {
+            return Some(this.internalArray[index].value);
         }
         return None;
     }
 
-    public function remove(key: K): Void{
-        if this.exists(key){
-            this.internalArray[this.findLocation(key)].isActive = false;
-            this.size = this.size - 1;
+    public function ref(key: K): Option[Ptr[V]] {
+        var index = this.findLocation(key);
+        if this.internalArray[index].state == HashCellState.Occupied {
+            return Some(&this.internalArray[index].value);
+        }
+        return None;
+    }
+
+    public function remove(key: K): Void {
+        var index = this.findLocation(key);
+        if this.internalArray[index].state == HashCellState.Occupied && this.internalArray[index].key == key {
+            this.internalArray[index].state = HashCellState.Deleted;
+            --this.length;
+            ++this.deleted;
         }
     }
 
-    public function contains(value: V): Bool{
-        for i in 0 ... (this.internalArrayCapacity - 1){
-            if this.internalArray[i].value == value{
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public function exists(key: K): Bool{
-        if this.internalArray[this.findLocation(key)].isActive && this.internalArray[this.findLocation(key)].key == key {
+    public function exists(key: K): Bool {
+        var index = this.findLocation(key);
+        if this.internalArray[index].state == HashCellState.Occupied && this.internalArray[index].key == key {
             return true;
         }
         return false;
     }
 
-    public function keyset(): Array[K]{
-        var returnArray : Array[K] = Array.new(this.count());
-
+    public function keys(): Array[K] {
+        var returnArray: Array[K] = Array.new(this.length);
         var j = 0;
-        for i in 0 ... this.internalArrayCapacity {
-            if this.internalArray[i].isActive {
-                returnArray[j] = this.internalArray[i].key;
-                j++;
+        for slot in this.internalArray {
+            if slot.state == HashCellState.Occupied {
+                returnArray[j++] = slot.key;
             }
         }
-
         return returnArray;
     }
 
-    public function count(): Int{
-        return this.size;
-    }
-
-    public function delete(): Void{
+    public function free(): Void {
         this.internalArray.free();
     }
 
-    private function hashcode(key: K): Int{
-        return key.Hashable.hashcode();
+    public function clear(): Void {
+        this.internalArray.clear();
+        this.length = 0;
     }
 
-    private function findLocation(key: K): Int{
-        var keyHashCode = this.hashcode(key);
-
-        while(this.internalArray[keyHashCode].isActive && this.internalArray[keyHashCode].key != key){
-            keyHashCode = (keyHashCode + 1) % this.internalArrayCapacity;
+    function findLocation(key: K): Int {
+        var hash = key.Hashable.hash() % this.internalArray.length;
+        while this.internalArray[hash].state != HashCellState.Empty && this.internalArray[hash].key != key {
+            hash = (hash + 1) % this.internalArray.length;
         }
-        return keyHashCode;
+        return hash;
     }
 
-    private function resize(): Void using implicit this.allocator{
-        var tempArray = this.internalArray.copy();
-        var tempSize = this.count();
-        this.size = 0;
-
-        this.internalArrayCapacity = this.internalArrayCapacity * 2;
-        this.internalArray = Array.new(this.internalArrayCapacity);
-
-        for i in 0 ... tempSize - 1 {
-            if tempArray[i].isActive{
-                this.put(tempArray[i].key, tempArray[i].value);
+    function resize(): Void using implicit this.allocator {
+        var old = this.internalArray;
+        this.internalArray = Array.new((this.internalArray.length * 1.5) as Int);
+        for i in 0 ... old.length {
+            if old[i].state == HashCellState.Occupied {
+                this.put(old[i].key, old[i].value);
+                --this.length;
             }
         }
-
-        tempArray.free();
+        old.free();
     }
 
-    rules{
+    rules {
         ($this[$k] = $v) => $this.put($k, $v);
-        ($this[$k]) => $this.get($k);
-    }
+        ($this[$k]) => $this.get($k).unwrap();
 
+        (for $ident in $this {$e}) => {
+            var __length = $this.internalArray.length;
+            for __i in 0 ... __length {
+                var __slot = $this.internalArray[__i];
+                if __slot.state == HashCellState.Occupied {
+                    var $ident = __slot.key;
+                    {$e}
+                }
+            }
+        }
+    }
 }
 
-struct KeyValuePair[K: Hashable, V]{
+struct KeyValuePair[K: Hashable, V] {
     public var key: K;
     public var value: V;
-    public var isActive: Bool = false;
+    public var state: HashCellState = Empty;
 }
+
+// abstract WeakMap[K, V]: Map[K, Shared[V]] {
+//     public static function new(allocator: Box[Allocator], capacity: Int): Self using implicit allocator {
+//         return Map[K, Shared[V]].new(capacity) as WeakMap[K, V];
+//     }
+
+//     public function get(key: K): Option[Shared[V]] {
+//         match this.get(key) {
+//             Some(ptr) => {
+//                 if ptr.active() {
+//                     return Some(ptr);
+//                 } else {
+//                     this.remove(key);
+//                     return None;
+//                 }
+//             }
+//         }
+//     }
+
+//     public function retain(key: K): Option[Shared[V]] {
+//         match this.get(key) {
+//             Some(ptr) => {
+//                 return Some(ptr.ref());
+//             }
+//             default => {
+//                 return None;
+//             }
+//         }
+//     }
+
+//     public function release(key: K): Bool {
+//         match this.get(key) {
+//             Some(ptr) => {
+//                 return ptr.release();
+//             }
+//             default => {
+//                 return false;
+//             }
+//         }
+//     }
+// }
+
+implement Hashable for Bool {
+    function hash(): Int {
+        return if this then 1 else 0;
+    }
+}
+
+implement Hashable for CString {
+    function hash(): Int {
+        var hash = 5381;
+        for char in this {
+            hash = (hash << 5) + hash + char;
+        }
+        return hash;
+    }
+}
+
+implement Hashable for Int {
+    function hash(): Int {
+        return this;
+    }
+}
+
+implement Hashable for Char {
+    function hash(): Int {
+        return this;
+    }
+}
+
+implement Hashable for String {
+    function hash(): Int {
+        var hash = 5381;
+        for char in this {
+            hash = (hash << 5) + hash + char;
+        }
+        return hash;
+    }
+}
+
+// implement Hashable for Integral {
+//     function hash(): Int {
+//         return this;
+//     }
+// }

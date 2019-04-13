@@ -27,14 +27,17 @@ spec = do
       showstruct
           (newTypeDefinition
             { typeName    = ([], "MyStruct")
-            , typeSubtype = Struct
-              { structFields = [ newVarDefinition { varName = ([], "a")
-                                                  , varType = BasicTypeInt 8
-                                                  }
-                               , newVarDefinition { varName = ([], "b")
-                                                  , varType = BasicTypeUint 8
-                                                  }
-                               ]
+            , typeSubtype = StructUnion
+              { structUnionFields = [ newVarDefinition
+                                      { varName = ([], "a")
+                                      , varType = BasicTypeInt 8
+                                      }
+                                    , newVarDefinition
+                                      { varName = ([], "b")
+                                      , varType = BasicTypeUint 8
+                                      }
+                                    ]
+              , isStruct          = True
               }
             }
           )

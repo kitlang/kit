@@ -1,0 +1,4 @@
+MyStruct.staticMethod()
+MyStruct.instanceMethod()
+4
+8

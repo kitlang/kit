@@ -97,25 +97,22 @@ convertExpr ctx tctx mod params e = do
       r1 <- r e1
       r2 <- r e2
       r3 <- r e3
-      return $ m (For r1 r2 r3) voidType
+      return $ m (For r1 r2 r3) TypeVoid
     While e1 e2 d -> do
       r1 <- r e1
       r2 <- r e2
-      return $ m (While r1 r2 d) voidType
+      return $ m (While r1 r2 d) TypeVoid
     If e1 e2 me3 -> do
       t  <- mtv
       r1 <- r e1
       r2 <- r e2
       r3 <- maybeR me3
       return $ m (If r1 r2 r3) t
-    Continue   -> return $ m Continue voidType
-    Break      -> return $ m Break voidType
+    Continue   -> return $ m Continue TypeVoid
+    Break      -> return $ m Break TypeVoid
     Return me1 -> do
       r1 <- maybeR me1
-      return $ m (Return r1) voidType
-    Throw e1 -> do
-      r1 <- r e1
-      return $ m (Throw r1) voidType
+      return $ m (Return r1) TypeVoid
     Match e1 cases def -> do
       t      <- mtv
       r1     <- r e1
@@ -140,10 +137,10 @@ convertExpr ctx tctx mod params e = do
       return $ m (StructInit t fields) t
     -- EnumInit b Str [a]
     ArrayAccess e1 e2 -> container2 e1 e2 ArrayAccess
-    Call e1 imp args    -> do
+    Call e1 imp args  -> do
       t    <- mtv
       r1   <- r e1
-      imp <- mapM r imp
+      imp  <- mapM r imp
       args <- mapM r args
       return $ m (Call r1 imp args) t
     Cast e1 t -> do
@@ -154,7 +151,7 @@ convertExpr ctx tctx mod params e = do
       t  <- makeTypeVar ctx pos'
       r1 <- r e1
       return $ m (Unsafe (r1 { inferredType = t })) t
-    BlockComment s     -> return $ m (BlockComment s) voidType
+    BlockComment s     -> return $ m (BlockComment s) TypeVoid
     RangeLiteral e1 e2 -> container2 e1 e2 RangeLiteral
     ArrayLiteral args  -> do
       t    <- mtv
@@ -163,12 +160,12 @@ convertExpr ctx tctx mod params e = do
     TupleInit args -> do
       args <- mapM r args
       return $ m (TupleInit args) (TypeTuple (map inferredType args))
-    VarDeclaration id t const e1 -> do
+    LocalVarDeclaration id t const e1 -> do
       id <- convertIdentifier typeOrTypeVar id
       r1 <- maybeR e1
       t  <- resolveMaybeType ctx tctx mod params pos' t
-      return $ m (VarDeclaration id t const r1) t
-    Defer  e1       -> singleWrapper e1 Defer
+      return $ m (LocalVarDeclaration id t const r1) t
+    -- Defer  e1       -> singleWrapper e1 Defer
     -- Box impl e1 -> do
     --   impl' <- convertTraitImplementation (converter r (\_ -> typeOrTypeVar))
     --                                       modPath
@@ -179,20 +176,23 @@ convertExpr ctx tctx mod params e = do
     --   return $ m (Box impl' r1) (TypeBox tp params)
     SizeOf (Just t) -> do
       t' <- resolveType ctx tctx mod t
-      return $ m (SizeOf t') (TypeBasicType $ BasicTypeCSize)
+      return $ m (SizeOf t') (TypeSize)
     SizeOf Nothing -> do
       throwk $ BasicError "sizeof keyword requires a type" (Just pos')
     Implicit (Just t) -> do
       t' <- resolveType ctx tctx mod t
       return $ m (Implicit t') t'
     Null -> do
-      return $ m Null $ TypePtr voidType
+      return $ m Null $ TypePtr TypeVoid
     Empty -> do
       t <- mtv
       return $ m Empty t
     InlineCExpr s t -> do
       t <- resolveMaybeType ctx tctx mod params pos' t
       return $ m (InlineCExpr s t) t
+    StaticExpr x -> do
+      x <- r x
+      return $ m (StaticExpr x) TypeVoid
     _ -> throwk $ InternalError
       ("Can't convert expression: " ++ show (expr e))
       (Just pos')

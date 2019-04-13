@@ -3,6 +3,7 @@
 module Kit.Ast.Definitions.FunctionDefinition where
 
 import Control.Monad
+import Data.Hashable
 import GHC.Generics
 import Kit.Ast.Definitions.Base
 import Kit.Ast.Metadata
@@ -25,11 +26,13 @@ data FunctionDefinition a b = FunctionDefinition {
   functionArgs :: [ArgSpec a b],
   functionType :: b,
   functionBody :: Maybe a,
-  functionVarargs :: Bool
+  functionVararg :: Maybe Str
 } deriving (Eq, Generic, Show)
 
 instance Positioned (FunctionDefinition a b) where
   position = functionPos
+
+instance (Hashable a, Hashable b) => Hashable (FunctionDefinition a b)
 
 functionSubPath :: FunctionDefinition a b -> Str -> TypePath
 functionSubPath def s = if hasMeta "extern" (functionMeta def)
@@ -52,7 +55,7 @@ newFunctionDefinition = FunctionDefinition
   , functionArgs      = []
   , functionType      = undefined
   , functionBody      = Nothing
-  , functionVarargs   = False
+  , functionVararg    = Nothing
   , functionPos       = NoPos
   }
 
@@ -64,9 +67,8 @@ convertFunctionDefinition
 convertFunctionDefinition paramConverter f = do
   let params =
         [ functionSubPath f $ paramName param | param <- functionParams f ]
-  let
-    converter@(Converter { exprConverter = exprConverter, typeConverter = typeConverter })
-      = paramConverter params
+  converter@(Converter { exprConverter = exprConverter, typeConverter = typeConverter }) <-
+    paramConverter params
   rt     <- typeConverter (functionPos f) (functionType f)
   args   <- forM (functionArgs f) (convertArgSpec converter)
   body   <- maybeConvert exprConverter (functionBody f)
@@ -80,7 +82,7 @@ convertFunctionDefinition paramConverter f = do
                                    , functionArgs      = args
                                    , functionType      = rt
                                    , functionBody      = body
-                                   , functionVarargs   = functionVarargs f
+                                   , functionVararg    = functionVararg f
                                    , functionPos       = functionPos f
                                    }
 
@@ -93,6 +95,8 @@ data ArgSpec a b = ArgSpec {
 
 instance Positioned (ArgSpec a b) where
   position = argPos
+
+instance (Hashable a, Hashable b) => Hashable (ArgSpec a b)
 
 instance (Eq a, Eq b) => Eq (ArgSpec a b) where
   (==) a b = (argName a == argName b) && (argType a == argType b) && (argDefault a == argDefault b)
@@ -133,16 +137,3 @@ implicitifyMethod thisName thisType body method = method
     Just x  -> Just $ body method x
     Nothing -> Nothing
   }
-
-reimplicitify :: b -> FunctionDefinition a b -> FunctionDefinition a b
-reimplicitify selfType def = def
-  { functionArgs = ((head $ functionArgs def) { argType = selfType })
-    : (tail $ functionArgs def)
-  }
-
--- functionConcrete :: FunctionDefinition TypedExpr ConcreteType -> ConcreteType
--- functionConcrete f = TypeFunction
---   (functionType f)
---   [ (argName arg, argType arg) | arg <- functionArgs f ]
---   Bool
---   []

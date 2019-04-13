@@ -8,16 +8,27 @@ trait Allocator {
     //     var ptr = this.alloc(n);
     //     return if ptr == null then None else Some(ptr);
     // }
+
+    function calloc(n: Size): Ptr[Void] {
+        var ptr = this.Allocator.alloc(n);
+        memset(ptr, 0, n);
+        return ptr;
+    }
 }
 
 struct SimpleAllocator {
     public var alloc: function (Size) -> Ptr[Void];
+    public var calloc: function (Size) -> Ptr[Void];
     public var free: function (Ptr[Void]) -> Void;
 }
 
 implement Allocator for SimpleAllocator {
     public function alloc(n: Size): Ptr[Void] {
         return (this.alloc)(n);
+    }
+
+    public function calloc(n: Size): Ptr[Void] {
+        return (this.calloc)(n);
     }
 
     public function free(ptr: Ptr[Void]) {
@@ -29,18 +40,12 @@ function callocWrapper(n: Size): Ptr[Void] {
     return calloc(n, 1);
 }
 
-var simpleMalloc: SimpleAllocator = struct SimpleAllocator {
-    alloc: malloc,
-    free: free,
-};
-var simpleCalloc: SimpleAllocator = struct SimpleAllocator {
-    alloc: callocWrapper,
-    free: free,
-};
-
 // will be used as the default Ptr[Void] allocator
-var mallocator: Box[Allocator] = simpleMalloc as Box[Allocator];
-var callocator: Box[Allocator] = simpleCalloc as Box[Allocator];
+var mallocator: Box[Allocator] = struct SimpleAllocator {
+    alloc: malloc,
+    calloc: callocWrapper,
+    free: free,
+} as Box[Allocator];
 
 /**
  * Preallocates a region of memory, then provides pointers to unused memory in
@@ -175,7 +180,7 @@ struct PoolAllocator[T] {
     var start: Ptr[PoolNode[T]];
 
     public static function new(parent: Box[Allocator], count: Size) {
-        var start = parent.alloc(count * sizeof T) as Ptr[PoolNode[T]];
+        var start = parent.alloc(count * sizeof PoolNode[T]) as Ptr[PoolNode[T]];
         var pool = struct PoolAllocator[T] {
             parent,
             start,
@@ -233,3 +238,12 @@ struct PoolAllocator[T] {
 //         this.free(p);
 //     }
 // }
+
+public function copy[T](source: Ptr[T], dest: Ptr[T]): Void {
+    memcpy(dest, source, sizeof T);
+}
+
+public function move[T](source: Ptr[T], dest: Ptr[T]): Void {
+    copy(source, dest);
+    memset(source, 0, sizeof T);
+}

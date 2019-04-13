@@ -4,12 +4,15 @@ import Control.Monad
 import Data.IORef
 import Data.List
 import System.FilePath
+import System.Process
 import Language.C
+import Language.C.Analysis.ConstEval
 import Language.C.Data.Ident
 import Language.C.Data.Position
 import Language.C.System.GCC
 import Kit.Ast
 import Kit.Compiler.Binding
+import Kit.Compiler.CCompiler
 import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.TypedExpr
@@ -36,8 +39,8 @@ instance Errable IncludeError where
   For each C header discovered during the BuildModuleGraph pass, parse the
   header to discover all declarations, and make these available from Kit.
 -}
-includeCModules :: CompileContext -> IO ()
-includeCModules ctx = do
+includeCModules :: CompileContext -> CCompiler -> IO ()
+includeCModules ctx cc = do
   includes <- readIORef (ctxIncludes ctx)
   existing <- h_lookup (ctxModules ctx) externModPath
   mod      <- case existing of
@@ -46,31 +49,71 @@ includeCModules ctx = do
       mod <- newCMod
       h_insert (ctxModules ctx) externModPath mod
       return mod
-  forM_ (nub includes) $ includeCHeader ctx mod
+  forM_ (nub includes) $ includeCHeader ctx cc mod
   return ()
 
-includeCHeader :: CompileContext -> Module -> FilePath -> IO ()
-includeCHeader ctx mod path = do
-  found <- findSourceFile path (ctxIncludePaths ctx)
+includeCHeader :: CompileContext -> CCompiler -> Module -> FilePath -> IO ()
+includeCHeader ctx cc mod path = do
+  found <- findSourceFile path (getIncludePaths ctx cc)
   case found of
     Just f -> do
       debugLog ctx $ "found header " ++ show path ++ " at " ++ show f
-      parseCHeader ctx mod f
+      parseCMacros ctx cc mod f
+      parseCHeader ctx cc mod f
     Nothing -> throwk
-      $ IncludeError path [ (dir </> path) | dir <- ctxIncludePaths ctx ]
+      $ IncludeError path [ (dir </> path) | dir <- getIncludePaths ctx cc ]
 
-parseCHeader :: CompileContext -> Module -> FilePath -> IO ()
-parseCHeader ctx mod path = do
-  compiler <- findCompiler ctx
-  debugLog ctx ("invoking C preprocessor at " ++ compiler)
-  parseResult <- parseCFile
-    (newGCC compiler)
-    Nothing
-    -- TODO: defines
-    (  [ "-I" ++ dir | dir <- ctxIncludePaths ctx ]
-    ++ (defaultCompileArgs ctx $ takeFileName compiler)
-    )
-    path
+headerParseFlags ctx cc = do
+  flags <- getCompileFlags ctx cc
+  return $ (filter (\flag -> flag /= "-pedantic") $ flags) ++ ["-w"]
+
+parseCMacros ctx cc mod path = do
+  flags  <- headerParseFlags ctx cc
+  result <- readProcess (ccPath cc) ("-dM" : "-E" : flags ++ [path]) ""
+  forM_ (lines result) $ \line -> do
+    when (isPrefixOf "#define " line) $ do
+      let definition             = drop (length ("#define " :: String)) line
+      let (macroName : macroDef) = words definition
+      -- for now we're ignoring any macros that take arguments
+      unless ((null macroDef) || (elem '(' macroName)) $ do
+        let input = inputStreamFromString $ intercalate " " macroDef
+        let result =
+              execParser expressionP input nopos builtinTypeNames newNameSupply
+        case result of
+          Right ((CVar (Ident name _ _) _), _) -> do
+            -- identifiers
+            tv <- makeTypeVar ctx NoPos
+            veryNoisyDebugLog ctx
+              $  "Creating macro binding for identifier: "
+              ++ macroName
+            h_insert
+              (ctxBindings ctx)
+              ([], s_pack macroName)
+              ( ExprBinding
+              $ makeExprTyped (Identifier (Var ([], s_pack name))) tv NoPos
+              )
+          Right (x, _) -> do
+            -- for now we'll be lazy and only support Int constants...
+            case intValue x of
+              Just x -> do
+                veryNoisyDebugLog ctx
+                  $  "Creating macro binding for int constant: "
+                  ++ macroName
+                h_insert
+                  (ctxBindings ctx)
+                  ([], s_pack macroName)
+                  (ExprBinding $ makeExprTyped
+                    (Identifier (MacroVar (s_pack macroName) $ TypeInt 0))
+                    (TypeInt 0)
+                    NoPos
+                  )
+              Nothing -> return ()
+          _ -> return ()
+
+parseCHeader :: CompileContext -> CCompiler -> Module -> FilePath -> IO ()
+parseCHeader ctx cc mod path = do
+  flags       <- headerParseFlags ctx cc
+  parseResult <- parseCFile (newGCC $ ccPath cc) Nothing flags path
   case parseResult of
     Left e -> throwk $ BasicError
       ("Parsing C header " ++ show path ++ " failed: " ++ show e)
@@ -198,7 +241,7 @@ parseDerivedType m (h' : t') ct =
             | p <- params
             ]
           )
-          varargs
+          (if varargs then Just "" else Nothing)
           []
         )
       _ -> p ct
@@ -210,25 +253,25 @@ parseDeclSpec modPath x = _parseDeclSpec modPath x 0 True False
 _parseDeclSpec modPath (h : t) width signed float = case h of
   -- simple types; narrow the definition with each specifier
   (CVoidType   _           ) -> TypeBasicType BasicTypeVoid
-  (CBoolType   _           ) -> TypeBasicType BasicTypeBool
+  (CBoolType   _           ) -> TypeBool
   (CSignedType _           ) -> _parseDeclSpec modPath t width True float
   (CUnsigType  _           ) -> _parseDeclSpec modPath t width False float
   (CFloatType  _           ) -> _parseDeclSpec modPath t 32 signed True
   (CDoubleType _           ) -> _parseDeclSpec modPath t 64 signed True
-  (CCharType   _           ) -> TypeBasicType $ BasicTypeCChar
-  (CIntType    _           ) -> TypeBasicType $ BasicTypeCInt
+  (CCharType   _           ) -> TypeChar
+  (CIntType    _           ) -> if signed then TypeInt 0 else TypeUint 0
   (CShortType  _           ) -> _parseDeclSpec modPath t 16 signed False
   (CLongType _) -> _parseDeclSpec modPath t (width + 32) signed False
   (CTypeDef (Ident x _ _) _) -> case x of
-    "size_t"   -> TypeBasicType $ BasicTypeCSize
-    "int8_t"   -> TypeBasicType $ BasicTypeInt 8
-    "int16_t"  -> TypeBasicType $ BasicTypeInt 16
-    "int32_t"  -> TypeBasicType $ BasicTypeInt 32
-    "int64_t"  -> TypeBasicType $ BasicTypeInt 64
-    "uint8_t"  -> TypeBasicType $ BasicTypeUint 8
-    "uint16_t" -> TypeBasicType $ BasicTypeUint 16
-    "uint32_t" -> TypeBasicType $ BasicTypeUint 32
-    "uint64_t" -> TypeBasicType $ BasicTypeUint 64
+    "size_t"   -> TypeSize
+    "int8_t"   -> TypeInt 8
+    "int16_t"  -> TypeInt 16
+    "int32_t"  -> TypeInt 32
+    "int64_t"  -> TypeInt 64
+    "uint8_t"  -> TypeUint 8
+    "uint16_t" -> TypeUint 16
+    "uint32_t" -> TypeUint 32
+    "uint64_t" -> TypeUint 64
     "FILE"     -> TypeBasicType $ BasicTypeCFile
     _          -> TypeTypedef (s_pack x)
   -- anonymous structs/enums; TODO: need to generate a stub declaration for these
@@ -255,29 +298,28 @@ _parseDeclSpec modPath (h : t) width signed float = case h of
      ]
     )
   _ -> _parseDeclSpec modPath t width signed float
+_parseDeclSpec modPath [] 0     False  _     = (TypeUint 0)
 _parseDeclSpec modPath [] 0     _      _     = (TypeBasicType BasicTypeUnknown)
 _parseDeclSpec modPath [] width signed float = if float
-  then TypeBasicType $ BasicTypeFloat width
-  else if signed
-    then TypeBasicType $ BasicTypeInt width
-    else TypeBasicType $ BasicTypeUint width
+  then TypeFloat width
+  else if signed then TypeInt width else TypeUint width
 
 addCDecl :: CompileContext -> Module -> Str -> ConcreteType -> Span -> IO ()
 addCDecl ctx mod name t pos = do
   let bindingData = case t of
         TypeFunction t argTypes isVariadic _ -> FunctionBinding
           (newFunctionDefinition
-            { functionName    = ([], name)
-            , functionMeta    = [meta metaExtern]
-            , functionPos     = pos
-            , functionType    = t
-            , functionArgs    = [ newArgSpec { argName    = argName
-                                             , argType    = argType
-                                             , argDefault = Nothing
-                                             }
-                                | (argName, argType) <- argTypes
-                                ]
-            , functionVarargs = isVariadic
+            { functionName   = ([], name)
+            , functionMeta   = [meta metaExtern]
+            , functionPos    = pos
+            , functionType   = t
+            , functionArgs   = [ newArgSpec { argName    = argName
+                                            , argType    = argType
+                                            , argDefault = Nothing
+                                            }
+                               | (argName, argType) <- argTypes
+                               ]
+            , functionVararg = isVariadic
             }
           )
         _ -> VarBinding
@@ -317,13 +359,13 @@ defineNamedStructsEnumsUnions ctx mod pos (h : t) = do
             ((newTypeDefinition)
               { typeName    = ([], s_pack name)
               , typeMeta    = [meta metaExtern]
-              , typeSubtype = if tag == CStructTag
-                then Struct {structFields = fields}
-                else Union {unionFields = fields}
+              , typeSubtype = StructUnion
+                { structUnionFields = fields
+                , isStruct          = tag == CStructTag
+                }
               }
             )
       addBinding ctx ([], s_pack name) (TypeBinding typeDef)
-      veryNoisyDebugLog ctx $ "define struct " ++ name
     (CEnumType (CEnum (Just (Ident name _ _)) variants _ _) _) -> do
       let variants' = case variants of
             Just v  -> v

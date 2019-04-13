@@ -1,7 +1,10 @@
+{-# LANGUAGE DeriveGeneric #-}
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 
 module Kit.Parser.Token where
 
+import Data.Hashable
+import GHC.Generics
 import Kit.Str
 import Kit.Ast.Operator
 import Kit.Ast.Span
@@ -28,6 +31,7 @@ data TokenClass
   | Question
   | Underscore
   | WildcardSuffix
+  | DoubleWildcardSuffix
   | KeywordAbstract
   | KeywordAs
   | KeywordBreak
@@ -39,6 +43,7 @@ data TokenClass
   | KeywordElse
   | KeywordEmpty
   | KeywordEnum
+  | KeywordExtend
   | KeywordFor
   | KeywordFunction
   | KeywordIf
@@ -48,6 +53,7 @@ data TokenClass
   | KeywordInclude
   | KeywordInline
   | KeywordIn
+  | KeywordMacro
   | KeywordMatch
   | KeywordNull
   | KeywordPrivate
@@ -63,6 +69,7 @@ data TokenClass
   | KeywordThen
   | KeywordThis
   | KeywordThrow
+  | KeywordTokens
   | KeywordTrait
   | KeywordTypedef
   | KeywordUnion
@@ -70,6 +77,7 @@ data TokenClass
   | KeywordUsing
   | KeywordVar
   | KeywordWhile
+  | KeywordYield
   | LiteralChar Int
   | LiteralBool Bool
   | LiteralString Str
@@ -81,9 +89,12 @@ data TokenClass
   | MacroIdentifier Str
   | UpperIdentifier Str
   | InlineC Str
-  deriving (Eq)
+  deriving (Eq, Generic)
 
-data NumSpec = CChar | CInt | CSize | Int8 | Int16 | Int32 | Int64 | Uint8 | Uint16 | Uint32 | Uint64 | Float32 | Float64 deriving (Eq)
+instance Hashable TokenClass
+instance Hashable NumSpec
+
+data NumSpec = CChar | CInt | CSize | Int8 | Int16 | Int32 | Int64 | Uint8 | Uint16 | Uint32 | Uint64 | Float32 | Float64 deriving (Eq, Generic)
 instance Show NumSpec where
   show CChar = "Char"
   show CInt = "Int"
@@ -120,6 +131,7 @@ instance Show TokenClass where
     Question -> "?"
     Underscore -> "_"
     WildcardSuffix -> ".*"
+    DoubleWildcardSuffix -> ".**"
     KeywordAbstract -> "abstract"
     KeywordAs -> "as"
     KeywordBreak -> "break"
@@ -131,6 +143,7 @@ instance Show TokenClass where
     KeywordElse -> "else"
     KeywordEmpty -> "empty"
     KeywordEnum -> "enum"
+    KeywordExtend -> "extend"
     KeywordFor -> "for"
     KeywordFunction -> "function"
     KeywordIf -> "if"
@@ -140,6 +153,7 @@ instance Show TokenClass where
     KeywordInclude -> "include"
     KeywordInline -> "inline"
     KeywordIn -> "in"
+    KeywordMacro -> "macro"
     KeywordMatch -> "match"
     KeywordNull -> "null"
     KeywordPrivate -> "private"
@@ -155,6 +169,7 @@ instance Show TokenClass where
     KeywordThen -> "then"
     KeywordThis -> "this"
     KeywordThrow -> "throw"
+    KeywordTokens -> "tokens"
     KeywordTrait -> "trait"
     KeywordTypedef -> "typedef"
     KeywordUnion -> "union"
@@ -162,6 +177,7 @@ instance Show TokenClass where
     KeywordUsing -> "using"
     KeywordVar -> "var"
     KeywordWhile -> "while"
+    KeywordYield -> "yield"
     LiteralBool True -> "bool `true`"
     LiteralBool False -> "bool `false`"
     LiteralString s -> "string literal `" ++ s_unpack s ++ "`"

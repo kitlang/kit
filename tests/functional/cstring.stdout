@@ -1,0 +1,8 @@
+hello, world!
+abcdefg starts with abc
+abcdefg does not start with efg
+abcdefg starts with empty string
+abcdefg starts with abcdefg
+abcdefg ends with efg
+abcdefg does not end with def
+abcdefg ends with empty string

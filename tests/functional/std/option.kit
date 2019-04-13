@@ -1,0 +1,35 @@
+struct MyStruct {
+    public var a: CString;
+}
+
+function main() {
+    var a: Option = Some(1);
+    match a {
+        Some(i) => {
+            printf("%i\n", i);
+        }
+        default => {
+            printf("failure\n");
+        }
+    }
+    a.unwrap();
+
+    var b: Option[Int] = None;
+    match b {
+        Some(i) => {
+            printf("failure\n");
+        }
+        default => {
+            printf("success\n");
+        }
+    }
+
+    var c: Int = Some(1) ?? 2;
+    printf("%i\n", c);
+
+    var d: Int = None ?? 2;
+    printf("%i\n", d);
+
+    // var s = struct MyStruct {a: "hello"};
+    // printf("%s\n", (a ?. hello).unwrap())
+}

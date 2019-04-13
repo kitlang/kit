@@ -1,0 +1,38 @@
+struct MyStruct {
+    public static function staticMethod() {
+        puts("MyStruct.staticMethod()");
+    }
+
+    public var a: Int;
+    public var b: Int;
+
+    public function instanceMethod() {
+        puts("MyStruct.instanceMethod()");
+    }
+}
+
+typedef MyTypedef = MyStruct;
+
+struct MyGenericStruct[$N] {
+    public static function getLength(): Int {
+        return N;
+    }
+
+    var arr: CArray[Int, N] = empty;
+}
+
+typedef GenStruct4 = MyGenericStruct[4];
+typedef GenStruct8 = MyGenericStruct[8];
+
+function main() {
+    MyTypedef.staticMethod();
+    var x: MyTypedef = struct MyTypedef {a: 1, b: 2};
+    x.instanceMethod();
+    var y: MyStruct = struct MyStruct{a: 3, b: 4};
+    var z = y as MyTypedef;
+
+    var genStruct4 = struct GenStruct4;
+    var genStruct8 = struct GenStruct8;
+    printf("%i\n", GenStruct4.getLength());
+    printf("%i\n", GenStruct8.getLength());
+}

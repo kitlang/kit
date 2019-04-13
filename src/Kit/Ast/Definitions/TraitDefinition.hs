@@ -3,10 +3,12 @@
 module Kit.Ast.Definitions.TraitDefinition where
 
 import Control.Monad
+import Data.Hashable
 import GHC.Generics
 import Kit.Ast.Definitions.Base
 import Kit.Ast.Definitions.FunctionDefinition
 import Kit.Ast.Definitions.RewriteRule
+import Kit.Ast.Definitions.VarDefinition
 import Kit.Ast.Metadata
 import Kit.Ast.Modifier
 import Kit.Ast.TypeParam
@@ -25,8 +27,12 @@ data TraitDefinition a b = TraitDefinition {
   traitParams :: [TypeParam b],
   traitAssocParams :: [TypeParam b],
   traitRules :: [RewriteRule a b],
-  traitMethods :: [FunctionDefinition a b]
+  traitMethods :: [FunctionDefinition a b],
+  traitStaticFields :: [VarDefinition a b],
+  traitStaticMethods :: [FunctionDefinition a b]
 } deriving (Eq, Generic, Show)
+
+instance (Hashable a, Hashable b) => Hashable (TraitDefinition a b)
 
 instance Positioned (TraitDefinition a b) where
   position = traitPos
@@ -40,15 +46,17 @@ traitExplicitParams def = take (length $ traitParams def)
 traitRealName t = monomorphName (traitName t) (traitMonomorph t)
 
 newTraitDefinition = TraitDefinition
-  { traitName        = undefined
-  , traitMonomorph   = []
-  , traitPos         = NoPos
-  , traitMeta        = []
-  , traitModifiers   = []
-  , traitParams      = []
-  , traitAssocParams = []
-  , traitRules       = []
-  , traitMethods     = []
+  { traitName          = undefined
+  , traitMonomorph     = []
+  , traitPos           = NoPos
+  , traitMeta          = []
+  , traitModifiers     = []
+  , traitParams        = []
+  , traitAssocParams   = []
+  , traitRules         = []
+  , traitMethods       = []
+  , traitStaticFields  = []
+  , traitStaticMethods = []
   }
 
 convertTraitDefinition
@@ -58,9 +66,8 @@ convertTraitDefinition
   -> m (TraitDefinition c d)
 convertTraitDefinition paramConverter t = do
   let params = [ traitSubPath t $ paramName param | param <- traitParams t ]
-  let
-    converter@(Converter { exprConverter = exprConverter, typeConverter = typeConverter })
-      = paramConverter params
+  converter@(Converter { exprConverter = exprConverter, typeConverter = typeConverter })
+      <- paramConverter params
   let methodParamConverter methodParams =
         paramConverter (methodParams ++ params)
   methods <- forM
@@ -68,17 +75,29 @@ convertTraitDefinition paramConverter t = do
     (\f -> convertFunctionDefinition methodParamConverter
       $ f { functionName = traitSubPath t (tpName $ functionName f) }
     )
+  staticFields <- forM
+    (traitStaticFields t)
+    (\v -> convertVarDefinition converter
+      $ v { varName = traitSubPath t (tpName $ varName v) }
+    )
+  staticMethods <- forM
+    (traitStaticMethods t)
+    (\f -> convertFunctionDefinition methodParamConverter
+      $ f { functionName = traitSubPath t (tpName $ functionName f) }
+    )
   rules       <- forM (traitRules t) $ convertRewriteRule converter
   params      <- forM (traitParams t) $ convertTypeParam converter
   assocParams <- forM (traitAssocParams t) $ convertTypeParam converter
-  return $ (newTraitDefinition) { traitName        = traitName t
-                                , traitPos         = traitPos t
-                                , traitMeta        = traitMeta t
-                                , traitModifiers   = traitModifiers t
-                                , traitParams      = params
-                                , traitAssocParams = assocParams
-                                , traitMethods     = methods
-                                , traitRules       = rules
+  return $ (newTraitDefinition) { traitName          = traitName t
+                                , traitPos           = traitPos t
+                                , traitMeta          = traitMeta t
+                                , traitModifiers     = traitModifiers t
+                                , traitParams        = params
+                                , traitAssocParams   = assocParams
+                                , traitMethods       = methods
+                                , traitStaticFields  = staticFields
+                                , traitStaticMethods = staticMethods
+                                , traitRules         = rules
                                 }
 
 valuePointerName :: Str

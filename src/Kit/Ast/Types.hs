@@ -23,7 +23,7 @@ data TypeSpec
   | ConstantTypeSpec ValueLiteral Span
   | TupleTypeSpec [TypeSpec] Span
   | PointerTypeSpec TypeSpec Span
-  | FunctionTypeSpec TypeSpec [TypeSpec] Bool Span
+  | FunctionTypeSpec TypeSpec [TypeSpec] (Maybe Str) Span
   {-
     This constructor can be used to force the TypeSpec to resolve to a specific
     ConcreteType without going through normal namespace resolution. This is
@@ -53,7 +53,7 @@ instance Show TypeSpec where
   show (ConstantTypeSpec v _) = show v
   show (PointerTypeSpec t _) = "&" ++ show t
   show (TupleTypeSpec t _) = "(" ++ intercalate ", " (map show t) ++ ")"
-  show (FunctionTypeSpec t args var _) = "(" ++ intercalate ", " (map show args) ++ (if var then (if null args then "..." else ", ...") else "") ++ ") -> " ++ show t
+  show (FunctionTypeSpec t args var _) = "(" ++ intercalate ", " (map show args) ++ (case var of {Just x -> ", " ++ s_unpack x ++ "..."; Nothing -> ""}) ++ ") -> " ++ show t
   show (ConcreteType ct) = show ct
 
 instance Eq TypeSpec where
@@ -84,7 +84,7 @@ data ConcreteType
   | TypeAnonUnion (Maybe Str) [(Str, ConcreteType)]
   | TypeAnonEnum (Maybe Str) [Str]
   | TypeTypedef Str
-  | TypeFunction ConcreteType ConcreteArgs Bool [ConcreteType]
+  | TypeFunction ConcreteType ConcreteArgs (Maybe Str) [ConcreteType]
   | TypeBasicType BasicType
   | TypePtr ConcreteType
   | TypeEnumConstructor TypePath TypePath ConcreteArgs [ConcreteType]
@@ -99,6 +99,9 @@ data ConcreteType
   | TypeSelf
   | ConstantType ValueLiteral
   | ModuleType TypePath
+  | VarArgs
+  | TypeAny Span
+  | MethodTarget ConcreteType
   | UnresolvedType TypeSpec ModulePath
   deriving (Eq, Generic)
 
@@ -108,6 +111,31 @@ pattern TypeBox :: TypePath -> [ConcreteType] -> ConcreteType
 pattern TypeBox tp params = TypeInstance (["kit", "common"], "Box") [TypeTraitConstraint (tp, params)]
 pattern TypeArray :: ConcreteType -> Int -> ConcreteType
 pattern TypeArray t n = TypeInstance (["kit", "common"], "CArray") [t, ConstantType (IntValue n)]
+pattern TypeConst :: ConcreteType -> ConcreteType
+pattern TypeConst t = TypeInstance (["kit", "common"], "Const") [t]
+pattern TypeBool :: ConcreteType
+pattern TypeBool = TypeInstance (["kit", "common"], "Bool") []
+pattern TypeChar :: ConcreteType
+pattern TypeChar = TypeInstance (["kit", "numeric"], "Char") []
+pattern TypeSize :: ConcreteType
+pattern TypeSize = TypeInstance (["kit", "numeric"], "Size") []
+pattern TypeInt :: Int -> ConcreteType
+pattern TypeInt w = TypeInstance (["kit", "numeric"], "Int") [ConstantType (IntValue w)]
+pattern TypeUint :: Int -> ConcreteType
+pattern TypeUint w = TypeInstance (["kit", "numeric"], "Uint") [ConstantType (IntValue w)]
+pattern TypeFloat :: Int -> ConcreteType
+pattern TypeFloat w = TypeInstance (["kit", "numeric"], "Float") [ConstantType (IntValue w)]
+pattern TypeVoid :: ConcreteType
+pattern TypeVoid = TypeBasicType BasicTypeVoid
+pattern TypeCString :: ConcreteType
+pattern TypeCString = TypeInstance (["kit", "common"], "CString") []
+
+isNumericType TypeChar = True
+isNumericType TypeSize = True
+isNumericType (TypeInt _) = True
+isNumericType (TypeUint _) = True
+isNumericType (TypeFloat _) = True
+isNumericType _ = False
 
 instance Show ConcreteType where
   show (TypePtr t) = "Ptr[" ++ show t ++ "]"
@@ -119,7 +147,7 @@ instance Show ConcreteType where
   show (TypeAnonUnion (Just x) f) = "union typedef " ++ s_unpack x
   show (TypeAnonUnion _ f) = "(anon union)"
   show (TypeTypedef name) = "typedef " ++ s_unpack name
-  show (TypeFunction rt args var params) = "function (" ++ (intercalate ", " [show t | (_, t) <- args]) ++ (if var then ", ..." else "") ++ ") -> " ++ show rt
+  show (TypeFunction rt args var params) = "function (" ++ (intercalate ", " [show t | (_, t) <- args]) ++ (case var of {Just x -> ", " ++ s_unpack x ++ "..."; Nothing -> ""}) ++ ") -> " ++ show rt
   show (TypeBasicType t) = show t
   show (TypeEnumConstructor tp d _ params) = "enum " ++ (s_unpack $ showTypePath tp) ++ " constructor " ++ (s_unpack $ showTypePath d) ++ "[" ++ (intercalate ", " (map show params)) ++ "]"
   show (TypeRange) = "range"
@@ -133,6 +161,9 @@ instance Show ConcreteType where
   show (TypeSelf) = "Self"
   show (ConstantType v) = "$" ++ show v
   show (ModuleType tp) = "module " ++ s_unpack (showTypePath tp)
+  show VarArgs = "..."
+  show (TypeAny _) = "Any"
+  show (MethodTarget t) = "this " ++ show t
   show (UnresolvedType t _) = show t
 
 -- concreteTypeAbbreviation t = case t of
@@ -161,7 +192,6 @@ showParams params = "[" ++ (intercalate ", " (map show params)) ++ "]"
 type TypeVar = Int
 
 basicType = TypeBasicType
-voidType = TypeBasicType BasicTypeVoid
 
 mapType
   :: (Monad m)
@@ -200,6 +230,9 @@ mapType f (TypeTuple p) = do
 mapType f (TypeTraitConstraint (tp, p)) = do
   p' <- mapM f p
   f $ TypeTraitConstraint (tp, p')
+mapType f (MethodTarget t) = do
+  t <- mapType f t
+  return $ MethodTarget t
 mapType f t = f t
 
 foldType
@@ -214,6 +247,7 @@ foldType f v t@(TypeFunction rt args varargs p) = foldr f v (rt : (map snd args)
 foldType f v t@(TypeEnumConstructor tp s args p) = foldr f v (t : (map snd args) ++ p)
 foldType f v t@(TypeTuple c) = foldr f v (t : c)
 foldType f v t@(TypeTraitConstraint (tp, p)) = foldr f v (t : p)
+foldType f v t@(MethodTarget t2) = foldr f v [t, t2]
 foldType f v t = f t v
 
 -- FIXME: name...
@@ -243,6 +277,9 @@ isPtr _           = False
 
 isTypeVar (TypeTypeVar _) = True
 isTypeVar _               = False
+
+isTypeInstance (TypeInstance _ _) = True
+isTypeInstance _ = False
 
 typeUnresolved :: ConcreteType -> Bool
 typeUnresolved t = foldType (\t b -> b || typeUnresolved_ t) False t

@@ -35,6 +35,7 @@ short *pointer_var1;
 short **pointer_var2;
 short (*pointer_var3)(short arg1);
 void (*func_pointer)(void);
+unsigned just_unsigned;
 
 // functions
 

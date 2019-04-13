@@ -41,8 +41,7 @@ typeRealName t = if hasMeta "extern" (typeMeta t)
   else monomorphName (typeName t) (typeMonomorph t)
 
 data TypeDefinitionType a b
-  = Struct {structFields :: [VarDefinition a b]}
-  | Union {unionFields :: [VarDefinition a b]}
+  = StructUnion {structUnionFields :: [VarDefinition a b], isStruct :: Bool}
   | Enum {enumVariants :: [EnumVariant a b], enumUnderlyingType :: b}
   | Abstract {abstractUnderlyingType :: b}
   deriving (Eq, Show)
@@ -81,18 +80,14 @@ convertTypeDefinition
   -> m (TypeDefinition c d)
 convertTypeDefinition paramConverter t = do
   let params = [ typeSubPath t $ paramName param | param <- typeParams t ]
-  let
-    (converter@(Converter { exprConverter = exprConverter, typeConverter = typeConverter }))
-      = paramConverter params
+  (converter@(Converter { exprConverter = exprConverter, typeConverter = typeConverter })) <-
+    paramConverter params
   let methodParamConverter methodParams =
         paramConverter (methodParams ++ params)
   newType <- case typeSubtype t of
-    Struct { structFields = f } -> do
+    StructUnion { structUnionFields = f, isStruct = isStruct } -> do
       fields <- forM f (convertVarDefinition converter)
-      return $ Struct {structFields = fields}
-    Union { unionFields = f } -> do
-      fields <- forM f (convertVarDefinition converter)
-      return $ Union {unionFields = fields}
+      return $ StructUnion {structUnionFields = fields, isStruct = isStruct}
     Enum { enumVariants = variants, enumUnderlyingType = t' } -> do
       variants       <- forM variants (convertEnumVariant converter)
       underlyingType <- typeConverter (typePos t) t'

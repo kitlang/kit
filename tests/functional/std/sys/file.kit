@@ -1,0 +1,42 @@
+import kit.sys.file;
+
+function main() {
+    var fWrite: File = File.write("test_file");
+    var writer: Box[Writer] = fWrite;
+    writer.write("hello");
+    fWrite.close();
+
+    if !File.exists("test_file") {
+        printf("test_file should exist\n");
+    }
+
+    var fWrite2: File = File.write("test_file");
+    fWrite2.writeBytes("hi ", 3);
+    fWrite2.close();
+
+    var fAppend: File = File.append("test_file");
+    fAppend.writeBytes("there", 6);
+    fAppend.close();
+
+    var fUpdate: File = File.update("test_file");
+    fUpdate.writeBytes("hey", 3);
+    printf("size after update: %zu\n", fUpdate.getSize());
+    fUpdate.close();
+
+    var fRead: File = File.read("test_file");
+    var reader: Box[Reader] = fRead;
+    var s: Ptr[Void] = malloc(9);
+    reader.readBytes(s, 8);
+    (s as CString)[8] = 0;
+    printf("%s\n", s as CString);
+    printf("final size: %zu\n", fRead.getSize());
+    fRead.close();
+
+    var removed = File.remove("test_file");
+    if !removed {
+        printf("test_file should have been removed\n");
+    }
+    if File.exists("test_file") {
+        printf("test_file should have been removed\n");
+    }
+}

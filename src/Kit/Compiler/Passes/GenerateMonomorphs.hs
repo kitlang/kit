@@ -17,14 +17,14 @@ import Kit.Error
 import Kit.HashTable
 import Kit.Parser
 
-generateMonomorphs :: CompileContext -> IO [(Module, TypedDeclWithContext)]
+generateMonomorphs :: CompileContext -> IO [(Module, TypedStmtWithContext)]
 generateMonomorphs ctx = do
   pendingGenerics <- readIORef (ctxPendingGenerics ctx)
   results <- forM (reverse pendingGenerics) $ \(tp@(modPath, name), params') ->
     do
-      mod        <- getMod ctx modPath
-      tctx       <- modTypeContext ctx mod
-      params     <- forM params' (mapType $ follow ctx tctx)
+      mod    <- getMod ctx modPath
+      tctx   <- modTypeContext ctx mod
+      params <- forM params' (mapType $ follow ctx tctx)
       let unresolved = map typeUnresolved params
       if or unresolved
         -- don't try to generate a monomorph if the params contain unresolved
@@ -47,57 +47,58 @@ generateMonomorphs ctx = do
               binding <- getBinding ctx tp
               case binding of
                 FunctionBinding def -> do
-                  let monoTctx = addTypeParams
-                        tctx
-                        [ (functionSubPath def $ paramName param, ct)
-                        | (param, ct) <- zip (functionParams def) params
-                        ]
-                  return
-                    $ Just
-                    $ Right
-                        ( mod
-                        , ( DeclFunction $ def { functionMonomorph = params }
-                          , monoTctx
-                          )
-                        )
+                  monoTctx <- addTypeParams
+                    ctx
+                    tctx
+                    [ (functionSubPath def $ paramName param, ct)
+                    | (param, ct) <- zip (functionParams def) params
+                    ] (functionPos def)
+                  return $ Just $ Right
+                    ( mod
+                    , ( ps (functionPos def) $ FunctionDeclaration $ def
+                        { functionMonomorph = params
+                        }
+                      , monoTctx
+                      )
+                    )
 
                 TypeBinding def -> do
                   let thisType = TypeInstance (typeName def) params
-                  let monoTctx =
-                        (addTypeParams
-                          tctx
-                          [ (typeSubPath def $ paramName param, ct)
-                          | (param, ct) <- zip (typeParams def) params
-                          ]
-                        )
-                  return
-                    $ if hasMeta "builtin" (typeMeta def)
-                      then
-                        Nothing
-                      else
-                        Just
-                        $ Right
-                        $ ( mod
-                          , ( DeclType $ def { typeMonomorph = params }
-                            , monoTctx
-                            )
-                          )
-
-                TraitBinding def -> do
-                  let thisType = TypeBox (traitName def) params
-                  let monoTctx = addTypeParams
-                        tctx
-                        [ (traitSubPath def $ paramName param, ct)
-                        | (param, ct) <- zip (traitAllParams def) params
-                        ]
-                  return
-                    $ Just
-                    $ Right
-                        ( mod
-                        , ( DeclTrait $ def { traitMonomorph = params }
+                  monoTctx <- addTypeParams
+                    ctx
+                    tctx
+                    [ (typeSubPath def $ paramName param, ct)
+                    | (param, ct) <- zip (typeParams def) params
+                    ] (typePos def)
+                  return $ if hasMeta "builtin" (typeMeta def)
+                    then Nothing
+                    else
+                      Just
+                      $ Right
+                      $ ( mod
+                        , ( ps (typePos def) $ TypeDeclaration $ def
+                            { typeMonomorph = params
+                            }
                           , monoTctx
                           )
                         )
+
+                TraitBinding def -> do
+                  let thisType = TypeBox (traitName def) params
+                  monoTctx <- addTypeParams
+                    ctx
+                    tctx
+                    [ (traitSubPath def $ paramName param, ct)
+                    | (param, ct) <- zip (traitAllParams def) params
+                    ] (traitPos def)
+                  return $ Just $ Right
+                    ( mod
+                    , ( ps (traitPos def) $ TraitDeclaration $ def
+                        { traitMonomorph = params
+                        }
+                      , monoTctx
+                      )
+                    )
 
                 _ -> return Nothing
 

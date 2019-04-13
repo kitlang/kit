@@ -28,7 +28,7 @@
       </dict>
       <dict>
         <key>match</key>
-        <string>\b(return|throw|for|as|in|if|then|else|do|while|match|default|unsafe|implicit|sizeof|break|continue)\b</string>
+        <string>\b(return|throw|for|as|in|if|then|else|do|while|match|default|unsafe|implicit|sizeof)\b</string>
         <key>name</key>
         <string>keyword.other.kit</string>
       </dict>
@@ -96,6 +96,14 @@
       </dict>
       <dict>
         <key>name</key>
+        <string>string.quoted.block.kit</string>
+        <key>begin</key>
+        <string>"""</string>
+        <key>end</key>
+        <string>"""</string>
+      </dict>
+      <dict>
+        <key>name</key>
         <string>string.quoted.double.kit</string>
         <key>match</key>
         <string>"(\.|[^"])*"</string>
@@ -105,14 +113,6 @@
         <string>string.quoted.single.kit</string>
         <key>match</key>
         <string>'(\.|[^\'])*'</string>
-      </dict>
-      <dict>
-        <key>name</key>
-        <string>string.quoted.block.kit</string>
-        <key>begin</key>
-        <string>"""</string>
-        <key>end</key>
-        <string>"""</string>
       </dict>
       <dict>
         <key>name</key>

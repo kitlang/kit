@@ -20,36 +20,54 @@ import Kit.Log
 import Kit.Parser
 import Kit.Str
 
-data DuplicateSpecializationError = DuplicateSpecializationError ModulePath TypePath Span Span deriving (Eq, Show)
-instance Errable DuplicateSpecializationError where
-  logError e@(DuplicateSpecializationError mod tp pos1 pos2) = do
-    logErrorBasic e $ "Duplicate specialization for `" ++ s_unpack (showTypePath tp) ++ "` in " ++ s_unpack (showModulePath mod) ++ "; \n\nFirst specialization:"
-    ePutStrLn "\nSecond specialization:"
+data DuplicateDefaultError = DuplicateDefaultError ModulePath TypePath Span Span deriving (Eq, Show)
+instance Errable DuplicateDefaultError where
+  logError e@(DuplicateDefaultError mod tp pos1 pos2) = do
+    logErrorBasic e $ "Duplicate default for `" ++ s_unpack (showTypePath tp) ++ "` in " ++ s_unpack (showModulePath mod) ++ "; \n\nFirst default:"
+    ePutStrLn "\nSecond default:"
     displayFileSnippet pos2
-    ePutStrLn "\nTraits cannot have overlapping specializations."
-  errPos (DuplicateSpecializationError _ _ pos _) = Just pos
+    ePutStrLn "\nTraits cannot have more than one default."
+  errPos (DuplicateDefaultError _ _ pos _) = Just pos
+
+{-
+  Resolving types is done in ordered passes; later passes may depend on the
+  results of the previous ones.
+-}
+data ResolveTypesPass
+  = ResolveRules
+  | ResolveTypedefs
+  | ResolveIdentifiers
+  | ResolveExtensions
+  | ResolveTypes
+  | ResolveImpls
+  deriving (Eq, Show, Enum, Ord)
 
 {-
   This step is responsible for actions that depend on the interfaces created
   during BuildModuleGraph, including:
 
-  - Discovering trait implementations and specializations
+  - Discovering trait implementations and defaults
   - Unifying module interface type vars with actual type annotations
 -}
 resolveModuleTypes
   :: CompileContext
-  -> [(Module, [(Declaration Expr (Maybe TypeSpec), Span)])]
-  -> IO [(Module, [TypedDeclWithContext])]
+  -> [(Module, [SyntacticStatement])]
+  -> IO [(Module, [TypedStmtWithContext])]
 resolveModuleTypes ctx modContents = do
-  results1 <- forM modContents $ resolveTypesForMod 1 ctx
-  results2 <- forM modContents $ resolveTypesForMod 2 ctx
-  results3 <- forM modContents $ resolveTypesForMod 3 ctx
+  extensions <- h_new
+  results    <- foldM
+    (\acc step -> do
+      stepResults <- forM modContents $ resolveTypesForMod step ctx extensions
+      return $ acc ++ stepResults
+    )
+    []
+    [ResolveRules ..]
   unless (ctxIsLibrary ctx) $ validateMain ctx
-  flattenSpecializations ctx
-  return $ results1 ++ results2 ++ results3
+  flattenDefaults ctx
+  return results
 
-flattenSpecializations :: CompileContext -> IO ()
-flattenSpecializations ctx = do
+flattenDefaults :: CompileContext -> IO ()
+flattenDefaults ctx = do
   impls <- h_toList $ ctxImpls ctx
   memos <- h_new
   forMWithErrors_ impls $ \(tp, _) -> do
@@ -104,38 +122,44 @@ validateMain ctx = do
       (Nothing)
 
 resolveTypesForMod
-  :: Int
+  :: ResolveTypesPass
   -> CompileContext
-  -> (Module, [(Declaration Expr (Maybe TypeSpec), Span)])
-  -> IO (Module, [TypedDeclWithContext])
-resolveTypesForMod pass ctx (mod, contents) = do
+  -> HashTable TypePath (IORef [DefStatement Expr (Maybe TypeSpec)])
+  -> (Module, [SyntacticStatement])
+  -> IO (Module, [TypedStmtWithContext])
+resolveTypesForMod pass ctx extensions (mod, contents) = do
+  debugLog ctx $ show pass
+
   -- handle module using statements before creating final TypeContext
-  tctx <- if pass > 1 then modTypeContext ctx mod else newTypeContext []
-  forMWithErrors_ contents $ \(decl, pos) -> do
-    case decl of
-      DeclUsing u -> do
-        addModUsing ctx tctx mod pos u
+  tctx <- if pass > ResolveRules
+    then modTypeContext ctx mod
+    else newTypeContext []
+  forMWithErrors_ contents $ \decl -> do
+    case stmt decl of
+      ModuleUsing u -> do
+        addModUsing ctx tctx mod (stmtPos decl) u
       _ -> return ()
 
-  when (pass == 3) $ do
-    specs <- readIORef (modSpecializations mod)
-    forMWithErrors_ specs (addSpecialization ctx mod)
+  when (pass == ResolveImpls) $ do
+    -- resolve defaults here
+    specs <- readIORef (modDefaults mod)
+    forMWithErrors_ specs (addDefault ctx mod)
 
   let varConverter = converter (convertExpr ctx tctx mod [])
                                (resolveMaybeType ctx tctx mod [])
-  let paramConverter params =
-        let tctx' = addTypeParams tctx [ (p, TypeTypeParam p) | p <- params ]
-        in  converter (convertExpr ctx tctx' mod params)
-                      (resolveMaybeType ctx tctx' mod params)
+  let paramConverter pos params = do
+        tctx <- addTypeParams ctx
+                              tctx
+                              [ (p, TypeTypeParam p) | p <- params ] pos
+        return $ converter (convertExpr ctx tctx mod params)
+                           (resolveMaybeType ctx tctx mod params)
 
   converted <- forM
     contents
-    (\(decl, pos) -> do
-      debugLog ctx
-        $  "resolving types for "
-        ++ (s_unpack $ showTypePath $ declName decl)
-      case (pass, decl) of
-        (3, DeclImpl (i@TraitImplementation { implFor = Just iFor, implTrait = Just trait }))
+    (\decl -> do
+      noisyDebugLog ctx $ "resolving types for " ++ (show $ stmt decl)
+      case (pass, stmt decl) of
+        (ResolveImpls, Implement (i@TraitImplementation { implFor = Just iFor, implTrait = Just trait }))
           -> do
             traitCt <- resolveType ctx tctx mod trait
             case traitCt of
@@ -143,14 +167,15 @@ resolveTypesForMod pass ctx (mod, contents) = do
                 paramsTrait <- return $ take
                   (length paramsTrait - (length $ implAssocTypes i))
                   paramsTrait
-                def <- getTraitDefinition ctx tpTrait
+                def       <- getTraitDefinition ctx tpTrait
 
-                let paramTctx = addTypeParams
-                      tctx
-                      [ let p = traitSubPath def $ paramName param
-                        in  (p, TypeTypeParam $ p)
-                      | param <- traitAllParams def
-                      ]
+                paramTctx <- addTypeParams
+                  ctx
+                  tctx
+                  [ let p = traitSubPath def $ paramName param
+                    in  (p, TypeTypeParam $ p)
+                  | param <- traitAllParams def
+                  ] (implPos i)
                 ct <- resolveType ctx paramTctx mod iFor
                 let selfTctx = paramTctx { tctxSelf = Just ct }
                 impl <- convertTraitImplementation
@@ -196,7 +221,7 @@ resolveTypesForMod pass ctx (mod, contents) = do
                     h_insert impls          ct                     impl
                     h_insert (ctxImpls ctx) (tpTrait, paramsTrait) impls
 
-                return $ Just $ (DeclImpl $ impl, tctx)
+                return $ Just $ (ps (implPos impl) $ Implement impl, tctx)
 
               _ -> throwk $ BasicError
                 (  "Couldn't resolve trait for trait implementation: "
@@ -204,7 +229,7 @@ resolveTypesForMod pass ctx (mod, contents) = do
                 )
                 (Just $ implPos i)
 
-        (2, DeclVar v) -> do
+        (ResolveIdentifiers, VarDeclaration v) -> do
           let extern = hasMeta "extern" (varMeta v)
           converted <- convertVarDefinition varConverter
             $ v { varName = addNamespace (modPath mod) (varName v) }
@@ -214,99 +239,164 @@ resolveTypesForMod pass ctx (mod, contents) = do
                          (VarBinding converted)
                          (not extern)
                          False
-          return $ Just $ (DeclVar converted, tctx)
+          return $ Just $ (ps (varPos v) $ VarDeclaration converted, tctx)
 
-        (2, DeclFunction f) -> do
+        (ResolveIdentifiers, FunctionDeclaration f) -> do
           let
             isMain =
               functionName f
                 == ([], "main")
                 && (ctxMainModule ctx == modPath mod)
           let extern = (hasMeta "extern" (functionMeta f)) || isMain
-          converted <- convertFunctionDefinition paramConverter $ f
-            { functionName = addNamespace (if extern then [] else modPath mod)
-                                          (functionName f)
-            }
+          converted <-
+            convertFunctionDefinition (paramConverter $ functionPos f) $ f
+              { functionName = addNamespace
+                (if extern then [] else modPath mod)
+                (functionName f)
+              }
           addToInterface ctx
                          mod
                          (functionName converted)
                          (FunctionBinding converted)
                          (not extern)
                          False
-          return $ Just $ (DeclFunction converted, tctx)
+          return
+            $ Just
+            $ (ps (functionPos f) $ FunctionDeclaration converted, tctx)
 
-        (2, DeclType t) -> do
+        (ResolveExtensions, ExtendDefinition t stmts) -> do
+          let pos = case t of
+                Just t  -> position t
+                Nothing -> NoPos
+          ct <- resolveMaybeType ctx tctx mod [] pos t
+          let tp = case ct of
+                TypeInstance tp _           -> tp
+                TypeTraitConstraint (tp, _) -> tp
+                _                           -> throwk $ BasicError
+                  ("Couldn't resolve extension target for type " ++ show t)
+                  (Just pos)
+          existing <- h_lookup extensions tp
+          ref      <- case existing of
+            Just x  -> return x
+            Nothing -> do
+              new <- newIORef []
+              h_insert extensions tp new
+              return new
+          modifyIORef ref (\x -> x ++ stmts)
+          return Nothing
+
+        (ResolveTypes, TypeDeclaration t) -> do
+          extensions <- h_lookup extensions $ typeName t
+          extensions <- case extensions of
+            Just x  -> readIORef x
+            Nothing -> return []
+          t <- return $ foldr addTypeExtension t extensions
           let params' =
                 [ (tp, TypeTypeParam $ tp)
                 | p <- typeParams t
                 , let tp = typeSubPath t $ paramName p
                 ]
-          let tctx' = tctx
-                { tctxTypeParams = params' ++ tctxTypeParams tctx
-                , tctxSelf = Just (TypeInstance (typeName t) (map snd params'))
-                }
-          let paramConverter params =
-                let tctx'' = addTypeParams
-                      tctx'
-                      [ (p, TypeTypeParam p) | p <- params ]
-                in  converter (convertExpr ctx tctx'' mod params)
-                              (resolveMaybeType ctx tctx'' mod params)
+          tctx <- return $ tctx
+            { tctxTypeParams = params' ++ tctxTypeParams tctx
+            , tctxSelf = Just (TypeInstance (typeName t) (map snd params'))
+            }
+          let
+            paramConverter params = do
+              tctx <-
+                addTypeParams ctx tctx [ (p, TypeTypeParam p) | p <- params ] (typePos t)
+              return $ converter (convertExpr ctx tctx mod params)
+                                 (resolveMaybeType ctx tctx mod params)
           converted <- do
-            c' <- convertTypeDefinition paramConverter
-              $ t { typeName = addNamespace (modPath mod) (typeName t) }
-            let c = c' { typeName = addNamespace (modPath mod) (typeName c') }
-            if null (typeMethods c)
-              then return c
-              else do
-                let thisType = TypeSelf
-                let m f x t = makeExprTyped x t (functionPos f)
-                return $ implicitifyInstanceMethods thisPtrName
-                                                    (TypePtr thisType)
-                                                    (\f x -> x)
-                                                    c
+            c <- convertTypeDefinition paramConverter t
+            let thisType = TypeSelf
+            let m f x t = makeExprTyped x t (functionPos f)
+            return $ implicitifyInstanceMethods
+              thisPtrName
+              (MethodTarget $ TypePtr thisType)
+              (\f x -> x)
+              c
 
           forMWithErrors_ (typeStaticFields converted)
-            $ \field -> addToInterface
-                ctx
-                mod
-                (subPath (typeName converted) $ tpName $ varName field)
-                (VarBinding field)
-                True
-                False
-          forMWithErrors_ (typeStaticMethods converted)
-            $ \method -> addToInterface
-                ctx
-                mod
-                (subPath (typeName converted) $ tpName $ functionName method)
-                (FunctionBinding method)
-                True
-                False
+            $ \field -> addToInterface ctx
+                                       mod
+                                       (varName field)
+                                       (VarBinding field)
+                                       True
+                                       False
+          forMWithErrors_ (typeStaticMethods converted) $ \method ->
+            addToInterface ctx
+                           mod
+                           (functionName method)
+                           (FunctionBinding method)
+                           True
+                           False
           forMWithErrors_ (typeMethods converted) $ \method -> addToInterface
             ctx
             mod
-            (subPath (typeName converted) $ tpName $ functionName method)
+            (functionName method)
             (FunctionBinding method)
             True
             False
           case typeSubtype converted of
-            Enum { enumVariants = variants } ->
+            Enum { enumVariants = variants } -> do
               forMWithErrors_ variants $ \variant -> do
-                h_insert
+                forM_
+                    [ (subPath (typeName converted)
+                               (tpName $ variantName variant)
+                      )
+                    , (modPath mod, (tpName $ variantName variant))
+                    ]
+                  $ \name -> h_insert
+                      (ctxBindings ctx)
+                      name
+                      (EnumConstructor variant)
+                when (enumIsSimple $ typeSubtype converted) $ h_insert
                   (ctxBindings ctx)
-                  (subPath (typeName converted) (tpName $ variantName variant))
-                  (EnumConstructor variant)
-                addToInterface ctx
-                               mod
-                               ([], tpName $ variantName variant)
-                               (EnumConstructor variant)
-                               True
-                               True
+                  (subPath (typeName converted) "variants")
+                  (ExprBinding $ makeExprTyped
+                    (ArrayLiteral
+                      [ makeExprTyped (Identifier $ Var $ variantName variant)
+                                      (TypeInstance (typeName converted) [])
+                                      (typePos converted)
+                      | variant <- variants
+                      ]
+                    )
+                    (TypeArray (TypeInstance (typeName converted) [])
+                               (length variants)
+                    )
+                    (typePos converted)
+                  )
+            StructUnion { structUnionFields = fields } -> do
+              h_insert
+                (ctxBindings ctx)
+                (subPath (typeName converted) "fields")
+                (ExprBinding $ makeExprTyped
+                  (ArrayLiteral
+                    [ makeExprTyped
+                        (Literal (StringValue $ tpName $ varName field)
+                                 TypeCString
+                        )
+                        TypeCString
+                        (typePos converted)
+                    | field <- fields
+                    ]
+                  )
+                  (TypeArray TypeCString (length fields))
+                  (typePos converted)
+                )
             _ -> return ()
 
           addBinding ctx (typeName t) $ TypeBinding converted
-          return $ Just $ (DeclType converted, tctx')
+          return
+            $ Just
+            $ (ps (typePos converted) $ TypeDeclaration converted, tctx)
 
-        (2, DeclTrait t) -> do
+        (ResolveTypes, TraitDeclaration t) -> do
+          extensions <- h_lookup extensions $ traitName t
+          extensions <- case extensions of
+            Just x  -> readIORef x
+            Nothing -> return []
+          t <- return $ foldr addTraitExtension t extensions
           let
             tctx' = tctx
               { tctxTypeParams = [ (tp, TypeTypeParam $ tp)
@@ -319,26 +409,48 @@ resolveTypesForMod pass ctx (mod, contents) = do
                 ++ tctxTypeParams tctx
               , tctxSelf       = Just TypeSelf
               }
-          let paramConverter params = converter
+          let paramConverter params = return $ converter
                 (convertExpr ctx tctx' mod params)
                 (resolveMaybeType ctx tctx' mod params)
           converted <- convertTraitDefinition paramConverter
             $ t { traitName = (modPath mod, tpName $ traitName t) }
+
+          forMWithErrors_ (traitStaticFields converted)
+            $ \field -> addToInterface
+                ctx
+                mod
+                (subPath (traitName converted) $ tpName $ varName field)
+                (VarBinding field)
+                True
+                False
+          forMWithErrors_ (traitStaticMethods converted)
+            $ \method -> addToInterface
+                ctx
+                mod
+                (subPath (traitName converted) $ tpName $ functionName method)
+                (FunctionBinding method)
+                True
+                False
           forMWithErrors_ (traitMethods converted) $ \method' ->
-            let method = implicitifyMethod
-                  vThisArgName
-                  (TypePtr $ TypeBasicType BasicTypeVoid)
-                  (\_ -> id)
-                  method'
+            let method = implicitifyMethod vThisArgName
+                                           (MethodTarget $ TypePtr TypeVoid)
+                                           (\_ -> id)
+                                           method'
             in  addBinding
                   ctx
                   (subPath (traitName converted) $ tpName $ functionName method)
                   (FunctionBinding method)
 
           addBinding ctx (traitName converted) $ TraitBinding converted
-          return $ Just $ (DeclTrait converted, tctx')
+          return
+            $ Just
+            $ (ps (traitPos converted) $ TraitDeclaration converted, tctx')
 
-        (1, DeclRuleSet r) -> do
+        (ResolveTypedefs, Typedef a b) -> do
+          addBinding ctx a $ TypedefBinding b (modPath mod) (stmtPos decl)
+          return Nothing
+
+        (ResolveRules, RuleSetDeclaration r) -> do
           converted <- convertRuleSet varConverter r
           addBinding ctx (ruleSetName r) $ RuleSetBinding converted
           return Nothing
@@ -348,9 +460,8 @@ resolveTypesForMod pass ctx (mod, contents) = do
 
   return (mod, catMaybes converted)
 
-addSpecialization
-  :: CompileContext -> Module -> ((TypeSpec, TypeSpec), Span) -> IO ()
-addSpecialization ctx mod ((ts@(TypeSpec tp params _), b), pos) = do
+addDefault :: CompileContext -> Module -> ((TypeSpec, TypeSpec), Span) -> IO ()
+addDefault ctx mod ((ts@(TypeSpec tp params _), b), pos) = do
   tctx       <- modTypeContext ctx mod
   traitType  <- resolveType ctx tctx mod ts
   foundTrait <- case traitType of
@@ -359,19 +470,19 @@ addSpecialization ctx mod ((ts@(TypeSpec tp params _), b), pos) = do
   case foundTrait of
     Just (TraitBinding def) -> do
       let tp = traitName def
-      existing <- h_lookup (ctxTraitSpecializations ctx) tp
+      existing <- h_lookup (ctxTraitDefaults ctx) tp
       case existing of
         Just (_, pos') ->
-          -- if this specialization comes from a prelude, it could show up
+          -- if this default comes from a prelude, it could show up
           -- multiple times, so just ignore it
                           if pos' == pos
           then return ()
-          else throwk $ DuplicateSpecializationError (modPath mod) tp pos' pos
+          else throwk $ DuplicateDefaultError (modPath mod) tp pos' pos
         _ -> do
           ct <- resolveType ctx tctx mod b
-          h_insert (ctxTraitSpecializations ctx) tp (ct, pos)
+          h_insert (ctxTraitDefaults ctx) tp (ct, pos)
     _ -> throwk $ BasicError
-      ("Couldn't resolve trait for specialization: " ++ show tp)
+      ("Couldn't resolve trait for default: " ++ show tp)
       (Just pos)
 
 addModUsing

@@ -87,7 +87,11 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
           temp@(IrTempInfo { irTempType = tempType, irTempExpr = tempDefault, irTempOrder = tempOrder }) <-
             h_get (ictxTempInfo ictx) i
           x <- typedToIr ctx ictx mod $ makeExprTyped
-            (VarDeclaration (Var ([], irTempName i)) tempType True tempDefault)
+            (LocalVarDeclaration (Var ([], irTempName i))
+                                 tempType
+                                 True
+                                 tempDefault
+            )
             tempType
             pos
           return $ (tempOrder * 2, x)
@@ -239,7 +243,8 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
       (Return e1) -> do
         r1 <- maybeR e1
         return $ IrReturn r1
-      (Throw e1         ) -> return $ undefined -- TODO
+      (Match _ [] Nothing) -> do
+        return $ IrBlock []
       (Match e1 cases e2) -> do
         r1        <- r e1
         r2        <- maybeR e2
@@ -349,7 +354,7 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
                 ("unexpected array literal type: " ++ show f)
                 (Just pos)
         return $ IrCArrLiteral items' contentType
-      (VarDeclaration (Var name) ts const def) -> do
+      (LocalVarDeclaration (Var name) ts const def) -> do
         case (def, f) of
           (Just x, CArray _ _)
             | case x of
@@ -357,7 +362,7 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
               _                           -> True
             -> do
               a <- typedToIr ctx ictx mod $ makeExprTyped
-                (VarDeclaration (Var name) ts const Nothing)
+                (LocalVarDeclaration (Var name) ts const Nothing)
                 (inferredType e)
                 pos
               b <- typedToIr ctx ictx mod $ makeExprTyped
@@ -372,12 +377,12 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
           _ -> do
             def <- maybeR def
             return $ IrVarDeclaration (tpName name) f def
-      (VarDeclaration (MacroVar v _) _ _ _) -> do
+      (LocalVarDeclaration (MacroVar v _) _ _ _) -> do
         throwk $ BasicError
           ("unexpected macro var (" ++ (s_unpack v) ++ ") in typed AST")
           (Just pos)
-      (Defer x) -> do
-        throwk $ InternalError "Not yet implemented" (Just pos)
+      -- (Defer x) -> do
+      --   throwk $ InternalError "Not yet implemented" (Just pos)
       (StructInit t fields) -> do
         resolvedFields <- forMWithErrors
           fields
@@ -468,14 +473,11 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
             ("`empty` isn't a valid value of type " ++ show t')
             pos
         return $ IrEmpty t'
+      (VarArg x) -> do
+        return $ IrCall (IrIdentifier ([], "va_arg"))
+                        [IrIdentifier ([], x), IrType f]
       InlineCExpr s t -> return $ IrInlineC s
       t               -> do
         throwk $ InternalError
           ("Unexpected expression in typed AST:\n\n" ++ show t)
           (Just pos)
-
-{-addHeader :: Module -> FilePath -> Span -> IO ()
-addHeader mod fp pos = do
-  includes <- readIORef (modIncludes mod)
-  unless (elem fp (map fst includes))
-    $ modifyIORef (modIncludes mod) (\x -> (fp, pos) : x)-}

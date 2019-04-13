@@ -1,0 +1,35 @@
+include "stdlib.h";
+
+function specialAlloc(size: Size): Ptr[Void] {
+    printf("special_alloc %zu\n", size);
+    return malloc(size);
+}
+
+struct MyStruct {
+    var a: Int;
+    var b: Float;
+
+    public static function new(allocator: Box[Allocator]): Ptr[MyStruct] {
+        return allocator.alloc(sizeof MyStruct);
+    }
+}
+
+function main() {
+    var callocator: Box[Allocator] = struct SimpleAllocator {
+        alloc: specialAlloc,
+        calloc: callocWrapper,
+        free: free,
+    };
+
+    // use the implicit `mallocator`
+    var s1 = MyStruct.new();
+    s1.b = 2.5;
+    printf("%.1f\n", s1.b);
+
+    var s2: Ptr[MyStruct];
+    using implicit callocator {
+        s2 = MyStruct.new();
+    }
+    s2.b = 4.1;
+    printf("%.1f\n", s2.b);
+}
