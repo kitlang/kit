@@ -34,6 +34,10 @@ struct Set[T] {
         };
     }
 
+    public function copy() {
+        return struct Self { length: this.length, deleted: this.deleted, allocator: this.allocator, internalArray: this.internalArray.copy() };
+    }
+
     public function remove(key: T): Void {
         var index = this.findLocation(key);
         if this.internalArray[index].state == HashCellState.Occupied && this.internalArray[index].data == key {
@@ -96,6 +100,33 @@ struct Set[T] {
     public function clear(): Void {
         this.internalArray.clear();
         this.length = 0;
+    }
+
+    public function unionSet(other: Set[T]){
+        for item in other{
+            this.put(item);
+        }
+    }
+
+    public function intersectionSet(other: Set[T]){
+        var tempSet: Set[T] = Set.new();
+
+        for item in other{
+            if this.exists(item){
+                tempSet.put(item);
+            }
+        }
+
+        this.internalArray = tempSet.internalArray.copy();
+        tempSet.free();
+    }
+
+    public function differenceSet(other: Set[T]){
+        for item in other{
+            if this.exists(item){
+                this.remove(item);
+            }
+        }
     }
 
      rules {
