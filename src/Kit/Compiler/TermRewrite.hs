@@ -120,6 +120,12 @@ ruleMatch ctx tctx pattern te thisExpr = do
       if op1 == op2 then r x y else return Nothing
     (Field x (Var a), Field y (Var b)) ->
       if a == b then r x y else return Nothing
+    (FieldWrite x1 (Var a) y1, FieldWrite x2 (Var b) y2) -> if a == b
+      then do
+        x <- r x1 x2
+        y <- r y1 y2
+        combineResults [x, y]
+      else return Nothing
     (Cast x t1, Cast y t2) -> if t1 == t2 then r x y else return Nothing
     (ArrayLiteral x, ArrayLiteral y) -> if length x == length y
       then do

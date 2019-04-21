@@ -1,0 +1,18 @@
+#[promote] abstract MyType: CArray[Int, 4] {
+    rules {
+        ($this[$a] = $b) => printf("set: %s = %s\n", $a, $b);
+        ($this[$a]) => printf("get: %s\n", $a);
+
+        ($this.abc = $x) => printf("field write: %s\n", $x);
+        ($this.abc) => printf("field read\n");
+    }
+}
+
+function main() {
+    var a: MyType = [1, 2, 3, 4];
+    a["test1"] = "test2";
+    a["test3"];
+
+    a.abc = "test4";
+    a.abc;
+}

@@ -583,7 +583,13 @@ RangeLiteral :: {Expr}
   | BinopTermAssign {$1}
 
 BinopTermAssign :: {Expr}
-  : BinopTermCons {$1}
+  : ArrayAccessCallFieldExpr '=' BinopTermAssign {
+    case expr $1 of
+      ArrayAccess x y -> pe (pos $1 <+> pos $3) $ ArrayWrite x y $3
+      Field x s -> pe (pos $1 <+> pos $3) $ FieldWrite x s $3
+      _ -> pe (pos $1 <+> pos $3) $ Binop Assign $1 $3
+  }
+  | BinopTermCons {$1}
   | BinopTermCons '=' BinopTermAssign {pe (pos $1 <+> pos $3) $ Binop Assign $1 $3}
   | BinopTermCons assign_op BinopTermAssign {pe (pos $1 <+> pos $3) $ Binop (AssignOp (extract_assign_op $2)) $1 $3}
 BinopTermCons :: {Expr}

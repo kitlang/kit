@@ -63,6 +63,7 @@ data ExprType a b
   | Match a [MatchCase a] (Maybe a)
   | InlineCall a
   | Field a (Identifier b)
+  | FieldWrite a (Identifier b) a
   | StructInit b [(Str, a)]
   | UnionInit b (Str, a)
   | EnumInit b TypePath [(Str, a)]
@@ -70,6 +71,7 @@ data ExprType a b
   | TupleInit [a]
   | TupleSlot a Int
   | ArrayAccess a a
+  | ArrayWrite a a a
   | Call a [a] [a]
   | Cast a b
   | Unsafe a
@@ -157,7 +159,9 @@ exprDiscriminant et = case et of
   UnionInit _ _               -> 50
   VarArgListCopy _            -> 51
   StaticVtable   _            -> 52
-  Defined _                   -> 53
+  Defined        _            -> 53
+  ArrayWrite _ _ _            -> 54
+  FieldWrite _ _ _            -> 55
   x                           -> throwk
     $ InternalError ("Expression has no discriminant: " ++ show x) Nothing
 
@@ -197,6 +201,8 @@ exprChildren et = case et of
   Temp       x          -> [x]
   StaticExpr x          -> [x]
   Yield      x          -> [x]
+  ArrayWrite x y z      -> [x, y, z]
+  FieldWrite x s y      -> [x, y]
   _                     -> []
 
 exprMapReduce :: (a -> c) -> (c -> d -> d) -> (a -> ExprType a b) -> d -> a -> d

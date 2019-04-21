@@ -181,26 +181,32 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           (tPos r1)
         return e
 
-    (PreUnop  _ _      ) -> subTyper typeOp
-    (PostUnop _ _      ) -> subTyper typeOp
-    (Binop _ _ _       ) -> subTyper typeOp
+    (PreUnop  _ _    ) -> subTyper typeOp
+    (PostUnop _ _    ) -> subTyper typeOp
+    (Binop _ _ _     ) -> subTyper typeOp
 
-    (For   _ _ _       ) -> subTyper typeControl
-    (While _ _ _       ) -> subTyper typeControl
-    (If    _ _ _       ) -> subTyper typeControl
-    (Continue          ) -> subTyper typeControl
-    (Break             ) -> subTyper typeControl
+    (For   _ _ _     ) -> subTyper typeControl
+    (While _ _ _     ) -> subTyper typeControl
+    (If    _ _ _     ) -> subTyper typeControl
+    (Continue        ) -> subTyper typeControl
+    (Break           ) -> subTyper typeControl
 
-    (Call e1 _ args    ) -> subTyper typeCall
-    (Return _          ) -> subTyper typeCall
+    (Call e1 _ args  ) -> subTyper typeCall
+    (Return _        ) -> subTyper typeCall
 
-    (Match _ _ _       ) -> subTyper typeMatch
+    (Match _ _ _     ) -> subTyper typeMatch
 
     (InlineCall e1) -> throwk $ InternalError "Not yet implemented" (Just pos)
 
-    (Field        _  _ ) -> subTyper typeField
+    (Field _ _       ) -> subTyper typeField
+    (FieldWrite x s y) -> do
+      [x, y] <- forMWithErrors [x, y] r
+      tryRewrite (ex { tExpr = FieldWrite x s y }) $ subTyper typeOp
 
-    (ArrayAccess  _  _ ) -> subTyper typeArrayAccess
+    (ArrayAccess _ _ ) -> subTyper typeArrayAccess
+    (ArrayWrite x y z) -> do
+      [x, y, z] <- forMWithErrors [x, y, z] r
+      tryRewrite (ex { tExpr = ArrayWrite x y z }) $ subTyper typeOp
 
     (Cast         _  _ ) -> subTyper typeCast
 
