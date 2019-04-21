@@ -3,3 +3,5 @@ typedef enum {
     Var2,
     Var3,
 } TestEnum;
+
+void myUnimplementedFunction();

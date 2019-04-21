@@ -468,6 +468,8 @@ addToInterface ctx mod name b namespace allowCollisions = do
   unless allowCollisions $ do
     existing <- h_lookup (ctxBindings ctx) name
     case existing of
+      Just (FunctionBinding (FunctionDefinition { functionIsImplemented = False }))
+        -> return ()
       Just x -> throwk $ DuplicateDeclarationError (modPath mod)
                                                    (tpName name)
                                                    (bindingPos x)
