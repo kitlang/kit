@@ -173,14 +173,14 @@ parseCDecls ctx mod path (h : t) = do
                 ++ (s_unpack name)
                 ++ ": "
                 ++ (show t')
-              addCDecl ctx mod name t' pos
+              addCDecl ctx mod name t' pos False
             )
     CFDefExt f@(CFunDef declSpec declr args _ _) -> do
       let pos  = annotatedPos f
       let t    = parseType (modPath mod) declSpec (cDeclrDerived declr)
       let name = cDeclrName declr
       noisyDebugLog ctx $ "bind " ++ (s_unpack name) ++ ": " ++ (show t)
-      addCDecl ctx mod name t pos
+      addCDecl ctx mod name t pos True
     _ -> do
       return ()
   parseCDecls ctx mod path t
@@ -316,16 +316,18 @@ _parseDeclSpec modPath [] width signed float = if float
   then TypeFloat width
   else if signed then TypeInt width else TypeUint width
 
-addCDecl :: CompileContext -> Module -> Str -> ConcreteType -> Span -> IO ()
-addCDecl ctx mod name t pos = do
+addCDecl
+  :: CompileContext -> Module -> Str -> ConcreteType -> Span -> Bool -> IO ()
+addCDecl ctx mod name t pos impl = do
   let bindingData = case t of
         TypeFunction t argSpecs isVariadic _ -> FunctionBinding
-          (newFunctionDefinition { functionName   = ([], name)
-                                 , functionMeta   = [meta metaExtern]
-                                 , functionPos    = pos
-                                 , functionType   = t
-                                 , functionArgs   = argSpecs
-                                 , functionVararg = isVariadic
+          (newFunctionDefinition { functionName          = ([], name)
+                                 , functionMeta          = [meta metaExtern]
+                                 , functionPos           = pos
+                                 , functionType          = t
+                                 , functionArgs          = argSpecs
+                                 , functionVararg        = isVariadic
+                                 , functionIsImplemented = impl
                                  }
           )
         _ -> VarBinding

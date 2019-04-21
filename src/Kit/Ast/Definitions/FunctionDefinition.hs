@@ -33,7 +33,8 @@ data FunctionDefinition a b = FunctionDefinition {
   functionArgs :: [ArgSpec a b],
   functionType :: b,
   functionBody :: Maybe a,
-  functionVararg :: Maybe Str
+  functionVararg :: Maybe Str,
+  functionIsImplemented :: Bool
 } deriving (Eq, Generic, Show)
 
 instance Positioned (FunctionDefinition a b) where
@@ -53,17 +54,18 @@ functionRealName f = if hasMeta "extern" (functionMeta f)
 
 newFunctionDefinition :: FunctionDefinition a b
 newFunctionDefinition = FunctionDefinition
-  { functionName      = undefined
-  , functionMonomorph = []
-  , functionBundle    = Nothing
-  , functionMeta      = []
-  , functionModifiers = [Public]
-  , functionParams    = []
-  , functionArgs      = []
-  , functionType      = undefined
-  , functionBody      = Nothing
-  , functionVararg    = Nothing
-  , functionPos       = NoPos
+  { functionName          = undefined
+  , functionMonomorph     = []
+  , functionBundle        = Nothing
+  , functionMeta          = []
+  , functionModifiers     = [Public]
+  , functionParams        = []
+  , functionArgs          = []
+  , functionType          = undefined
+  , functionBody          = Nothing
+  , functionVararg        = Nothing
+  , functionPos           = NoPos
+  , functionIsImplemented = True
   }
 
 convertFunctionDefinition
@@ -81,17 +83,19 @@ convertFunctionDefinition paramConverter f = do
   body   <- maybeConvert exprConverter (functionBody f)
   params <- forM (functionParams f) $ convertTypeParam converter
 
-  return $ (newFunctionDefinition) { functionName      = functionName f
-                                   , functionBundle    = functionBundle f
-                                   , functionMeta      = functionMeta f
-                                   , functionModifiers = functionModifiers f
-                                   , functionParams    = params
-                                   , functionArgs      = args
-                                   , functionType      = rt
-                                   , functionBody      = body
-                                   , functionVararg    = functionVararg f
-                                   , functionPos       = functionPos f
-                                   }
+  return $ (newFunctionDefinition)
+    { functionName          = functionName f
+    , functionBundle        = functionBundle f
+    , functionMeta          = functionMeta f
+    , functionModifiers     = functionModifiers f
+    , functionParams        = params
+    , functionArgs          = args
+    , functionType          = rt
+    , functionBody          = body
+    , functionVararg        = functionVararg f
+    , functionPos           = functionPos f
+    , functionIsImplemented = functionIsImplemented f
+    }
 
 implicitifyMethod
   :: Str
