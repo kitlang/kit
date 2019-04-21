@@ -1,0 +1,4 @@
+set: test1 = test2
+get: test3
+field write: test4
+field read

@@ -125,6 +125,9 @@ convertExpr ctx tctx mod params e = do
     Field e1 id   -> do
       id <- convertIdentifier typeOrTypeVar id
       container1 e1 (\x -> Field x id)
+    FieldWrite e1 id e2 -> do
+      id <- convertIdentifier typeOrTypeVar id
+      container2 e1 e2 (\x y -> FieldWrite x id y)
     StructInit t fields -> do
       t      <- typeOrTypeVar t
       fields <- forM
@@ -141,8 +144,9 @@ convertExpr ctx tctx mod params e = do
         return (name, r1)
       return $ m (UnionInit t field) t
     -- EnumInit b Str [a]
-    ArrayAccess e1 e2 -> container2 e1 e2 ArrayAccess
-    Call e1 imp args  -> do
+    ArrayAccess e1 e2      -> container2 e1 e2 ArrayAccess
+    ArrayWrite e1 e2  e3   -> container3 e1 e2 e3 ArrayWrite
+    Call       e1 imp args -> do
       t    <- mtv
       r1   <- r e1
       imp  <- mapM r imp

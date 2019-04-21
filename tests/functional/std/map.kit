@@ -52,7 +52,7 @@ function main() {
     myMap.put("2", 1);
     myMap.put("3", 1);
     myMap.put("4", 1);
-    myMap.put("5", 1);
+    myMap["5"] = 1;
 
     printf("Map resizes if more than threshold is added, capacity is greater: %zu\n", myMap.internalArray.length);
     printf("Key Exists 'test2': %s\n", if myMap.exists("test2") then "true" else "false");
