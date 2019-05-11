@@ -39,6 +39,12 @@
         <string>storage.type.kit</string>
       </dict>
       <dict>
+        <key>match</key>
+        <string>(=|==|<=|>=|!=|-|\+|--|\+\+|\*|\||>|<|<<|>>|&)|(\.{3})|((?<=[^\.])\.(?=[^\.]))</string>
+        <key>name</key>
+        <string>keyword.operator.kit</string>
+      </dict>
+      <dict>
         <key>name</key>
         <string>keyword.control.arrow.kit</string>
         <key>match</key>
