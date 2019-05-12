@@ -12,8 +12,10 @@ patterns:
   name: keyword.other.kit
 - match: \b(struct|enum|union|abstract|rule|rules|typedef|trait)\b
   name: storage.type.kit
-- match: (=|==|<=|>=|!=|-|\+|--|\+\+|\*|\||>|<|<<|>>|&)|(\.{3})|((?<=[^\.])\.(?=[^\.]))
+- match: (=|-|\+|--|\+\+|\*|<<|>>)|(\.{3})|((?<=[^\.])\.(?=[^\.]))
   name: keyword.operator.kit
+- match: ==|<=|>=|!=|>|<|\||&
+  name: keyword.operator.logical.kit
 
 - name: keyword.control.arrow.kit
   match: =\>
@@ -58,5 +60,7 @@ patterns:
   begin: '\#\['
   end: '\]'
 
+- name: variable.function.kit
+  match: \b[a-z_][A-Za-z0-9_]*(?=\()\b
 - name: variable.parameter.kit
   match: \b[a-z_][A-Za-z0-9_]*\b
