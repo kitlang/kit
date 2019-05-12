@@ -121,7 +121,8 @@ compile ctx build host = do
                              (modPath $ fst b, bundleTp $ snd b)
             )
             [ (mod, decl) | (mod, decls) <- irRaw, decl <- decls ]
-          )
+          ),
+          not $ null x
         ]
 
   {-

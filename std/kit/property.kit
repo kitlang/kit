@@ -1,7 +1,7 @@
 macro getter(type: CString, fieldName: CString) {
-    printf("extend %s{ rule ($this.%s) => $this.get_%s(); }", type, fieldName, fieldName);
+    printf("extend %s { rule ($this.%s) => $this.get_%s(); }", type, fieldName, fieldName);
 }
 
 macro setter(type: CString, fieldName: CString) {
-    printf("extend %s{ rule ($this.%s = $x) => $this.set_%s($x); }", type, fieldName, fieldName);
+    printf("extend %s { rule ($this.%s = $x) => $this.set_%s($x); }", type, fieldName, fieldName);
 }

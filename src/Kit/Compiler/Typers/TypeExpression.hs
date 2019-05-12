@@ -87,9 +87,11 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
           case acc of
             Just x  -> return $ Just x
             Nothing -> do
-              gtctx <- case ruleThis $ head rules of
-                Just x  -> genericTctx ctx tctx (tPos x) (inferredType x)
-                Nothing -> return tctx
+              gtctx <- case rules of
+                (h : _) -> case ruleThis h of
+                  Just x  -> genericTctx ctx tctx (tPos x) (inferredType x)
+                  Nothing -> return tctx
+                _ -> return tctx
               foldM
                 (\acc rule -> do
                   case acc of

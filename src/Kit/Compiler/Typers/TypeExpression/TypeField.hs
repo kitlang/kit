@@ -276,11 +276,11 @@ typeField (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _t
                         -- this may be a template; replace `this` with the actual
                         -- type to guarantee the implicit pass will work
                         case inferredType typed of
-                          TypeFunction rt args varargs _ ->
+                          TypeFunction rt args varargs _ | not (null args) ->
                             let
                               f = TypeFunction
                                 rt
-                                ( (let arg = (head args)
+                                ( (let arg = head args
                                    in
                                      arg
                                        { argType = MethodTarget
