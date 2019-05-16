@@ -40,6 +40,21 @@
       </dict>
       <dict>
         <key>name</key>
+        <string>comment.line.double-slash.kit</string>
+        <key>match</key>
+        <string>(//).*$
+?</string>
+      </dict>
+      <dict>
+        <key>name</key>
+        <string>comment.block.kit</string>
+        <key>begin</key>
+        <string>/\*</string>
+        <key>end</key>
+        <string>\*/</string>
+      </dict>
+      <dict>
+        <key>name</key>
         <string>keyword.control.arrow.kit</string>
         <key>match</key>
         <string>=></string>
@@ -131,27 +146,6 @@
         <string>string.quoted.single.kit</string>
         <key>match</key>
         <string>'(\.|[^\'])*'</string>
-      </dict>
-      <dict>
-        <key>name</key>
-        <string>constant.character.escape</string>
-        <key>match</key>
-        <string>(\\[abefnrtv\\\'\"?])|(\\[01234567]{1,3})|(\\x[0123456789aAbBcCdDeEfF]{2})|(\\u[0123456789aAbBcCdDeEfF]{4})|(\\U[0123456789aAbBcCdDeEfF]{8})</string>
-      </dict>
-      <dict>
-        <key>name</key>
-        <string>comment.line.double-slash.kit</string>
-        <key>match</key>
-        <string>(//).*$
-?</string>
-      </dict>
-      <dict>
-        <key>name</key>
-        <string>comment.block.kit</string>
-        <key>begin</key>
-        <string>/\*</string>
-        <key>end</key>
-        <string>\*/</string>
       </dict>
       <dict>
         <key>name</key>
