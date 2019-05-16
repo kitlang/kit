@@ -17,9 +17,9 @@ patterns:
 - name: keyword.operator.kit
   match: <<=|>>=
 - name: keyword.operator.logical.kit
-  match: ==|<=|>=|!=|>|<|\||&
+  match: ==|<=|>=|!=|>|<|\|\||&&|!
 - name: keyword.operator.kit
-  match: (=|-|\+|--|\+\+|\*|<<|>>|%)|(\.{3})|((?<=[^\.])\.(?=[^\.]))
+  match: (=|-|\+|--|\+\+|\*|<<|>>|%|&|\^|\||\~)|(\.{3})|((?<=[^\.])\.(?=[^\.]))
 
 
 - name: support.type.kit
