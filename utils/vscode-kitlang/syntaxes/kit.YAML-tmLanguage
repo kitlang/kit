@@ -15,11 +15,11 @@ patterns:
 - name: keyword.control.arrow.kit
   match: =\>
 - name: keyword.operator.kit
-  match: <<=|>>=
+  match: <<=|>>=|<<|>>
 - name: keyword.operator.logical.kit
   match: ==|<=|>=|!=|>|<|\|\||&&|!
 - name: keyword.operator.kit
-  match: (=|-|\+|--|\+\+|\*|<<|>>|%|&|\^|\||\~)|(\.{3})|((?<=[^\.])\.(?=[^\.]))
+  match: (=|-|\+|--|\+\+|\*|%|&|\^|\||\~|\/)|(\.{3})|((?<=[^\.])\.(?=[^\.]))
 
 
 - name: support.type.kit

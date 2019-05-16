@@ -48,7 +48,7 @@
         <key>name</key>
         <string>keyword.operator.kit</string>
         <key>match</key>
-        <string><<=|>>=</string>
+        <string><<=|>>=|<<|>></string>
       </dict>
       <dict>
         <key>name</key>
@@ -60,7 +60,7 @@
         <key>name</key>
         <string>keyword.operator.kit</string>
         <key>match</key>
-        <string>(=|-|\+|--|\+\+|\*|<<|>>|%|&|\^|\||\~)|(\.{3})|((?<=[^\.])\.(?=[^\.]))</string>
+        <string>(=|-|\+|--|\+\+|\*|%|&|\^|\||\~|\/)|(\.{3})|((?<=[^\.])\.(?=[^\.]))</string>
       </dict>
       <dict>
         <key>name</key>
