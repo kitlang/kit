@@ -14,10 +14,12 @@ patterns:
   match: \b(struct|enum|union|abstract|rule|rules|typedef|trait)\b
 - name: keyword.control.arrow.kit
   match: =\>
+- name: keyword.operator.kit
+  match: <<=|>>=
 - name: keyword.operator.logical.kit
   match: ==|<=|>=|!=|>|<|\||&
 - name: keyword.operator.kit
-  match: (=|-|\+|--|\+\+|\*|<<|>>)|(\.{3})|((?<=[^\.])\.(?=[^\.]))
+  match: (=|-|\+|--|\+\+|\*|<<|>>|%)|(\.{3})|((?<=[^\.])\.(?=[^\.]))
 
 
 - name: support.type.kit
