@@ -155,6 +155,12 @@
       </dict>
       <dict>
         <key>name</key>
+        <string>keyword.operator.expression</string>
+        <key>match</key>
+        <string>(```( )*:(?=( )*\b[A-Z][a-zA-Z0-9_]*\b( )*;))|(```)</string>
+      </dict>
+      <dict>
+        <key>name</key>
         <string>markup.heading.metadata.kit</string>
         <key>begin</key>
         <string>\#\[</string>

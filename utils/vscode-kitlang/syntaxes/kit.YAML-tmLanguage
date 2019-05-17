@@ -28,7 +28,6 @@ patterns:
 - name: keyword.operator.kit
   match: (=|-|\+|--|\+\+|\*|%|&|\^|\||\~|\/)|(\.{3})|((?<=[^\.])\.(?=[^\.]))
 
-
 - name: support.type.kit
   match: '\b[A-Z][a-zA-Z0-9_]*\b'
 - name: variable.language.kit
@@ -58,6 +57,9 @@ patterns:
 
 - name: constant.language.kit
   match: \b(true|false|null)\b
+
+- name: keyword.operator.expression
+  match: (```( )*:(?=( )*\b[A-Z][a-zA-Z0-9_]*\b( )*;))|(```)
 
 - name: markup.heading.metadata.kit
   begin: '\#\['
