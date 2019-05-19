@@ -58,8 +58,14 @@ patterns:
 - name: constant.language.kit
   match: \b(true|false|null)\b
 
-- name: keyword.operator.expression
+- name: keyword.operator.expression.kit
   match: (```( )*:(?=( )*\b[A-Z][a-zA-Z0-9_]*\b( )*;))|(```)
+- name: punctuation.separator.comma.kit
+  match: ,
+- name: punctuation.separator.colon.kit
+  match: :
+- name: punctuation.separator.semicolon.kit
+  match: ;
 
 - name: markup.heading.metadata.kit
   begin: '\#\['

@@ -155,9 +155,27 @@
       </dict>
       <dict>
         <key>name</key>
-        <string>keyword.operator.expression</string>
+        <string>keyword.operator.expression.kit</string>
         <key>match</key>
         <string>(```( )*:(?=( )*\b[A-Z][a-zA-Z0-9_]*\b( )*;))|(```)</string>
+      </dict>
+      <dict>
+        <key>name</key>
+        <string>punctuation.separator.comma.kit</string>
+        <key>match</key>
+        <string>,</string>
+      </dict>
+      <dict>
+        <key>name</key>
+        <string>punctuation.separator.colon.kit</string>
+        <key>match</key>
+        <string>:</string>
+      </dict>
+      <dict>
+        <key>name</key>
+        <string>punctuation.separator.semicolon.kit</string>
+        <key>match</key>
+        <string>;</string>
       </dict>
       <dict>
         <key>name</key>
