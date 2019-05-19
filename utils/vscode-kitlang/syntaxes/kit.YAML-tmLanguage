@@ -28,10 +28,10 @@ patterns:
 - name: keyword.operator.kit
   match: (=|-|\+|--|\+\+|\*|%|&|\^|\||\~|\/)|(\.{3})|((?<=[^\.])\.(?=[^\.]))
 
-- name: support.type.kit
-  match: '\b[A-Z][a-zA-Z0-9_]*\b'
 - name: variable.language.kit
   match: \b(this|Self)\b
+- name: support.type.kit
+  match: '\b[A-Z][a-zA-Z0-9_]*\b'
 - name: invalid.illegal.macro.kit
   match: '\$[A-Za-z0-9_]+\b'
 - name: invalid.illegal.macro.kit

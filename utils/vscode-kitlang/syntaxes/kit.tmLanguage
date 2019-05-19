@@ -79,15 +79,15 @@
       </dict>
       <dict>
         <key>name</key>
-        <string>support.type.kit</string>
-        <key>match</key>
-        <string>\b[A-Z][a-zA-Z0-9_]*\b</string>
-      </dict>
-      <dict>
-        <key>name</key>
         <string>variable.language.kit</string>
         <key>match</key>
         <string>\b(this|Self)\b</string>
+      </dict>
+      <dict>
+        <key>name</key>
+        <string>support.type.kit</string>
+        <key>match</key>
+        <string>\b[A-Z][a-zA-Z0-9_]*\b</string>
       </dict>
       <dict>
         <key>name</key>
