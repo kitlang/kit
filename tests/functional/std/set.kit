@@ -1,0 +1,186 @@
+import set;
+
+var mySet: Set[Int];
+var mySet2: Set[Int];
+
+function setup(){
+    mySet = Set.new();
+    mySet2 = Set.new();
+}
+
+function differenceTest() {
+    setup();
+
+    mySet.put(1);
+    mySet.put(3);
+    mySet.put(5);
+    mySet.put(8);
+
+    mySet2.put(1);
+    mySet2.put(2);
+    mySet2.put(7);
+    mySet2.put(8);
+    mySet2.put(9);
+
+    mySet.differenceSet(mySet2);
+
+    for item in mySet{
+        printf("%i\n", item);
+    }
+
+    mySet.clear();
+    mySet.put(1);
+    mySet.put(3);
+    mySet.put(5);
+    mySet.put(8);
+
+    printf('\nmySet: \n');
+    for item in mySet{
+        printf("%i\n", item);
+    }
+
+
+    mySet2.clear();
+    mySet2.put(1);
+    mySet2.put(2);
+    mySet2.put(7);
+    mySet2.put(8);
+    mySet2.put(9);
+
+    var newSet = mySet.copy();
+
+    newSet.differenceSet(mySet2);
+    
+    printf('\n');
+    for item in newSet{
+        printf("%i\n", item);
+    }
+    printf('\n');
+    for item in mySet{
+        printf("%i\n", item);
+    }
+
+    mySet.free();
+    mySet2.free();
+    newSet.free();
+}
+
+function unionTest() {
+    setup();
+
+    mySet.put(1);
+    mySet.put(3);
+    mySet.put(5);
+    mySet.put(8);
+
+    mySet2.put(1);
+    mySet2.put(2);
+    mySet2.put(7);
+    mySet2.put(8);
+    mySet2.put(9);
+
+    mySet.unionSet(mySet2);
+
+    for item in mySet{
+        printf("%i\n", item);
+    }
+
+    mySet.clear();
+    mySet.put(1);
+    mySet.put(3);
+    mySet.put(5);
+    mySet.put(8);
+
+    printf('\nmySet: \n');
+    for item in mySet{
+        printf("%i\n", item);
+    }
+
+
+    mySet2.clear();
+    mySet2.put(1);
+    mySet2.put(2);
+    mySet2.put(7);
+    mySet2.put(8);
+    mySet2.put(9);
+
+    var newSet = mySet.copy();
+
+    newSet.unionSet(mySet2);
+    
+    printf('\n');
+    for item in newSet{
+        printf("%i\n", item);
+    }
+    printf('\n');
+    for item in mySet{
+        printf("%i\n", item);
+    }
+
+    mySet.free();
+    mySet2.free();
+    newSet.free();
+}
+
+function intersectionTest() {
+        setup();
+
+    mySet.put(1);
+    mySet.put(3);
+    mySet.put(5);
+    mySet.put(8);
+
+    mySet2.put(1);
+    mySet2.put(2);
+    mySet2.put(7);
+    mySet2.put(8);
+    mySet2.put(9);
+
+    mySet.unionSet(mySet2);
+
+    for item in mySet{
+        printf("%i\n", item);
+    }
+
+    mySet.clear();
+    mySet.put(1);
+    mySet.put(3);
+    mySet.put(5);
+    mySet.put(8);
+
+    printf('\nmySet: \n');
+    for item in mySet{
+        printf("%i\n", item);
+    }
+
+
+    mySet2.clear();
+    mySet2.put(1);
+    mySet2.put(2);
+    mySet2.put(7);
+    mySet2.put(8);
+    mySet2.put(9);
+
+    var newSet = mySet.copy();
+
+    newSet.unionSet(mySet2);
+    
+    printf('\n');
+    for item in newSet{
+        printf("%i\n", item);
+    }
+    printf('\n');
+    for item in mySet{
+        printf("%i\n", item);
+    }
+
+    mySet.free();
+    mySet2.free();
+    newSet.free();
+}
+
+function main(){
+    differenceTest();
+    unionTest();
+    intersectionTest();
+}
