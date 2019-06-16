@@ -22,5 +22,6 @@ instance Show Modifier where
 
 isPublic :: [Modifier] -> Bool
 isPublic (Public  : t) = True
+isPublic (Private : t) = False
 isPublic (_       : t) = isPublic t
-isPublic []            = False
+isPublic []            = True
