@@ -82,19 +82,25 @@ typeOp (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _type
                       )
                       pos
                 _ -> do
-                  r1        <- r e1
-                  converted <- tryAutoRefDeref ctx tctx (inferredType r1) r2
-                  when (tIsConst r1) $ throwk $ TypingError
-                    "Can't reassign a const value"
-                    pos
-                  resolve $ TypeEq
-                    (inferredType r1)
-                    (inferredType converted)
-                    "Assigned value must match the type of the lvalue it's assigned to"
-                    (tPos converted)
-                  return $ makeExprTyped (Binop Assign r1 converted)
-                                         (inferredType r1)
-                                         pos
+                  r1 <- r e1
+                  tryRewrite
+                      (makeExprTyped (Binop Assign r1 r2) (inferredType ex) pos)
+                    $ do
+                        converted <- tryAutoRefDeref ctx
+                                                     tctx
+                                                     (inferredType r1)
+                                                     r2
+                        when (tIsConst r1) $ throwk $ TypingError
+                          "Can't reassign a const value"
+                          pos
+                        resolve $ TypeEq
+                          (inferredType r1)
+                          (inferredType converted)
+                          "Assigned value must match the type of the lvalue it's assigned to"
+                          (tPos converted)
+                        return $ makeExprTyped (Binop Assign r1 converted)
+                                               (inferredType r1)
+                                               pos
       (Binop (AssignOp op) e1 e2) | (op == And) || (op == Or) -> do
         r1 <- r e1
         r2 <- r e2
