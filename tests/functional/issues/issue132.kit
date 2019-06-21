@@ -1,0 +1,14 @@
+struct MyVal {
+    var val: Int;
+
+    rules {
+        ($this = ${other: Int}) => $this.val = $other;
+    }
+}
+
+
+function main() {
+    var s = struct MyVal {val: 0};
+    s = 1_i;
+    printf("%i\n", s.val);
+}
