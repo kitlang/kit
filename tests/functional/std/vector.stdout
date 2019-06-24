@@ -33,3 +33,9 @@ iterate: 33
 iterate: 44
 length = 4
 length after clear = 0
+any = true
+all = false
+any = true
+all = true
+any = false
+all = false

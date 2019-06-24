@@ -14,6 +14,24 @@
 trait Iterable(IteratorT) {
     public function iterator(): Box[Iterator[IteratorT]];
 
+    // public function all(fn: function (&IteratorT) -> Bool): Bool {
+    //     for item in this {
+    //         if !fn(item) {
+    //             return false;
+    //         }
+    //     }
+    //     return true;
+    // }
+
+    // public function any(fn: function (&IteratorT) -> Bool): Bool {
+    //     for item in this {
+    //         if fn(item) {
+    //             return true;
+    //         }
+    //     }
+    //     return false;
+    // }
+
     rules {
         (for $ident in $this {$e}) => {
             var __iterator: Box[Iterator[IteratorT]] = $this.iterator();

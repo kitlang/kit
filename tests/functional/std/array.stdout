@@ -16,3 +16,9 @@ third element = 35
 23
 35
 47
+any = true
+all = false
+any = true
+all = true
+any = false
+all = false

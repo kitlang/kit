@@ -92,6 +92,24 @@ struct Vector[T] {
         return val;
     }
 
+    public function all(fn: function (&T) -> Bool): Bool {
+        for item in this {
+            if !fn(item) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public function any(fn: function (&T) -> Bool): Bool {
+        for item in this {
+            if fn(item) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     rules {
         ($this :: ${other: Self}) => $this.concat(other);
         // FIXME: implement term rewriting for casts

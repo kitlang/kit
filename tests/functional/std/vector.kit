@@ -1,3 +1,7 @@
+function gt3(i: Ptr[Int]) {
+    return *i > 3;
+}
+
 function main() {
     var v: Vector[Int] = Vector.new(4);
     printf("length = %zu\n", v.length);
@@ -55,4 +59,26 @@ function main() {
     v.free();
 
     var v2: Vector[Int] = Vector.new();
+
+    {
+        var v1: Vector[Int] = Vector.new(3);
+        v1.push(1);
+        v1.push(3);
+        v1.push(5);
+
+        var v2: Vector[Int] = Vector.new(3);
+        v2.push(5);
+        v2.push(6);
+        v2.push(7);
+
+        var v3: Vector[Int] = Vector.new(3);
+        v3.push(0);
+        v3.push(1);
+        v3.push(2);
+
+        for v in [v1, v2, v3] {
+            puts(if v.any(gt3) then "any = true" else "any = false");
+            puts(if v.all(gt3) then "all = true" else "all = false");
+        }
+    }
 }

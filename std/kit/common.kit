@@ -10,6 +10,24 @@
             }
         }
     }
+
+    public function all(fn: function (&T) -> Bool): Bool {
+        for item in this {
+            if !fn(item) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public function any(fn: function (&T) -> Bool): Bool {
+        for item in this {
+            if fn(item) {
+                return true;
+            }
+        }
+        return false;
+    }
 }
 #[builtin] abstract Box[T];
 
