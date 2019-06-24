@@ -18,6 +18,7 @@ import Kit.Compiler.Generators.C.GenerateCModule
 import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.Utils
+import Kit.Error
 import Kit.HashTable
 import Kit.Ir
 import Kit.Str
@@ -69,7 +70,7 @@ sortHeaderDefs decls = do
       _ -> return ()
     _ -> return ()
   scored <- forM decls $ \decl -> do
-    score <- btOrder dependencies memos (declToBt decl)
+    score <- btOrder dependencies memos [] $ declToBt decl
     return (if score == (-1) then (1 / 0) else realToFrac score, decl)
   return $ map snd $ sortBy (\(a, _) (b, _) -> if a > b then GT else LT)
                             (nub scored)
@@ -84,15 +85,29 @@ declToBt t = BasicTypeUnknown
 btOrder
   :: HashTable TypePath [BasicType]
   -> HashTable BasicType Int
+  -> [BasicType]
   -> BasicType
   -> IO Int
-btOrder dependencies memos t = do
+btOrder dependencies memos seen t = do
+  let failIfSeen = when (elem t seen) $ throwk $ BasicError
+        (  "Recursive type found: type "
+        ++ show t
+        ++ " depends on itself (chain: "
+        ++ (intercalate " -> " $ map show $ reverse $ t : seen)
+        ++ ")"
+        )
+        Nothing
+  case t of
+    BasicTypeStruct      _ -> failIfSeen
+    BasicTypeUnion       _ -> failIfSeen
+    BasicTypeComplexEnum _ -> failIfSeen
+    _                      -> return ()
   let depScore deps = (foldr max (-1) deps) + 1
   let tpScore tp = do
         deps <- h_lookup dependencies tp
         case deps of
           Just x -> do
-            deps <- forM x $ btOrder dependencies memos
+            deps <- forM x $ btOrder dependencies memos (t : seen)
             return $ (depScore deps) + 1
           Nothing -> return 0
   existing <- h_lookup memos t
@@ -101,14 +116,14 @@ btOrder dependencies memos t = do
     _      -> do
       score <- case t of
         BasicTypeTuple _ fields -> do
-          deps <- forM fields $ btOrder dependencies memos
+          deps <- forM fields $ btOrder dependencies memos (t : seen)
           return $ depScore deps
         BasicTypeStruct      tp -> tpScore tp
         BasicTypeUnion       tp -> tpScore tp
         BasicTypeSimpleEnum  tp -> tpScore tp
         BasicTypeComplexEnum tp -> tpScore tp
         CArray t _              -> do
-          depScore <- btOrder dependencies memos t
+          depScore <- btOrder dependencies memos seen t
           return $ depScore + 1
         CPtr (BasicTypeSimpleEnum tp) -> tpScore tp
         _                             -> return (-1)
