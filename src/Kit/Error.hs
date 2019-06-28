@@ -82,7 +82,7 @@ instance Errable BasicError where
 
 logErrorTitle :: (Errable e) => e -> IO ()
 logErrorTitle err = do
-  hSetSGR
+  maybeSetSGR
     stderr
     [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
   hPutStrLn stderr $ take 40 (repeat '-')
@@ -90,20 +90,20 @@ logErrorTitle err = do
     Just pos -> do
       let f     = file pos
       let start = startLine pos
-      hSetSGR
+      maybeSetSGR
         stderr
         [SetColor Foreground Vivid Red, SetConsoleIntensity BoldIntensity]
       hPutStr stderr $ "Error: "
-      hSetSGR
+      maybeSetSGR
         stderr
         [SetColor Foreground Vivid White, SetConsoleIntensity BoldIntensity]
       hPutStr stderr $ (show f) ++ ":" ++ (show start) ++ ": "
     _ -> do
-      hSetSGR
+      maybeSetSGR
         stderr
         [SetColor Foreground Vivid Red, SetConsoleIntensity BoldIntensity]
       hPutStr stderr $ "Error: "
-  hSetSGR stderr [Reset]
+  maybeSetSGR stderr [Reset]
 
 logErrorBasic :: (Errable e) => e -> String -> IO ()
 logErrorBasic err msg = do
@@ -127,18 +127,18 @@ displayFileSnippet span@(Span { file = FileSpan fp }) = do
 showSnippet :: Span -> String -> Bool -> IO ()
 showSnippet span contents displayFull = do
   when displayFull $ do
-    hSetSGR
+    maybeSetSGR
       stderr
       [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
     hPutStr stderr contents
-  hSetSGR
+  maybeSetSGR
     stderr
     [SetColor Foreground Vivid Blue, SetConsoleIntensity NormalIntensity]
   hPutStrLn stderr $ "\n  " ++ show span
   let content_lines = lines contents
   let lineNumbers   = [(startLine span) .. (endLine span)]
   forM_ lineNumbers $ \n -> do
-    hSetSGR
+    maybeSetSGR
       stderr
       [SetColor Foreground Vivid White, SetConsoleIntensity NormalIntensity]
     if n == (startLine span) + 3 && (length lineNumbers > 5)
@@ -146,9 +146,9 @@ showSnippet span contents displayFull = do
         hPutStrLn stderr $ "\n  ...\n"
       else unless (n > (startLine span) + 3 && n < (endLine span) - 2) $ do
         let line = content_lines !! (n - 1)
-        hSetSGR stderr [SetConsoleIntensity NormalIntensity]
+        maybeSetSGR stderr [SetConsoleIntensity NormalIntensity]
         hPutStr stderr $ (lpad (show n) 8) ++ "    "
-        hSetSGR stderr [SetConsoleIntensity FaintIntensity]
+        maybeSetSGR stderr [SetConsoleIntensity FaintIntensity]
         hPutStrLn stderr $ line
         when
             (  (startLine span)
@@ -164,18 +164,18 @@ showSnippet span contents displayFull = do
                     else length (takeWhile ((==) ' ') line) + 1
               let this_endCol =
                     if n == endLine span then endCol span else length line
-              hSetSGR stderr [Reset]
+              maybeSetSGR stderr [Reset]
               ePutStr
                 $  "            "
                 ++ (take ((this_startCol) - 1) (repeat ' '))
-              hSetSGR
+              maybeSetSGR
                 stderr
                 [ SetColor Foreground Vivid Yellow
                 , SetConsoleIntensity BoldIntensity
                 ]
               ePutStrLn
                 (take ((this_endCol) - (this_startCol) + 1) $ repeat '^')
-  hSetSGR stderr [Reset]
+  maybeSetSGR stderr [Reset]
 
 forMWithErrors :: [a] -> (a -> IO b) -> IO [b]
 forMWithErrors l f = do

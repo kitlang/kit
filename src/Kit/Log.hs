@@ -25,11 +25,15 @@ logColor lv = case lv of
   Warning -> Yellow
   Error   -> Red
 
+maybeSetSGR a b = do
+  supports <- hSupportsANSI a
+  when supports $ hSetSGR a b
+
 logLock = unsafePerformIO (Lock.new)
 
 logPrefix :: LogLevel -> IO ()
 logPrefix lv = do
-  hSetSGR stderr [color (logColor lv), normal]
+  maybeSetSGR stderr [color (logColor lv), normal]
   case lv of
     Notice  -> ePutStr "===> "
     Debug   -> ePutStr "DBG: "
@@ -38,14 +42,14 @@ logPrefix lv = do
 
 logMsg :: Maybe LogLevel -> String -> IO ()
 logMsg lv msg = Lock.with logLock $ do
-  hSetSGR stderr [color Yellow, normal]
+  maybeSetSGR stderr [color Yellow, normal]
   ePutStr "["
-  hSetSGR stderr [color Cyan, normal]
+  maybeSetSGR stderr [color Cyan, normal]
   t <- getZonedTime
   ePutStr $ formatTime defaultTimeLocale "%F %T.%4q" t
-  hSetSGR stderr [color Yellow, normal]
+  maybeSetSGR stderr [color Yellow, normal]
   ePutStr "]"
-  hSetSGR stderr [Reset]
+  maybeSetSGR stderr [Reset]
   ePutStr " "
   case lv of
     Just lv -> logPrefix lv
@@ -54,10 +58,10 @@ logMsg lv msg = Lock.with logLock $ do
         Just Notice -> bold
         _           -> normal
   case lv of
-    Just lv -> hSetSGR stderr [color (logColor lv), intensity]
-    Nothing -> hSetSGR stderr [Reset]
+    Just lv -> maybeSetSGR stderr [color (logColor lv), intensity]
+    Nothing -> maybeSetSGR stderr [Reset]
   ePutStrLn msg
-  hSetSGR stderr [Reset]
+  maybeSetSGR stderr [Reset]
   hFlush stderr
 
 traceLog = logMsg Nothing
