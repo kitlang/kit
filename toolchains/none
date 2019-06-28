@@ -1,0 +1,3 @@
+CC=echo
+CFLAGS="this toolchain is disabled"
+KITFLAGS="--no-ccache --single-pass"
