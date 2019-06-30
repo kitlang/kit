@@ -152,7 +152,7 @@ invokeCompiler
   -> FilePath
   -> IO (Either String String)
 invokeCompiler toolchain logger useCcache fp out = do
-  let args = (getCppFlags toolchain True) ++ ["-c", "-o" ++ out, fp]
+  let args = (getCppFlags toolchain True) ++ ["-c", "-o", out, fp]
   ccache         <- if useCcache then findCcache else return Nothing
   (ccPath, args) <- return $ case ccache of
     Just x  -> (x, ccPath toolchain : args)
@@ -175,7 +175,7 @@ invokeLinker toolchain logger shared files source out = do
           ++ files
           ++ (getLdFlags toolchain)
           ++ (if shared then ["-shared"] else [])
-          ++ ["-o" ++ out]
+          ++ ["-o", out]
   logger $ showCommandForUser (ccPath toolchain) args
   callProcess (ccPath toolchain) args
   binPath <- canonicalizePath out
