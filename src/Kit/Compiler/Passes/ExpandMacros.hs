@@ -17,6 +17,8 @@ import Kit.Ast
 import Kit.Compiler.Binding
 import Kit.Compiler.Context
 import Kit.Compiler.Module
+import Kit.Compiler.TypeContext
+import Kit.Compiler.Typers.ConvertExpr
 import Kit.Compiler.Utils
 import Kit.Error
 import Kit.HashTable
@@ -25,17 +27,7 @@ import Kit.Parser
 import Kit.Str
 import Kit.Toolchain
 
-data MacroData = MacroData {
-  macroDef :: FunctionDefinition Expr TypeSpec,
-  macroTypePath :: TypePath,
-  macroArgCount :: IORef Int,
-  macroArgs :: HashTable [Expr] (Int, Span),
-  macroResults :: HashTable Int [SyntacticStatement]
-}
-
 type CompileFunc = CompileContext -> Toolchain -> Toolchain -> IO ()
-type MacroMap = HashTable TypePath (FunctionDefinition Expr TypeSpec)
-type MacroInvocationMap = HashTable TypePath MacroData
 type ModuleStatements = (Module, [SyntacticStatement])
 
 expandMacros
@@ -59,31 +51,34 @@ expandMacros ctx cc compile stmts = do
             stmts
          )
         then do
-          macros      <- findMacros stmts
-          invocations <- findInvocations ctx macros stmts
-          callMacros ctx cc compile invocations
-          stmts <- forMWithErrors stmts
-            $ expandMacrosInMod ctx macros invocations
+          findMacros      ctx stmts
+          findInvocations ctx stmts
+          callMacros ctx cc compile
+          stmts <- forMWithErrors stmts $ expandMacrosInMod ctx
           expandMacros ctx cc compile stmts
         else return stmts
 
-findMacros :: [ModuleStatements] -> IO MacroMap
-findMacros stmts = do
-  macros <- h_new
+findMacros :: CompileContext -> [ModuleStatements] -> IO ()
+findMacros ctx stmts = do
+  let macros = ctxMacros ctx
   forM_ stmts $ \(mod, stmts) -> forM_ stmts $ \s -> case stmt s of
     MacroDeclaration f ->
       let tp = (modPath mod, tpName $ functionName f)
       in  h_insert macros tp $ f { functionName = tp }
     _ -> return ()
-  return macros
 
-findInvocations
-  :: CompileContext -> MacroMap -> [ModuleStatements] -> IO MacroInvocationMap
-findInvocations ctx macros stmts = do
-  invocations <- h_new
-  forM_ stmts $ \(mod, stmts) -> forM_ stmts $ \s -> case stmt s of
-    MacroCall tp args -> do
-      macro          <- findMacro ctx mod macros tp (stmtPos s)
+findInvocations :: CompileContext -> [ModuleStatements] -> IO ()
+findInvocations ctx stmts = do
+  let
+    macros      = ctxMacros ctx
+    invocations = ctxMacroInvocations ctx
+    recordMacro mod tp args pos isStmt = do
+      macro <- findMacro ctx mod tp pos
+      macro <- case macro of
+        Just x  -> return x
+        Nothing -> throwk $ BasicError
+          ("Unknown macro: " ++ (s_unpack $ showTypePath tp))
+          (Just pos)
       tp             <- return $ functionName macro
       invocationData <- h_lookup invocations tp
       invocationData <- case invocationData of
@@ -91,13 +86,15 @@ findInvocations ctx macros stmts = do
         Nothing -> do
           count   <- newRef 0
           args    <- h_new
+          targs   <- h_new
           results <- h_new
           let invocation = MacroData
-                { macroDef      = macro
-                , macroTypePath = tp
-                , macroArgCount = count
-                , macroArgs     = args
-                , macroResults  = results
+                { macroDef       = macro
+                , macroTypePath  = tp
+                , macroArgCount  = count
+                , macroArgs      = args
+                , macroTypedArgs = targs
+                , macroResults   = results
                 }
           h_insert invocations tp invocation
           return invocation
@@ -107,11 +104,58 @@ findInvocations ctx macros stmts = do
         Nothing -> do
           modifyRef (macroArgCount invocationData) ((+) 1)
           index <- readRef (macroArgCount invocationData)
-          h_insert (macroArgs invocationData) args (index, stmtPos s)
-    _ -> return ()
-  return invocations
+          tctx  <- newTypeContext []
+          unless isStmt $ do
+            targs <- mapM (convertExpr ctx tctx mod []) args
+            h_insert (macroTypedArgs invocationData) targs args
+          h_insert (macroArgs invocationData) args (index, pos, isStmt)
+    recordMacrosInExpression mod e =
+      let calls = exprMapReduce
+            (\x -> case expr x of
+              Call (Expr { expr = Identifier (Var tp) }) _ args ->
+                Just (tp, args)
+              _ -> Nothing
+            )
+            (\x acc -> case x of
+              Just x  -> x : acc
+              Nothing -> acc
+            )
+            expr
+            []
+            e
+      in  forM_ calls $ \(tp, args) -> do
+            macro <- findMacro ctx mod tp $ pos e
+            case macro of
+              Just f -> recordMacro mod (functionName f) args (pos e) False
+              _      -> return ()
+  let
+    recordMacrosInFunction mod f@(FunctionDefinition { functionBody = Just x })
+      = recordMacrosInExpression mod x
+    recordMacrosInFunction _ _ = return ()
 
-callMacros ctx cc compile invocations = do
+  forM_ stmts $ \(mod, stmts) -> forM_ stmts $ \s -> case stmt s of
+    MacroCall tp args     -> recordMacro mod tp args (stmtPos s) True
+    FunctionDeclaration f -> recordMacrosInFunction mod f
+    TypeDeclaration t ->
+      mapM_ (recordMacrosInFunction mod)
+        $  (typeMethods t)
+        ++ (typeStaticMethods t)
+    TraitDeclaration t ->
+      mapM_ (recordMacrosInFunction mod)
+        $  (traitMethods t)
+        ++ (traitStaticMethods t)
+    Implement i ->
+      mapM_ (recordMacrosInFunction mod)
+        $  (implMethods i)
+        ++ (implStaticMethods i)
+    ExtendDefinition _ defStmts -> forM_ defStmts $ \s -> case s of
+      DefMethod f -> recordMacrosInFunction mod f
+      _           -> return ()
+    _ -> return ()
+
+callMacros :: CompileContext -> Toolchain -> CompileFunc -> IO ()
+callMacros ctx cc compile = do
+  let invocations = ctxMacroInvocations ctx
   h_mapM_
     (\(tp, invocation) -> do
       let def = macroDef invocation
@@ -120,7 +164,11 @@ callMacros ctx cc compile invocations = do
       result     <- (newRef "") :: IO (IORef String)
       -- FIXME: should be able to reuse already parsed modules
       macroState <- newCtxState
-      args       <- h_toList $ macroArgs invocation
+      macroState <- return $ macroState
+        { ctxStateMacros           = ctxMacros ctx
+        , ctxStateMacroInvocations = ctxMacroInvocations ctx
+        }
+      args <- h_toList $ macroArgs invocation
       let mod = tpNamespace $ functionName def
       let buildDir =
             ctxBuildDir ctx
@@ -130,7 +178,7 @@ callMacros ctx cc compile invocations = do
               </>  (s_unpack $ tpName $ functionName def)
       let macroCtx = ctx
             { ctxMainModule = mod
-            , ctxMacro      = Just (def, [ (a, b) | (b, (a, _)) <- args ])
+            , ctxMacro      = Just (def, [ (a, b) | (b, (a, _, _)) <- args ])
             , ctxRun        = False
             , ctxState      = macroState
             , ctxVerbose    = ctxVerbose ctx - 1
@@ -140,23 +188,32 @@ callMacros ctx cc compile invocations = do
       compile macroCtx cc cc
       let outName = ctxOutputPath macroCtx
       binPath <- canonicalizePath outName
-      forM_ args $ \(_, (index, pos)) -> do
+      forM_ args $ \(_, (index, pos, isStatement)) -> do
         (exitcode, result, stderr) <- readCreateProcessWithExitCode
           (proc binPath [show index])
           ""
         case exitcode of
           ExitSuccess -> do
-            let outPath = buildDir </> ".results" ++ "." ++ (show index) ++ ".kit"
+            let outPath =
+                  buildDir </> ".results" ++ "." ++ (show index) ++ ".kit"
             writeFile outPath result
             when (not $ null stderr) $ traceLog stderr
-            let
-              parseResult =
-                parseTokens
-                  $ scanTokens (FileSpan outPath)
-                  $ B.pack result
-            case parseResult of
-              ParseResult r -> h_insert (macroResults invocation) index r
-              Err         e -> throw e
+            if isStatement
+              then do
+                let
+                  parseResult =
+                    parseTokens $ scanTokens (FileSpan outPath) $ B.pack result
+                case parseResult of
+                  ParseResult r ->
+                    h_insert (macroResults invocation) index (MacroStatements r)
+                  Err e -> throw e
+              else do
+                let parseResult =
+                      parseExpr $ scanTokens (FileSpan outPath) $ B.pack result
+                case parseResult of
+                  ParseResult r ->
+                    h_insert (macroResults invocation) index (MacroExpression r)
+                  Err e -> throw e
           ExitFailure code -> do
             throwk $ BasicError
               (  "Macro "
@@ -169,54 +226,43 @@ callMacros ctx cc compile invocations = do
     )
     invocations
 
-expandMacrosInMod
-  :: CompileContext
-  -> MacroMap
-  -> MacroInvocationMap
-  -> ModuleStatements
-  -> IO ModuleStatements
-expandMacrosInMod ctx macros invocations (mod, stmts) = do
-  results <- forM stmts $ expandMacrosInStmt ctx mod macros invocations
+expandMacrosInMod :: CompileContext -> ModuleStatements -> IO ModuleStatements
+expandMacrosInMod ctx (mod, stmts) = do
+  results <- forM stmts $ expandMacrosInStmt ctx mod
   return (mod, foldr (++) [] results)
 
 expandMacrosInStmt
-  :: CompileContext
-  -> Module
-  -> MacroMap
-  -> MacroInvocationMap
-  -> SyntacticStatement
-  -> IO [SyntacticStatement]
-expandMacrosInStmt ctx mod macros invocations s = case stmt s of
+  :: CompileContext -> Module -> SyntacticStatement -> IO [SyntacticStatement]
+expandMacrosInStmt ctx mod s = case stmt s of
   MacroCall tp args -> do
-    macro      <- findMacro ctx mod macros tp $ stmtPos s
-    tp         <- return $ functionName macro
-    invocation <- h_get invocations tp
-    (index, _) <- h_get (macroArgs invocation) args
-    result     <- h_get (macroResults invocation) index
-    results    <- forM result $ addStmtToModuleInterface ctx mod
+    macro <- findMacro ctx mod tp $ stmtPos s
+    macro <- case macro of
+      Just x  -> return x
+      Nothing -> throwk $ BasicError
+        ("Unknown macro: " ++ (s_unpack $ showTypePath tp))
+        (Just $ stmtPos s)
+    tp                       <- return $ functionName macro
+    invocation               <- h_get (ctxMacroInvocations ctx) tp
+    (index, _, _)            <- h_get (macroArgs invocation) args
+    (MacroStatements result) <- h_get (macroResults invocation) index
+    results                  <- forM result $ addStmtToModuleInterface ctx mod
     return $ foldr (++) [] results
   _ -> return [s]
 
 findMacro
   :: CompileContext
   -> Module
-  -> MacroMap
   -> TypePath
   -> Span
-  -> IO (FunctionDefinition Expr TypeSpec)
-findMacro ctx mod macros name pos = do
-  result <- case name of
+  -> IO (Maybe (FunctionDefinition Expr TypeSpec))
+findMacro ctx mod name pos = do
+  case name of
     ([], s) -> do
       foldM
         (\acc modPath -> case acc of
           Just _  -> return acc
-          Nothing -> h_lookup macros (modPath, s)
+          Nothing -> h_lookup (ctxMacros ctx) (modPath, s)
         )
         Nothing
         (modImportPaths mod)
-    (m, s) -> h_lookup macros name
-  case result of
-    Just x  -> return x
-    Nothing -> throwk $ BasicError
-      ("Unknown macro: " ++ (s_unpack $ showTypePath name))
-      (Just pos)
+    (m, s) -> h_lookup (ctxMacros ctx) name

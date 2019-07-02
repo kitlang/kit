@@ -186,7 +186,7 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
                 (Just $ implPos i)
 
         (ResolveIdentifiers, VarDeclaration v) -> do
-          let extern = hasMeta "extern" (varMeta v)
+          let extern = hasNoMangle (varMeta v)
           converted <- convertVarDefinition varConverter
             $ v { varName = addNamespace (modPath mod) (varName v) }
           addToInterface ctx
@@ -203,7 +203,7 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
               functionName f
                 == ([], "main")
                 && (ctxMainModule ctx == modPath mod)
-          let extern = (hasMeta "extern" (functionMeta f)) || isMain
+          let extern = (hasNoMangle (functionMeta f)) || isMain
           converted <-
             convertFunctionDefinition (paramConverter $ functionPos f) $ f
               { functionName = addNamespace
@@ -219,6 +219,18 @@ resolveTypesForMod pass ctx extensions (mod, contents) = do
           return
             $ Just
             $ (ps (functionPos f) $ FunctionDeclaration converted, tctx)
+
+        (ResolveIdentifiers, MacroDeclaration m) -> do
+          converted <-
+            convertFunctionDefinition (paramConverter $ functionPos m)
+              $ m { functionName = addNamespace (modPath mod) (functionName m) }
+          addToInterface ctx
+                         mod
+                         (functionName converted)
+                         (MacroBinding (functionName converted) (stmtPos decl))
+                         True
+                         True
+          return Nothing
 
         (ResolveExtensions, ExtendDefinition t stmts) -> do
           let pos = case t of

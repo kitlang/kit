@@ -14,11 +14,13 @@ import Kit.Compiler.Context
 import Kit.Compiler.Module
 import Kit.Compiler.TypeContext
 import Kit.Compiler.Typers.AutoRefDeref
+import Kit.Compiler.Typers.ConvertExpr
 import Kit.Compiler.Typers.ExprTyper
 import Kit.Compiler.Typers.TypeExpression.TypeVarBinding
 import Kit.Compiler.Unify
 import Kit.Compiler.Utils
 import Kit.Error
+import Kit.HashTable
 import Kit.Str
 
 typeCall :: SubTyper
@@ -57,7 +59,27 @@ typeCall (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _ty
                     implicits
                     typedArgs
                     r
-                  TypeEnumConstructor tp discriminant argTypes params -> do
+                  TypeMacro tp -> do
+                    -- check if these args show up in macro invocations
+                    let fail msg = throwk $ BasicError msg $ Just pos
+                    invocation <- h_get (ctxMacroInvocations ctx) tp
+                    args'      <- h_lookup (macroTypedArgs invocation) args
+                    case args' of
+                      Just args' -> do
+                        existing <- h_lookup (macroArgs invocation) args'
+                        case existing of
+                          Just (index, _, _) -> do
+                            result <- h_lookup (macroResults invocation) index
+                            case result of
+                              Just (MacroExpression x) -> do
+                                result <- convertExpr ctx tctx mod [] x
+                                r result
+                              Just _ -> fail "Internal error: macro result was a statement, but an expression was expected"
+                              _ -> fail "Internal error: macro result not found"
+                          _ -> fail "Internal error: macro call not found"
+                      _ -> fail "Macro call not found"
+
+                  TypeEnumConstructor tp discriminant argTypes params ->
                     typeEnumConstructorCall ctx
                                             tctx
                                             mod

@@ -19,6 +19,7 @@ instance Hashable MetaArg
 
 meta s = Metadata {metaName = s, metaArgs = []}
 metaExtern = "extern" :: Str
+metaExpose = "expose" :: Str
 metaBuiltin = "builtin" :: Str
 -- "promote" allows base types to be used as their abstract type
 metaPromote = "promote" :: Str
@@ -31,3 +32,5 @@ metaStatic = "static" :: Str
 hasMeta :: Str -> [Metadata] -> Bool
 hasMeta s []      = False
 hasMeta s (h : t) = if metaName h == s then True else hasMeta s t
+
+hasNoMangle metas = (hasMeta metaExtern metas) || (hasMeta metaExpose metas)

@@ -12,6 +12,13 @@ abstract String: Slice[Char] {
         };
     }
 
+    public static function slice(source: CString): String {
+        return struct String {
+            length: strlen(source),
+            data: source
+        };
+    }
+
     public function compare(other: Self): Bool {
         if this.length != other.length {
             return false;

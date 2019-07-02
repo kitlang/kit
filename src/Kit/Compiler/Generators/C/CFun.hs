@@ -55,6 +55,7 @@ attributesFromMeta [] = []
 
 specFromMeta :: [Metadata] -> [CDeclSpec]
 specFromMeta (h : t) = case metaName h of
+  "extern" -> (CStorageSpec $ u $ CExtern) : specFromMeta t
   "static" -> (CStorageSpec $ u $ CStatic) : specFromMeta t
   _        -> specFromMeta t
 specFromMeta [] = []

@@ -29,7 +29,7 @@ data EnumVariant a b = EnumVariant {
 instance Positioned (EnumVariant a b) where
   position = variantPos
 
-variantRealName v = if hasMeta "extern" (variantMeta v)
+variantRealName v = if hasNoMangle (variantMeta v)
   then ([], tpName $ variantName v)
   else subPath (variantParent v) (tpName $ variantName v)
 

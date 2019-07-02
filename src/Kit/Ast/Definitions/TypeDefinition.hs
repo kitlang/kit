@@ -35,7 +35,7 @@ instance Positioned (TypeDefinition a b) where
 typeSubPath :: TypeDefinition a b -> Str -> TypePath
 typeSubPath def s = subPath (typeName def) s
 
-typeRealName t = if hasMeta "extern" (typeMeta t)
+typeRealName t = if hasNoMangle (typeMeta t)
   then ([], tpName $ typeName t)
   else monomorphName (typeName t) (typeMonomorph t)
 

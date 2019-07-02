@@ -27,7 +27,7 @@ typeVarBinding ctx tctx binding pos = do
     EnumConstructor def -> do
       let parentTp     = variantParent def
       let discriminant = variantName def
-      let extern       = hasMeta "extern" (variantMeta def)
+      let extern       = hasNoMangle (variantMeta def)
       -- FIXME: pull params from tctx
       params <- makeGeneric ctx parentTp pos []
       let ct   = TypeInstance parentTp $ map snd params
@@ -77,3 +77,4 @@ typeVarBinding ctx tctx binding pos = do
         TypeInstance tp params -> returnTypeBinding tp params
         TypeTraitConstraint (tp, params) -> returnTraitBinding tp params
         _                      -> invalidBinding
+    MacroBinding tp _ -> return $ makeExprTyped (Identifier (Var $ tp)) (TypeMacro tp) pos
