@@ -20,6 +20,7 @@ data Binding a b
   | ExprBinding a
   | ModuleBinding TypePath
   | TypedefBinding TypeSpec ModulePath Span
+  | MacroBinding TypePath Span
   deriving (Show, Eq)
 
 bindingPos (VarBinding      x     ) = varPos x
@@ -31,6 +32,7 @@ bindingPos (RuleSetBinding  x     ) = ruleSetPos x
 bindingPos (ExprBinding     x     ) = position x
 bindingPos (ModuleBinding   _     ) = NoPos
 bindingPos (TypedefBinding _ _ pos) = pos
+bindingPos (MacroBinding tp pos   ) = pos
 
 bindingIsPublic binding = case binding of
   VarBinding      v -> isPublic (varModifiers v)

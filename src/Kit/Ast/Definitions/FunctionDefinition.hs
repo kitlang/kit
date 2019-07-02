@@ -43,11 +43,11 @@ instance Positioned (FunctionDefinition a b) where
 instance (Hashable a, Hashable b) => Hashable (FunctionDefinition a b)
 
 functionSubPath :: FunctionDefinition a b -> Str -> TypePath
-functionSubPath def s = if hasMeta "extern" (functionMeta def)
+functionSubPath def s = if hasNoMangle (functionMeta def)
   then ([], s)
   else subPath (functionName def) s
 
-functionRealName f = if hasMeta "extern" (functionMeta f)
+functionRealName f = if hasNoMangle (functionMeta f)
   then ([], tpName $ functionName f)
   else monomorphName (functionName f) (functionMonomorph f)
 

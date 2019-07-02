@@ -36,6 +36,7 @@ data ConcreteTypeBase a
   | TypeAnonEnum (Maybe Str) [Str]
   | TypeTypedef Str
   | TypeFunction (ConcreteTypeBase a) (ConcreteArgsBase a) (Maybe Str) [ConcreteTypeBase a]
+  | TypeMacro TypePath
   | TypeBasicType BasicType
   | TypePtr (ConcreteTypeBase a)
   | TypeEnumConstructor TypePath TypePath (ConcreteArgsBase a) [ConcreteTypeBase a]
@@ -102,6 +103,7 @@ instance (Show a) => Show (ConcreteTypeBase a) where
   show (TypeAnonUnion _ f) = "(anon union)"
   show (TypeTypedef name) = "typedef " ++ s_unpack name
   show (TypeFunction rt args var params) = "function (" ++ (intercalate ", " [show $ argType arg | arg <- args]) ++ (case var of {Just x -> ", " ++ s_unpack x ++ "..."; Nothing -> ""}) ++ ") -> " ++ show rt
+  show (TypeMacro tp) = "macro " ++ (s_unpack $ showTypePath tp)
   show (TypeBasicType t) = show t
   show (TypeEnumConstructor tp d _ params) = "enum " ++ (s_unpack $ showTypePath tp) ++ " constructor " ++ (s_unpack $ showTypePath d) ++ "[" ++ (intercalate ", " (map show params)) ++ "]"
   show (TypeEnumVariant tp s params) = "enum " ++ (s_unpack $ showTypePath tp) ++ " variant " ++ (s_unpack s) ++ "[" ++ (intercalate ", " (map show params)) ++ "]"

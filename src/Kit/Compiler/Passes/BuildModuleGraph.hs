@@ -28,6 +28,9 @@ newParseContext = do
   pre    <- h_new
   return $ ParseContext {pctxPreludes = pre, pctxFailedModules = failed}
 
+macroImplName :: Str
+macroImplName = "__macroimpl__"
+
 {-
   Starting from the compilation entry point ("main" module), recursively trace
   all imports and includes to discover the full set of modules and C modules
@@ -47,7 +50,7 @@ buildModuleGraph ctx = do
         then do
           return
             ( mod
-            , (functionDecl f) -- add the macro and a main function to invoke it
+            , (functionDecl $ f {functionName = tpExtend (functionName f) macroImplName}) -- add the macro and a main function to invoke it
             : (functionDecl $ newFunctionDefinition
                 { functionName = ([], "main")
                 , functionType = InferredType (functionPos f)
@@ -78,7 +81,7 @@ buildModuleGraph ctx = do
                                          [ matchCase
                                              (p $ Literal (IntValue index) (makeTypeSpec "Int"))
                                              (p
-                                               (Call (p $ Identifier (Var $ functionName f))
+                                               (Call (p $ Identifier (Var $ tpExtend (functionName f) macroImplName))
                                                      []
                                                      args
                                                )

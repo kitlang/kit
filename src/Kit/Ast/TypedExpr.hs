@@ -3,6 +3,7 @@
 
 module Kit.Ast.TypedExpr (
   TypedExpr(..),
+  TypedExprType,
   makeExprTyped,
   makeBlock
 ) where

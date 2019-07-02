@@ -23,3 +23,5 @@ tpShift (n , s) = let (h : t) = reverse n in (reverse t, h)
 
 modulePathToTypePath :: ModulePath -> TypePath
 modulePathToTypePath mod = let (h : t) = reverse mod in (reverse t, h)
+
+tpExtend (m, s) s2 = (m, s_concat [s, s2])

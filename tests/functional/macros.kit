@@ -15,6 +15,10 @@ extend GeneratedStruct {
 """, field, type);
 }
 
+macro prefixAString(s: CString) {
+    printf('"Mr. %s"', s);
+}
+
 generateStruct();
 extendStruct("c", "Int");
 extendStruct("d", "CString");
@@ -40,4 +44,6 @@ function main() {
     printf("%i %.1f %i %s\n", x.a, x.b, x.c, x.d);
 
     helloWorld();
+
+    puts(prefixAString("Lincoln"));
 }

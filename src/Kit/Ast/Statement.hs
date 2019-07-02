@@ -1,5 +1,6 @@
 module Kit.Ast.Statement where
 
+import Data.Maybe
 import Kit.Ast.ConcreteType
 import Kit.Ast.Definitions
 import Kit.Ast.DefStatement

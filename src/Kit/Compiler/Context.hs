@@ -30,6 +30,22 @@ instance Errable DuplicateGlobalNameError where
     ePutStrLn "\n#[extern] declarations and declarations from included C headers must have globally unique names."
   errPos (DuplicateGlobalNameError _ _ pos _) = Just pos
 
+data MacroData = MacroData {
+  macroDef :: FunctionDefinition Expr TypeSpec,
+  macroTypePath :: TypePath,
+  macroArgCount :: IORef Int,
+  macroArgs :: HashTable [Expr] (Int, Span, Bool),
+  macroTypedArgs :: HashTable [TypedExpr] [Expr],
+  macroResults :: HashTable Int MacroResult
+}
+
+data MacroResult
+  = MacroStatements [SyntacticStatement]
+  | MacroExpression Expr
+
+type MacroMap = HashTable TypePath (FunctionDefinition Expr TypeSpec)
+type MacroInvocationMap = HashTable TypePath MacroData
+
 data CompileContext = CompileContext {
   -- state
   ctxState :: CompileContextState,
@@ -73,7 +89,9 @@ data CompileContextState = CompileContextState {
   ctxStateUnresolvedTypeVars :: IORef [Int],
   ctxStateUnresolvedTemplateVars :: IORef [(Int, [ConcreteType], Span)],
   ctxStateConstantParamTypes :: HashTable TypePath ConcreteType,
-  ctxStateMadeProgress :: IORef Bool
+  ctxStateMadeProgress :: IORef Bool,
+  ctxStateMacros :: MacroMap,
+  ctxStateMacroInvocations :: MacroInvocationMap
 }
 
 newCompileContext :: IO CompileContext
@@ -121,6 +139,8 @@ newCtxState = do
   unresolvedTemplate <- newRef []
   prog               <- newRef False
   constTypes         <- h_newSized 128
+  macros             <- h_newSized 128
+  invocations        <- h_newSized 128
   return $ CompileContextState
     { ctxStateIncludes               = includes
     , ctxStateLinkedLibs             = linkedLibs
@@ -141,6 +161,8 @@ newCtxState = do
     , ctxStateModules                = mods
     , ctxStateConstantParamTypes     = constTypes
     , ctxStateMadeProgress           = prog
+    , ctxStateMacros                 = macros
+    , ctxStateMacroInvocations       = invocations
     }
 
 ctxModules = ctxStateModules . ctxState
@@ -162,6 +184,8 @@ ctxUnresolvedTypeVars = ctxStateUnresolvedTypeVars . ctxState
 ctxUnresolvedTemplateVars = ctxStateUnresolvedTemplateVars . ctxState
 ctxConstantParamTypes = ctxStateConstantParamTypes . ctxState
 ctxMadeProgress = ctxStateMadeProgress . ctxState
+ctxMacros = ctxStateMacros . ctxState
+ctxMacroInvocations = ctxStateMacroInvocations . ctxState
 
 ctxSourceModules :: CompileContext -> IO [Module]
 ctxSourceModules ctx = do
@@ -511,7 +535,7 @@ addStmtToModuleInterface ctx mod s = do
       return [s { stmt = Typedef (modPath mod, name) t }]
 
     TypeDeclaration d -> do
-      let extern = hasMeta "extern" (typeMeta d)
+      let extern = hasNoMangle (typeMeta d)
       let name   = tpName $ typeName d
       let tp     = (if extern then [] else modPath mod, name)
       d <- return $ d { typeName = tp }
@@ -526,7 +550,7 @@ addStmtToModuleInterface ctx mod s = do
       return [s { stmt = TraitDeclaration d }]
 
     VarDeclaration d -> do
-      let extern = hasMeta "extern" (varMeta d)
+      let extern = hasNoMangle (varMeta d)
       let name   = tpName $ varName d
       let tp     = (if extern then [] else modPath mod, name)
       converted <- convertVarDefinition interfaceConverter (d { varName = tp })
@@ -541,7 +565,7 @@ addStmtToModuleInterface ctx mod s = do
             (Just _, True) -> -- filter out main for macros
               return []
             _ -> do
-              let extern = (hasMeta "extern" (functionMeta d)) || isMain
+              let extern = (hasNoMangle (functionMeta d)) || isMain
               let name   = tpName $ functionName d
               let tp     = (if extern then [] else modPath mod, name)
               when extern $ recordGlobalName name

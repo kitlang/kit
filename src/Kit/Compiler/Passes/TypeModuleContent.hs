@@ -160,6 +160,8 @@ typeIterative ctx input output lastErrors limit = do
   let collapsedResults               = foldr (++) [] results
   let (incomplete, complete, errors) = splitComplete collapsedResults [] [] []
 
+  -- TODO: if new macro invocations are needed, execute here
+
   madeProgress <- readRef (ctxMadeProgress ctx)
   if (null incomplete) || madeProgress || (madeProgress || errors /= lastErrors)
     then do

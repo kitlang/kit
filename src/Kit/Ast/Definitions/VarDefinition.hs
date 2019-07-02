@@ -30,7 +30,7 @@ instance Positioned (VarDefinition a b) where
 instance (Hashable a, Hashable b) => Hashable (VarDefinition a b)
 
 varRealName f =
-  if hasMeta "extern" (varMeta f) then ([], tpName $ varName f) else varName f
+  if hasNoMangle (varMeta f) then ([], tpName $ varName f) else varName f
 
 newVarDefinition :: VarDefinition a b
 newVarDefinition = VarDefinition
