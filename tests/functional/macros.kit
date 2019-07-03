@@ -33,6 +33,10 @@ function %s() {
 
 makeAFunction("helloWorld");
 
+macro boldify(s: CString) {
+    printf('"** %s **"', s);
+}
+
 function main() {
     var x = struct GeneratedStruct {
         a: 1,
@@ -46,4 +50,5 @@ function main() {
     helloWorld();
 
     puts(prefixAString("Lincoln"));
+    puts(boldify("HELLO!"));
 }

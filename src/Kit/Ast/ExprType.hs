@@ -107,7 +107,7 @@ instance (Hashable a, Hashable b) => Hashable (ExprType a b)
 exprDiscriminant :: (Show a, Show b) => ExprType a b -> Int
 exprDiscriminant et = case et of
   Block _                     -> 1
-  Using   _ _                 -> 1
+  Using   _ _                 -> 2
   Meta    _ _                 -> 3
   Literal _ _                 -> 4
   This                        -> 5

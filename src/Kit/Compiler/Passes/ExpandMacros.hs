@@ -38,25 +38,15 @@ expandMacros
   -> IO [ModuleStatements]
 expandMacros ctx cc compile stmts = do
   case ctxMacro ctx of
-    Just _ -> return stmts
-    Nothing ->
-      if (any
-            (\(mod, stmts) -> any
-              (\s -> case stmt s of
-                MacroCall _ _ -> True
-                _             -> False
-              )
-              stmts
-            )
-            stmts
-         )
-        then do
-          findMacros      ctx stmts
-          findInvocations ctx stmts
-          callMacros ctx cc compile
-          stmts <- forMWithErrors stmts $ expandMacrosInMod ctx
-          expandMacros ctx cc compile stmts
-        else return stmts
+    Just _  -> return stmts
+    Nothing -> do
+      findMacros      ctx stmts
+      findInvocations ctx stmts
+      callMacros ctx cc compile
+      results <- forMWithErrors stmts $ expandMacrosInMod ctx
+      if or $ map snd results
+        then expandMacros ctx cc compile $ map fst results
+        else return $ map fst results
 
 findMacros :: CompileContext -> [ModuleStatements] -> IO ()
 findMacros ctx stmts = do
@@ -109,26 +99,29 @@ findInvocations ctx stmts = do
             targs <- mapM (convertExpr ctx tctx mod []) args
             h_insert (macroTypedArgs invocationData) targs args
           h_insert (macroArgs invocationData) args (index, pos, isStmt)
-    recordMacrosInExpression mod e =
-      let calls = exprMapReduce
-            (\x -> case expr x of
-              Call (Expr { expr = Identifier (Var tp) }) _ args ->
-                Just (tp, args)
-              _ -> Nothing
-            )
-            (\x acc -> case x of
-              Just x  -> x : acc
-              Nothing -> acc
-            )
-            expr
-            []
-            e
-      in  forM_ calls $ \(tp, args) -> do
-            macro <- findMacro ctx mod tp $ pos e
-            case macro of
-              Just f -> recordMacro mod (functionName f) args (pos e) False
-              _      -> return ()
-  let
+    recordMacrosInExpression mod e = exprMapReduce
+      (\x -> case expr x of
+        Call e _ args ->
+          let f e acc = case expr e of
+                Identifier (Var ([], n)) ->
+                  Just (modulePathToTypePath (n : acc), args)
+                Field x (Var ([], n)) -> f x (n : acc)
+                _         -> Nothing
+          in  f e []
+        _ -> Nothing
+      )
+      (\x acc -> case x of
+        Just (tp, args) -> do
+          macro <- findMacro ctx mod tp $ pos e
+          case macro of
+            Just f ->
+              recordMacro mod (functionName f) args (pos e) False >> acc
+            _ -> acc
+        Nothing -> acc
+      )
+      expr
+      (return ())
+      e
     recordMacrosInFunction mod f@(FunctionDefinition { functionBody = Just x })
       = recordMacrosInExpression mod x
     recordMacrosInFunction _ _ = return ()
@@ -226,13 +219,17 @@ callMacros ctx cc compile = do
     )
     invocations
 
-expandMacrosInMod :: CompileContext -> ModuleStatements -> IO ModuleStatements
+expandMacrosInMod
+  :: CompileContext -> ModuleStatements -> IO (ModuleStatements, Bool)
 expandMacrosInMod ctx (mod, stmts) = do
   results <- forM stmts $ expandMacrosInStmt ctx mod
-  return (mod, foldr (++) [] results)
+  return ((mod, foldr (++) [] $ map fst results), or $ map snd results)
 
 expandMacrosInStmt
-  :: CompileContext -> Module -> SyntacticStatement -> IO [SyntacticStatement]
+  :: CompileContext
+  -> Module
+  -> SyntacticStatement
+  -> IO ([SyntacticStatement], Bool)
 expandMacrosInStmt ctx mod s = case stmt s of
   MacroCall tp args -> do
     macro <- findMacro ctx mod tp $ stmtPos s
@@ -246,8 +243,8 @@ expandMacrosInStmt ctx mod s = case stmt s of
     (index, _, _)            <- h_get (macroArgs invocation) args
     (MacroStatements result) <- h_get (macroResults invocation) index
     results                  <- forM result $ addStmtToModuleInterface ctx mod
-    return $ foldr (++) [] results
-  _ -> return [s]
+    return $ (foldr (++) [] results, True)
+  _ -> return ([s], False)
 
 findMacro
   :: CompileContext

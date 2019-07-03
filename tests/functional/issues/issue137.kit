@@ -1,0 +1,9 @@
+macro boldify(s: CString) {
+    printf('"** %s **"', s);
+}
+
+function main() {
+    puts(boldify("HELLO!"));
+    puts(boldify("THERE!"));
+    puts(issue137.boldify("WORLD!"));
+}
