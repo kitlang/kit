@@ -96,7 +96,7 @@ struct Map[K: Hashable, V] {
     }
 
     public function clear(): Void {
-        this.internalArray.clear();
+        this.internalArray = Array.new();
         this.length = 0;
     }
 
