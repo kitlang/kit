@@ -85,7 +85,7 @@ struct Set[T: Hashable] {
     }
 
     public function clear(): Void {
-        this.internalArray = Array.new();
+        this.internalArray = Array.new(10);
         this.length = 0;
     }
 
