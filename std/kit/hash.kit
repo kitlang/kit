@@ -1,0 +1,57 @@
+/**
+ * Hashable trait must be implemented for any key in the hashmap,
+ * as the hash function is used to determine it's place in the map.
+ */
+trait Hashable {
+    function hash(): Int;
+}
+
+enum HashCellState {
+    Empty;
+    Deleted;
+    Occupied;
+}
+
+implement Hashable for Bool {
+    function hash(): Int {
+        return if this then 1 else 0;
+    }
+}
+
+implement Hashable for CString {
+    function hash(): Int {
+        var hash = 5381;
+        for char in this {
+            hash = (hash << 5) + hash + char;
+        }
+        return hash;
+    }
+}
+
+implement Hashable for Int {
+    function hash(): Int {
+        return this;
+    }
+}
+
+implement Hashable for Char {
+    function hash(): Int {
+        return this;
+    }
+}
+
+implement Hashable for String {
+    function hash(): Int {
+        var hash = 5381;
+        for char in this {
+            hash = (hash << 5) + hash + char;
+        }
+        return hash;
+    }
+}
+
+// implement Hashable for Integral {
+//     function hash(): Int {
+//         return this;
+//     }
+// }
