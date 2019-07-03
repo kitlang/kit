@@ -139,7 +139,7 @@ struct Map[K: Hashable, V] {
 struct KeyValuePair[K: Hashable, V] {
     public var key: K;
     public var value: V;
-    public var state: HashCellState = Empty;
+    public var state: HashCellState = HashCellState.Empty;
 }
 
 // abstract WeakMap[K, V]: Map[K, Shared[V]] {
