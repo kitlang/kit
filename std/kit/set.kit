@@ -1,5 +1,5 @@
 /**
- * Set implementation for Kit
+ * HashSet implementation for Kit
  * @author Tyler Bezera
  */
 
@@ -117,8 +117,6 @@ struct Set[T: Hashable] {
     }
 
      rules {
-        ($this[$k]) => $this.put($k);
-
         (for $ident in $this {$e}) => {
             var __length = $this.internalArray.length;
             for __i in 0 ... __length {
