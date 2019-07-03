@@ -3,7 +3,7 @@
  * Relies on == operator for comparisons, so you may need to overwrite it in custom types.
  */
 
-import hash;
+import kit.hash;
 
 struct Map[K: Hashable, V] {
     static const internalArrayThreshold: Float = 0.7;
