@@ -26,7 +26,7 @@ function differenceTest() {
     mySet.differenceSet(mySet2);
 
     for item in mySet{
-        printf("%i\n", item);
+        printf("%i,", item);
     }
 
     mySet.clear();
@@ -35,9 +35,9 @@ function differenceTest() {
     mySet.put(5);
     mySet.put(8);
 
-    printf('\nmySet: \n');
+    printf('\nmySet: ');
     for item in mySet{
-        printf("%i\n", item);
+        printf("%i,", item);
     }
 
 
@@ -54,11 +54,11 @@ function differenceTest() {
 
     printf('\n');
     for item in newSet{
-        printf("%i\n", item);
+        printf("%i,", item);
     }
     printf('\n');
     for item in mySet{
-        printf("%i\n", item);
+        printf("%i,", item);
     }
 
     mySet.free();
@@ -82,8 +82,9 @@ function unionTest() {
 
     mySet.unionSet(mySet2);
 
+    printf('\n');
     for item in mySet{
-        printf("%i\n", item);
+        printf("%i,", item);
     }
 
     mySet.clear();
@@ -92,9 +93,9 @@ function unionTest() {
     mySet.put(5);
     mySet.put(8);
 
-    printf('\nmySet: \n');
+    printf('\nmySet: ');
     for item in mySet{
-        printf("%i\n", item);
+        printf("%i,", item);
     }
 
 
@@ -111,11 +112,11 @@ function unionTest() {
 
     printf('\n');
     for item in newSet{
-        printf("%i\n", item);
+        printf("%i,", item);
     }
     printf('\n');
     for item in mySet{
-        printf("%i\n", item);
+        printf("%i,", item);
     }
 
     mySet.free();
@@ -137,10 +138,10 @@ function intersectionTest() {
     mySet2.put(8);
     mySet2.put(9);
 
-    mySet.unionSet(mySet2);
-
+    mySet.intersectSet(mySet2);
+    printf('\n');
     for item in mySet{
-        printf("%i\n", item);
+        printf("%i,", item);
     }
 
     mySet.clear();
@@ -149,9 +150,9 @@ function intersectionTest() {
     mySet.put(5);
     mySet.put(8);
 
-    printf('\nmySet: \n');
+    printf('\nmySet: ');
     for item in mySet{
-        printf("%i\n", item);
+        printf("%i,", item);
     }
 
 
@@ -164,15 +165,15 @@ function intersectionTest() {
 
     var newSet = mySet.copy();
 
-    newSet.unionSet(mySet2);
+    newSet.intersectSet(mySet2);
 
     printf('\n');
     for item in newSet{
-        printf("%i\n", item);
+        printf("%i,", item);
     }
     printf('\n');
     for item in mySet{
-        printf("%i\n", item);
+        printf("%i,", item);
     }
 
     mySet.free();
