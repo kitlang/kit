@@ -1,77 +1,172 @@
-fileTypes: ["kit"]
+fileTypes: [kit]
 name: Kit
 scopeName: source.kit
 uuid: 4fc8848b-af63-4ac5-850f-8e6b00a45004
-
 patterns:
+- captures:
+  '1':
+    name: support.type.function.kit
+  '2':
+    name: support.type.function.function.kit
+  '4':
+    name: support.type.function.input.kit
+  '5':
+    name: support.type.function.input.kit
+  '6':
+    name: support.type.function.input.kit
+  '7':
+    name: punctuation.separator.comma.kit
+  '8':
+    name: support.type.function.input.kit
+  '9':
+    name: support.type.function.input.kit
+  '10':
+    name: support.type.function.input.kit
+  '11':
+    name: keyword.control.arrow.kit
+  '12':
+    name: support.type.function.return.kit
+  '13':
+    name: support.type.function.return.kit
+  '14':
+    name: support.type.function.return.kit
+  match: '\b((function *)\((((([a-z_][a-zA-Z0-9_]*\.)+)?[A-Z][a-zA-Z0-9_\[\]]*)(, ))*((([a-z_][a-zA-Z0-9_]*\.)+)?[A-Z][a-zA-Z0-9_\[\]]*)\) *(->) *((([a-z_][a-zA-Z0-9_]*\.)+)?[A-Z][a-zA-Z0-9_\[\]]*))'
 - name: keyword.control.kit
-  match: \b(import|include|function|implement|specialize|var|using)\b
+  match: \b(import|include|function|implement|specialize|using|macro|rule|rules|typedef|trait)\b
 - name: storage.modifier.kit
-  match: \b(private|public|static|const|inline)\b
+  match: \b(private|public|static|inline)\b
 - name: keyword.other.kit
   match: \b(return|throw|for|as|in|if|then|else|do|while|match|default|unsafe|implicit|sizeof|continue|break)\b
 - name: storage.type.kit
-  match: \b(struct|enum|union|abstract|rule|rules|typedef|trait)\b
-
+  match: \b(struct|enum|union|abstract|var|const)\b
+- name: comment.line.debug.kit
+  match: '(?:[\t ]*)(?''line''\/\/ printf.*)'
 - name: comment.line.double-slash.kit
   match: "(//).*$\n?"
 - name: comment.block.kit
   begin: '/\*'
   end: '\*/'
-
+- name: punctuation.separator.comma.kit
+  match: ','
+- name: punctuation.separator.colon.kit
+  match: ':'
+- name: punctuation.separator.semicolon.kit
+  match: ;
 - name: keyword.control.arrow.kit
-  match: =\>
+  match: '=>'
 - name: keyword.operator.kit
-  match: <<=|>>=|<<|>>
+  match: '(?<![\*\/\+\-\^\=\<\>\!\&\%\~\@\?\:\.])(<<=|>>=|<<|>>)(?![\*\/\+\-\^\=\<\>\!\&\%\~\@\?\:\.])'
 - name: keyword.operator.logical.kit
-  match: ==|<=|>=|!=|>|<|\|\||&&|!
+  match: '(?<![\*\/\+\-\^\=\<\>\!\&\%\~\@\?\:\.])(==|<=|>=|!=|>|<|\|\||&&|!)(?![\*\/\+\-\^\=\<\>\!\&\%\~\@\?\:\.])'
 - name: keyword.operator.kit
-  match: (=|==|<=|>=|!=|-|\+|--|\+\+|\*|\||>|<|<<|>>|&)|((?<=[^\.])\.\.\.(?=[^\.]))|((?<=[^\.])\.(?=[^\.]))
-
+  match: '(?<![\*\/\+\-\^\=\<\>\!\&\%\~\@\?\:\.])((=|-|\+|--|\+\+|\*|%|&|\^|\||\~|\/|-=|\+=|\*=|\/=|%=)|((?<=[^\.])\.\.\.(?=[^\.]))|((?<=[^\.])\.(?=[^\.])))(?![\*\/\+\-\^\=\<\>\!\&\%\~\@\?\:\.])'
+- name: keyword.operator.custom.kit
+  match: '[\*\/\+\-\^\=\<\>\!\&\%\~\@\?\:\.]+'
 - name: variable.language.kit
   match: \b(this|Self)\b
 - name: support.type.kit
-  match: '\b[A-Z][a-zA-Z0-9_]*\b'
-- name: punctuation.separator.comma.kit
-  match: ,
-- name: punctuation.separator.colon.kit
-  match: :
-- name: punctuation.separator.semicolon.kit
-  match: ;
-- name: invalid.illegal.macro.kit
-  match: '\$[A-Za-z0-9_]+\b'
-- name: invalid.illegal.macro.kit
-  begin: '\$\{'
-  end: '\}'
-
+  match: '\b((([a-z_][a-zA-Z0-9_]*\.)+)?[A-Z][a-zA-Z0-9_]*)\b'
+- name: punctuation.bracket.kit
+  match: '\[|\]'
 - name: constant.numeric.decimal.kit
-  match: \b-?[0-9]+(\.[0-9]+)?(_([ui](8|16|32|64)|f(32|64)))?\b
+  match: '\b-?[0-9]+(\.[0-9]+)?(_([ui](8|16|32|64)|f(32|64)))?\b'
 - name: constant.numeric.octal.kit
-  match: \b-?0o[0-7]+(_([ui](8|16|32|64)|f(32|64)))?\b
+  match: '\b-?0o[0-7]+(_([ui](8|16|32|64)|f(32|64)))?\b'
 - name: constant.numeric.hex.kit
-  match: \b-?0x[0-9a-f]+(_([ui](8|16|32|64)|f(32|64)))?\b
+  match: '\b-?0x[0-9a-f]+(_([ui](8|16|32|64)|f(32|64)))?\b'
 - name: constant.numeric.bin.kit
-  match: \b-?0b[01]+(_([ui](8|16|32|64)|f(32|64)))?\b
-
+  match: '\b-?0b[01]+(_([ui](8|16|32|64)|f(32|64)))?\b'
 - name: string.quoted.block.kit
   begin: '"""'
   end: '"""'
 - name: string.quoted.double.kit
-  match: '"(\.|[^"])*"'
+  match: '"(?:\\"|[^"])*"'
+- name: string.character.kit
+  match: 'c((\''.\'')|(\''\\[abefnrtv\\\''\"?]\'')|(\''\\[01234567]{1,3}\'')|(\''\\x[0123456789aAbBcCdDeEfF]{2}\''))'
 - name: string.quoted.single.kit
-  match: ''(\.|[^\'])*''
-
+  match: '''(?:\\''|[^''])*'''
 - name: constant.language.kit
   match: \b(true|false|null)\b
-
 - name: keyword.operator.expression.kit
-  match: (```( )*:(?=( )*\b[A-Z][a-zA-Z0-9_]*\b( )*;))|(```)
-
+  match: '(```( )*:(?=( )*\b[A-Z][a-zA-Z0-9_]*\b( )*;))|(```)'
 - name: markup.heading.metadata.kit
   begin: '\#\['
   end: '\]'
-
+- name: variable.function.main.kit
+  match: '((?<=function )\bmain(?=\()\b)'
+- name: variable.function.print.kit
+  match: '(\bprintf(?=\()\b)|((?<!function )\bprint[a-zA-Z0-9_]*(?=\()\b)'
+- name: variable.function.constructor.kit
+  match: '(?<=\.)\bnew[a-zA-Z0-9_]*(?=\()\b'
+- name: variable.function.allocation.kit
+  match: '(?<!function )((\bmalloc(?=\())|(\balloc(?=\())|(\brealloc(?=\())|(\bfree(?=\())|(\bcalloc(?=\()))'
 - name: variable.function.kit
-  match: \b[a-z_][A-Za-z0-9_]*(?=\()\b
+  match: '\b[a-z_][A-Za-z0-9_]*(?=\()\b'
 - name: variable.parameter.kit
-  match: \b[a-z_][A-Za-z0-9_]*\b
+  match: '\b[a-z_][A-Za-z0-9_]*\b'
+- name: meta.preprocessor.rewrite.identifier.kit
+  match: '\$[A-Za-z0-9_]+\b'
+- captures:
+  '1':
+    name: meta.preprocessor.rewrite.dollarsign.kit
+  '2':
+    name: meta.preprocessor.rewrite.variable.kit
+  '3':
+    name: meta.preprocessor.rewrite.colon.kit
+  '6':
+    name: meta.preprocessor.rewrite.type.kit
+  '7':
+    name: meta.preprocessor.rewrite.type.kit
+  '8':
+    name: meta.preprocessor.rewrite.type.kit
+  '9':
+    name: punctuation.separator.comma.kit
+  '10':
+    name: meta.preprocessor.rewrite.type.kit
+  '11':
+    name: meta.preprocessor.rewrite.type.kit
+  '12':
+    name: meta.preprocessor.rewrite.type.kit
+  '14':
+    name: meta.preprocessor.rewrite.type.kit
+  '15':
+    name: meta.preprocessor.rewrite.type.kit
+  '16':
+    name: meta.preprocessor.rewrite.type.kit
+  '17':
+    name: meta.preprocessor.rewrite.dollarsign.kit
+  '18':
+    name: meta.preprocessor.rewrite.dollarsign.kit
+  '19':
+    name: meta.preprocessor.rewrite.variable.kit
+  '20':
+    name: meta.preprocessor.rewrite.colon.kit
+  '21':
+    name: support.type.function.kit
+  '23':
+    name: support.type.function.function.kit
+  '25':
+    name: support.type.function.input.kit
+  '26':
+    name: support.type.function.input.kit
+  '27':
+    name: support.type.function.input.kit
+  '28':
+    name: punctuation.separator.comma.kit
+  '29':
+    name: support.type.function.input.kit
+  '30':
+    name: support.type.function.input.kit
+  '31':
+    name: support.type.function.input.kit
+  '32':
+    name: keyword.control.arrow.kit
+  '33':
+    name: support.type.function.return.kit
+  '34':
+    name: support.type.function.return.kit
+  '35':
+    name: support.type.function.return.kit
+  '36':
+    name: meta.preprocessor.rewrite.dollarsign.kit
+  match: '(\$\{)([a-z_][A-Za-z0-9_]*)(:)( *)(\((((([a-z_][a-zA-Z0-9_]*\.)+)?[A-Z][a-zA-Z0-9_\[\]]*)(, ))*((([a-z_][a-zA-Z0-9_]*\.)+)?[A-Z][a-zA-Z0-9_\[\]]*)\)|((([a-z_][a-zA-Z0-9_]*\.)+)?[A-Z][a-zA-Z0-9_\[\]]*))(\})|(\$\{)([a-z_][A-Za-z0-9_]*)(:)( *)((function *)\((((([a-z_][a-zA-Z0-9_]*\.)+)?[A-Z][a-zA-Z0-9_\[\]]*)(, ))*((([a-z_][a-zA-Z0-9_]*\.)+)?[A-Z][a-zA-Z0-9_\[\]]*)\) *(->) *((([a-z_][a-zA-Z0-9_]*\.)+)?[A-Z][a-zA-Z0-9_\[\]]*))(\})'
