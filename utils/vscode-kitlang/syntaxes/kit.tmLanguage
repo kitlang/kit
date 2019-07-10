@@ -133,6 +133,24 @@
       </dict>
       <dict>
         <key>name</key>
+        <string>punctuation.separator.comma.kit</string>
+        <key>match</key>
+        <string>,</string>
+      </dict>
+      <dict>
+        <key>name</key>
+        <string>punctuation.separator.colon.kit</string>
+        <key>match</key>
+        <string>:</string>
+      </dict>
+      <dict>
+        <key>name</key>
+        <string>punctuation.separator.semicolon.kit</string>
+        <key>match</key>
+        <string>;</string>
+      </dict>
+      <dict>
+        <key>name</key>
         <string>keyword.control.arrow.kit</string>
         <key>match</key>
         <string>=></string>
@@ -153,7 +171,7 @@
         <key>name</key>
         <string>keyword.operator.kit</string>
         <key>match</key>
-        <string>(?<![\*\/\+\-\^\=\<\>\!\&\%\~\@\?\:\.])((=|-|\+|--|\+\+|\*|%|&|\^|\||\~|\/)|((?<=[^\.])\.\.\.(?=[^\.]))|((?<=[^\.])\.(?=[^\.])))(?![\*\/\+\-\^\=\<\>\!\&\%\~\@\?\:\.])</string>
+        <string>(?<![\*\/\+\-\^\=\<\>\!\&\%\~\@\?\:\.])((=|-|\+|--|\+\+|\*|%|&|\^|\||\~|\/|-=|\+=|\*=|\/=|%=)|((?<=[^\.])\.\.\.(?=[^\.]))|((?<=[^\.])\.(?=[^\.])))(?![\*\/\+\-\^\=\<\>\!\&\%\~\@\?\:\.])</string>
       </dict>
       <dict>
         <key>name</key>
@@ -172,24 +190,6 @@
         <string>support.type.kit</string>
         <key>match</key>
         <string>\b((([a-z_][a-zA-Z0-9_]*\.)+)?[A-Z][a-zA-Z0-9_]*)\b</string>
-      </dict>
-      <dict>
-        <key>name</key>
-        <string>punctuation.separator.comma.kit</string>
-        <key>match</key>
-        <string>,</string>
-      </dict>
-      <dict>
-        <key>name</key>
-        <string>punctuation.separator.colon.kit</string>
-        <key>match</key>
-        <string>:</string>
-      </dict>
-      <dict>
-        <key>name</key>
-        <string>punctuation.separator.semicolon.kit</string>
-        <key>match</key>
-        <string>;</string>
       </dict>
       <dict>
         <key>name</key>
