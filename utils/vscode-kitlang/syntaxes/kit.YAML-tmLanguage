@@ -101,7 +101,7 @@ patterns:
 - name: variable.function.allocation.kit
   match: '(?<!function )((\bmalloc(?=\())|(\balloc(?=\())|(\brealloc(?=\())|(\bfree(?=\())|(\bcalloc(?=\()))'
 - name: variable.function.kit
-  match: '\b[a-z_][A-Za-z0-9_]*(?=\()\b'
+  match: '(((?<=function )\b[a-z_][A-Za-z0-9_]*(?=\[[A-Z][A-Za-z0-9_]*\]\()))|(\b[a-z_][A-Za-z0-9_]*(?=\()\b)'
 - name: variable.parameter.kit
   match: '\b[a-z_][A-Za-z0-9_]*\b'
 - name: meta.preprocessor.rewrite.identifier.kit

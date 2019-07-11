@@ -295,7 +295,7 @@
         <key>name</key>
         <string>variable.function.kit</string>
         <key>match</key>
-        <string>\b[a-z_][A-Za-z0-9_]*(?=\()\b</string>
+        <string>(((?<=function )\b[a-z_][A-Za-z0-9_]*(?=\[[A-Z][A-Za-z0-9_]*\]\()))|(\b[a-z_][A-Za-z0-9_]*(?=\()\b)</string>
       </dict>
       <dict>
         <key>name</key>
