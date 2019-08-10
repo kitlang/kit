@@ -211,6 +211,9 @@ convertExpr ctx tctx mod params e = do
       return $ m (Defined id) TypeBool
     VarArgListCopy s -> do
       return $ m (VarArgListCopy s) TypeVaList
+    TagExpr x -> do
+      x <- r x
+      return $ m (TagExpr x) (TypeInt 0)
     _ -> throwk $ InternalError
       ("Can't convert expression: " ++ show (expr e))
       (Just pos')

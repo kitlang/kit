@@ -1,5 +1,7 @@
 hello
-hello!
+simple enums: equal
+complex enums: tags should be equal
+complex enums: tags shouldn't be equal
 apple
 banana
 Apple2: 1

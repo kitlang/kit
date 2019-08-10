@@ -330,6 +330,10 @@ typeExpr ctx tctx mod ex@(TypedExpr { tExpr = et, tPos = pos }) = do
         (tPos ex)
       return ex
 
+    (TagExpr x) -> do
+      x <- r x
+      return $ makeExprTyped (TagExpr x) (inferredType ex) pos
+
     _ -> return $ ex
 
   t'       <- follow ctx tctx $ inferredType result

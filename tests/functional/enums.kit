@@ -60,10 +60,15 @@ function main() {
 
     // simple enum equality
     if (a != b) {
-        printf("hello!\n");
+        printf("simple enums: equal\n");
     }
 
-    // TODO: complex enum equality (not yet implemented)
+    if (c.tag == Apple2(1).tag) {
+        printf("complex enums: tags should be equal\n");
+    }
+    if (c.tag != Banana2(1).tag) {
+        printf("complex enums: tags shouldn't be equal\n");
+    }
 
     // simple enum methods + match
     a.print();

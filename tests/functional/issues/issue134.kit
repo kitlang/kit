@@ -1,0 +1,13 @@
+struct MyStruct[A] {
+    var value: A;
+}
+
+enum MyEnum[A] {
+    MyVariant(a: MyStruct[A]);
+}
+
+function main() {
+    var e: MyEnum[Int];
+    // var s: MyStruct[Int];
+    puts("hi");
+}
