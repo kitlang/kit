@@ -23,5 +23,13 @@
             "scopeName": "source.kit",
             "path": "./syntaxes/kit.tmLanguage"
         }]
-    }
+    },
+    "bugs": {
+        "url": "https://github.com/kitlang/kit/issues"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/kitlang/kit.git"
+    },
+    "homepage": "https://www.kitlang.org/"
 }
