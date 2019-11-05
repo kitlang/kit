@@ -4,6 +4,7 @@
     "description": "Kit programming language support",
     "version": "0.0.1",
     "publisher": "kitlang",
+    "icon": "icon.png",
     "engines": {
         "vscode": "^1.25.0"
     },
