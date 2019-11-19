@@ -229,33 +229,36 @@ typeField (TyperUtils { _r = r, _tryRewrite = tryRewrite, _resolve = resolve, _t
                                 pos
 
                         Enum { enumVariants = variants } -> do
-                          case
-                              find (((==) fieldName) . tpName . variantName)
-                                   variants
-                            of
-                              Just v -> do
-                                resolve $ TypeEq
-                                  (TypeEnumVariant tp
-                                                   (tpName $ variantName v)
-                                                   params
-                                  )
-                                  (inferredType ex)
-                                  "Struct field access must match the field's type"
-                                  (tPos r1)
-                                return $ r1
-                                  { inferredType = (TypeEnumVariant
-                                                     tp
+                          if fieldName == "tag"
+                            then return $ makeExprTyped (TagExpr r1) (TypeInt 0) pos
+                            else
+                              case
+                                find (((==) fieldName) . tpName . variantName)
+                                     variants
+                              of
+                                Just v -> do
+                                  resolve $ TypeEq
+                                    (TypeEnumVariant tp
                                                      (tpName $ variantName v)
                                                      params
-                                                   )
-                                  }
-                              Nothing -> throwk $ TypingError
-                                (  "Enum "
-                                ++ (s_unpack $ showTypePath tp)
-                                ++ " doesn't have a variant called "
-                                ++ s_unpack fieldName
-                                )
-                                pos
+                                    )
+                                    (inferredType ex)
+                                    "Enum field access must match the field's type"
+                                    (tPos r1)
+                                  return $ r1
+                                    { inferredType = (TypeEnumVariant
+                                                       tp
+                                                       (tpName $ variantName v)
+                                                       params
+                                                     )
+                                    }
+                                Nothing -> throwk $ TypingError
+                                  (  "Enum "
+                                  ++ (s_unpack $ showTypePath tp)
+                                  ++ " doesn't have a variant called "
+                                  ++ s_unpack fieldName
+                                  )
+                                  pos
 
                         Abstract { abstractUnderlyingType = u } ->
                           -- forward to parent

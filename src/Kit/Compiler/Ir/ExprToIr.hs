@@ -507,6 +507,9 @@ typedToIr ctx ictx mod e@(TypedExpr { tExpr = et, tPos = pos, inferredType = t }
                         [IrIdentifier ([], x), IrType f]
       (           VarArgListCopy x) -> return $ IrIdentifier ([], x)
       InlineCExpr s               t -> return $ IrInlineC s
+      (TagExpr x) -> do
+        x <- r x
+        return $ IrField x discriminantFieldName
       t                             -> do
         throwk $ InternalError
           ("Unexpected expression in typed AST:\n\n" ++ show t)

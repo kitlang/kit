@@ -100,6 +100,7 @@ data ExprType a b
   | Yield a
   | Tokens Str
   | Defined (Identifier b)
+  | TagExpr a
   deriving (Eq, Generic, Show)
 
 instance (Hashable a, Hashable b) => Hashable (ExprType a b)
@@ -162,6 +163,7 @@ exprDiscriminant et = case et of
   Defined        _            -> 53
   ArrayWrite _ _ _            -> 54
   FieldWrite _ _ _            -> 55
+  TagExpr _                   -> 56
   x                           -> throwk
     $ InternalError ("Expression has no discriminant: " ++ show x) Nothing
 
@@ -203,6 +205,7 @@ exprChildren et = case et of
   Yield      x          -> [x]
   ArrayWrite x y z      -> [x, y, z]
   FieldWrite x s y      -> [x, y]
+  TagExpr x             -> [x]
   _                     -> []
 
 exprMapReduce :: (a -> c) -> (c -> d -> d) -> (a -> ExprType a b) -> d -> a -> d
