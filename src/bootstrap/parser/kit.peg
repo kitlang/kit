@@ -1,0 +1,15 @@
+# Kit language PEG grammar
+#
+# https://github.com/arithy/packcc#syntax
+
+%source {
+#include "tokens.h"
+}
+
+# Tokens
+
+# Whitespace
+
+_           <- whitespace*
+whitespace  <- ' ' / '\t' / EOL
+EOL         <- '\n' / '\r\n' / '\r'
