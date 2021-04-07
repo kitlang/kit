@@ -7,7 +7,7 @@
 #include <string.h>
 
 struct String {
-  int length;
+  size_t length;
   const char* cString;
 };
 typedef struct String String;
