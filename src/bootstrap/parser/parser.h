@@ -1,6 +1,7 @@
 #pragma once
 
 #include "pcc_parser.h"
+#include "document.h"
 #include "tokens.h"
 
 struct ParseError {

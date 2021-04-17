@@ -8,7 +8,7 @@ struct Span {
   int startLine;
   int startCol;
   int endLine;
-  int endColt;
+  int endCol;
 };
 typedef struct Span Span;
 
