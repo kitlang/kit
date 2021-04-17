@@ -8,6 +8,156 @@
 
 # Tokens
 
+# syntactic elements
+metaOpen              <- "#["   { (Token) { MetaOpen } }
+parenOpen             <- "("    { (Token) { ParenOpen } }
+parenClose            <- ")"    { (Token) { ParenClose } }
+curlyBraceOpen        <- "{"    { (Token) { CurlyBraceOpen } }
+curlyBraceClose       <- "}"    { (Token) { CurlyBraceClose } }
+squareBraceOpen       <- "["    { (Token) { SquareBraceOpen } }
+squareBraceClose      <- "]"    { (Token) { SquareBraceClose } }
+comma                 <- ","    { (Token) { Comma } }
+colon                 <- ":"    { (Token) { Colon } }
+semicolon             <- ";"    { (Token) { Semicolon } }
+tripleDot             <- "..."  { (Token) { TripleDot } }
+dot                   <- "."    { (Token) { Dot } }
+hash                  <- "#"    { (Token) { Hash } }
+dollar                <- "$"    { (Token) { Dollar } }
+arrow                 <- "=>"   { (Token) { Arrow } }
+functionArrow         <- "->"   { (Token) { FunctionArrow } }
+question              <- "?"    { (Token) { Question } }
+wildcardSuffix        <- ".*"   { (Token) { WildcardSuffix } }
+doubleWildcardSuffix  <- ".**"  { (Token) { DoubleWildcardSuffix } }
+
+# comments
+comment               <- "//" [^\n]*
+multiLineComment      <- "/*" (!'*' / '*' !'/' / '*\n' / '\n')* "*/"
+comments              <- comment / multiLineComment
+
+# keywords
+abstract    <- 'abstract'   { (Token) { KeywordAbstract } }
+as          <- 'as'         { (Token) { KeywordAs } }
+break       <- 'break'      { (Token) { KeywordBreak } }
+const       <- 'const'      { (Token) { KeywordConst } }
+continue    <- 'continue'   { (Token) { KeywordContinue } }
+default     <- 'default'    { (Token) { KeywordDefault } }
+defer       <- 'defer'      { (Token) { KeywordDefer } }
+defined     <- 'defined'    { (Token) { KeywordDefined } }
+do          <- 'do'         { (Token) { KeywordDo } }
+else        <- 'else'       { (Token) { KeywordElse } }
+empty       <- 'empty'      { (Token) { KeywordEmpty } }
+enum        <- 'enum'       { (Token) { KeywordEnum } }
+extend      <- 'extend'     { (Token) { KeywordExtend } }
+for         <- 'for'        { (Token) { KeywordFor } }
+function    <- 'function'   { (Token) { KeywordFunction } }
+if          <- 'if'         { (Token) { KeywordIf } }
+implement   <- 'implement'  { (Token) { KeywordImplement } }
+implicit    <- 'implicit'   { (Token) { KeywordImplicit } }
+import      <- 'import'     { (Token) { KeywordImport } }
+include     <- 'include'    { (Token) { KeywordInclude } }
+inline      <- 'inline'     { (Token) { KeywordInline } }
+in          <- 'in'         { (Token) { KeywordIn } }
+macro       <- 'macro'      { (Token) { KeywordMacro } }
+match       <- 'match'      { (Token) { KeywordMatch } }
+null        <- 'null'       { (Token) { KeywordNull } }
+private     <- 'private'    { (Token) { KeywordPrivate } }
+public      <- 'public'     { (Token) { KeywordPublic } }
+return      <- 'return'     { (Token) { KeywordReturn } }
+rule        <- 'rule'       { (Token) { KeywordRule } }
+rules       <- 'rules'      { (Token) { KeywordRules } }
+Self        <- 'Self'       { (Token) { KeywordSelf } }
+sizeof      <- 'sizeof'     { (Token) { KeywordSizeof } }
+specialize  <- 'specialize' / 'specialise'  { (Token) { KeywordSpecialize } } # common typo in the UK
+static      <- 'static'     { (Token) { KeywordStatic } }
+struct      <- 'struct'     { (Token) { KeywordStruct } }
+then        <- 'then'       { (Token) { KeywordThen } }
+this        <- 'this'       { (Token) { KeywordThis } }
+throw       <- 'throw'      { (Token) { KeywordThrow } }
+tokens      <- 'tokens'     { (Token) { KeywordTokens } }
+trait       <- 'trait'      { (Token) { KeywordTrait } }
+typedef     <- 'typedef'    { (Token) { KeywordTypedef } }
+undefined   <- 'undefined'  { (Token) { KeywordUndefined } }
+union       <- 'union'      { (Token) { KeywordUnion } }
+unsafe      <- 'unsafe'     { (Token) { KeywordUnsafe } }
+using       <- 'using'      { (Token) { KeywordUsing } }
+var         <- 'var'        { (Token) { KeywordVar } }
+while       <- 'while'      { (Token) { KeywordWhile } }
+yield       <- 'yield'      { (Token) { KeywordYield } }
+
+# literals
+"true" { (Token) { $}  LiteralBool True }
+"false" { (Token) { $}  LiteralBool False }
+'"' ('\\' . / !'"\\')* '"' { (Token) $ \s -> LiteralString $ processStringLiteral $ B.take (B.length s - 2) $ B.drop 1 s }
+"'" ('\\' . / !"'\\")* "'" { (Token) $ \s -> LiteralString $ processStringLiteral $ B.take (B.length s - 2) $ B.drop 1 s }
+'"""' (!'"' / '"' !'"' / '""' !'"' / '\n')* '"""' { (Token) $ \s -> LiteralString $ processStringLiteral $ B.take (B.length s - 6) $ B.drop 3 s }
+"c'" ('\\' . / !"\\'") "'" { (Token) $ \s -> LiteralChar $ ord $ s_head $ processStringLiteral $ B.drop 2 s }
+
+'-'? [0-9]+ "." [0-9]* "_" 'f' ('32' / '64') { (Token) (\s -> let [p1, p2] = B.split '_' s in LiteralFloat (l2s p1) (Just $ parseNumSuffix $ B.unpack p2)) }
+numberSuffix <- [ui] ('8' / '16' / '32' / '64') / 'f' ('32' / '64') / [cis]
+"0x" [0-9a-fA-F]+ "_" numberSuffix { (Token) (\s -> let [p1, p2] = map B.unpack (B.split '_' s) in LiteralInt (parseInt readHex $ drop 2 $ p1) (Just $ parseNumSuffix p2)) }
+"0o" [0-7]+ "_" numberSuffix { (Token) (\s -> let [p1, p2] = map B.unpack (B.split '_' s) in LiteralInt (parseInt readOct $ drop 2 $ p1) (Just $ parseNumSuffix p2)) }
+"0b" [01]+ "_" numberSuffix { (Token) (\s -> let [p1, p2] = map B.unpack (B.split '_' s) in LiteralInt (parseInt readBin $ drop 2 $ p1) (Just $ parseNumSuffix p2)) }
+'-'? ('0' / [1-9][0-9]*) "_" numberSuffix { (Token) (\s -> let [p1, p2] = map B.unpack (B.split '_' s) in LiteralInt (parseInt readDec $ p1) (Just $ parseNumSuffix p2)) }
+
+'-'? [0-9]+ "." [0-9]* { (Token) (\s -> LiteralFloat (l2s s) Nothing) }
+"0x" [0-9a-fA-F]+ { (Token) (\s -> LiteralInt (parseInt readHex $ drop 2 $ B.unpack s) Nothing) }
+"0o" [0-7]+ { (Token) (\s -> LiteralInt (parseInt readOct $ drop 2 $ B.unpack s) Nothing) }
+"0b" [01]+ { (Token) (\s -> LiteralInt (parseInt readBin $ drop 2 $ B.unpack s) Nothing) }
+'-'? ('0' / [1-9][0-9]*) { (Token) (\s -> LiteralInt (parseInt readDec $ B.unpack s) Nothing) }
+
+# operators
+"+=" { (Token) { Op $ AssignOp Add } }
+"-=" { (Token) { Op $ AssignOp Sub } }
+"/=" { (Token) { Op $ AssignOp Div } }
+"*=" { (Token) { Op $ AssignOp Mul } }
+"%=" { (Token) { Op $ AssignOp Mod } }
+"&&=" { (Token) { Op $ AssignOp And } }
+"||=" { (Token) { Op $ AssignOp Or } }
+"&=" { (Token) { Op $ AssignOp BitAnd } }
+"|=" { (Token) { Op $ AssignOp BitOr } }
+"^=" { (Token) { Op $ AssignOp BitXor } }
+"<<=" { (Token) { Op $ AssignOp LeftShift } }
+">>=" { (Token) { Op $ AssignOp RightShift } }
+"=" { (Token) { Op $ Assign } }
+"++" { (Token) { Op Inc } }
+"--" { (Token) { Op Dec } }
+"+" { (Token) { Op Add } }
+"-" { (Token) { Op Sub } }
+"/" { (Token) { Op Div } }
+"*" { (Token) { Op Mul } }
+"%" { (Token) { Op Mod } }
+"==" { (Token) { Op Eq } }
+"!=" { (Token) { Op Neq } }
+">=" { (Token) { Op Gte } }
+"<=" { (Token) { Op Lte } }
+"<<" { (Token) { Op LeftShift } }
+">>" { (Token) { Op RightShift } }
+">" { (Token) { Op Gt } }
+"<" { (Token) { Op Lt } }
+"&&" { (Token) { Op And } }
+"||" { (Token) { Op Or } }
+"&" { (Token) { Op BitAnd } }
+"|" { (Token) { Op BitOr } }
+"^" { (Token) { Op BitXor } }
+"!" { (Token) { Op Invert } }
+"~" { (Token) { Op InvertBits } }
+"::" { (Token) { Op Cons } }
+('*' / '/' / '+' / '-' / '^' / '=' / '<' / '>' / '!' / '&' / '%' / '~' / '@' / '?' / ':' / '.')+ { (Token) (\s -> Op $ Custom $ l2s s) }
+
+# identifiers
+[_]*[a-z][a-zA-Z0-9_]* "!" { (Token) (\s -> Lex $ l2s $ B.take (B.length s - 1) s) }
+[_]*[a-z][a-zA-Z0-9_]* { tokString LowerIdentifier }
+[@][a-z][a-zA-Z0-9_]* { (Token) $ \s -> LowerIdentifier $ l2s $ B.drop 1 s }
+"`" [^`]+ "`" { (Token) (\s -> LowerIdentifier $ l2s $ B.take (B.length s - 2) $ B.drop 1 s) }
+[_]*[A-Z][a-zA-Z0-9_]* { tokString UpperIdentifier }
+"``" (!'`' / '`' !'`')+ "``" { (Token) (\s -> UpperIdentifier $ l2s $ B.take (B.length s - 4) $ B.drop 2 s) }
+"$" [A-Za-z_][a-zA-Z0-9_]* { (Token) (\s -> MacroIdentifier $ l2s $ B.drop 1 s) }
+"${" [A-Za-z_][a-zA-Z0-9_]* "}" { (Token) (\s -> MacroIdentifier $ l2s $ B.take (B.length s - 3) $ B.drop 2 s) }
+"```" (!'`' / '`' !'`' / '``' !'`' / '\n')* "```" { (Token) (\s -> InlineC $ l2s $ B.take (B.length s - 6) $ B.drop 3 s) }
+
+"_" _+ { tokString LowerIdentifier }
+"_" { (Token) { Underscore } }
+
 # Whitespace
 
 _           <- whitespace*

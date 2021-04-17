@@ -1,6 +1,7 @@
 #pragma once
 
-#include "lexer.h"
+#include "pcc_parser.h"
+#include "tokens.h"
 
 struct ParseError {
   /// Whether this error represents a compiler assertion failure; should always be reported.
@@ -18,9 +19,6 @@ struct KitErrors {
 typedef struct KitErrors KitErrors;
 
 bool parseString(String module, KitErrors* errors) {
-  Token* tokens;
-  if (!tokenize(module, tokens)) return false;
-
   // TODO: Port a basic parser from Haskell to convert token list to an AST
 
   return true;
