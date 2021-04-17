@@ -85,6 +85,8 @@ enum TokenClass {
   LiteralFloat,
   LiteralInt,
   Op,
+  AssignOp,
+  CustomOp,
   Lex,
   LowerIdentifier,
   MacroIdentifier,
@@ -124,6 +126,12 @@ TokenData(LiteralInt, {
 });
 TokenData(Op, {
   Operator operator;
+});
+TokenData(AssignOp, {
+  Operator operator;
+});
+TokenData(CustomOp, {
+  String operator;
 });
 // TODO: WTF is a Lex token? Some macro shit?
 TokenData(Lex, {
