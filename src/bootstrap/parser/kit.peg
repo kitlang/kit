@@ -3,8 +3,12 @@
 # https://github.com/arithy/packcc#syntax
 
 %source {
+#include "../document.h"
 #include "tokens.h"
 }
+
+# Type of user-defined auxiliary data accessible in code blocks
+%auxil "Document"
 
 # Tokens
 
