@@ -8,30 +8,30 @@
 }
 
 # Type of user-defined auxiliary data accessible in code blocks
-%auxil "Document"
+%auxil "Document*"
 
 # Tokens
 
 # syntactic elements
-metaOpen              <- "#["   { (Token) { MetaOpen, posToSpan(auxil, $0s) } }
-parenOpen             <- "("    { (Token) { ParenOpen, posToSpan(auxil, $0s) } }
-parenClose            <- ")"    { (Token) { ParenClose, posToSpan(auxil, $0s) } }
-curlyBraceOpen        <- "{"    { (Token) { CurlyBraceOpen, posToSpan(auxil, $0s) } }
-curlyBraceClose       <- "}"    { (Token) { CurlyBraceClose, posToSpan(auxil, $0s) } }
-squareBraceOpen       <- "["    { (Token) { SquareBraceOpen, posToSpan(auxil, $0s) } }
-squareBraceClose      <- "]"    { (Token) { SquareBraceClose, posToSpan(auxil, $0s) } }
-comma                 <- ","    { (Token) { Comma, posToSpan(auxil, $0s) } }
-colon                 <- ":"    { (Token) { Colon, posToSpan(auxil, $0s) } }
-semicolon             <- ";"    { (Token) { Semicolon, posToSpan(auxil, $0s) } }
-tripleDot             <- "..."  { (Token) { TripleDot, posToSpan(auxil, $0s) } }
-dot                   <- "."    { (Token) { Dot, posToSpan(auxil, $0s) } }
-hash                  <- "#"    { (Token) { Hash, posToSpan(auxil, $0s) } }
-dollar                <- "$"    { (Token) { Dollar, posToSpan(auxil, $0s) } }
-arrow                 <- "=>"   { (Token) { Arrow, posToSpan(auxil, $0s) } }
-functionArrow         <- "->"   { (Token) { FunctionArrow, posToSpan(auxil, $0s) } }
-question              <- "?"    { (Token) { Question, posToSpan(auxil, $0s) } }
-wildcardSuffix        <- ".*"   { (Token) { WildcardSuffix, posToSpan(auxil, $0s) } }
-doubleWildcardSuffix  <- ".**"  { (Token) { DoubleWildcardSuffix, posToSpan(auxil, $0s) } }
+metaOpen              <- "#["   { (Token) { MetaOpen, posToSpan(auxil, $0s, $0e) } }
+parenOpen             <- "("    { (Token) { ParenOpen, posToSpan(auxil, $0s, $0e) } }
+parenClose            <- ")"    { (Token) { ParenClose, posToSpan(auxil, $0s, $0e) } }
+curlyBraceOpen        <- "{"    { (Token) { CurlyBraceOpen, posToSpan(auxil, $0s, $0e) } }
+curlyBraceClose       <- "}"    { (Token) { CurlyBraceClose, posToSpan(auxil, $0s, $0e) } }
+squareBraceOpen       <- "["    { (Token) { SquareBraceOpen, posToSpan(auxil, $0s, $0e) } }
+squareBraceClose      <- "]"    { (Token) { SquareBraceClose, posToSpan(auxil, $0s, $0e) } }
+comma                 <- ","    { (Token) { Comma, posToSpan(auxil, $0s, $0e) } }
+colon                 <- ":"    { (Token) { Colon, posToSpan(auxil, $0s, $0e) } }
+semicolon             <- ";"    { (Token) { Semicolon, posToSpan(auxil, $0s, $0e) } }
+tripleDot             <- "..."  { (Token) { TripleDot, posToSpan(auxil, $0s, $0e) } }
+dot                   <- "."    { (Token) { Dot, posToSpan(auxil, $0s, $0e) } }
+hash                  <- "#"    { (Token) { Hash, posToSpan(auxil, $0s, $0e) } }
+dollar                <- "$"    { (Token) { Dollar, posToSpan(auxil, $0s, $0e) } }
+arrow                 <- "=>"   { (Token) { Arrow, posToSpan(auxil, $0s, $0e) } }
+functionArrow         <- "->"   { (Token) { FunctionArrow, posToSpan(auxil, $0s, $0e) } }
+question              <- "?"    { (Token) { Question, posToSpan(auxil, $0s, $0e) } }
+wildcardSuffix        <- ".*"   { (Token) { WildcardSuffix, posToSpan(auxil, $0s, $0e) } }
+doubleWildcardSuffix  <- ".**"  { (Token) { DoubleWildcardSuffix, posToSpan(auxil, $0s, $0e) } }
 
 # comments
 comment               <- "//" [^\n]*
@@ -39,62 +39,62 @@ multiLineComment      <- "/*" (!'*' / '*' !'/' / '*\n' / '\n')* "*/"
 comments              <- comment / multiLineComment
 
 # keywords
-abstract    <- 'abstract'   { (Token) { KeywordAbstract, posToSpan(auxil, $0s) } }
-as          <- 'as'         { (Token) { KeywordAs, posToSpan(auxil, $0s) } }
-break       <- 'break'      { (Token) { KeywordBreak, posToSpan(auxil, $0s) } }
-const       <- 'const'      { (Token) { KeywordConst, posToSpan(auxil, $0s) } }
-continue    <- 'continue'   { (Token) { KeywordContinue, posToSpan(auxil, $0s) } }
-default     <- 'default'    { (Token) { KeywordDefault, posToSpan(auxil, $0s) } }
-defer       <- 'defer'      { (Token) { KeywordDefer, posToSpan(auxil, $0s) } }
-defined     <- 'defined'    { (Token) { KeywordDefined, posToSpan(auxil, $0s) } }
-do          <- 'do'         { (Token) { KeywordDo, posToSpan(auxil, $0s) } }
-else        <- 'else'       { (Token) { KeywordElse, posToSpan(auxil, $0s) } }
-empty       <- 'empty'      { (Token) { KeywordEmpty, posToSpan(auxil, $0s) } }
-enum        <- 'enum'       { (Token) { KeywordEnum, posToSpan(auxil, $0s) } }
-extend      <- 'extend'     { (Token) { KeywordExtend, posToSpan(auxil, $0s) } }
-for         <- 'for'        { (Token) { KeywordFor, posToSpan(auxil, $0s) } }
-function    <- 'function'   { (Token) { KeywordFunction, posToSpan(auxil, $0s) } }
-if          <- 'if'         { (Token) { KeywordIf, posToSpan(auxil, $0s) } }
-implement   <- 'implement'  { (Token) { KeywordImplement, posToSpan(auxil, $0s) } }
-implicit    <- 'implicit'   { (Token) { KeywordImplicit, posToSpan(auxil, $0s) } }
-import      <- 'import'     { (Token) { KeywordImport, posToSpan(auxil, $0s) } }
-include     <- 'include'    { (Token) { KeywordInclude, posToSpan(auxil, $0s) } }
-inline      <- 'inline'     { (Token) { KeywordInline, posToSpan(auxil, $0s) } }
-in          <- 'in'         { (Token) { KeywordIn, posToSpan(auxil, $0s) } }
-macro       <- 'macro'      { (Token) { KeywordMacro, posToSpan(auxil, $0s) } }
-match       <- 'match'      { (Token) { KeywordMatch, posToSpan(auxil, $0s) } }
-null        <- 'null'       { (Token) { KeywordNull, posToSpan(auxil, $0s) } }
-private     <- 'private'    { (Token) { KeywordPrivate, posToSpan(auxil, $0s) } }
-public      <- 'public'     { (Token) { KeywordPublic, posToSpan(auxil, $0s) } }
-return      <- 'return'     { (Token) { KeywordReturn, posToSpan(auxil, $0s) } }
-rule        <- 'rule'       { (Token) { KeywordRule, posToSpan(auxil, $0s) } }
-rules       <- 'rules'      { (Token) { KeywordRules, posToSpan(auxil, $0s) } }
-Self        <- 'Self'       { (Token) { KeywordSelf, posToSpan(auxil, $0s) } }
-sizeof      <- 'sizeof'     { (Token) { KeywordSizeof, posToSpan(auxil, $0s) } }
-specialize  <- 'specialize' / 'specialise'  { (Token) { KeywordSpecialize, posToSpan(auxil, $0s) } } # common typo in the UK
-static      <- 'static'     { (Token) { KeywordStatic, posToSpan(auxil, $0s) } }
-struct      <- 'struct'     { (Token) { KeywordStruct, posToSpan(auxil, $0s) } }
-then        <- 'then'       { (Token) { KeywordThen, posToSpan(auxil, $0s) } }
-this        <- 'this'       { (Token) { KeywordThis, posToSpan(auxil, $0s) } }
-throw       <- 'throw'      { (Token) { KeywordThrow, posToSpan(auxil, $0s) } }
-tokens      <- 'tokens'     { (Token) { KeywordTokens, posToSpan(auxil, $0s) } }
-trait       <- 'trait'      { (Token) { KeywordTrait, posToSpan(auxil, $0s) } }
-typedef     <- 'typedef'    { (Token) { KeywordTypedef, posToSpan(auxil, $0s) } }
-undefined   <- 'undefined'  { (Token) { KeywordUndefined, posToSpan(auxil, $0s) } }
-union       <- 'union'      { (Token) { KeywordUnion, posToSpan(auxil, $0s) } }
-unsafe      <- 'unsafe'     { (Token) { KeywordUnsafe, posToSpan(auxil, $0s) } }
-using       <- 'using'      { (Token) { KeywordUsing, posToSpan(auxil, $0s) } }
-var         <- 'var'        { (Token) { KeywordVar, posToSpan(auxil, $0s) } }
-while       <- 'while'      { (Token) { KeywordWhile, posToSpan(auxil, $0s) } }
-yield       <- 'yield'      { (Token) { KeywordYield, posToSpan(auxil, $0s) } }
+abstract    <- 'abstract'   { (Token) { KeywordAbstract, posToSpan(auxil, $0s, $0e) } }
+as          <- 'as'         { (Token) { KeywordAs, posToSpan(auxil, $0s, $0e) } }
+break       <- 'break'      { (Token) { KeywordBreak, posToSpan(auxil, $0s, $0e) } }
+const       <- 'const'      { (Token) { KeywordConst, posToSpan(auxil, $0s, $0e) } }
+continue    <- 'continue'   { (Token) { KeywordContinue, posToSpan(auxil, $0s, $0e) } }
+default     <- 'default'    { (Token) { KeywordDefault, posToSpan(auxil, $0s, $0e) } }
+defer       <- 'defer'      { (Token) { KeywordDefer, posToSpan(auxil, $0s, $0e) } }
+defined     <- 'defined'    { (Token) { KeywordDefined, posToSpan(auxil, $0s, $0e) } }
+do          <- 'do'         { (Token) { KeywordDo, posToSpan(auxil, $0s, $0e) } }
+else        <- 'else'       { (Token) { KeywordElse, posToSpan(auxil, $0s, $0e) } }
+empty       <- 'empty'      { (Token) { KeywordEmpty, posToSpan(auxil, $0s, $0e) } }
+enum        <- 'enum'       { (Token) { KeywordEnum, posToSpan(auxil, $0s, $0e) } }
+extend      <- 'extend'     { (Token) { KeywordExtend, posToSpan(auxil, $0s, $0e) } }
+for         <- 'for'        { (Token) { KeywordFor, posToSpan(auxil, $0s, $0e) } }
+function    <- 'function'   { (Token) { KeywordFunction, posToSpan(auxil, $0s, $0e) } }
+if          <- 'if'         { (Token) { KeywordIf, posToSpan(auxil, $0s, $0e) } }
+implement   <- 'implement'  { (Token) { KeywordImplement, posToSpan(auxil, $0s, $0e) } }
+implicit    <- 'implicit'   { (Token) { KeywordImplicit, posToSpan(auxil, $0s, $0e) } }
+import      <- 'import'     { (Token) { KeywordImport, posToSpan(auxil, $0s, $0e) } }
+include     <- 'include'    { (Token) { KeywordInclude, posToSpan(auxil, $0s, $0e) } }
+inline      <- 'inline'     { (Token) { KeywordInline, posToSpan(auxil, $0s, $0e) } }
+in          <- 'in'         { (Token) { KeywordIn, posToSpan(auxil, $0s, $0e) } }
+macro       <- 'macro'      { (Token) { KeywordMacro, posToSpan(auxil, $0s, $0e) } }
+match       <- 'match'      { (Token) { KeywordMatch, posToSpan(auxil, $0s, $0e) } }
+null        <- 'null'       { (Token) { KeywordNull, posToSpan(auxil, $0s, $0e) } }
+private     <- 'private'    { (Token) { KeywordPrivate, posToSpan(auxil, $0s, $0e) } }
+public      <- 'public'     { (Token) { KeywordPublic, posToSpan(auxil, $0s, $0e) } }
+return      <- 'return'     { (Token) { KeywordReturn, posToSpan(auxil, $0s, $0e) } }
+rule        <- 'rule'       { (Token) { KeywordRule, posToSpan(auxil, $0s, $0e) } }
+rules       <- 'rules'      { (Token) { KeywordRules, posToSpan(auxil, $0s, $0e) } }
+Self        <- 'Self'       { (Token) { KeywordSelf, posToSpan(auxil, $0s, $0e) } }
+sizeof      <- 'sizeof'     { (Token) { KeywordSizeof, posToSpan(auxil, $0s, $0e) } }
+specialize  <- 'specialize' / 'specialise'  { (Token) { KeywordSpecialize, posToSpan(auxil, $0s, $0e) } } # common typo in the UK
+static      <- 'static'     { (Token) { KeywordStatic, posToSpan(auxil, $0s, $0e) } }
+struct      <- 'struct'     { (Token) { KeywordStruct, posToSpan(auxil, $0s, $0e) } }
+then        <- 'then'       { (Token) { KeywordThen, posToSpan(auxil, $0s, $0e) } }
+this        <- 'this'       { (Token) { KeywordThis, posToSpan(auxil, $0s, $0e) } }
+throw       <- 'throw'      { (Token) { KeywordThrow, posToSpan(auxil, $0s, $0e) } }
+tokens      <- 'tokens'     { (Token) { KeywordTokens, posToSpan(auxil, $0s, $0e) } }
+trait       <- 'trait'      { (Token) { KeywordTrait, posToSpan(auxil, $0s, $0e) } }
+typedef     <- 'typedef'    { (Token) { KeywordTypedef, posToSpan(auxil, $0s, $0e) } }
+undefined   <- 'undefined'  { (Token) { KeywordUndefined, posToSpan(auxil, $0s, $0e) } }
+union       <- 'union'      { (Token) { KeywordUnion, posToSpan(auxil, $0s, $0e) } }
+unsafe      <- 'unsafe'     { (Token) { KeywordUnsafe, posToSpan(auxil, $0s, $0e) } }
+using       <- 'using'      { (Token) { KeywordUsing, posToSpan(auxil, $0s, $0e) } }
+var         <- 'var'        { (Token) { KeywordVar, posToSpan(auxil, $0s, $0e) } }
+while       <- 'while'      { (Token) { KeywordWhile, posToSpan(auxil, $0s, $0e) } }
+yield       <- 'yield'      { (Token) { KeywordYield, posToSpan(auxil, $0s, $0e) } }
 
 # literals
-"true" { (Token) { LiteralBool, posToSpan(auxil, $0s), (LiteralBoolData) { true } } }
-"false" { (Token) { LiteralBool, posToSpan(auxil, $0s), (LiteralBoolData) { false } } }
-'"' <('\\' . / !'"\\')*> '"' { (Token) { LiteralString, posToSpan(auxil, $0s), (LiteralStringData) { toString("$1") } } }
-"'" <('\\' . / !"'\\")*> "'" { (Token) { LiteralString, posToSpan(auxil, $0s), (LiteralStringData) { toString("$1") } } }
-'"""' <(!'"' / '"' !'"' / '""' !'"' / '\n')*> '"""' { (Token) { LiteralString, posToSpan(auxil, $0s), (LiteralStringData) { toString("$1") } } }
-"c'" <'\\' . / !"\\'"> "'" { (Token) { LiteralChar, posToSpan(auxil, $0s), (LiteralCharData) { '$1' } } }
+"true" { (Token) { LiteralBool, posToSpan(auxil, $0s, $0e), (LiteralBoolData) { true } } }
+"false" { (Token) { LiteralBool, posToSpan(auxil, $0s, $0e), (LiteralBoolData) { false } } }
+'"' <('\\' . / !'"\\')*> '"' { (Token) { LiteralString, posToSpan(auxil, $0s, $0e), (LiteralStringData) { toString("$1") } } }
+"'" <('\\' . / !"'\\")*> "'" { (Token) { LiteralString, posToSpan(auxil, $0s, $0e), (LiteralStringData) { toString("$1") } } }
+'"""' <(!'"' / '"' !'"' / '""' !'"' / '\n')*> '"""' { (Token) { LiteralString, posToSpan(auxil, $0s, $0e), (LiteralStringData) { toString("$1") } } }
+"c'" <'\\' . / !"\\'"> "'" { (Token) { LiteralChar, posToSpan(auxil, $0s, $0e), (LiteralCharData) { '$1' } } }
 
 '-'? [0-9]+ "." [0-9]* "_" 'f' ('32' / '64') { (Token) (\s -> let [p1, p2] = B.split '_' s in LiteralFloat (l2s p1) (Just $ parseNumSuffix $ B.unpack p2)) }
 numberSuffix <- [ui] ('8' / '16' / '32' / '64') / 'f' ('32' / '64') / [cis]
@@ -110,57 +110,57 @@ numberSuffix <- [ui] ('8' / '16' / '32' / '64') / 'f' ('32' / '64') / [cis]
 '-'? ('0' / [1-9][0-9]*) { (Token) (\s -> LiteralInt (parseInt readDec $ B.unpack s) Nothing) }
 
 # operators
-"+=" { (Token) { AssignOp, posToSpan(auxil, $0s), (AssignOpData) { Add } } }
-"-=" { (Token) { AssignOp, posToSpan(auxil, $0s), (AssignOpData) { Sub } } }
-"/=" { (Token) { AssignOp, posToSpan(auxil, $0s), (AssignOpData) { Div } } }
-"*=" { (Token) { AssignOp, posToSpan(auxil, $0s), (AssignOpData) { Mul } } }
-"%=" { (Token) { AssignOp, posToSpan(auxil, $0s), (AssignOpData) { Mod } } }
-"&&=" { (Token) { AssignOp, posToSpan(auxil, $0s), (AssignOpData) { And } } }
-"||=" { (Token) { AssignOp, posToSpan(auxil, $0s), (AssignOpData) { Or } } }
-"&=" { (Token) { AssignOp, posToSpan(auxil, $0s), (AssignOpData) { BitAnd } } }
-"|=" { (Token) { AssignOp, posToSpan(auxil, $0s), (AssignOpData) { BitOr } } }
-"^=" { (Token) { AssignOp, posToSpan(auxil, $0s), (AssignOpData) { BitXor } } }
-"<<=" { (Token) { AssignOp, posToSpan(auxil, $0s), (AssignOpData) { LeftShift } } }
-">>=" { (Token) { AssignOp, posToSpan(auxil, $0s), (AssignOpData) { RightShift } } }
-"=" { (Token) { Op, posToSpan(auxil, $0s), (OpData) { Assign } } }
-"++" { (Token) { Op, posToSpan(auxil, $0s), (OpData) { Inc } } }
-"--" { (Token) { Op, posToSpan(auxil, $0s), (OpData) { Dec } } }
-"+" { (Token) { Op, posToSpan(auxil, $0s), (OpData) { Add } } }
-"-" { (Token) { Op, posToSpan(auxil, $0s), (OpData) { Sub } } }
-"/" { (Token) { Op, posToSpan(auxil, $0s), (OpData) { Div } } }
-"*" { (Token) { Op, posToSpan(auxil, $0s), (OpData) { Mul } } }
-"%" { (Token) { Op, posToSpan(auxil, $0s), (OpData) { Mod } } }
-"==" { (Token) { Op, posToSpan(auxil, $0s), (OpData) { Eq } } }
-"!=" { (Token) { Op, posToSpan(auxil, $0s), (OpData) { Neq } } }
-">=" { (Token) { Op, posToSpan(auxil, $0s), (OpData) { Gte } } }
-"<=" { (Token) { Op, posToSpan(auxil, $0s), (OpData) { Lte } } }
-"<<" { (Token) { Op, posToSpan(auxil, $0s), (OpData) { LeftShift } } }
-">>" { (Token) { Op, posToSpan(auxil, $0s), (OpData) { RightShift } } }
-">" { (Token) { Op, posToSpan(auxil, $0s), (OpData) { Gt } } }
-"<" { (Token) { Op, posToSpan(auxil, $0s), (OpData) { Lt } } }
-"&&" { (Token) { Op, posToSpan(auxil, $0s), (OpData) { And } } }
-"||" { (Token) { Op, posToSpan(auxil, $0s), (OpData) { Or } } }
-"&" { (Token) { Op, posToSpan(auxil, $0s), (OpData) { BitAnd } } }
-"|" { (Token) { Op, posToSpan(auxil, $0s), (OpData) { BitOr } } }
-"^" { (Token) { Op, posToSpan(auxil, $0s), (OpData) { BitXor } } }
-"!" { (Token) { Op, posToSpan(auxil, $0s), (OpData) { Invert } } }
-"~" { (Token) { Op, posToSpan(auxil, $0s), (OpData) { InvertBits } } }
-"::" { (Token) { Op, posToSpan(auxil, $0s), (OpData) { Cons } } }
+"+=" { (Token) { AssignOp, posToSpan(auxil, $0s, $0e), (AssignOpData) { Add } } }
+"-=" { (Token) { AssignOp, posToSpan(auxil, $0s, $0e), (AssignOpData) { Sub } } }
+"/=" { (Token) { AssignOp, posToSpan(auxil, $0s, $0e), (AssignOpData) { Div } } }
+"*=" { (Token) { AssignOp, posToSpan(auxil, $0s, $0e), (AssignOpData) { Mul } } }
+"%=" { (Token) { AssignOp, posToSpan(auxil, $0s, $0e), (AssignOpData) { Mod } } }
+"&&=" { (Token) { AssignOp, posToSpan(auxil, $0s, $0e), (AssignOpData) { And } } }
+"||=" { (Token) { AssignOp, posToSpan(auxil, $0s, $0e), (AssignOpData) { Or } } }
+"&=" { (Token) { AssignOp, posToSpan(auxil, $0s, $0e), (AssignOpData) { BitAnd } } }
+"|=" { (Token) { AssignOp, posToSpan(auxil, $0s, $0e), (AssignOpData) { BitOr } } }
+"^=" { (Token) { AssignOp, posToSpan(auxil, $0s, $0e), (AssignOpData) { BitXor } } }
+"<<=" { (Token) { AssignOp, posToSpan(auxil, $0s, $0e), (AssignOpData) { LeftShift } } }
+">>=" { (Token) { AssignOp, posToSpan(auxil, $0s, $0e), (AssignOpData) { RightShift } } }
+"=" { (Token) { Op, posToSpan(auxil, $0s, $0e), (OpData) { Assign } } }
+"++" { (Token) { Op, posToSpan(auxil, $0s, $0e), (OpData) { Inc } } }
+"--" { (Token) { Op, posToSpan(auxil, $0s, $0e), (OpData) { Dec } } }
+"+" { (Token) { Op, posToSpan(auxil, $0s, $0e), (OpData) { Add } } }
+"-" { (Token) { Op, posToSpan(auxil, $0s, $0e), (OpData) { Sub } } }
+"/" { (Token) { Op, posToSpan(auxil, $0s, $0e), (OpData) { Div } } }
+"*" { (Token) { Op, posToSpan(auxil, $0s, $0e), (OpData) { Mul } } }
+"%" { (Token) { Op, posToSpan(auxil, $0s, $0e), (OpData) { Mod } } }
+"==" { (Token) { Op, posToSpan(auxil, $0s, $0e), (OpData) { Eq } } }
+"!=" { (Token) { Op, posToSpan(auxil, $0s, $0e), (OpData) { Neq } } }
+">=" { (Token) { Op, posToSpan(auxil, $0s, $0e), (OpData) { Gte } } }
+"<=" { (Token) { Op, posToSpan(auxil, $0s, $0e), (OpData) { Lte } } }
+"<<" { (Token) { Op, posToSpan(auxil, $0s, $0e), (OpData) { LeftShift } } }
+">>" { (Token) { Op, posToSpan(auxil, $0s, $0e), (OpData) { RightShift } } }
+">" { (Token) { Op, posToSpan(auxil, $0s, $0e), (OpData) { Gt } } }
+"<" { (Token) { Op, posToSpan(auxil, $0s, $0e), (OpData) { Lt } } }
+"&&" { (Token) { Op, posToSpan(auxil, $0s, $0e), (OpData) { And } } }
+"||" { (Token) { Op, posToSpan(auxil, $0s, $0e), (OpData) { Or } } }
+"&" { (Token) { Op, posToSpan(auxil, $0s, $0e), (OpData) { BitAnd } } }
+"|" { (Token) { Op, posToSpan(auxil, $0s, $0e), (OpData) { BitOr } } }
+"^" { (Token) { Op, posToSpan(auxil, $0s, $0e), (OpData) { BitXor } } }
+"!" { (Token) { Op, posToSpan(auxil, $0s, $0e), (OpData) { Invert } } }
+"~" { (Token) { Op, posToSpan(auxil, $0s, $0e), (OpData) { InvertBits } } }
+"::" { (Token) { Op, posToSpan(auxil, $0s, $0e), (OpData) { Cons } } }
 ('*' / '/' / '+' / '-' / '^' / '=' / '<' / '>' / '!' / '&' / '%' / '~' / '@' / '?' / ':' / '.')+ { (Token) { CustomOp, (CustomOpData) { toString("$0") } } }
 
 # identifiers
 [_]*[a-z][a-zA-Z0-9_]* "!" { (Token) (\s -> Lex $ l2s $ B.take (B.length s - 1) s) }
-[_]*[a-z][a-zA-Z0-9_]* { (Token) { LowerIdentifier, posToSpan(auxil, $0s), (LowerIdentifierData) { toString("$0") } } }
-'@' <[a-z][a-zA-Z0-9_]*> { (Token) { LowerIdentifier, posToSpan(auxil, $0s), (LowerIdentifierData) { toString("$1") } } }
+[_]*[a-z][a-zA-Z0-9_]* { (Token) { LowerIdentifier, posToSpan(auxil, $0s, $0e), (LowerIdentifierData) { toString("$0") } } }
+'@' <[a-z][a-zA-Z0-9_]*> { (Token) { LowerIdentifier, posToSpan(auxil, $0s, $0e), (LowerIdentifierData) { toString("$1") } } }
 "`" [^`]+ "`" { (Token) (\s -> LowerIdentifier $ l2s $ B.take (B.length s - 2) $ B.drop 1 s) }
-[_]*[A-Z][a-zA-Z0-9_]* { (Token) { UpperIdentifier, posToSpan(auxil, $0s), (UpperIdentifierData) { toString("$0") } } }
-"``" <(!'`' / '`' !'`')+> "``" { (Token) { UpperIdentifier, posToSpan(auxil, $0s), (UpperIdentifierData) { toString("$1") } } }
-"$" <[A-Za-z_][a-zA-Z0-9_]*> { (Token) { UpperIdentifier, posToSpan(auxil, $0s), (UpperIdentifierData) { toString("$1") } } }
-"${" <[A-Za-z_][a-zA-Z0-9_]*> "}" { (Token) { MacroIdentifier, posToSpan(auxil, $0s), (MacroIdentifierData) { toString("$1") } } }
-"```" <(!'`' / '`' !'`' / '``' !'`' / '\n')*> "```" { (Token) { InlineC, posToSpan(auxil, $0s), (InlineCData) { toString("$1") } } }
+[_]*[A-Z][a-zA-Z0-9_]* { (Token) { UpperIdentifier, posToSpan(auxil, $0s, $0e), (UpperIdentifierData) { toString("$0") } } }
+"``" <(!'`' / '`' !'`')+> "``" { (Token) { UpperIdentifier, posToSpan(auxil, $0s, $0e), (UpperIdentifierData) { toString("$1") } } }
+"$" <[A-Za-z_][a-zA-Z0-9_]*> { (Token) { UpperIdentifier, posToSpan(auxil, $0s, $0e), (UpperIdentifierData) { toString("$1") } } }
+"${" <[A-Za-z_][a-zA-Z0-9_]*> "}" { (Token) { MacroIdentifier, posToSpan(auxil, $0s, $0e), (MacroIdentifierData) { toString("$1") } } }
+"```" <(!'`' / '`' !'`' / '``' !'`' / '\n')*> "```" { (Token) { InlineC, posToSpan(auxil, $0s, $0e), (InlineCData) { toString("$1") } } }
 
-"_" _+ { (Token) { LowerIdentifier, posToSpan(auxil, $0s), (LowerIdentifierData) { toString("$0") } } }
-"_" { (Token) { Underscore, posToSpan(auxil, $0s) } }
+"_" _+ { (Token) { LowerIdentifier, posToSpan(auxil, $0s, $0e), (LowerIdentifierData) { toString("$0") } } }
+"_" { (Token) { Underscore, posToSpan(auxil, $0s, $0e) } }
 
 # Whitespace
 
