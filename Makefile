@@ -40,3 +40,7 @@ build/packcc:
 	@unzip -q /tmp/c30effc9c8.zip -d build
 	@mv build/packcc-c30effc9c8dcacee1da1b66bc56c44f4f7496b11 build/packcc
 	@echo Done.
+
+clean:
+	rm -rf build
+.PHONY: clean
