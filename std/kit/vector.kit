@@ -118,7 +118,7 @@ struct Vector[T] {
         /**
          * Returns the first element in the Vector, or None if the Vector is empty.
          */
-        ($this.first) => if _length > 0 then Some($this[0]) else None;
+        ($this.first) => if $this.length > 0 then Some($this[0]) else None;
         ($this.unsafeFirst) => $this[0];
 
         /**
