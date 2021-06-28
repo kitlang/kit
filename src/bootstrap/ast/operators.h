@@ -50,37 +50,37 @@ char* showOperator(Operator op) {
   case Mod:
     return "op %";
   case Eq:
-    return 'op =';
+    return "op =";
   case Neq:
-    return 'op !=';
+    return "op !=";
   case Gte:
-    return 'op >=';
+    return "op >=";
   case Lte:
-    return 'op <=';
+    return "op <=";
   case LeftShift:
-    return 'op <<';
+    return "op <<";
   case RightShift:
-    return 'op >>';
+    return "op >>";
   case Gt:
-    return 'op >';
+    return "op >";
   case Lt:
-    return 'op <';
+    return "op <";
   case And:
-    return 'op &&';
+    return "op &&";
   case Or:
-    return 'op ||';
+    return "op ||";
   case BitAnd:
-    return 'op &';
+    return "op &";
   case BitOr:
-    return 'op |';
+    return "op |";
   case BitXor:
-    return 'op ^';
+    return "op ^";
   case Invert:
-    return 'op !';
+    return "op !";
   case InvertBits:
-    return 'op ~';
+    return "op ~";
   case Cons:
-    return 'op ::';
+    return "op ::";
   default:
     return NULL;
   }
