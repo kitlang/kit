@@ -12,3 +12,7 @@ typedef struct Maybe_##T Maybe_##T;
 
 /// The type of an optional type derived from `T`.
 #define MaybeOf(T) Maybe_##T
+
+#define nothing(T) (MaybeOf(T)) { (Maybe_t) { true }, NULL }
+
+#define just(T, value) (MaybeOf(T)) { (Maybe_t) { false }, &value }

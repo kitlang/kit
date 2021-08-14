@@ -3,8 +3,37 @@
 # https://github.com/arithy/packcc#syntax
 
 %source {
+#include <inttypes.h>
+
 #include "../document.h"
 #include "tokens.h"
+
+float parseFloat(char* str) {
+  char* end;
+  return strtof(str, &end);
+}
+
+int parseInt(char* str, int base) {
+  char* end;
+  return strtoimax(str, end, base);
+}
+
+MaybeOf(NumSpec) parseNumSuffix(char* suffix) {
+  if (strcmp(suffix, "c") == 0) return just(NumSpec, CChar);
+  else if (strcmp(suffix, "i") == 0) return just(NumSpec, CInt);
+  else if (strcmp(suffix, "s") == 0) return just(NumSpec, CSize);
+  else if (strcmp(suffix, "u8") == 0) return just(NumSpec, Uint8);
+  else if (strcmp(suffix, "u16") == 0) return just(NumSpec, Uint16);
+  else if (strcmp(suffix, "u32") == 0) return just(NumSpec, Uint32);
+  else if (strcmp(suffix, "u64") == 0) return just(NumSpec, Uint64);
+  else if (strcmp(suffix, "i8") == 0) return just(NumSpec, Int8);
+  else if (strcmp(suffix, "i16") == 0) return just(NumSpec, Int16);
+  else if (strcmp(suffix, "i32") == 0) return just(NumSpec, Int32);
+  else if (strcmp(suffix, "i64") == 0) return just(NumSpec, Int64);
+  else if (strcmp(suffix, "f32") == 0) return just(NumSpec, Float32);
+  else if (strcmp(suffix, "f64") == 0) return just(NumSpec, Float64);
+  else return nothing(NumSpec);
+}
 }
 
 # Type of user-defined auxiliary data accessible in code blocks
@@ -96,18 +125,18 @@ yield       <- 'yield'      { (Token) { KeywordYield, posToSpan(auxil, $0s, $0e)
 '"""' <(!'"' / '"' !'"' / '""' !'"' / '\n')*> '"""' { (Token) { LiteralString, posToSpan(auxil, $0s, $0e), (LiteralStringData) { toString("$1") } } }
 "c'" <'\\' . / !"\\'"> "'" { (Token) { LiteralChar, posToSpan(auxil, $0s, $0e), (LiteralCharData) { '$1' } } }
 
-'-'? [0-9]+ "." [0-9]* "_" 'f' ('32' / '64') { (Token) (\s -> let [p1, p2] = B.split '_' s in LiteralFloat (l2s p1) (Just $ parseNumSuffix $ B.unpack p2)) }
+< '-'? [0-9]+ "." [0-9]* > "_" < 'f' ('32' / '64') > { (Token) { LiteralFloat, posToSpan(auxil, $0s, $0e), (LiteralFloatData) { parseFloat("$1"), parseNumSuffix("$2") } } }
 numberSuffix <- [ui] ('8' / '16' / '32' / '64') / 'f' ('32' / '64') / [cis]
-"0x" [0-9a-fA-F]+ "_" numberSuffix { (Token) (\s -> let [p1, p2] = map B.unpack (B.split '_' s) in LiteralInt (parseInt readHex $ drop 2 $ p1) (Just $ parseNumSuffix p2)) }
-"0o" [0-7]+ "_" numberSuffix { (Token) (\s -> let [p1, p2] = map B.unpack (B.split '_' s) in LiteralInt (parseInt readOct $ drop 2 $ p1) (Just $ parseNumSuffix p2)) }
-"0b" [01]+ "_" numberSuffix { (Token) (\s -> let [p1, p2] = map B.unpack (B.split '_' s) in LiteralInt (parseInt readBin $ drop 2 $ p1) (Just $ parseNumSuffix p2)) }
-'-'? ('0' / [1-9][0-9]*) "_" numberSuffix { (Token) (\s -> let [p1, p2] = map B.unpack (B.split '_' s) in LiteralInt (parseInt readDec $ p1) (Just $ parseNumSuffix p2)) }
+< "0x" [0-9a-fA-F]+ > "_" < numberSuffix > { (Token) { LiteralInt, posToSpan(auxil, $0s, $0e), (LiteralIntData) { parseInt("$1", 16), parseNumSuffix("$2") } } }
+"0o" < [0-7]+ > "_" < numberSuffix > { (Token) { LiteralInt, posToSpan(auxil, $0s, $0e), (LiteralIntData) { parseInt("$1", 8), parseNumSuffix("$2") } } }
+"0b" < [01]+ > "_" < numberSuffix > { (Token) { LiteralInt, posToSpan(auxil, $0s, $0e), (LiteralIntData) { parseInt("$1", 2), parseNumSuffix("$2") } } }
+< '-'? ('0' / [1-9][0-9]*) > "_" < numberSuffix > { (Token) { LiteralInt, posToSpan(auxil, $0s, $0e), (LiteralIntData) { parseInt("$1", 10), parseNumSuffix("$2") } } }
 
-'-'? [0-9]+ "." [0-9]* { (Token) (\s -> LiteralFloat (l2s s) Nothing) }
-"0x" [0-9a-fA-F]+ { (Token) (\s -> LiteralInt (parseInt readHex $ drop 2 $ B.unpack s) Nothing) }
-"0o" [0-7]+ { (Token) (\s -> LiteralInt (parseInt readOct $ drop 2 $ B.unpack s) Nothing) }
-"0b" [01]+ { (Token) (\s -> LiteralInt (parseInt readBin $ drop 2 $ B.unpack s) Nothing) }
-'-'? ('0' / [1-9][0-9]*) { (Token) (\s -> LiteralInt (parseInt readDec $ B.unpack s) Nothing) }
+'-'? [0-9]+ "." [0-9]* { (Token) { LiteralFloat, posToSpan(auxil, $0s, $0e), (LiteralFloatData) { parseFloat("$0"), nothing(NumSpec) } } }
+"0x" [0-9a-fA-F]+ { (Token) { LiteralInt, posToSpan(auxil, $0s, $0e), (LiteralIntData) { parseInt("$0", 16), nothing(NumSpec) } } }
+"0o" < [0-7]+ > { (Token) { LiteralInt, posToSpan(auxil, $0s, $0e), (LiteralIntData) { parseInt("$1", 8), nothing(NumSpec) } } }
+"0b" < [01]+ > { (Token) { LiteralInt, posToSpan(auxil, $0s, $0e), (LiteralIntData) { parseInt("$1", 2), nothing(NumSpec) } } }
+'-'? ('0' / [1-9][0-9]*) { (Token) { LiteralInt, posToSpan(auxil, $0s, $0e), (LiteralIntData) { parseInt("$0", 10), nothing(NumSpec) } } }
 
 # operators
 "+=" { (Token) { AssignOp, posToSpan(auxil, $0s, $0e), (AssignOpData) { Add } } }
@@ -163,7 +192,6 @@ numberSuffix <- [ui] ('8' / '16' / '32' / '64') / 'f' ('32' / '64') / [cis]
 "_" { (Token) { Underscore, posToSpan(auxil, $0s, $0e) } }
 
 # Whitespace
-
 _           <- whitespace*
 whitespace  <- ' ' / '\t' / EOL
 EOL         <- '\n' / '\r\n' / '\r'
