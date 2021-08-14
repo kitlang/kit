@@ -13,4 +13,6 @@ kitlang.cabal
 assets/*.png
 build
 main
+.envrc
 .importify
+.vscode/settings.json
